@@ -38,7 +38,10 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.4 }}
-      className="relative rounded-2xl p-4 md:p-5 border border-cyan-500/20 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm"
+      className="relative rounded-xl p-5 md:p-6 border border-slate-700/50 bg-slate-900/40 backdrop-blur-xl"
+      style={{
+        boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37), 0 0 20px rgba(139, 92, 246, 0.1)'
+      }}
     >
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-cyan-400 font-medium flex items-center gap-2">
@@ -55,7 +58,8 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
             placeholder="לדוגמה: מחשב חדש"
             value={expenseName}
             onChange={(e) => setExpenseName(e.target.value)}
-            className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
+            className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/50 transition-all"
+            style={{ boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.3)' }}
           />
         </div>
 
@@ -66,8 +70,9 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
             placeholder="₪0.00"
             value={expenseAmount}
             onChange={(e) => setExpenseAmount(e.target.value)}
-            className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500 text-lg"
+            className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/50 transition-all text-lg"
             dir="ltr"
+            style={{ boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.3)' }}
           />
         </div>
 

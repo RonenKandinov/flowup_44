@@ -5,56 +5,58 @@ export default function SpeedometerGauge({
   projectedBalance, 
   riskLevel = 'green',
   riskDay,
-  whatIfAmount = 0 
+  whatIfAmount = 0,
+  safetyBuffer = 0.17
 }) {
-  // Calculate needle angle based on risk level and projected balance
   const adjustedBalance = projectedBalance - whatIfAmount;
   
-  const { angle, color, glowColor } = useMemo(() => {
-    let calculatedRisk = riskLevel;
+  const { angle, color, status } = useMemo(() => {
+    let calculatedStatus = riskLevel;
     
-    // Recalculate risk based on what-if
     if (adjustedBalance < 0) {
-      calculatedRisk = 'red';
+      calculatedStatus = 'red';
     } else if (adjustedBalance < 1000) {
-      calculatedRisk = 'yellow';
+      calculatedStatus = 'yellow';
     } else {
-      calculatedRisk = 'green';
+      calculatedStatus = 'green';
     }
     
-    const riskConfig = {
-      green: { angle: -60, color: '#22c55e', glowColor: 'rgba(34, 197, 94, 0.5)' },
-      yellow: { angle: 0, color: '#eab308', glowColor: 'rgba(234, 179, 8, 0.5)' },
-      red: { angle: 60, color: '#ef4444', glowColor: 'rgba(239, 68, 68, 0.5)' }
+    const statusConfig = {
+      green: { angle: 45, color: '#10b981', status: 'בטוח' },
+      yellow: { angle: 0, color: '#f59e0b', status: 'זהירות' },
+      red: { angle: -45, color: '#ef4444', status: 'סיכון' }
     };
     
-    return riskConfig[calculatedRisk];
+    return statusConfig[calculatedStatus];
   }, [adjustedBalance, riskLevel]);
 
   return (
-    <div className="relative flex flex-col items-center">
-      {/* Gauge SVG */}
+    <div className="relative flex flex-col items-center py-8">
+      {/* SVG Gauge */}
       <svg 
-        viewBox="0 0 200 120" 
-        className="w-full max-w-[280px] md:max-w-[320px]"
-        style={{ filter: `drop-shadow(0 0 20px ${glowColor})` }}
+        viewBox="0 0 240 160" 
+        className="w-full max-w-[320px] md:max-w-[400px]"
       >
-        {/* Background arc segments */}
         <defs>
-          <linearGradient id="greenGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#22c55e" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#22c55e" stopOpacity="0.8" />
+          {/* High-definition gradient */}
+          <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#ef4444" />
+            <stop offset="50%" stopColor="#f59e0b" />
+            <stop offset="100%" stopColor="#10b981" />
           </linearGradient>
-          <linearGradient id="yellowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#eab308" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#eab308" stopOpacity="0.8" />
-          </linearGradient>
-          <linearGradient id="redGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#ef4444" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#ef4444" stopOpacity="0.8" />
-          </linearGradient>
+          
+          {/* Glow effect */}
           <filter id="glow">
-            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+            <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+            <feMerge>
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+
+          {/* Needle glow */}
+          <filter id="needleGlow">
+            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
             <feMerge>
               <feMergeNode in="coloredBlur"/>
               <feMergeNode in="SourceGraphic"/>
@@ -62,74 +64,110 @@ export default function SpeedometerGauge({
           </filter>
         </defs>
         
-        {/* Green segment */}
+        {/* Main Arc */}
         <path
-          d="M 30 100 A 70 70 0 0 1 70 38"
+          d="M 40 130 A 80 80 0 0 1 200 130"
           fill="none"
-          stroke="url(#greenGrad)"
-          strokeWidth="12"
+          stroke="url(#gaugeGradient)"
+          strokeWidth="20"
           strokeLinecap="round"
           filter="url(#glow)"
+          opacity="0.9"
         />
         
-        {/* Yellow segment */}
+        {/* Background arc (darker) */}
         <path
-          d="M 75 35 A 70 70 0 0 1 125 35"
+          d="M 40 130 A 80 80 0 0 1 200 130"
           fill="none"
-          stroke="url(#yellowGrad)"
-          strokeWidth="12"
+          stroke="#1e293b"
+          strokeWidth="22"
           strokeLinecap="round"
-          filter="url(#glow)"
+          opacity="0.3"
         />
         
-        {/* Red segment */}
-        <path
-          d="M 130 38 A 70 70 0 0 1 170 100"
-          fill="none"
-          stroke="url(#redGrad)"
-          strokeWidth="12"
-          strokeLinecap="round"
-          filter="url(#glow)"
-        />
+        {/* Tick marks */}
+        {[-45, -22.5, 0, 22.5, 45].map((tickAngle, i) => {
+          const radians = (tickAngle - 90) * (Math.PI / 180);
+          const innerRadius = 70;
+          const outerRadius = 85;
+          const x1 = 120 + Math.cos(radians) * innerRadius;
+          const y1 = 130 + Math.sin(radians) * innerRadius;
+          const x2 = 120 + Math.cos(radians) * outerRadius;
+          const y2 = 130 + Math.sin(radians) * outerRadius;
+          
+          return (
+            <line
+              key={i}
+              x1={x1}
+              y1={y1}
+              x2={x2}
+              y2={y2}
+              stroke="#475569"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          );
+        })}
         
-        {/* Needle */}
+        {/* Animated Needle */}
         <motion.g
-          initial={{ rotate: -60 }}
+          initial={{ rotate: 0 }}
           animate={{ rotate: angle }}
-          transition={{ type: "spring", stiffness: 60, damping: 15 }}
-          style={{ transformOrigin: '100px 100px' }}
+          transition={{ type: "spring", stiffness: 50, damping: 20 }}
+          style={{ transformOrigin: '120px 130px' }}
         >
-          <line
-            x1="100"
-            y1="100"
-            x2="100"
-            y2="40"
-            stroke={color}
-            strokeWidth="3"
-            strokeLinecap="round"
-            filter="url(#glow)"
+          {/* Needle shadow */}
+          <path
+            d="M 120 130 L 118 75 L 120 70 L 122 75 Z"
+            fill="#000"
+            opacity="0.3"
+            transform="translate(2, 2)"
           />
-          <circle cx="100" cy="100" r="8" fill={color} filter="url(#glow)" />
+          
+          {/* Needle body */}
+          <path
+            d="M 120 130 L 118 75 L 120 70 L 122 75 Z"
+            fill="url(#needleGradient)"
+            filter="url(#needleGlow)"
+          />
+          
+          <defs>
+            <linearGradient id="needleGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#ffd700" />
+              <stop offset="100%" stopColor="#ff8c00" />
+            </linearGradient>
+          </defs>
         </motion.g>
         
-        {/* Center dot */}
-        <circle cx="100" cy="100" r="4" fill="#fff" />
+        {/* Center hub */}
+        <circle cx="120" cy="130" r="12" fill="#1e293b" />
+        <circle cx="120" cy="130" r="8" fill="#ffd700" filter="url(#needleGlow)" />
+        <circle cx="120" cy="130" r="4" fill="#fff" />
       </svg>
       
       {/* Balance Display */}
-      <div className="text-center mt-2">
-        <p className="text-xs text-slate-400 mb-1">יתרה צפויה לסוף החודש</p>
+      <div className="text-center mt-4">
+        <p className="text-sm text-slate-400 mb-2">יתרה בטוחה לסוף החודש</p>
         <motion.p 
           key={adjustedBalance}
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="text-3xl md:text-4xl font-bold"
-          style={{ color, textShadow: `0 0 20px ${glowColor}` }}
+          className="text-5xl md:text-6xl font-bold mb-2"
+          style={{ 
+            color: '#ffd700',
+            textShadow: '0 0 30px rgba(255, 215, 0, 0.6)',
+            direction: 'ltr'
+          }}
         >
           ₪{adjustedBalance.toLocaleString('he-IL')}
         </motion.p>
+        
+        <div className="flex items-center justify-center gap-2 text-xs text-slate-500">
+          <span>מרווח בטיחות {Math.round(safetyBuffer * 100)}%</span>
+        </div>
+        
         {riskDay && (
-          <p className="text-sm mt-1">
+          <p className="text-sm mt-3">
             <span className="text-slate-400">יום סיכון: </span>
             <span style={{ color }}>{riskDay}</span>
           </p>

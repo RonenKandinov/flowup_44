@@ -30,7 +30,10 @@ export default function RiskZoneChart({ data, riskThreshold = 0, criticalDate })
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.3 }}
-      className="relative rounded-2xl p-4 md:p-5 border border-cyan-500/20 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm"
+      className="relative rounded-xl p-5 md:p-6 border border-slate-700/50 bg-slate-900/40 backdrop-blur-xl"
+      style={{
+        boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37), 0 0 20px rgba(34, 211, 238, 0.1)'
+      }}
     >
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-cyan-400 font-medium flex items-center gap-2">
@@ -44,12 +47,13 @@ export default function RiskZoneChart({ data, riskThreshold = 0, criticalDate })
           <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
             <defs>
               <linearGradient id="balanceGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.4}/>
-                <stop offset="95%" stopColor="#22d3ee" stopOpacity={0}/>
+                <stop offset="0%" stopColor="#22d3ee" stopOpacity={0.6}/>
+                <stop offset="50%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                <stop offset="100%" stopColor="#3b82f6" stopOpacity={0}/>
               </linearGradient>
               <linearGradient id="riskGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4}/>
-                <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                <stop offset="0%" stopColor="#ef4444" stopOpacity={0.6}/>
+                <stop offset="100%" stopColor="#ef4444" stopOpacity={0}/>
               </linearGradient>
             </defs>
             <XAxis 

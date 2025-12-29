@@ -43,12 +43,15 @@ export default function StatCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.5 }}
       className={`
-        relative overflow-hidden rounded-2xl p-4 md:p-5
+        relative overflow-hidden rounded-xl p-5 md:p-6
         border ${styles.border}
-        bg-gradient-to-br ${styles.bg}
-        backdrop-blur-sm
+        bg-slate-900/40
+        backdrop-blur-xl
         shadow-lg ${styles.glow}
       `}
+      style={{
+        boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37), 0 0 20px rgba(34, 211, 238, 0.15)'
+      }}
     >
       {/* Decorative circuit lines */}
       <div className="absolute top-0 right-0 w-20 h-20 opacity-20">
@@ -63,10 +66,10 @@ export default function StatCard({
         </svg>
       </div>
 
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-slate-400 text-xs md:text-sm mb-1">{title}</p>
-          <p className={`text-2xl md:text-3xl font-bold ${styles.text}`}>
+      <div className="flex items-start justify-between" dir="rtl">
+        <div className="text-right flex-1">
+          <p className="text-slate-400 text-sm mb-2">{title}</p>
+          <p className={`text-3xl md:text-4xl font-bold ${styles.text}`}>
             {value}
           </p>
         </div>
