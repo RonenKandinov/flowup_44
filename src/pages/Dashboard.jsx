@@ -135,7 +135,7 @@ export default function Dashboard() {
   const hasData = snapshot && snapshot.current_balance !== undefined;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950" dir="rtl">
+    <div className="min-h-screen bg-[#05080f]" dir="rtl" style={{ fontFamily: "'Heebo', 'Assistant', sans-serif" }}>
       {/* Background pattern */}
       <div className="fixed inset-0 opacity-30 pointer-events-none">
         <div className="absolute inset-0" style={{
@@ -198,7 +198,7 @@ export default function Dashboard() {
           ) : (
             <>
               {/* Stats Row */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
                 <StatCard
                   title="יתרה נוכחית"
                   value={`₪${snapshot.current_balance?.toLocaleString('he-IL')}`}
@@ -230,18 +230,22 @@ export default function Dashboard() {
               </div>
 
               {/* Main Dashboard Grid */}
-              <div className="grid md:grid-cols-2 gap-6">
+              <div className="grid lg:grid-cols-2 gap-6">
                 {/* Speedometer */}
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="relative rounded-2xl p-6 border border-cyan-500/20 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm"
+                  className="relative rounded-xl p-6 border border-slate-700/50 bg-slate-900/40 backdrop-blur-xl"
+                  style={{
+                    boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37), 0 0 20px rgba(34, 211, 238, 0.15)'
+                  }}
                 >
                   <SpeedometerGauge
                     projectedBalance={snapshot.projected_eom_balance || 0}
                     riskLevel={snapshot.risk_level || 'green'}
                     riskDay={snapshot.risk_day}
                     whatIfAmount={whatIfAmount}
+                    safetyBuffer={engineData?.safetyBuffer || 0.17}
                   />
                   
                   {whatIfAmount > 0 && (
