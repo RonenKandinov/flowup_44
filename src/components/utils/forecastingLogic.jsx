@@ -17,6 +17,8 @@ export const processAndForecast = (csvText) => {
         const transactions = [];
         const dailyBalances = new Map();
         let actualCurrentBalance = 0;
+        let totalDebits = 0;
+        const uniqueDates = new Set();
 
         // Parse Israeli Bank format (skip header)
         for (let i = 1; i < lines.length; i++) {
@@ -45,8 +47,18 @@ export const processAndForecast = (csvText) => {
             const creditAmount = isNaN(credit) ? 0 : credit;
             const amount = creditAmount - debitAmount;
 
+            // Track total debits for daily average calculation
+            if (debitAmount > 0) {
+                totalDebits += debitAmount;
+            }
+
+            // Track unique dates
+            if (date) {
+                uniqueDates.add(date);
+            }
+
             // Track the last valid balance (Column 8)
-            if (!isNaN(balance) && balance !== 0) {
+            if (!isNaN(balance)) {
                 actualCurrentBalance = balance;
             }
 
@@ -80,11 +92,9 @@ export const processAndForecast = (csvText) => {
         const total = recentTransactions.reduce((a, b) => a + b, 0);
         const avg = total / recentTransactions.length;
 
-        // 4. Calculate daily spending rate (expenses only)
-        const expenses = transactions.filter(t => t < 0);
-        const avgDailySpending = expenses.length > 0 
-            ? Math.abs(expenses.reduce((a, b) => a + b, 0) / expenses.length)
-            : 0;
+        // 4. Calculate daily spending rate from Column 6 (חובה)
+        const numberOfDays = uniqueDates.size || 1;
+        const avgDailySpending = totalDebits / numberOfDays;
 
         // 5. Hybrid Calculation (70% Seasonal, 30% SES)
         const forecastDays = 30;
