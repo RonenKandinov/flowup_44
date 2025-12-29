@@ -38,8 +38,9 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.4 }}
-      className="relative rounded-xl p-5 md:p-6 border border-slate-700/50 bg-slate-900/40 backdrop-blur-xl"
+      className="relative rounded-xl p-5 md:p-6 border border-slate-700/50 backdrop-blur-xl"
       style={{
+        backgroundColor: 'rgba(30, 41, 59, 0.6)',
         boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37), 0 0 20px rgba(139, 92, 246, 0.1)'
       }}
     >
@@ -70,7 +71,7 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
             placeholder="₪0.00"
             value={expenseAmount}
             onChange={(e) => setExpenseAmount(e.target.value)}
-            className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/50 transition-all text-lg"
+            className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/50 transition-all text-base"
             dir="ltr"
             style={{ boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.3)' }}
           />
@@ -82,7 +83,7 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
             <button
               key={amount}
               onClick={() => setExpenseAmount(amount.toString())}
-              className="px-3 py-1 rounded-full text-xs bg-slate-700/50 text-slate-300 hover:bg-cyan-500/20 hover:text-cyan-400 transition-colors"
+              className="px-3 py-1.5 rounded-full text-[11px] bg-slate-700/50 text-slate-300 hover:bg-cyan-500/20 hover:text-cyan-400 transition-colors"
             >
               ₪{amount.toLocaleString('he-IL')}
             </button>
