@@ -67,15 +67,34 @@ export default function SpeedometerGauge({
           </filter>
         </defs>
         
-        {/* Main Arc */}
+        {/* Red Zone (0-40%) */}
         <path
-          d="M 40 130 A 80 80 0 0 1 200 130"
+          d="M 40 130 A 80 80 0 0 0 91 56"
           fill="none"
-          stroke="url(#gaugeGradient)"
+          stroke="#ef4444"
           strokeWidth="20"
           strokeLinecap="round"
           filter="url(#glow)"
-          opacity="0.9"
+        />
+        
+        {/* Amber Zone (40-70%) */}
+        <path
+          d="M 93 55 A 80 80 0 0 0 147 55"
+          fill="none"
+          stroke="#f59e0b"
+          strokeWidth="20"
+          strokeLinecap="round"
+          filter="url(#glow)"
+        />
+        
+        {/* Green Zone (70-100%) */}
+        <path
+          d="M 149 56 A 80 80 0 0 0 200 130"
+          fill="none"
+          stroke="#10b981"
+          strokeWidth="20"
+          strokeLinecap="round"
+          filter="url(#glow)"
         />
         
         {/* Background arc (darker) */}
@@ -155,7 +174,7 @@ export default function SpeedometerGauge({
           key={adjustedBalance}
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="text-3xl md:text-4xl font-bold mb-2"
+          className="text-2xl md:text-3xl font-bold mb-2"
           style={{ 
             color: '#ffd700',
             textShadow: '0 0 30px rgba(255, 215, 0, 0.6)',

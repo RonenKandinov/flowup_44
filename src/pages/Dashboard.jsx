@@ -198,7 +198,7 @@ export default function Dashboard() {
           ) : (
             <>
               {/* Stats Row */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6 items-stretch">
                 <StatCard
                   title="יתרה נוכחית"
                   value={`₪${snapshot.current_balance?.toLocaleString('he-IL')}`}
@@ -230,7 +230,7 @@ export default function Dashboard() {
               </div>
 
               {/* Main Dashboard Grid */}
-              <div className="grid lg:grid-cols-2 gap-6">
+              <div className="grid lg:grid-cols-2 gap-6 items-start">
                 {/* Speedometer */}
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}

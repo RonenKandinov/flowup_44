@@ -69,7 +69,7 @@ export default function StatCard({
       <div className="flex items-start justify-between" dir="rtl">
         <div className="text-right flex-1">
           <p className="text-slate-400 text-sm mb-2">{title}</p>
-          <p className={`text-3xl md:text-4xl font-bold ${styles.text}`}>
+          <p className={`text-2xl md:text-3xl font-bold ${styles.text}`}>
             {value}
           </p>
         </div>
