@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Wallet, TrendingDown, Trash2, RefreshCw } from 'lucide-react';
+import { Upload, Wallet, TrendingDown, Trash2, RefreshCw, Cpu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { calculateWhatIf, SystemInfo } from '../utils/forecastingLogic';
 
 import SpeedometerGauge from '../components/dashboard/SpeedometerGauge';
 import StatCard from '../components/dashboard/StatCard';
@@ -18,6 +19,7 @@ export default function Dashboard() {
   const [whatIfAmount, setWhatIfAmount] = useState(0);
   const [whatIfName, setWhatIfName] = useState('');
   const [localData, setLocalData] = useState(null);
+  const [engineData, setEngineData] = useState(null);
   
   const queryClient = useQueryClient();
 
@@ -99,6 +101,7 @@ export default function Dashboard() {
 
   const handleDataParsed = async (data) => {
     setLocalData(data);
+    setEngineData(data.engineData);
     
     // Save to database
     await saveSnapshotMutation.mutateAsync(data.snapshot);
@@ -112,6 +115,21 @@ export default function Dashboard() {
   const handleWhatIfSimulate = (amount, name) => {
     setWhatIfAmount(amount);
     setWhatIfName(name);
+    
+    // If we have engine data, recalculate with what-if
+    if (engineData && amount > 0) {
+      const whatIfResult = calculateWhatIf(engineData, amount);
+      setLocalData(prev => ({
+        ...prev,
+        snapshot: {
+          ...prev.snapshot,
+          projected_eom_balance: whatIfResult.projectedEOM,
+          risk_level: whatIfResult.riskStatus,
+          risk_day: whatIfResult.riskDay
+        },
+        forecastData: whatIfResult.graphPoints
+      }));
+    }
   };
 
   const hasData = snapshot && snapshot.current_balance !== undefined;
@@ -133,7 +151,15 @@ export default function Dashboard() {
             <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
               FlowUp
             </h1>
-            <p className="text-slate-500 text-sm">FutureFlow Dashboard</p>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-slate-500 text-sm">FutureFlow Dashboard</p>
+              {engineData && (
+                <div className="flex items-center gap-1 text-xs text-cyan-500/70">
+                  <Cpu size={12} />
+                  <span>v{SystemInfo.version}</span>
+                </div>
+              )}
+            </div>
           </div>
           
           {hasData && (
@@ -228,6 +254,36 @@ export default function Dashboard() {
                         {whatIfName ? `"${whatIfName}" - ` : ''}
                         הוצאה של ₪{whatIfAmount.toLocaleString('he-IL')} תפחית את היתרה הצפויה
                       </p>
+                    </motion.div>
+                  )}
+                  
+                  {engineData && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="mt-4 p-3 rounded-lg bg-slate-800/30 border border-slate-700/50"
+                    >
+                      <div className="text-xs text-slate-400 space-y-1">
+                        <div className="flex justify-between">
+                          <span>רמת ביטחון:</span>
+                          <span className={`font-medium ${
+                            engineData.confidence === 'high' ? 'text-green-400' :
+                            engineData.confidence === 'medium' ? 'text-yellow-400' :
+                            'text-red-400'
+                          }`}>
+                            {engineData.confidence === 'high' ? 'גבוהה' :
+                             engineData.confidence === 'medium' ? 'בינונית' : 'נמוכה'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>עסקאות:</span>
+                          <span className="text-slate-300">{engineData.transactionCount}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>מנוע:</span>
+                          <span className="text-cyan-400">{SystemInfo.engine}</span>
+                        </div>
+                      </div>
                     </motion.div>
                   )}
                 </motion.div>

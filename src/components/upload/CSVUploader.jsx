@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, FileText, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
+import { processAndForecast } from '../../utils/forecastingLogic';
 
 export default function CSVUploader({ onDataParsed, onClose }) {
   const [isDragging, setIsDragging] = useState(false);
@@ -10,7 +11,7 @@ export default function CSVUploader({ onDataParsed, onClose }) {
   const [errorMessage, setErrorMessage] = useState('');
   const [fileName, setFileName] = useState('');
 
-  const parseCSVContent = (content) => {
+  const parseCSVForDatabase = (content) => {
     const lines = content.split('\n').filter(line => line.trim());
     if (lines.length < 2) {
       throw new Error('קובץ ה-CSV חייב להכיל לפחות שורת כותרת ושורת נתונים אחת');
@@ -103,13 +104,17 @@ export default function CSVUploader({ onDataParsed, onClose }) {
 
       setStatus('processing');
 
-      // Parse CSV
-      const transactions = parseCSVContent(content);
+      // Use FlowUp Pro Engine for forecasting
+      const forecastResult = processAndForecast(content);
 
-      // Calculate financial metrics
-      const latestBalance = transactions[transactions.length - 1]?.balance || 
-        transactions.reduce((sum, t) => sum + t.amount, 0);
-      
+      if (forecastResult.error) {
+        throw new Error(forecastResult.error);
+      }
+
+      // Parse CSV for database storage
+      const transactions = parseCSVForDatabase(content);
+
+      // Calculate monthly income/expenses for stats
       const monthlyTransactions = transactions.filter(t => {
         const date = new Date(t.date);
         const now = new Date();
@@ -124,63 +129,23 @@ export default function CSVUploader({ onDataParsed, onClose }) {
         .filter(t => t.amount < 0)
         .reduce((sum, t) => sum + t.amount, 0));
 
-      // Calculate average daily spending (last 30 days)
-      const last30Days = transactions.slice(-30);
-      const avgDailySpending = Math.abs(
-        last30Days.filter(t => t.amount < 0).reduce((sum, t) => sum + t.amount, 0) / 30
-      );
-
-      // Project end of month balance
-      const today = new Date();
-      const daysRemaining = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate() - today.getDate();
-      const projectedSpending = avgDailySpending * daysRemaining;
-      const projectedEOMBalance = latestBalance - projectedSpending;
-
-      // Determine risk level
-      let riskLevel = 'green';
-      let riskDay = null;
-
-      if (projectedEOMBalance < 0) {
-        riskLevel = 'red';
-        // Calculate risk day
-        const daysUntilNegative = Math.floor(latestBalance / avgDailySpending);
-        const riskDate = new Date();
-        riskDate.setDate(riskDate.getDate() + daysUntilNegative);
-        riskDay = riskDate.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
-      } else if (projectedEOMBalance < 1000 || daysRemaining <= 7) {
-        riskLevel = 'yellow';
-      }
-
-      // Generate forecast data for chart
-      const forecastData = [];
-      let runningBalance = latestBalance;
-      
-      for (let i = 0; i <= daysRemaining; i++) {
-        const date = new Date();
-        date.setDate(date.getDate() + i);
-        forecastData.push({
-          date: date.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' }),
-          balance: Math.round(runningBalance)
-        });
-        runningBalance -= avgDailySpending;
-      }
-
       setStatus('success');
 
       // Pass data to parent
       onDataParsed({
         transactions,
         snapshot: {
-          current_balance: latestBalance,
-          projected_eom_balance: Math.round(projectedEOMBalance),
+          current_balance: forecastResult.currentBalance,
+          projected_eom_balance: forecastResult.projectedEOM,
           total_income: totalIncome,
           total_expenses: totalExpenses,
-          risk_level: riskLevel,
-          risk_day: riskDay,
-          avg_daily_spending: Math.round(avgDailySpending),
+          risk_level: forecastResult.riskStatus,
+          risk_day: forecastResult.riskDay,
+          avg_daily_spending: forecastResult.avgDailySpending,
           upload_date: new Date().toISOString()
         },
-        forecastData
+        forecastData: forecastResult.graphPoints,
+        engineData: forecastResult
       });
 
       setTimeout(() => {
