@@ -38,10 +38,13 @@ export default function SpeedometerGauge({
         className="w-full max-w-[320px] md:max-w-[400px]"
       >
         <defs>
-          {/* High-definition gradient */}
+          {/* High-definition gradient with distinct zones */}
           <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor="#ef4444" />
-            <stop offset="50%" stopColor="#f59e0b" />
+            <stop offset="35%" stopColor="#ef4444" />
+            <stop offset="40%" stopColor="#f59e0b" />
+            <stop offset="65%" stopColor="#f59e0b" />
+            <stop offset="70%" stopColor="#10b981" />
             <stop offset="100%" stopColor="#10b981" />
           </linearGradient>
           
@@ -146,13 +149,13 @@ export default function SpeedometerGauge({
       </svg>
       
       {/* Balance Display */}
-      <div className="text-center mt-4">
+      <div className="text-center mt-4 flex flex-col items-center justify-center">
         <p className="text-sm text-slate-400 mb-2">יתרה בטוחה לסוף החודש</p>
         <motion.p 
           key={adjustedBalance}
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="text-5xl md:text-6xl font-bold mb-2"
+          className="text-4xl md:text-5xl font-bold mb-2"
           style={{ 
             color: '#ffd700',
             textShadow: '0 0 30px rgba(255, 215, 0, 0.6)',

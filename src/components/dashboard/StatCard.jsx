@@ -45,11 +45,11 @@ export default function StatCard({
       className={`
         relative overflow-hidden rounded-xl p-5 md:p-6
         border ${styles.border}
-        bg-slate-900/40
         backdrop-blur-xl
         shadow-lg ${styles.glow}
       `}
       style={{
+        backgroundColor: 'rgba(30, 41, 59, 0.6)',
         boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37), 0 0 20px rgba(34, 211, 238, 0.15)'
       }}
     >

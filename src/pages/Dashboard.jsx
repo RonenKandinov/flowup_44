@@ -135,7 +135,7 @@ export default function Dashboard() {
   const hasData = snapshot && snapshot.current_balance !== undefined;
 
   return (
-    <div className="min-h-screen bg-[#05080f]" dir="rtl" style={{ fontFamily: "'Heebo', 'Assistant', sans-serif" }}>
+    <div className="min-h-screen bg-[#0b111e]" dir="rtl" style={{ fontFamily: "'Heebo', 'Assistant', sans-serif" }}>
       {/* Background pattern */}
       <div className="fixed inset-0 opacity-30 pointer-events-none">
         <div className="absolute inset-0" style={{
@@ -235,8 +235,9 @@ export default function Dashboard() {
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="relative rounded-xl p-6 border border-slate-700/50 bg-slate-900/40 backdrop-blur-xl"
+                  className="relative rounded-xl p-6 border border-slate-700/50 backdrop-blur-xl"
                   style={{
+                    backgroundColor: 'rgba(30, 41, 59, 0.6)',
                     boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37), 0 0 20px rgba(34, 211, 238, 0.15)'
                   }}
                 >
