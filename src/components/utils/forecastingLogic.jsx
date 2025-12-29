@@ -145,10 +145,11 @@ export const processAndForecast = (csvText) => {
             success: true,
             forecastTotal: Math.round(safeForecast),
             projectedEOM: Math.round(projectedEOM),
-            currentBalance: Math.round(currentBalance),
+            currentBalance: currentBalance, // EXACT value from Column 8 last row
             riskStatus,
             riskDay,
             rawScore: Math.round(rawForecast),
+            safetyBuffer: 0.17, // 17% Risk Buffer
             avgDailySpending: Math.round(avgDailySpending),
             graphPoints,
             transactionCount: transactions.length,
