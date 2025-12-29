@@ -45,11 +45,11 @@ export default function StatCard({
       className={`
         relative overflow-hidden rounded-xl p-5 md:p-6
         border ${styles.border}
+        bg-slate-900/40
         backdrop-blur-xl
         shadow-lg ${styles.glow}
       `}
       style={{
-        backgroundColor: 'rgba(30, 41, 59, 0.6)',
         boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37), 0 0 20px rgba(34, 211, 238, 0.15)'
       }}
     >
@@ -69,7 +69,7 @@ export default function StatCard({
       <div className="flex items-start justify-between" dir="rtl">
         <div className="text-right flex-1">
           <p className="text-slate-400 text-sm mb-2">{title}</p>
-          <p className={`text-2xl md:text-3xl font-bold ${styles.text}`}>
+          <p className={`text-3xl md:text-4xl font-bold ${styles.text}`}>
             {value}
           </p>
         </div>
