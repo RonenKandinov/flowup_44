@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle, Activity, Plus, Shield } from 'lucide-react';
+import { Upload, Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle, Activity, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -202,15 +202,15 @@ export default function Dashboard() {
                 <StatCard
                   title="יתרה נוכחית"
                   value={`₪${snapshot.current_balance?.toLocaleString('he-IL')}`}
-                  icon={snapshot.risk_level === 'green' ? CheckCircle : snapshot.risk_level === 'yellow' ? Wallet : TrendingDown}
-                  color={snapshot.risk_level === 'green' ? 'green' : snapshot.risk_level === 'yellow' ? 'yellow' : 'red'}
+                  icon={(snapshot.current_balance || 0) > 0 ? CheckCircle : TrendingDown}
+                  color={(snapshot.current_balance || 0) > 0 ? 'green' : 'red'}
                   delay={0}
                 />
                 <StatCard
                   title="סך הכנסות"
                   value={`₪${snapshot.total_income?.toLocaleString('he-IL') || '0'}`}
-                  icon={(snapshot.total_income || 0) > 0 ? CheckCircle : Wallet}
-                  color={(snapshot.total_income || 0) > 0 ? "green" : "cyan"}
+                  icon={TrendingUp}
+                  color="green"
                   delay={0.1}
                 />
                 <StatCard
@@ -266,10 +266,10 @@ export default function Dashboard() {
                       <div className="text-xs text-slate-400 space-y-1">
                         <div className="flex justify-between items-center">
                           <div className="flex items-center gap-1.5">
-                            <Shield className="w-3.5 h-3.5 text-cyan-400" />
-                            <span>מרווח בטיחות:</span>
+                            <Shield className="w-3 h-3 text-slate-500" />
+                            <span className="text-slate-500">מרווח בטיחות:</span>
                           </div>
-                          <span className="text-cyan-400 font-medium">17%</span>
+                          <span className="text-slate-500 text-[10px]">17%</span>
                         </div>
                         <div className="flex justify-between">
                           <span>רמת ביטחון:</span>

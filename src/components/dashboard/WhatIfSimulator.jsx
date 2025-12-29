@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { HelpCircle, Calculator } from 'lucide-react';
+import { HelpCircle, Calculator, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -8,15 +8,26 @@ import { Label } from '@/components/ui/label';
 export default function WhatIfSimulator({ onSimulate, currentBalance }) {
   const [expenseAmount, setExpenseAmount] = useState('');
   const [expenseName, setExpenseName] = useState('');
+  const [result, setResult] = useState(null);
 
   const handleSimulate = () => {
     const amount = parseFloat(expenseAmount) || 0;
+    if (amount > 0 && currentBalance) {
+      // Apply 17% risk buffer to current balance
+      const safeBalance = currentBalance * 0.83;
+      const remainingBalance = safeBalance - amount;
+      setResult({
+        canAfford: remainingBalance > 0,
+        remainingBalance
+      });
+    }
     onSimulate(amount, expenseName);
   };
 
   const handleReset = () => {
     setExpenseAmount('');
     setExpenseName('');
+    setResult(null);
     onSimulate(0, '');
   };
 
@@ -90,6 +101,39 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
             </Button>
           )}
         </div>
+
+        {/* Result Display */}
+        {result && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`p-3 rounded-lg border ${
+              result.canAfford 
+                ? 'bg-green-500/10 border-green-500/30' 
+                : 'bg-red-500/10 border-red-500/30'
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              {result.canAfford ? (
+                <>
+                  <CheckCircle className="w-5 h-5 text-green-400" />
+                  <span className="text-green-400 font-medium">מאושר</span>
+                </>
+              ) : (
+                <>
+                  <AlertTriangle className="w-5 h-5 text-red-400" />
+                  <span className="text-red-400 font-medium">התראת סיכון</span>
+                </>
+              )}
+            </div>
+            <p className="text-xs text-slate-400">
+              יתרה בטוחה לאחר הוצאה: {' '}
+              <span className={result.canAfford ? 'text-green-400' : 'text-red-400'}>
+                ₪{Math.round(result.remainingBalance).toLocaleString('he-IL')}
+              </span>
+            </p>
+          </motion.div>
+        )}
       </div>
     </motion.div>
   );
