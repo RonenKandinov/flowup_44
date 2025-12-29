@@ -2,137 +2,134 @@ import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 
 export default function SpeedometerGauge({ 
+  currentBalance,
   projectedBalance, 
   riskLevel = 'green',
   riskDay,
   whatIfAmount = 0 
 }) {
-  // Calculate needle angle based on risk level and projected balance
-  const adjustedBalance = projectedBalance - whatIfAmount;
+  // Calculate safe balance (17% buffer applied)
+  const safeBalance = currentBalance * 0.83 - whatIfAmount;
   
-  const { angle, color, glowColor } = useMemo(() => {
-    let calculatedRisk = riskLevel;
+  // Calculate position on semi-circle (0 to 180 degrees)
+  // Map balance to angle: negative = 0°, positive = 180°
+  const { angle, color } = useMemo(() => {
+    const maxBalance = 10000; // Adjust based on typical user balance
+    const minBalance = -2000;
     
-    // Recalculate risk based on what-if
-    if (adjustedBalance < 0) {
-      calculatedRisk = 'red';
-    } else if (adjustedBalance < 1000) {
-      calculatedRisk = 'yellow';
-    } else {
-      calculatedRisk = 'green';
+    let normalizedBalance = (safeBalance - minBalance) / (maxBalance - minBalance);
+    normalizedBalance = Math.max(0, Math.min(1, normalizedBalance)); // Clamp 0-1
+    
+    const calculatedAngle = normalizedBalance * 180; // 0° to 180°
+    
+    // Determine color based on safe balance
+    let gaugeColor = '#10b981'; // Green
+    if (safeBalance < 0) {
+      gaugeColor = '#ef4444'; // Red
+    } else if (safeBalance < 1000) {
+      gaugeColor = '#f59e0b'; // Amber
     }
     
-    const riskConfig = {
-      green: { angle: -60, color: '#22c55e', glowColor: 'rgba(34, 197, 94, 0.5)' },
-      yellow: { angle: 0, color: '#eab308', glowColor: 'rgba(234, 179, 8, 0.5)' },
-      red: { angle: 60, color: '#ef4444', glowColor: 'rgba(239, 68, 68, 0.5)' }
-    };
-    
-    return riskConfig[calculatedRisk];
-  }, [adjustedBalance, riskLevel]);
+    return { angle: calculatedAngle, color: gaugeColor };
+  }, [safeBalance]);
 
   return (
-    <div className="relative flex flex-col items-center">
-      {/* Gauge SVG */}
+    <div className="relative flex flex-col items-center py-8">
+      {/* Semi-Circle Arc Gauge */}
       <svg 
-        viewBox="0 0 200 120" 
-        className="w-full max-w-[280px] md:max-w-[320px]"
-        style={{ filter: `drop-shadow(0 0 20px ${glowColor})` }}
+        viewBox="0 0 200 110" 
+        className="w-full max-w-[300px]"
       >
-        {/* Background arc segments */}
         <defs>
-          <linearGradient id="greenGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#22c55e" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#22c55e" stopOpacity="0.8" />
+          {/* Gradient from Red to Green */}
+          <linearGradient id="arcGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#ef4444" stopOpacity="0.6" />
+            <stop offset="50%" stopColor="#f59e0b" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="#10b981" stopOpacity="0.6" />
           </linearGradient>
-          <linearGradient id="yellowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#eab308" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#eab308" stopOpacity="0.8" />
+          
+          {/* Active gradient based on current position */}
+          <linearGradient id="activeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor={color} stopOpacity="1" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.4" />
           </linearGradient>
-          <linearGradient id="redGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#ef4444" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#ef4444" stopOpacity="0.8" />
-          </linearGradient>
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
-            <feMerge>
-              <feMergeNode in="coloredBlur"/>
-              <feMergeNode in="SourceGraphic"/>
-            </feMerge>
-          </filter>
         </defs>
         
-        {/* Green segment */}
+        {/* Background arc */}
         <path
-          d="M 30 100 A 70 70 0 0 1 70 38"
+          d="M 20 100 A 80 80 0 0 1 180 100"
           fill="none"
-          stroke="url(#greenGrad)"
-          strokeWidth="12"
+          stroke="url(#arcGradient)"
+          strokeWidth="16"
           strokeLinecap="round"
-          filter="url(#glow)"
+          opacity="0.3"
         />
         
-        {/* Yellow segment */}
-        <path
-          d="M 75 35 A 70 70 0 0 1 125 35"
+        {/* Active arc (up to needle position) */}
+        <motion.path
+          d={`M 20 100 A 80 80 0 ${angle > 90 ? '1' : '0'} 1 ${
+            100 + 80 * Math.cos((180 - angle) * Math.PI / 180)
+          } ${
+            100 - 80 * Math.sin((180 - angle) * Math.PI / 180)
+          }`}
           fill="none"
-          stroke="url(#yellowGrad)"
-          strokeWidth="12"
+          stroke="url(#activeGradient)"
+          strokeWidth="16"
           strokeLinecap="round"
-          filter="url(#glow)"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 1, ease: "easeOut" }}
         />
         
-        {/* Red segment */}
-        <path
-          d="M 130 38 A 70 70 0 0 1 170 100"
-          fill="none"
-          stroke="url(#redGrad)"
-          strokeWidth="12"
-          strokeLinecap="round"
-          filter="url(#glow)"
-        />
-        
-        {/* Needle */}
+        {/* Minimalist Needle */}
         <motion.g
-          initial={{ rotate: -60 }}
+          initial={{ rotate: 0 }}
           animate={{ rotate: angle }}
-          transition={{ type: "spring", stiffness: 60, damping: 15 }}
+          transition={{ type: "spring", stiffness: 50, damping: 20 }}
           style={{ transformOrigin: '100px 100px' }}
         >
           <line
             x1="100"
             y1="100"
             x2="100"
-            y2="40"
+            y2="30"
             stroke={color}
-            strokeWidth="3"
+            strokeWidth="2.5"
             strokeLinecap="round"
-            filter="url(#glow)"
           />
-          <circle cx="100" cy="100" r="8" fill={color} filter="url(#glow)" />
+          <circle cx="100" cy="100" r="6" fill={color} />
         </motion.g>
         
-        {/* Center dot */}
-        <circle cx="100" cy="100" r="4" fill="#fff" />
+        {/* Center white dot */}
+        <circle cx="100" cy="100" r="3" fill="white" />
       </svg>
       
-      {/* Balance Display */}
-      <div className="text-center mt-2">
-        <p className="text-xs text-slate-400 mb-1">יתרה צפויה לסוף החודש</p>
+      {/* Safe Balance Display */}
+      <div className="text-center -mt-4">
+        <p className="text-xs font-medium text-slate-500 mb-2 tracking-wide uppercase">יתרה בטוחה</p>
         <motion.p 
-          key={adjustedBalance}
-          initial={{ scale: 0.9, opacity: 0 }}
+          key={safeBalance}
+          initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="text-3xl md:text-4xl font-bold"
-          style={{ color, textShadow: `0 0 20px ${glowColor}` }}
+          className="text-5xl font-bold tracking-tight"
+          style={{ 
+            color,
+            fontFamily: 'Inter, system-ui, sans-serif'
+          }}
         >
-          ₪{adjustedBalance.toLocaleString('he-IL')}
+          ₪{Math.round(safeBalance).toLocaleString('he-IL')}
         </motion.p>
-        {riskDay && (
-          <p className="text-sm mt-1">
-            <span className="text-slate-400">יום סיכון: </span>
-            <span style={{ color }}>{riskDay}</span>
-          </p>
+        <p className="text-xs text-slate-400 mt-2">כולל מרווח בטיחות 17%</p>
+        {riskDay && safeBalance < 1000 && (
+          <motion.div
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-3 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30"
+          >
+            <p className="text-xs text-amber-400">
+              יום סיכון: {riskDay}
+            </p>
+          </motion.div>
         )}
       </div>
     </div>

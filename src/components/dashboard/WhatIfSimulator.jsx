@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { HelpCircle, Calculator, CheckCircle, AlertTriangle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ShoppingBag, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 
 export default function WhatIfSimulator({ onSimulate, currentBalance }) {
   const [expenseAmount, setExpenseAmount] = useState('');
-  const [expenseName, setExpenseName] = useState('');
   const [result, setResult] = useState(null);
 
   const handleSimulate = () => {
@@ -21,12 +19,11 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
         remainingBalance
       });
     }
-    onSimulate(amount, expenseName);
+    onSimulate(amount, '');
   };
 
   const handleReset = () => {
     setExpenseAmount('');
-    setExpenseName('');
     setResult(null);
     onSimulate(0, '');
   };
@@ -37,36 +34,31 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.4 }}
-      className="relative rounded-2xl p-4 md:p-5 border border-cyan-500/20 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm"
+      transition={{ delay: 0.3 }}
+      className="relative rounded-3xl p-6 bg-white/80 backdrop-blur-xl shadow-lg border border-white/20"
+      style={{
+        background: 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%)',
+      }}
     >
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-cyan-400 font-medium flex items-center gap-2">
-          <Calculator size={18} />
-          מה אם?
-        </h3>
-        <HelpCircle size={16} className="text-slate-500" />
+      <div className="flex items-center gap-3 mb-6">
+        <div className="p-2.5 rounded-xl bg-violet-50">
+          <ShoppingBag className="w-5 h-5 text-violet-500" strokeWidth={2.5} />
+        </div>
+        <div>
+          <h3 className="text-slate-900 font-semibold text-lg">סימולטור קניה</h3>
+          <p className="text-xs text-slate-500">בדוק האם אתה יכול להרשות לעצמך</p>
+        </div>
       </div>
 
       <div className="space-y-4">
         <div>
-          <Label className="text-slate-400 text-xs mb-1.5 block">תיאור ההוצאה (אופציונלי)</Label>
-          <Input
-            placeholder="לדוגמה: מחשב חדש"
-            value={expenseName}
-            onChange={(e) => setExpenseName(e.target.value)}
-            className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
-          />
-        </div>
-
-        <div>
-          <Label className="text-slate-400 text-xs mb-1.5 block">סכום ההוצאה הצפויה</Label>
           <Input
             type="number"
-            placeholder="₪0.00"
+            placeholder="כמה אתה רוצה להוציא?"
             value={expenseAmount}
             onChange={(e) => setExpenseAmount(e.target.value)}
-            className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500 text-lg"
+            className="h-14 text-xl font-semibold border-slate-200 focus:border-violet-400 focus:ring-violet-400 bg-white"
+            style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
             dir="ltr"
           />
         </div>
@@ -77,63 +69,71 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
             <button
               key={amount}
               onClick={() => setExpenseAmount(amount.toString())}
-              className="px-3 py-1 rounded-full text-xs bg-slate-700/50 text-slate-300 hover:bg-cyan-500/20 hover:text-cyan-400 transition-colors"
+              className="px-4 py-2 rounded-xl text-sm font-medium bg-slate-100 text-slate-700 hover:bg-violet-100 hover:text-violet-600 transition-all"
             >
               ₪{amount.toLocaleString('he-IL')}
             </button>
           ))}
         </div>
 
-        <div className="flex gap-2">
-          <Button
-            onClick={handleSimulate}
-            className="flex-1 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white font-medium shadow-lg shadow-cyan-500/25"
-          >
-            חשב
-          </Button>
-          {expenseAmount && (
-            <Button
-              onClick={handleReset}
-              variant="outline"
-              className="border-slate-600 text-slate-300 hover:bg-slate-800"
-            >
-              אפס
-            </Button>
-          )}
-        </div>
+        <Button
+          onClick={handleSimulate}
+          disabled={!expenseAmount}
+          className="w-full h-12 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white font-semibold rounded-xl shadow-lg shadow-violet-500/25"
+        >
+          בדוק עכשיו
+        </Button>
 
         {/* Result Display */}
-        {result && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={`p-3 rounded-lg border ${
-              result.canAfford 
-                ? 'bg-green-500/10 border-green-500/30' 
-                : 'bg-red-500/10 border-red-500/30'
-            }`}
-          >
-            <div className="flex items-center gap-2 mb-1">
+        <AnimatePresence>
+          {result && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className={`p-5 rounded-2xl ${
+                result.canAfford 
+                  ? 'bg-gradient-to-br from-emerald-50 to-green-50 border-2 border-emerald-200' 
+                  : 'bg-gradient-to-br from-rose-50 to-red-50 border-2 border-rose-200'
+              }`}
+            >
               {result.canAfford ? (
                 <>
-                  <CheckCircle className="w-5 h-5 text-green-400" />
-                  <span className="text-green-400 font-medium">מאושר</span>
+                  <div className="flex items-center gap-2 mb-3">
+                    <CheckCircle className="w-6 h-6 text-emerald-500" strokeWidth={2.5} />
+                    <span className="text-emerald-700 font-bold text-lg">בטוח להוצאה</span>
+                  </div>
+                  <p className="text-sm text-slate-600 mb-2">
+                    יתרה בטוחה שתישאר:
+                  </p>
+                  <p className="text-3xl font-bold text-emerald-600">
+                    ₪{Math.round(result.remainingBalance).toLocaleString('he-IL')}
+                  </p>
                 </>
               ) : (
                 <>
-                  <AlertTriangle className="w-5 h-5 text-red-400" />
-                  <span className="text-red-400 font-medium">התראת סיכון</span>
+                  <div className="flex items-center gap-2 mb-3">
+                    <AlertTriangle className="w-6 h-6 text-rose-500" strokeWidth={2.5} />
+                    <span className="text-rose-700 font-bold text-lg">סכנת משיכת יתר</span>
+                  </div>
+                  <p className="text-sm text-slate-600 mb-2">
+                    גירעון צפוי:
+                  </p>
+                  <p className="text-3xl font-bold text-rose-600">
+                    ₪{Math.round(Math.abs(result.remainingBalance)).toLocaleString('he-IL')}-
+                  </p>
                 </>
               )}
-            </div>
-            <p className="text-xs text-slate-400">
-              יתרה בטוחה לאחר הוצאה: {' '}
-              <span className={result.canAfford ? 'text-green-400' : 'text-red-400'}>
-                ₪{Math.round(result.remainingBalance).toLocaleString('he-IL')}
-              </span>
-            </p>
-          </motion.div>
-        )}
+              <Button
+                onClick={handleReset}
+                variant="ghost"
+                className="w-full mt-3 text-slate-600 hover:bg-slate-100"
+              >
+                נסה סכום אחר
+              </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </motion.div>
   );
