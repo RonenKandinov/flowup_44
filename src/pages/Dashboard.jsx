@@ -135,27 +135,27 @@ export default function Dashboard() {
   const hasData = snapshot && snapshot.current_balance !== undefined;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-slate-50" dir="rtl" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
-      {/* Subtle background pattern */}
-      <div className="fixed inset-0 opacity-20 pointer-events-none">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950" dir="rtl">
+      {/* Background pattern */}
+      <div className="fixed inset-0 opacity-30 pointer-events-none">
         <div className="absolute inset-0" style={{
-          backgroundImage: `radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.15) 1px, transparent 0)`,
-          backgroundSize: '48px 48px'
+          backgroundImage: `radial-gradient(circle at 1px 1px, rgba(34, 211, 238, 0.15) 1px, transparent 0)`,
+          backgroundSize: '40px 40px'
         }} />
       </div>
 
       {/* Header */}
-      <header className="relative z-10 px-6 py-8 md:px-10">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+      <header className="relative z-10 px-4 py-6 md:px-8">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">
+            <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
               FlowUp
             </h1>
-            <div className="flex items-center gap-3 mt-2">
-              <p className="text-slate-500 text-sm font-medium">לוח בקרה פיננסי</p>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-slate-500 text-sm">FutureFlow Dashboard</p>
               {engineData && (
-                <div className="flex items-center gap-1.5 text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded-full">
-                  <Cpu size={11} />
+                <div className="flex items-center gap-1 text-xs text-cyan-500/70">
+                  <Cpu size={12} />
                   <span>v{SystemInfo.version}</span>
                 </div>
               )}
@@ -163,11 +163,12 @@ export default function Dashboard() {
           </div>
           
           {hasData && (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <Button
                 onClick={() => setShowUploader(true)}
                 variant="outline"
-                className="border-slate-300 text-slate-700 hover:bg-slate-100 rounded-xl"
+                size="sm"
+                className="border-slate-700 text-slate-300 hover:bg-slate-800"
               >
                 <RefreshCw className="w-4 h-4 ml-2" />
                 עדכן נתונים
@@ -175,7 +176,8 @@ export default function Dashboard() {
               <Button
                 onClick={() => deleteDataMutation.mutate()}
                 variant="ghost"
-                className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl"
+                size="sm"
+                className="text-red-400 hover:text-red-300 hover:bg-red-950/50"
               >
                 <Trash2 className="w-4 h-4" />
               </Button>
@@ -185,8 +187,8 @@ export default function Dashboard() {
       </header>
 
       {/* Main content */}
-      <main className="relative z-10 px-6 pb-12 md:px-10">
-        <div className="max-w-7xl mx-auto">
+      <main className="relative z-10 px-4 pb-8 md:px-8">
+        <div className="max-w-6xl mx-auto">
           {isLoading ? (
             <div className="flex items-center justify-center h-[60vh]">
               <div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
@@ -196,7 +198,7 @@ export default function Dashboard() {
           ) : (
             <>
               {/* Stats Row */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-5 mb-8">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <StatCard
                   title="יתרה נוכחית"
                   value={`₪${snapshot.current_balance?.toLocaleString('he-IL')}`}
@@ -228,19 +230,14 @@ export default function Dashboard() {
               </div>
 
               {/* Main Dashboard Grid */}
-              <div className="grid md:grid-cols-2 gap-8">
+              <div className="grid md:grid-cols-2 gap-6">
                 {/* Speedometer */}
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
+                  initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.1 }}
-                  className="relative rounded-3xl p-8 bg-white/80 backdrop-blur-xl shadow-lg border border-white/20"
-                  style={{
-                    background: 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%)',
-                  }}
+                  className="relative rounded-2xl p-6 border border-cyan-500/20 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm"
                 >
                   <SpeedometerGauge
-                    currentBalance={snapshot.current_balance || 0}
                     projectedBalance={snapshot.projected_eom_balance || 0}
                     riskLevel={snapshot.risk_level || 'green'}
                     riskDay={snapshot.risk_day}
@@ -264,30 +261,34 @@ export default function Dashboard() {
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      className="mt-6 p-4 rounded-2xl bg-slate-50 border border-slate-200"
+                      className="mt-4 p-3 rounded-lg bg-slate-800/30 border border-slate-700/50"
                     >
-                      <div className="text-xs text-slate-600 space-y-2">
-                        <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                      <div className="text-xs text-slate-400 space-y-1">
+                        <div className="flex justify-between items-center">
                           <div className="flex items-center gap-1.5">
-                            <Shield className="w-3.5 h-3.5 text-slate-400" />
-                            <span className="text-[10px] text-slate-400 uppercase tracking-wide">מרווח בטיחות</span>
+                            <Shield className="w-3 h-3 text-slate-500" />
+                            <span className="text-slate-500">מרווח בטיחות:</span>
                           </div>
-                          <span className="text-slate-400 font-semibold">17%</span>
+                          <span className="text-slate-500 text-[10px]">17%</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="font-medium">רמת ביטחון:</span>
-                          <span className={`font-semibold ${
-                            engineData.confidence === 'high' ? 'text-emerald-600' :
-                            engineData.confidence === 'medium' ? 'text-amber-600' :
-                            'text-rose-600'
+                          <span>רמת ביטחון:</span>
+                          <span className={`font-medium ${
+                            engineData.confidence === 'high' ? 'text-green-400' :
+                            engineData.confidence === 'medium' ? 'text-yellow-400' :
+                            'text-red-400'
                           }`}>
                             {engineData.confidence === 'high' ? 'גבוהה' :
                              engineData.confidence === 'medium' ? 'בינונית' : 'נמוכה'}
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="font-medium">עסקאות:</span>
-                          <span className="text-slate-700 font-semibold">{engineData.transactionCount}</span>
+                          <span>עסקאות:</span>
+                          <span className="text-slate-300">{engineData.transactionCount}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>מנוע:</span>
+                          <span className="text-cyan-400">{SystemInfo.engine}</span>
                         </div>
                       </div>
                     </motion.div>
@@ -295,7 +296,7 @@ export default function Dashboard() {
                 </motion.div>
 
                 {/* Right Column */}
-                <div className="space-y-8">
+                <div className="space-y-6">
                   <RiskZoneChart
                     data={forecastData}
                     riskThreshold={0}
@@ -308,18 +309,6 @@ export default function Dashboard() {
                   />
                 </div>
               </div>
-
-              {whatIfAmount > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-6 p-4 rounded-2xl bg-amber-50 border border-amber-200"
-                >
-                  <p className="text-sm text-amber-700 text-center font-medium">
-                    הוצאה של ₪{whatIfAmount.toLocaleString('he-IL')} תשפיע על היתרה הבטוחה שלך
-                  </p>
-                </motion.div>
-              )}
 
               <Disclaimer />
             </>

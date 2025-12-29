@@ -1,58 +1,80 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
-export default function StatCard({ title, value, icon: Icon, color = 'cyan', delay = 0 }) {
-  // Define modern glassmorphism color styles
+export default function StatCard({ 
+  title, 
+  value, 
+  icon: Icon, 
+  color = 'cyan',
+  delay = 0 
+}) {
   const colorStyles = {
     cyan: {
-      gradient: 'linear-gradient(135deg, rgba(6, 182, 212, 0.1) 0%, rgba(14, 165, 233, 0.05) 100%)',
-      text: 'text-slate-700',
-      icon: 'text-cyan-500',
-      iconBg: 'bg-cyan-50'
+      border: 'border-cyan-500/30',
+      bg: 'from-cyan-500/10 to-transparent',
+      text: 'text-cyan-400',
+      glow: 'shadow-cyan-500/20'
     },
     green: {
-      gradient: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%)',
-      text: 'text-slate-700',
-      icon: 'text-emerald-500',
-      iconBg: 'bg-emerald-50'
+      border: 'border-green-500/30',
+      bg: 'from-green-500/10 to-transparent',
+      text: 'text-green-400',
+      glow: 'shadow-green-500/20'
     },
     red: {
-      gradient: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.05) 100%)',
-      text: 'text-slate-700',
-      icon: 'text-rose-500',
-      iconBg: 'bg-rose-50'
+      border: 'border-red-500/30',
+      bg: 'from-red-500/10 to-transparent',
+      text: 'text-red-400',
+      glow: 'shadow-red-500/20'
     },
     yellow: {
-      gradient: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.05) 100%)',
-      text: 'text-slate-700',
-      icon: 'text-amber-500',
-      iconBg: 'bg-amber-50'
+      border: 'border-yellow-500/30',
+      bg: 'from-yellow-500/10 to-transparent',
+      text: 'text-yellow-400',
+      glow: 'shadow-yellow-500/20'
     }
   };
 
-  const style = colorStyles[color];
+  const styles = colorStyles[color] || colorStyles.cyan;
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, type: "spring", stiffness: 100 }}
-      className="relative rounded-2xl p-5 bg-white/80 backdrop-blur-xl shadow-lg border border-white/20 hover:shadow-xl transition-shadow duration-300"
-      style={{
-        background: style.gradient,
-      }}
+      transition={{ delay, duration: 0.5 }}
+      className={`
+        relative overflow-hidden rounded-2xl p-4 md:p-5
+        border ${styles.border}
+        bg-gradient-to-br ${styles.bg}
+        backdrop-blur-sm
+        shadow-lg ${styles.glow}
+      `}
     >
-      <div className="flex items-start justify-between mb-3">
-        <div className={`p-2.5 rounded-xl ${style.iconBg}`}>
-          {Icon && <Icon className={`w-5 h-5 ${style.icon}`} strokeWidth={2.5} />}
-        </div>
+      {/* Decorative circuit lines */}
+      <div className="absolute top-0 right-0 w-20 h-20 opacity-20">
+        <svg viewBox="0 0 80 80" className="w-full h-full">
+          <path
+            d="M0 20 L20 20 L20 0 M60 0 L60 20 L80 20 M80 60 L60 60 L60 80 M20 80 L20 60 L0 60"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1"
+            className={styles.text}
+          />
+        </svg>
       </div>
 
-      <div>
-        <p className="text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">{title}</p>
-        <p className={`text-2xl md:text-3xl font-bold ${style.text}`} style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
-          {value}
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-slate-400 text-xs md:text-sm mb-1">{title}</p>
+          <p className={`text-2xl md:text-3xl font-bold ${styles.text}`}>
+            {value}
+          </p>
+        </div>
+        {Icon && (
+          <div className={`p-2 rounded-lg bg-slate-800/50 ${styles.text}`}>
+            <Icon size={20} />
+          </div>
+        )}
       </div>
     </motion.div>
   );
