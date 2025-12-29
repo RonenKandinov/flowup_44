@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Wallet, TrendingDown, Trash2, RefreshCw, Cpu } from 'lucide-react';
+import { Upload, Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -202,15 +202,15 @@ export default function Dashboard() {
                 <StatCard
                   title="יתרה נוכחית"
                   value={`₪${snapshot.current_balance?.toLocaleString('he-IL')}`}
-                  icon={Wallet}
-                  color="cyan"
+                  icon={snapshot.risk_level === 'green' ? CheckCircle : snapshot.risk_level === 'yellow' ? Wallet : TrendingDown}
+                  color={snapshot.risk_level === 'green' ? 'green' : snapshot.risk_level === 'yellow' ? 'yellow' : 'red'}
                   delay={0}
                 />
                 <StatCard
                   title="סך הכנסות"
                   value={`₪${snapshot.total_income?.toLocaleString('he-IL') || '0'}`}
-                  icon={TrendingDown}
-                  color="green"
+                  icon={snapshot.total_income > 0 ? TrendingUp : Wallet}
+                  color={snapshot.total_income > 0 ? 'green' : 'cyan'}
                   delay={0.1}
                 />
                 <StatCard
