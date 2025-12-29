@@ -42,16 +42,11 @@ export default function StatCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.5 }}
-      className={`
-        relative overflow-hidden rounded-xl p-5 md:p-6
-        border ${styles.border}
-        backdrop-blur-xl
-        shadow-lg ${styles.glow}
-      `}
+      className="relative overflow-hidden p-8"
       style={{
-        backgroundColor: 'rgba(30, 41, 59, 0.4)',
-        borderColor: 'rgba(100, 116, 139, 0.3)',
-        boxShadow: '0 4px 24px 0 rgba(15, 23, 42, 0.5), 0 0 1px rgba(148, 163, 184, 0.1)'
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        borderRadius: '16px'
       }}
     >
       {/* Decorative circuit lines */}
@@ -68,12 +63,12 @@ export default function StatCard({
       </div>
 
       <div className="flex items-start justify-between" dir="rtl">
-        <div className="text-right flex-1">
-          <p className="text-slate-400 text-sm mb-2">{title}</p>
-          <p className={`text-3xl md:text-4xl font-bold ${styles.text}`}>
-            {value}
-          </p>
-        </div>
+        <div className="text-right flex-1 flex flex-col justify-center">
+            <p className="text-[#94a3b8] text-[10px] mb-3 uppercase tracking-[1px]">{title}</p>
+            <p className={`text-3xl md:text-4xl ${styles.text}`} style={{ fontWeight: 300 }}>
+              {value}
+            </p>
+          </div>
         {Icon && (
           <div className={`p-2 rounded-lg bg-slate-800/50 ${styles.text}`}>
             <Icon size={20} />

@@ -38,24 +38,24 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.4 }}
-      className="relative rounded-xl p-5 md:p-6 border backdrop-blur-xl"
+      className="relative p-8"
       style={{
-        backgroundColor: 'rgba(30, 41, 59, 0.4)',
-        borderColor: 'rgba(100, 116, 139, 0.3)',
-        boxShadow: '0 4px 24px 0 rgba(15, 23, 42, 0.5), 0 0 1px rgba(148, 163, 184, 0.1)'
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        borderRadius: '16px'
       }}
     >
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-cyan-400 font-medium flex items-center gap-2">
-          <Calculator size={18} />
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-cyan-400 flex items-center gap-2 text-[10px] uppercase tracking-[1px]">
+          <Calculator size={16} />
           מה אם?
         </h3>
-        <HelpCircle size={16} className="text-slate-500" />
+        <HelpCircle size={14} className="text-slate-500" />
       </div>
 
       <div className="space-y-4">
         <div>
-          <Label className="text-slate-400 text-xs mb-1.5 block">תיאור ההוצאה (אופציונלי)</Label>
+          <Label className="text-[#94a3b8] text-[10px] mb-2 block uppercase tracking-[1px]">תיאור ההוצאה (אופציונלי)</Label>
           <Input
             placeholder="לדוגמה: מחשב חדש"
             value={expenseName}
@@ -66,7 +66,7 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
         </div>
 
         <div>
-          <Label className="text-slate-400 text-xs mb-1.5 block">סכום ההוצאה הצפויה</Label>
+          <Label className="text-[#94a3b8] text-[10px] mb-2 block uppercase tracking-[1px]">סכום ההוצאה הצפויה</Label>
           <Input
             type="number"
             placeholder="₪0.00"
