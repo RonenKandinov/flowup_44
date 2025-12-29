@@ -135,7 +135,7 @@ export default function Dashboard() {
   const hasData = snapshot && snapshot.current_balance !== undefined;
 
   return (
-    <div className="min-h-screen bg-[#0f172a]" dir="rtl" style={{ fontFamily: "'Heebo', 'Assistant', sans-serif" }}>
+    <div className="min-h-screen bg-[#020617]" dir="rtl" style={{ fontFamily: "'Heebo', 'Assistant', sans-serif" }}>
       {/* Background pattern */}
       <div className="fixed inset-0 opacity-30 pointer-events-none">
         <div className="absolute inset-0" style={{
@@ -235,11 +235,9 @@ export default function Dashboard() {
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="relative rounded-xl p-6 border backdrop-blur-xl"
+                  className="relative rounded-xl p-6 bg-white/5 backdrop-blur-xl border border-white/10"
                   style={{
-                    backgroundColor: 'rgba(30, 41, 59, 0.4)',
-                    borderColor: 'rgba(100, 116, 139, 0.3)',
-                    boxShadow: '0 4px 24px 0 rgba(15, 23, 42, 0.5), 0 0 1px rgba(148, 163, 184, 0.1)'
+                    boxShadow: '0 8px 40px 0 rgba(0, 0, 0, 0.4)'
                   }}
                 >
                   <SpeedometerGauge

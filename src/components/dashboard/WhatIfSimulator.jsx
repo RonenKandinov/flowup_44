@@ -38,43 +38,39 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.4 }}
-      className="relative rounded-xl p-5 md:p-6 border backdrop-blur-xl"
+      className="relative rounded-xl p-5 md:p-6 bg-white/5 backdrop-blur-xl border border-white/10"
       style={{
-        backgroundColor: 'rgba(30, 41, 59, 0.4)',
-        borderColor: 'rgba(100, 116, 139, 0.3)',
-        boxShadow: '0 4px 24px 0 rgba(15, 23, 42, 0.5), 0 0 1px rgba(148, 163, 184, 0.1)'
+        boxShadow: '0 8px 40px 0 rgba(0, 0, 0, 0.4)'
       }}
     >
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-cyan-400 font-medium flex items-center gap-2">
-          <Calculator size={18} />
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-[10px] uppercase tracking-widest text-slate-500 flex items-center gap-2">
+          <Calculator size={14} />
           מה אם?
         </h3>
-        <HelpCircle size={16} className="text-slate-500" />
+        <HelpCircle size={14} className="text-slate-600" />
       </div>
 
       <div className="space-y-4">
         <div>
-          <Label className="text-slate-400 text-xs mb-1.5 block">תיאור ההוצאה (אופציונלי)</Label>
+          <Label className="text-[9px] uppercase tracking-widest text-slate-500 mb-2 block">תיאור ההוצאה (אופציונלי)</Label>
           <Input
             placeholder="לדוגמה: מחשב חדש"
             value={expenseName}
             onChange={(e) => setExpenseName(e.target.value)}
-            className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/50 transition-all"
-            style={{ boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.3)' }}
+            className="bg-white/5 border-white/10 text-slate-100 placeholder:text-slate-600 focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30 transition-all"
           />
         </div>
 
         <div>
-          <Label className="text-slate-400 text-xs mb-1.5 block">סכום ההוצאה הצפויה</Label>
+          <Label className="text-[9px] uppercase tracking-widest text-slate-500 mb-2 block">סכום ההוצאה הצפויה</Label>
           <Input
             type="number"
             placeholder="₪0.00"
             value={expenseAmount}
             onChange={(e) => setExpenseAmount(e.target.value)}
-            className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/50 transition-all text-base"
+            className="bg-white/5 border-white/10 text-slate-100 placeholder:text-slate-600 focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30 transition-all text-base font-light tracking-tight"
             dir="ltr"
-            style={{ boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.3)' }}
           />
         </div>
 
@@ -84,7 +80,7 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
             <button
               key={amount}
               onClick={() => setExpenseAmount(amount.toString())}
-              className="px-3 py-1.5 rounded-lg text-[10px] bg-slate-700/40 text-slate-300 hover:bg-cyan-500/20 hover:text-cyan-400 hover:shadow-lg hover:shadow-cyan-500/20 transition-all duration-200"
+              className="px-3 py-1.5 rounded-lg text-[9px] font-light tracking-tight bg-white/5 border border-white/10 text-slate-300 hover:bg-cyan-500/10 hover:border-cyan-500/30 hover:text-cyan-400 transition-all duration-200"
             >
               ₪{amount.toLocaleString('he-IL')}
             </button>
