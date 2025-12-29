@@ -16,6 +16,7 @@ export const processAndForecast = (csvText) => {
 
         const transactions = [];
         const dailyBalances = new Map();
+        let actualCurrentBalance = 0;
 
         // Parse Israeli Bank format (skip header)
         for (let i = 1; i < lines.length; i++) {
@@ -28,18 +29,26 @@ export const processAndForecast = (csvText) => {
             // Column 0: תאריך (Date)
             // Column 6: חובה (Debit/Expense)
             // Column 7: זכות (Credit/Income)
+            // Column 8: יתרה לאחר פעולה (Balance after transaction)
             
             const date = parts[0] || null;
             const debitStr = parts[6]?.replace(/[^\d.-]/g, '') || '0';
             const creditStr = parts[7]?.replace(/[^\d.-]/g, '') || '0';
+            const balanceStr = parts[8]?.replace(/[^\d.-]/g, '') || '0';
             
             const debit = parseFloat(debitStr);
             const credit = parseFloat(creditStr);
+            const balance = parseFloat(balanceStr);
             
             // Calculate net amount (credit is positive, debit is negative)
             const debitAmount = isNaN(debit) ? 0 : debit;
             const creditAmount = isNaN(credit) ? 0 : credit;
             const amount = creditAmount - debitAmount;
+
+            // Track the last valid balance (Column 8)
+            if (!isNaN(balance) && balance !== 0) {
+                actualCurrentBalance = balance;
+            }
 
             // Only add if there's actual movement
             if (amount !== 0) {
@@ -84,8 +93,8 @@ export const processAndForecast = (csvText) => {
         // 6. Apply 17% Safety Buffer (Standard Deviation Risk Management)
         const safeForecast = rawForecast * 0.83;
 
-        // 7. Calculate current balance (sum of all transactions)
-        const currentBalance = transactions.reduce((a, b) => a + b, 0);
+        // 7. Use actual current balance from Column 8 (last row)
+        const currentBalance = actualCurrentBalance;
         
         // 8. Project end of month balance
         const projectedEOM = currentBalance + safeForecast;
