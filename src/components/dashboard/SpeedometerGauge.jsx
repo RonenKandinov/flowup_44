@@ -31,35 +31,24 @@ export default function SpeedometerGauge({
   }, [adjustedBalance, riskLevel]);
 
   return (
-    <div className="relative flex flex-col items-center py-8">
+    <div className="relative flex flex-col items-center justify-center py-10">
       {/* SVG Gauge */}
       <svg 
         viewBox="0 0 240 160" 
-        className="w-full max-w-[320px] md:max-w-[400px]"
+        className="w-full max-w-[320px] md:max-w-[380px]"
       >
         <defs>
-          {/* High-definition gradient with distinct zones */}
-          <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#ef4444" />
-            <stop offset="35%" stopColor="#ef4444" />
-            <stop offset="40%" stopColor="#f59e0b" />
-            <stop offset="65%" stopColor="#f59e0b" />
-            <stop offset="70%" stopColor="#10b981" />
-            <stop offset="100%" stopColor="#10b981" />
-          </linearGradient>
-          
-          {/* Glow effect */}
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+          {/* Glow effects */}
+          <filter id="segmentGlow">
+            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
             <feMerge>
               <feMergeNode in="coloredBlur"/>
               <feMergeNode in="SourceGraphic"/>
             </feMerge>
           </filter>
 
-          {/* Needle glow */}
           <filter id="needleGlow">
-            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
             <feMerge>
               <feMergeNode in="coloredBlur"/>
               <feMergeNode in="SourceGraphic"/>
@@ -67,32 +56,44 @@ export default function SpeedometerGauge({
           </filter>
         </defs>
         
-        {/* Main Arc */}
+        {/* Risk Zone (Red) - Left segment */}
         <path
-          d="M 40 130 A 80 80 0 0 1 200 130"
+          d="M 40 130 A 80 80 0 0 1 85 62"
           fill="none"
-          stroke="url(#gaugeGradient)"
-          strokeWidth="20"
+          stroke="#ef4444"
+          strokeWidth="16"
           strokeLinecap="round"
-          filter="url(#glow)"
-          opacity="0.9"
+          filter="url(#segmentGlow)"
+          opacity="0.85"
         />
         
-        {/* Background arc (darker) */}
+        {/* Warning Zone (Amber) - Middle segment */}
         <path
-          d="M 40 130 A 80 80 0 0 1 200 130"
+          d="M 91 59 A 80 80 0 0 1 149 59"
           fill="none"
-          stroke="#1e293b"
-          strokeWidth="22"
+          stroke="#f59e0b"
+          strokeWidth="16"
           strokeLinecap="round"
-          opacity="0.3"
+          filter="url(#segmentGlow)"
+          opacity="0.85"
         />
         
-        {/* Tick marks */}
-        {[-45, -22.5, 0, 22.5, 45].map((tickAngle, i) => {
+        {/* Safe Zone (Emerald) - Right segment */}
+        <path
+          d="M 155 62 A 80 80 0 0 1 200 130"
+          fill="none"
+          stroke="#10b981"
+          strokeWidth="16"
+          strokeLinecap="round"
+          filter="url(#segmentGlow)"
+          opacity="0.85"
+        />
+        
+        {/* Subtle tick marks */}
+        {[-45, 0, 45].map((tickAngle, i) => {
           const radians = (tickAngle - 90) * (Math.PI / 180);
-          const innerRadius = 70;
-          const outerRadius = 85;
+          const innerRadius = 72;
+          const outerRadius = 82;
           const x1 = 120 + Math.cos(radians) * innerRadius;
           const y1 = 130 + Math.sin(radians) * innerRadius;
           const x2 = 120 + Math.cos(radians) * outerRadius;
@@ -106,71 +107,71 @@ export default function SpeedometerGauge({
               x2={x2}
               y2={y2}
               stroke="#475569"
-              strokeWidth="2"
+              strokeWidth="1.5"
               strokeLinecap="round"
+              opacity="0.5"
             />
           );
         })}
         
-        {/* Animated Needle */}
+        {/* Elegant Needle */}
         <motion.g
           initial={{ rotate: 0 }}
           animate={{ rotate: angle }}
-          transition={{ type: "spring", stiffness: 50, damping: 20 }}
+          transition={{ type: "spring", stiffness: 60, damping: 15 }}
           style={{ transformOrigin: '120px 130px' }}
         >
-          {/* Needle shadow */}
-          <path
-            d="M 120 130 L 118 75 L 120 70 L 122 75 Z"
-            fill="#000"
-            opacity="0.3"
-            transform="translate(2, 2)"
-          />
-          
-          {/* Needle body */}
-          <path
-            d="M 120 130 L 118 75 L 120 70 L 122 75 Z"
-            fill="url(#needleGradient)"
+          {/* Needle line */}
+          <line
+            x1="120"
+            y1="130"
+            x2="120"
+            y2="60"
+            stroke="url(#needleGradient)"
+            strokeWidth="2.5"
+            strokeLinecap="round"
             filter="url(#needleGlow)"
           />
           
           <defs>
-            <linearGradient id="needleGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#ffd700" />
-              <stop offset="100%" stopColor="#ff8c00" />
+            <linearGradient id="needleGradient" x1="0%" y1="100%" x2="0%" y2="0%">
+              <stop offset="0%" stopColor="#ffd700" stopOpacity="0.4" />
+              <stop offset="50%" stopColor="#ffd700" stopOpacity="1" />
+              <stop offset="100%" stopColor="#ffffff" stopOpacity="1" />
             </linearGradient>
           </defs>
         </motion.g>
         
         {/* Center hub */}
-        <circle cx="120" cy="130" r="12" fill="#1e293b" />
-        <circle cx="120" cy="130" r="8" fill="#ffd700" filter="url(#needleGlow)" />
-        <circle cx="120" cy="130" r="4" fill="#fff" />
+        <circle cx="120" cy="130" r="8" fill="#1e293b" opacity="0.9" />
+        <circle cx="120" cy="130" r="5" fill="#ffd700" filter="url(#needleGlow)" opacity="0.95" />
+        <circle cx="120" cy="130" r="2" fill="#fff" />
       </svg>
       
       {/* Balance Display */}
-      <div className="text-center mt-4 flex flex-col items-center justify-center">
-        <p className="text-sm text-slate-400 mb-2">יתרה בטוחה לסוף החודש</p>
+      <div className="text-center mt-6 flex flex-col items-center justify-center w-full">
+        <p className="text-xs text-slate-400 mb-2 tracking-wide">יתרה בטוחה לסוף החודש</p>
         <motion.p 
           key={adjustedBalance}
-          initial={{ scale: 0.9, opacity: 0 }}
+          initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="text-4xl md:text-5xl font-bold mb-2"
+          className="text-3xl md:text-4xl font-bold mb-1"
           style={{ 
             color: '#ffd700',
-            textShadow: '0 0 30px rgba(255, 215, 0, 0.6)',
-            direction: 'ltr'
+            textShadow: '0 0 20px rgba(255, 215, 0, 0.4)',
+            direction: 'ltr',
+            letterSpacing: '-0.02em'
           }}
         >
           ₪{adjustedBalance.toLocaleString('he-IL')}
         </motion.p>
         
-        <div className="flex items-center justify-center gap-2 text-xs text-slate-500">
+        <div className="flex items-center justify-center gap-2 text-[10px] text-slate-500 mt-1">
           <span>מרווח בטיחות {Math.round(safetyBuffer * 100)}%</span>
         </div>
         
         {riskDay && (
-          <p className="text-sm mt-3">
+          <p className="text-xs mt-3">
             <span className="text-slate-400">יום סיכון: </span>
             <span style={{ color }}>{riskDay}</span>
           </p>

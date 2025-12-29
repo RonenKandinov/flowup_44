@@ -38,10 +38,11 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.4 }}
-      className="relative rounded-xl p-5 md:p-6 border border-slate-700/50 backdrop-blur-xl"
+      className="relative rounded-xl p-5 md:p-6 border backdrop-blur-xl"
       style={{
-        backgroundColor: 'rgba(30, 41, 59, 0.6)',
-        boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37), 0 0 20px rgba(139, 92, 246, 0.1)'
+        backgroundColor: 'rgba(30, 41, 59, 0.4)',
+        borderColor: 'rgba(100, 116, 139, 0.3)',
+        boxShadow: '0 4px 24px 0 rgba(15, 23, 42, 0.5), 0 0 1px rgba(148, 163, 184, 0.1)'
       }}
     >
       <div className="flex items-center justify-between mb-4">
@@ -83,7 +84,7 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
             <button
               key={amount}
               onClick={() => setExpenseAmount(amount.toString())}
-              className="px-3 py-1.5 rounded-full text-[11px] bg-slate-700/50 text-slate-300 hover:bg-cyan-500/20 hover:text-cyan-400 transition-colors"
+              className="px-3 py-1.5 rounded-lg text-[10px] bg-slate-700/40 text-slate-300 hover:bg-cyan-500/20 hover:text-cyan-400 hover:shadow-lg hover:shadow-cyan-500/20 transition-all duration-200"
             >
               ₪{amount.toLocaleString('he-IL')}
             </button>
@@ -93,7 +94,7 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
         <div className="flex gap-2">
           <Button
             onClick={handleSimulate}
-            className="flex-1 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white font-medium shadow-lg shadow-cyan-500/25"
+            className="flex-1 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white font-medium shadow-lg shadow-cyan-500/30 hover:shadow-cyan-500/50 transition-all"
           >
             חשב
           </Button>

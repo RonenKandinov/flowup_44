@@ -30,10 +30,11 @@ export default function RiskZoneChart({ data, riskThreshold = 0, criticalDate })
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.3 }}
-      className="relative rounded-xl p-5 md:p-6 border border-slate-700/50 backdrop-blur-xl"
+      className="relative rounded-xl p-5 md:p-6 border backdrop-blur-xl"
       style={{
-        backgroundColor: 'rgba(30, 41, 59, 0.6)',
-        boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37), 0 0 20px rgba(34, 211, 238, 0.1)'
+        backgroundColor: 'rgba(30, 41, 59, 0.4)',
+        borderColor: 'rgba(100, 116, 139, 0.3)',
+        boxShadow: '0 4px 24px 0 rgba(15, 23, 42, 0.5), 0 0 1px rgba(148, 163, 184, 0.1)'
       }}
     >
       <div className="flex items-center justify-between mb-4">
