@@ -42,9 +42,16 @@ export default function StatCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.5 }}
-      className="relative overflow-hidden rounded-xl p-5 md:p-6 bg-white/5 backdrop-blur-xl border border-white/10"
+      className={`
+        relative overflow-hidden rounded-xl p-5 md:p-6
+        border ${styles.border}
+        backdrop-blur-xl
+        shadow-lg ${styles.glow}
+      `}
       style={{
-        boxShadow: '0 8px 40px 0 rgba(0, 0, 0, 0.4)'
+        backgroundColor: 'rgba(30, 41, 59, 0.4)',
+        borderColor: 'rgba(100, 116, 139, 0.3)',
+        boxShadow: '0 4px 24px 0 rgba(15, 23, 42, 0.5), 0 0 1px rgba(148, 163, 184, 0.1)'
       }}
     >
       {/* Decorative circuit lines */}
@@ -62,8 +69,8 @@ export default function StatCard({
 
       <div className="flex items-start justify-between" dir="rtl">
         <div className="text-right flex-1">
-          <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-3">{title}</p>
-          <p className="text-3xl md:text-4xl font-light tracking-tight text-slate-100">
+          <p className="text-slate-400 text-sm mb-2">{title}</p>
+          <p className={`text-3xl md:text-4xl font-bold ${styles.text}`}>
             {value}
           </p>
         </div>

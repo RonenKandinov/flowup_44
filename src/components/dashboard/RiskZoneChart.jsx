@@ -30,14 +30,16 @@ export default function RiskZoneChart({ data, riskThreshold = 0, criticalDate })
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.3 }}
-      className="relative rounded-xl p-5 md:p-6 bg-white/5 backdrop-blur-xl border border-white/10"
+      className="relative rounded-xl p-5 md:p-6 border backdrop-blur-xl"
       style={{
-        boxShadow: '0 8px 40px 0 rgba(0, 0, 0, 0.4)'
+        backgroundColor: 'rgba(30, 41, 59, 0.4)',
+        borderColor: 'rgba(100, 116, 139, 0.3)',
+        boxShadow: '0 4px 24px 0 rgba(15, 23, 42, 0.5), 0 0 1px rgba(148, 163, 184, 0.1)'
       }}
     >
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-[10px] uppercase tracking-widest text-slate-500 flex items-center gap-2">
-          <TrendingDown size={14} />
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-cyan-400 font-medium flex items-center gap-2">
+          <TrendingDown size={18} />
           אזור סיכון
         </h3>
       </div>
