@@ -17,32 +17,32 @@ export const processAndForecast = (csvText) => {
         const transactions = [];
         const dailyBalances = new Map();
 
-        // Parse transactions (skip header)
+        // Parse Israeli Bank format (skip header)
         for (let i = 1; i < lines.length; i++) {
             const line = lines[i].trim();
             if (!line) continue;
             
             const parts = line.split(',').map(p => p.trim().replace(/"/g, ''));
             
-            // Try to find amount column (usually contains numbers with optional minus)
-            let amount = null;
-            let date = null;
+            // Israeli Bank format:
+            // Column 0: תאריך (Date)
+            // Column 6: חובה (Debit/Expense)
+            // Column 7: זכות (Credit/Income)
             
-            for (const part of parts) {
-                // Check if this looks like a date
-                if (part.includes('/') || part.includes('-')) {
-                    date = part;
-                }
-                
-                // Check if this looks like an amount
-                const cleaned = part.replace(/[^\d.-]/g, '');
-                const parsed = parseFloat(cleaned);
-                if (!isNaN(parsed) && parsed !== 0 && !amount) {
-                    amount = parsed;
-                }
-            }
+            const date = parts[0] || null;
+            const debitStr = parts[6]?.replace(/[^\d.-]/g, '') || '0';
+            const creditStr = parts[7]?.replace(/[^\d.-]/g, '') || '0';
+            
+            const debit = parseFloat(debitStr);
+            const credit = parseFloat(creditStr);
+            
+            // Calculate net amount (credit is positive, debit is negative)
+            const debitAmount = isNaN(debit) ? 0 : debit;
+            const creditAmount = isNaN(credit) ? 0 : credit;
+            const amount = creditAmount - debitAmount;
 
-            if (amount !== null) {
+            // Only add if there's actual movement
+            if (amount !== 0) {
                 transactions.push(amount);
                 
                 if (date) {
