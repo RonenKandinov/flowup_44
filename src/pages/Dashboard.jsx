@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, TrendingUp, TrendingDown, DollarSign, Loader2 } from 'lucide-react';
+import { Upload, TrendingUp, TrendingDown, Wallet, Loader2, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import StatCard from '@/components/visuals/StatCard';
 import SpeedometerGauge from '@/components/visuals/SpeedometerGauge';
 import RiskChart from '@/components/visuals/RiskChart';
+import RiskStatusIndicator from '@/components/visuals/RiskStatusIndicator';
 import { processAndForecast } from '@/components/utils/forecastingLogic';
 import { dbService } from '@/components/utils/dbService';
 
@@ -65,26 +66,28 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#050505' }}>
-        <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
       </div>
     );
   }
 
   if (!data) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: '#050505' }}>
+      <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center max-w-md"
+          className="text-center max-w-xl"
+          dir="rtl"
         >
           <div className="mb-8">
-            <div className="w-24 h-24 mx-auto rounded-full bg-white/[0.02] backdrop-blur-xl border border-white/[0.05] flex items-center justify-center mb-6">
-              <Upload className="w-10 h-10 text-cyan-400" strokeWidth={1.5} />
+            <div className="w-32 h-32 mx-auto rounded-3xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mb-8 shadow-xl">
+              <Upload className="w-16 h-16 text-white" strokeWidth={2} />
             </div>
-            <h1 className="text-4xl font-extralight text-white mb-3">FlowUp Pro</h1>
-            <p className="text-slate-500 text-sm">העלה דוח בנק לתחזית פיננסית מתקדמת</p>
+            <h1 className="text-5xl font-bold text-slate-800 mb-4">FlowUp Pro</h1>
+            <p className="text-slate-600 text-lg mb-2">מערכת תחזית פיננסית מתקדמת</p>
+            <p className="text-slate-500 text-sm">העלה דוח בנק לקבלת תחזית היברידית עם 17% מרווח בטיחות</p>
           </div>
 
           <label className="cursor-pointer">
@@ -95,17 +98,27 @@ export default function Dashboard() {
               className="hidden"
               disabled={uploading}
             />
-            <div className="px-8 py-4 bg-white/[0.02] backdrop-blur-xl border border-white/[0.05] rounded-xl hover:bg-white/[0.04] transition-all">
+            <div className="inline-block px-12 py-5 bg-white rounded-2xl shadow-lg border-2 border-blue-200 hover:border-blue-400 hover:shadow-xl transition-all">
               {uploading ? (
-                <div className="flex items-center gap-3 text-cyan-400">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span className="font-light">מעבד...</span>
+                <div className="flex items-center gap-3 text-blue-600">
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                  <span className="font-semibold text-lg">מעבד קובץ...</span>
                 </div>
               ) : (
-                <span className="text-cyan-400 font-light">בחר קובץ CSV</span>
+                <div className="flex items-center gap-3">
+                  <Upload className="w-6 h-6 text-blue-600" />
+                  <span className="text-blue-600 font-bold text-lg">העלה קובץ CSV</span>
+                </div>
               )}
             </div>
           </label>
+
+          <div className="mt-12 p-6 bg-white rounded-2xl shadow-sm border border-slate-200">
+            <div className="flex items-center gap-3 text-slate-600 text-sm">
+              <Shield className="w-5 h-5 text-blue-500" />
+              <span>הנתונים שלך מאובטחים ונשארים פרטיים לחלוטין</span>
+            </div>
+          </div>
         </motion.div>
       </div>
     );
@@ -114,7 +127,7 @@ export default function Dashboard() {
   const whatIfAmount = parseFloat(whatIfValue) || 0;
 
   return (
-    <div className="min-h-screen p-6" style={{ backgroundColor: '#050505' }}>
+    <div className="min-h-screen p-6 bg-slate-50" dir="rtl">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <motion.div
@@ -123,8 +136,8 @@ export default function Dashboard() {
           className="mb-8 flex items-center justify-between"
         >
           <div>
-            <h1 className="text-4xl font-extralight text-white mb-2">FlowUp Pro</h1>
-            <p className="text-slate-500 text-sm">תחזית היברידית עם 17% מרווח בטיחות</p>
+            <h1 className="text-4xl font-bold text-slate-800 mb-2">FlowUp Pro</h1>
+            <p className="text-slate-600 text-sm font-medium">תחזית היברידית • 17% מרווח בטיחות</p>
           </div>
           <label className="cursor-pointer">
             <input
@@ -135,41 +148,51 @@ export default function Dashboard() {
               disabled={uploading}
             />
             <Button
-              variant="ghost"
-              className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.05] text-slate-400 hover:text-cyan-400 hover:bg-white/[0.04]"
+              variant="outline"
+              className="bg-white border-slate-300 text-slate-700 hover:bg-slate-100 font-medium"
               disabled={uploading}
             >
               {uploading ? (
-                <Loader2 className="w-4 h-4 ml-2 animate-spin" />
+                <>
+                  <Loader2 className="w-4 h-4 ml-2 animate-spin" />
+                  מעלה...
+                </>
               ) : (
-                <Upload className="w-4 h-4 ml-2" strokeWidth={1.5} />
+                <>
+                  <Upload className="w-4 h-4 ml-2" strokeWidth={2} />
+                  העלה מחדש
+                </>
               )}
-              העלה מחדש
             </Button>
           </label>
         </motion.div>
 
+        {/* Risk Status Indicator */}
+        <div className="mb-8">
+          <RiskStatusIndicator status={data.riskStatus} />
+        </div>
+
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <StatCard
             label="יתרה נוכחית"
             value={`₪${data.currentBalance.toLocaleString('he-IL')}`}
-            icon={DollarSign}
-            color="cyan"
+            icon={Wallet}
+            color="blue"
             delay={0}
           />
           <StatCard
             label="הכנסות החודש"
             value={`₪${data.totalIncome.toLocaleString('he-IL')}`}
             icon={TrendingUp}
-            color="cyan"
+            color="green"
             delay={0.1}
           />
           <StatCard
             label="הוצאות החודש"
             value={`₪${data.totalExpense.toLocaleString('he-IL')}`}
             icon={TrendingDown}
-            color="rose"
+            color="red"
             delay={0.2}
           />
         </div>
@@ -189,25 +212,27 @@ export default function Dashboard() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.3 }}
-              className="p-6 bg-white/[0.02] backdrop-blur-xl border border-white/[0.05] rounded-2xl"
+              className="p-6 bg-white rounded-2xl shadow-sm border border-slate-200"
             >
-              <h3 className="text-[10px] uppercase tracking-widest text-slate-500 font-light mb-4">
-                מדמה מה-אם
+              <h3 className="text-sm font-semibold text-slate-700 mb-4">
+                סימולטור הוצאות עתידיות
               </h3>
               <div className="relative">
                 <input
                   type="number"
-                  placeholder="הוצאה נוספת..."
+                  placeholder="הזן סכום הוצאה..."
                   value={whatIfValue}
                   onChange={(e) => setWhatIfValue(e.target.value)}
-                  className="w-full bg-transparent border-b border-white/[0.1] text-white font-light text-2xl pb-2 outline-none focus:border-cyan-400 transition-colors placeholder:text-slate-700"
+                  className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl text-slate-800 font-semibold text-2xl px-4 py-3 outline-none focus:border-blue-400 transition-colors placeholder:text-slate-400"
                 />
-                <span className="absolute left-0 bottom-2 text-slate-600 text-sm">₪</span>
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-xl font-bold">₪</span>
               </div>
               {whatIfAmount > 0 && (
-                <p className="text-xs text-slate-500 mt-3">
-                  השפעה: ₪{(data.projectedEOM - whatIfAmount).toLocaleString('he-IL')}
-                </p>
+                <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-sm text-blue-700 font-medium">
+                    יתרה לאחר הוצאה: <span className="font-bold">₪{(data.projectedEOM - whatIfAmount).toLocaleString('he-IL')}</span>
+                  </p>
+                </div>
               )}
             </motion.div>
           </div>
@@ -215,15 +240,28 @@ export default function Dashboard() {
           <RiskChart data={data.graphPoints.length > 0 ? data.graphPoints : [{ date: 'יום 1', balance: data.projectedEOM }]} />
         </div>
 
+        {/* Safety Buffer Info */}
+        {data.safetyBuffer && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="p-5 bg-blue-50 border-2 border-blue-200 rounded-2xl text-center"
+          >
+            <p className="text-blue-700 font-semibold text-sm">
+              🛡️ מרווח בטיחות של 17%: <span className="text-xl">₪{data.safetyBuffer.toLocaleString('he-IL')}</span>
+            </p>
+          </motion.div>
+        )}
+
         {/* Risk Alert */}
         {data.riskDay && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-center"
+            className="mt-6 p-5 bg-red-50 border-2 border-red-300 rounded-2xl text-center"
           >
-            <p className="text-rose-400 text-sm font-light">
-              ⚠️ אזהרה: יתרה קריטית צפויה ב-{data.riskDay}
+            <p className="text-red-700 font-bold text-lg">
+              ⚠️ אזהרה: יתרה שלילית צפויה ב-{data.riskDay}
             </p>
           </motion.div>
         )}
