@@ -22,9 +22,9 @@ export default function Dashboard() {
   }, [safeBalance]);
 
   return (
-    <div className="min-h-screen bg-[#040b14] text-slate-100 p-4 md:p-10 font-sans tracking-tight" dir="rtl">
+    <div className="min-h-screen bg-[#0b0f19] text-slate-100 p-4 md:p-10 font-['Assistant',_'Heebo',_sans-serif] tracking-tight" dir="rtl">
       {/* המכל המרכזי בעיצוב התמונה */}
-      <div className="max-w-5xl mx-auto bg-[#0a1622]/80 border border-cyan-900/40 rounded-[2rem] p-8 md:p-10 shadow-[0_0_60px_rgba(0,0,0,0.6)] backdrop-blur-xl relative overflow-hidden">
+      <div className="max-w-5xl mx-auto bg-[#0f1419]/80 border border-cyan-500/20 rounded-[2rem] p-8 md:p-10 shadow-[0_0_80px_rgba(6,182,212,0.15)] backdrop-blur-xl relative overflow-hidden">
         
         {/* כותרת עליונה בסגנון הייטק */}
         <div className="text-center mb-12">
@@ -37,27 +37,55 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center mb-12">
           
           {/* כרטיס הכנסות - ירוק ניאון */}
-          <div className="bg-[#0f2030] border border-[#22c55e]/30 rounded-2xl p-6 text-center shadow-[0_0_20px_rgba(34,197,94,0.05)]">
+          <div className="bg-[#0f2030] border border-[#22c55e]/30 rounded-2xl p-6 text-center shadow-[0_0_25px_rgba(34,197,94,0.2)]">
             <Landmark className="mx-auto mb-3 text-[#22c55e]/50" size={24} />
             <h3 className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-2">סיכום הכנסות</h3>
             <div className="text-4xl font-mono font-black text-[#22c55e]">₪{income.toLocaleString()}</div>
           </div>
 
-          {/* הרמזור המרכזי - ה-UI המדויק */}
+          {/* הרמזור המרכזי - HD Gradient Arc */}
           <div className="relative flex flex-col items-center">
             <div className="relative w-64 h-36">
               <svg width="100%" height="100%" viewBox="0 0 200 120">
-                {/* קשת רקע */}
-                <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="#162c46" strokeWidth="14" strokeLinecap="round" />
-                {/* קשתות צבעוניות מופרדות */}
-                <path d="M20 100 A80 80 0 0 1 73 45" fill="none" stroke="#22c55e" strokeWidth="14" strokeLinecap="round" /> {/* ירוק */}
-                <path d="M78 42 A80 80 0 0 1 122 42" fill="none" stroke="#eab308" strokeWidth="14" strokeLinecap="round" /> {/* צהוב */}
-                <path d="M127 45 A80 80 0 0 1 180 100" fill="none" stroke="#ef4444" strokeWidth="14" strokeLinecap="round" /> {/* אדום */}
+                <defs>
+                  <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#10b981" stopOpacity="1" />
+                    <stop offset="50%" stopColor="#f59e0b" stopOpacity="1" />
+                    <stop offset="100%" stopColor="#ef4444" stopOpacity="1" />
+                  </linearGradient>
+                  <filter id="neonGlow">
+                    <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                    <feMerge>
+                      <feMergeNode in="coloredBlur"/>
+                      <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                  </filter>
+                </defs>
                 
-                {/* המחוג */}
+                {/* קשת רקע */}
+                <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="#1a2332" strokeWidth="16" strokeLinecap="round" />
+                
+                {/* קשת גרדיאנט HD */}
+                <path 
+                  d="M20 100 A80 80 0 0 1 180 100" 
+                  fill="none" 
+                  stroke="url(#gaugeGradient)" 
+                  strokeWidth="14" 
+                  strokeLinecap="round"
+                  filter="url(#neonGlow)"
+                />
+                
+                {/* המחוג - ניאון כתום זוהר */}
                 <g transform={`rotate(${needleRotation} 100 100)`}>
-                  <line x1="100" y1="100" x2="40" y2="100" stroke="white" strokeWidth="3" strokeLinecap="round" />
-                  <circle cx="100" cy="100" r="5" fill="white" />
+                  <line 
+                    x1="100" y1="100" x2="40" y2="100" 
+                    stroke="#ff6b35" 
+                    strokeWidth="4" 
+                    strokeLinecap="round"
+                    filter="url(#neonGlow)"
+                  />
+                  <circle cx="100" cy="100" r="6" fill="#ff6b35" filter="url(#neonGlow)" />
+                  <circle cx="100" cy="100" r="3" fill="#ffffff" />
                 </g>
               </svg>
             </div>
@@ -71,10 +99,10 @@ export default function Dashboard() {
           </div>
 
           {/* כרטיס הוצאות - כתום ענבר */}
-          <div className="bg-[#0f2030] border border-[#f59e0b]/30 rounded-2xl p-6 text-center shadow-[0_0_20px_rgba(245,158,11,0.05)]">
-            <Wallet className="mx-auto mb-3 text-[#f59e0b]/50" size={24} />
+          <div className="bg-[#0f2030] border border-[#ef4444]/30 rounded-2xl p-6 text-center shadow-[0_0_25px_rgba(239,68,68,0.2)]">
+            <Wallet className="mx-auto mb-3 text-[#ef4444]/50" size={24} />
             <h3 className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-2">סיכום הוצאות</h3>
-            <div className="text-4xl font-mono font-black text-[#f59e0b]">-₪{spending.toLocaleString()}</div>
+            <div className="text-4xl font-mono font-black text-[#ef4444]">-₪{spending.toLocaleString()}</div>
           </div>
 
         </div>
@@ -83,7 +111,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
           
           {/* גרף Risk Zone - בצבע כחול ציאן */}
-          <div className="bg-[#06121e] border border-orange-900/30 rounded-3xl p-6 relative">
+          <div className="bg-[#0a0f19] border border-orange-500/20 rounded-3xl p-6 relative shadow-[0_0_30px_rgba(249,115,22,0.15)]">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-orange-500 text-[11px] font-bold uppercase tracking-widest">אזור סיכון (Risk Zone)</h3>
               <TrendingUp size={16} className="text-slate-600" />
@@ -99,7 +127,7 @@ export default function Dashboard() {
           </div>
 
           {/* סימולטור What If - השדה ריק */}
-          <div className="bg-[#0b1b2b] border border-cyan-500/30 rounded-3xl p-6">
+          <div className="bg-[#0a0f19] border border-cyan-500/30 rounded-3xl p-6 shadow-[0_0_30px_rgba(6,182,212,0.15)]">
             <div className="flex justify-between items-center mb-4 text-cyan-400">
               <h3 className="text-[11px] font-bold uppercase tracking-widest">סימולטור What If</h3>
               <HelpCircle size={18} className="opacity-50" />
