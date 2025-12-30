@@ -6,29 +6,28 @@ export default function SmoothGauge({ projectedBalance, riskDay }) {
   const MIN_RANGE = -10000;
   const MAX_RANGE = 20000;
   
-  // Calculate percentage and needle angle
-  const { percentage, angle, color, riskLevel } = useMemo(() => {
-    // Clamp percentage between 0-100
-    let pct = ((projectedBalance - MIN_RANGE) / (MAX_RANGE - MIN_RANGE)) * 100;
-    pct = Math.max(0, Math.min(100, pct));
+  // Snap-to-angle logic: 150°/90°/30° based on projectedEOM
+  const { angle, color, riskLevel } = useMemo(() => {
+    let ang, col, risk;
     
-    // Convert percentage to angle (-90deg to +90deg)
-    const ang = -90 + (pct * 1.8); // 180 degrees total range
-    
-    // Determine color and risk based on value
-    let col, risk;
-    if (projectedBalance < 0) {
-      col = '#ef4444'; // Red
+    if (projectedBalance <= 0) {
+      // RED ZONE: 150°
+      ang = 150;
+      col = '#ef4444';
       risk = 'red';
-    } else if (projectedBalance < 5000) {
-      col = '#eab308'; // Yellow
+    } else if (projectedBalance < 2000) {
+      // YELLOW ZONE: 90° (center)
+      ang = 90;
+      col = '#eab308';
       risk = 'yellow';
     } else {
-      col = '#22c55e'; // Green
+      // GREEN ZONE: 30°
+      ang = 30;
+      col = '#22c55e';
       risk = 'green';
     }
     
-    return { percentage: pct, angle: ang, color: col, riskLevel: risk };
+    return { angle: ang, color: col, riskLevel: risk };
   }, [projectedBalance]);
 
   return (
@@ -55,6 +54,12 @@ export default function SmoothGauge({ projectedBalance, riskDay }) {
               <feMergeNode in="SourceGraphic"/>
             </feMerge>
           </filter>
+          
+          {/* Needle shadow gradient */}
+          <linearGradient id="needleShadow" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#000" stopOpacity="0.5" />
+            <stop offset="100%" stopColor="#000" stopOpacity="0" />
+          </linearGradient>
         </defs>
         
         {/* Background Arc */}
@@ -76,36 +81,38 @@ export default function SmoothGauge({ projectedBalance, riskDay }) {
           filter="url(#gaugeGlow)"
         />
         
-        {/* Needle */}
+        {/* Professional Needle */}
         <motion.g
-          initial={{ rotate: -90 }}
+          initial={{ rotate: 90 }}
           animate={{ rotate: angle }}
-          transition={{ type: "spring", stiffness: 50, damping: 20 }}
+          transition={{ type: "spring", stiffness: 70, damping: 18 }}
           style={{ transformOrigin: '100px 100px' }}
         >
-          {/* Needle line */}
-          <line
-            x1="100"
-            y1="100"
-            x2="100"
-            y2="45"
-            stroke={color}
-            strokeWidth="3"
-            strokeLinecap="round"
-            filter="url(#gaugeGlow)"
-          />
-          {/* Needle center circle */}
-          <circle 
-            cx="100" 
-            cy="100" 
-            r="6" 
+          {/* Tapered needle (triangle) */}
+          <path
+            d="M 100 100 L 97 45 L 103 45 Z"
             fill={color}
             filter="url(#gaugeGlow)"
           />
+          {/* Needle shadow for depth */}
+          <path
+            d="M 100 100 L 97 45 L 103 45 Z"
+            fill="url(#needleShadow)"
+            opacity="0.3"
+          />
         </motion.g>
         
-        {/* Center dot */}
-        <circle cx="100" cy="100" r="3" fill="#fff" />
+        {/* Decorative base circle */}
+        <circle 
+          cx="100" 
+          cy="100" 
+          r="8" 
+          fill={color}
+          filter="url(#gaugeGlow)"
+          opacity="0.8"
+        />
+        <circle cx="100" cy="100" r="5" fill="#1e293b" />
+        <circle cx="100" cy="100" r="3" fill={color} />
       </svg>
       
       {/* Value Display */}
