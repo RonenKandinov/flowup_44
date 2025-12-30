@@ -222,71 +222,68 @@ export default function Dashboard() {
                 />
               </div>
 
-              {/* Side-by-Side Layout */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* LEFT: What-If Simulator */}
-                <WhatIfSimulator
-                  onSimulate={handleWhatIfSimulate}
-                  currentBalance={snapshot.current_balance}
+              {/* Speedometer Gauge */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="relative rounded-2xl p-6 border border-cyan-500/20 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm mb-6"
+              >
+                <SpeedometerGauge
+                  projectedBalance={snapshot.projected_eom_balance || 0}
+                  riskLevel={snapshot.risk_level || 'green'}
+                  riskDay={snapshot.risk_day}
+                  whatIfAmount={whatIfAmount}
                 />
-
-                {/* RIGHT: Speedometer Gauge */}
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="relative rounded-2xl p-6 border border-cyan-500/20 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm"
-                >
-                  <SpeedometerGauge
-                    projectedBalance={snapshot.projected_eom_balance || 0}
-                    riskLevel={snapshot.risk_level || 'green'}
-                    riskDay={snapshot.risk_day}
-                    whatIfAmount={whatIfAmount}
-                  />
-                  
-                  {whatIfAmount > 0 && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="mt-4 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30"
-                    >
-                      <p className="text-sm text-yellow-400 text-center">
-                        {whatIfName ? `"${whatIfName}" - ` : ''}
-                        הוצאה של ₪{whatIfAmount.toLocaleString('he-IL')} תפחית את היתרה הצפויה
-                      </p>
-                    </motion.div>
-                  )}
-                  
-                  {engineData && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="mt-4 p-3 rounded-lg bg-slate-800/30 border border-slate-700/50"
-                    >
-                      <div className="text-xs text-slate-400 space-y-1">
-                        <div className="flex justify-between">
-                          <span>רמת ביטחון:</span>
-                          <span className={`font-medium ${
-                            engineData.confidence === 'high' ? 'text-green-400' :
-                            engineData.confidence === 'medium' ? 'text-yellow-400' :
-                            'text-red-400'
-                          }`}>
-                            {engineData.confidence === 'high' ? 'גבוהה' :
-                             engineData.confidence === 'medium' ? 'בינונית' : 'נמוכה'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>עסקאות:</span>
-                          <span className="text-slate-300">{engineData.transactionCount}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>מנוע:</span>
-                          <span className="text-cyan-400">{SystemInfo.engine}</span>
-                        </div>
+                
+                {whatIfAmount > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-4 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30"
+                  >
+                    <p className="text-sm text-yellow-400 text-center">
+                      {whatIfName ? `"${whatIfName}" - ` : ''}
+                      הוצאה של ₪{whatIfAmount.toLocaleString('he-IL')} תפחית את היתרה הצפויה
+                    </p>
+                  </motion.div>
+                )}
+                
+                {engineData && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="mt-4 p-3 rounded-lg bg-slate-800/30 border border-slate-700/50"
+                  >
+                    <div className="text-xs text-slate-400 space-y-1">
+                      <div className="flex justify-between">
+                        <span>רמת ביטחון:</span>
+                        <span className={`font-medium ${
+                          engineData.confidence === 'high' ? 'text-green-400' :
+                          engineData.confidence === 'medium' ? 'text-yellow-400' :
+                          'text-red-400'
+                        }`}>
+                          {engineData.confidence === 'high' ? 'גבוהה' :
+                           engineData.confidence === 'medium' ? 'בינונית' : 'נמוכה'}
+                        </span>
                       </div>
-                    </motion.div>
-                  )}
-                </motion.div>
-              </div>
+                      <div className="flex justify-between">
+                        <span>עסקאות:</span>
+                        <span className="text-slate-300">{engineData.transactionCount}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>מנוע:</span>
+                        <span className="text-cyan-400">{SystemInfo.engine}</span>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </motion.div>
+
+              {/* What-If Simulator */}
+              <WhatIfSimulator
+                onSimulate={handleWhatIfSimulate}
+                currentBalance={snapshot.current_balance}
+              />
 
               <Disclaimer />
             </>
