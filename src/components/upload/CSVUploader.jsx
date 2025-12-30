@@ -94,12 +94,12 @@ export default function CSVUploader({ onDataParsed, onClose }) {
     setErrorMessage('');
 
     try {
-      // Read file content
+      // Read file content with ISO-8859-8 encoding for Hebrew support
       const content = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (e) => resolve(e.target.result);
         reader.onerror = () => reject(new Error('שגיאה בקריאת הקובץ'));
-        reader.readAsText(file, 'UTF-8');
+        reader.readAsText(file, 'ISO-8859-8');
       });
 
       setStatus('processing');
