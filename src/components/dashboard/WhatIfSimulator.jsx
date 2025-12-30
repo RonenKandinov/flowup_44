@@ -1,26 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { HelpCircle, Calculator } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { estimatePrice } from '../utils/forecastingLogic';
 
 export default function WhatIfSimulator({ onSimulate, currentBalance }) {
   const [expenseAmount, setExpenseAmount] = useState('');
   const [expenseName, setExpenseName] = useState('');
 
-  const handleSimulate = () => {
+  // Auto-update when description changes
+  useEffect(() => {
+    const estimatedPrice = estimatePrice(expenseName);
+    if (estimatedPrice > 0) {
+      setExpenseAmount(estimatedPrice.toString());
+      onSimulate(estimatedPrice, expenseName);
+    }
+  }, [expenseName]);
+
+  // Auto-update when amount changes
+  useEffect(() => {
     const amount = parseFloat(expenseAmount) || 0;
     onSimulate(amount, expenseName);
-  };
+  }, [expenseAmount]);
 
   const handleReset = () => {
     setExpenseAmount('');
     setExpenseName('');
     onSimulate(0, '');
   };
-
-  const quickAmounts = [500, 1000, 2500, 5000];
 
   return (
     <motion.div
@@ -60,36 +69,15 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
           />
         </div>
 
-        {/* Quick amounts */}
-        <div className="flex flex-wrap gap-2">
-          {quickAmounts.map((amount) => (
-            <button
-              key={amount}
-              onClick={() => setExpenseAmount(amount.toString())}
-              className="px-3 py-1 rounded-full text-xs bg-slate-700/50 text-slate-300 hover:bg-cyan-500/20 hover:text-cyan-400 transition-colors"
-            >
-              ₪{amount.toLocaleString('he-IL')}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex gap-2">
+        {(expenseAmount || expenseName) && (
           <Button
-            onClick={handleSimulate}
-            className="flex-1 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white font-medium shadow-lg shadow-cyan-500/25"
+            onClick={handleReset}
+            variant="outline"
+            className="w-full border-slate-600 text-slate-300 hover:bg-slate-800"
           >
-            חשב
+            אפס
           </Button>
-          {expenseAmount && (
-            <Button
-              onClick={handleReset}
-              variant="outline"
-              className="border-slate-600 text-slate-300 hover:bg-slate-800"
-            >
-              אפס
-            </Button>
-          )}
-        </div>
+        )}
       </div>
     </motion.div>
   );

@@ -180,6 +180,66 @@ export const calculateWhatIf = (baselineForecast, expenseAmount) => {
 };
 
 /**
+ * Calculate safe date for future expense
+ */
+export const calculateSafeDate = (startBalance, dailyFlow, targetThreshold) => {
+    if (!startBalance || !dailyFlow || dailyFlow >= 0) {
+        return null;
+    }
+    
+    const daysUntilThreshold = Math.floor((startBalance - targetThreshold) / Math.abs(dailyFlow));
+    
+    if (daysUntilThreshold <= 0) {
+        return null;
+    }
+    
+    const safeDate = new Date();
+    safeDate.setDate(safeDate.getDate() + daysUntilThreshold);
+    
+    return safeDate.toLocaleDateString('he-IL', { 
+        day: 'numeric', 
+        month: 'long',
+        year: 'numeric'
+    });
+};
+
+/**
+ * Auto-pricing estimator for common purchases
+ */
+export const estimatePrice = (description) => {
+    if (!description || typeof description !== 'string') {
+        return 0;
+    }
+    
+    const text = description.toLowerCase();
+    const prices = {
+        'פיצה': 85,
+        'pizza': 85,
+        'סושי': 120,
+        'sushi': 120,
+        'מסעדה': 250,
+        'restaurant': 250,
+        'סופר': 450,
+        'supermarket': 450,
+        'בגדים': 500,
+        'clothes': 500,
+        'אייפון': 4500,
+        'iphone': 4500,
+        'מחשב': 6000,
+        'laptop': 6000,
+        'מחשב נייד': 6000
+    };
+    
+    for (const [keyword, price] of Object.entries(prices)) {
+        if (text.includes(keyword)) {
+            return price;
+        }
+    }
+    
+    return 0;
+};
+
+/**
  * System Information
  */
 export const SystemInfo = {
