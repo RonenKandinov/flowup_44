@@ -1,22 +1,34 @@
 import React, { useMemo } from 'react';
+import { motion } from 'framer-motion';
 
 export default function SmoothGauge({ projectedBalance, riskDay }) {
-  // Hard-coded snap logic: 150°/90°/30° and dynamic color
-  const { angle, textColor } = useMemo(() => {
-    let ang, color;
+  // Define range for gauge calculation
+  const MIN_RANGE = -10000;
+  const MAX_RANGE = 20000;
+  
+  // Calculate percentage and needle angle
+  const { percentage, angle, color, riskLevel } = useMemo(() => {
+    // Clamp percentage between 0-100
+    let pct = ((projectedBalance - MIN_RANGE) / (MAX_RANGE - MIN_RANGE)) * 100;
+    pct = Math.max(0, Math.min(100, pct));
     
-    if (projectedBalance <= 0) {
-      ang = 150;
-      color = '#ef4444'; // Red
-    } else if (projectedBalance < 2000) {
-      ang = 90;
-      color = '#eab308'; // Yellow
+    // Convert percentage to angle (-90deg to +90deg)
+    const ang = -90 + (pct * 1.8); // 180 degrees total range
+    
+    // Determine color and risk based on value
+    let col, risk;
+    if (projectedBalance < 0) {
+      col = '#ef4444'; // Red
+      risk = 'red';
+    } else if (projectedBalance < 5000) {
+      col = '#eab308'; // Yellow
+      risk = 'yellow';
     } else {
-      ang = 30;
-      color = '#22c55e'; // Green
+      col = '#22c55e'; // Green
+      risk = 'green';
     }
     
-    return { angle: ang, textColor: color };
+    return { percentage: pct, angle: ang, color: col, riskLevel: risk };
   }, [projectedBalance]);
 
   return (
@@ -25,15 +37,17 @@ export default function SmoothGauge({ projectedBalance, riskDay }) {
       <svg 
         viewBox="0 0 200 120" 
         className="w-full max-w-[300px]"
+        style={{ filter: `drop-shadow(0 0 20px ${color}40)` }}
       >
         <defs>
-          {/* Smooth Gradient Arc */}
+          {/* Smooth Gradient Arc: Green -> Yellow -> Red */}
           <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor="#22c55e" />
             <stop offset="50%" stopColor="#eab308" />
             <stop offset="100%" stopColor="#ef4444" />
           </linearGradient>
           
+          {/* Glow filter */}
           <filter id="gaugeGlow">
             <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
             <feMerge>
@@ -62,40 +76,57 @@ export default function SmoothGauge({ projectedBalance, riskDay }) {
           filter="url(#gaugeGlow)"
         />
         
-        {/* White Needle - 80% of arc radius (70 * 0.8 = 56) */}
-        <line
-          x1="100"
-          y1="100"
-          x2="100"
-          y2="44"
-          stroke="#FFFFFF"
-          strokeWidth="3"
-          strokeLinecap="round"
-          style={{
-            transform: `rotate(${angle}deg)`,
-            transformOrigin: '100px 100px',
-            transition: 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
-          }}
-        />
+        {/* Needle */}
+        <motion.g
+          initial={{ rotate: -90 }}
+          animate={{ rotate: angle }}
+          transition={{ type: "spring", stiffness: 50, damping: 20 }}
+          style={{ transformOrigin: '100px 100px' }}
+        >
+          {/* Needle line */}
+          <line
+            x1="100"
+            y1="100"
+            x2="100"
+            y2="45"
+            stroke={color}
+            strokeWidth="3"
+            strokeLinecap="round"
+            filter="url(#gaugeGlow)"
+          />
+          {/* Needle center circle */}
+          <circle 
+            cx="100" 
+            cy="100" 
+            r="6" 
+            fill={color}
+            filter="url(#gaugeGlow)"
+          />
+        </motion.g>
         
-        {/* Base circle */}
-        <circle cx="100" cy="100" r="6" fill="#1e293b" />
-        <circle cx="100" cy="100" r="3" fill="#FFFFFF" />
+        {/* Center dot */}
+        <circle cx="100" cy="100" r="3" fill="#fff" />
       </svg>
       
       {/* Value Display */}
       <div className="text-center mt-2">
         <p className="text-xs text-slate-400 mb-1">יתרה צפויה לסוף החודש</p>
-        <p 
-          className="text-4xl font-bold transition-colors duration-300"
-          style={{ color: textColor }}
+        <motion.p 
+          key={projectedBalance}
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="text-4xl font-bold"
+          style={{ 
+            color, 
+            textShadow: `0 0 20px ${color}40` 
+          }}
         >
           ₪{projectedBalance.toLocaleString('he-IL')}
-        </p>
+        </motion.p>
         {riskDay && (
           <p className="text-sm mt-1">
             <span className="text-slate-400">יום סיכון: </span>
-            <span style={{ color: textColor }}>{riskDay}</span>
+            <span style={{ color }}>{riskDay}</span>
           </p>
         )}
       </div>
