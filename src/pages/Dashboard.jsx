@@ -6,7 +6,7 @@ import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { calculateWhatIf, SystemInfo } from '../components/utils/forecastingLogic';
 
-import SpeedometerGauge from '../components/dashboard/SpeedometerGauge';
+import SmoothGauge from '../components/dashboard/SmoothGauge';
 import StatCard from '../components/dashboard/StatCard';
 import RiskZoneChart from '../components/dashboard/RiskZoneChart';
 import WhatIfSimulator from '../components/dashboard/WhatIfSimulator';
