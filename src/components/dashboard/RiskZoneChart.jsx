@@ -30,16 +30,11 @@ export default function RiskZoneChart({ data, riskThreshold = 0, criticalDate })
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.3 }}
-      className="relative p-8"
-      style={{
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
-        borderRadius: '16px'
-      }}
+      className="relative rounded-2xl p-4 md:p-5 border border-cyan-500/20 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm"
     >
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-cyan-400 flex items-center gap-2 text-[10px] uppercase tracking-[1px]">
-          <TrendingDown size={16} />
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-cyan-400 font-medium flex items-center gap-2">
+          <TrendingDown size={18} />
           אזור סיכון
         </h3>
       </div>
@@ -49,13 +44,12 @@ export default function RiskZoneChart({ data, riskThreshold = 0, criticalDate })
           <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
             <defs>
               <linearGradient id="balanceGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#22d3ee" stopOpacity={0.6}/>
-                <stop offset="50%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                <stop offset="100%" stopColor="#3b82f6" stopOpacity={0}/>
+                <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.4}/>
+                <stop offset="95%" stopColor="#22d3ee" stopOpacity={0}/>
               </linearGradient>
               <linearGradient id="riskGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#ef4444" stopOpacity={0.6}/>
-                <stop offset="100%" stopColor="#ef4444" stopOpacity={0}/>
+                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4}/>
+                <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
               </linearGradient>
             </defs>
             <XAxis 
