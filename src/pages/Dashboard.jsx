@@ -223,17 +223,17 @@ export default function Dashboard() {
               </div>
 
               {/* Side-by-Side Layout */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full items-start">
-                {/* Left Column: Simulator */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
                 <div className="w-full">
+                  {/* LEFT: What-If Simulator */}
                   <WhatIfSimulator
                     onSimulate={handleWhatIfSimulate}
                     currentBalance={snapshot.current_balance}
                   />
                 </div>
 
-                {/* Right Column: Gauge */}
                 <div className="w-full">
+                  {/* RIGHT: Speedometer Gauge */}
                   <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
