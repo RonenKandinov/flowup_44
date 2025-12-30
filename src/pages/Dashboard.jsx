@@ -197,30 +197,40 @@ export default function Dashboard() {
             <EmptyState onUploadClick={() => setShowUploader(true)} />
           ) : (
             <>
-              {/* Top Stats - Clean Investor Style */}
-              <div className="max-w-2xl mx-auto mb-12">
-                <div className="flex justify-between items-start px-8">
-                  <div className="text-right flex-1">
-                    <p className="text-[10px] text-[#94a3b8] mb-2 uppercase tracking-[1px]">יתרה נוכחית</p>
-                    <p className="text-4xl md:text-5xl" style={{ fontWeight: 300, color: '#f8fafc' }}>
-                      ₪{snapshot.current_balance?.toLocaleString('he-IL')}
-                    </p>
-                  </div>
-                  <div className="text-left flex-1">
-                    <p className="text-[10px] text-[#94a3b8] mb-2 uppercase tracking-[1px]">יתרה בטוחה</p>
-                    <p className="text-4xl md:text-5xl" style={{ 
-                      fontWeight: 300, 
-                      color: '#00f2ff',
-                      textShadow: '0 0 15px rgba(0, 242, 255, 0.3)'
-                    }}>
-                      ₪{snapshot.projected_eom_balance?.toLocaleString('he-IL')}
-                    </p>
-                  </div>
-                </div>
+              {/* Stats Row */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
+                <StatCard
+                  title="יתרה נוכחית"
+                  value={`₪${snapshot.current_balance?.toLocaleString('he-IL')}`}
+                  icon={(snapshot.current_balance || 0) > 0 ? CheckCircle : TrendingDown}
+                  color={(snapshot.current_balance || 0) > 0 ? 'green' : 'red'}
+                  delay={0}
+                />
+                <StatCard
+                  title="סך הכנסות"
+                  value={`₪${snapshot.total_income?.toLocaleString('he-IL') || '0'}`}
+                  icon={TrendingUp}
+                  color="green"
+                  delay={0.1}
+                />
+                <StatCard
+                  title="סך הוצאות"
+                  value={`₪${snapshot.total_expenses?.toLocaleString('he-IL') || '0'}`}
+                  icon={TrendingDown}
+                  color="red"
+                  delay={0.2}
+                />
+                <StatCard
+                  title="ממוצע יומי"
+                  value={`₪${snapshot.avg_daily_spending?.toLocaleString('he-IL') || '0'}`}
+                  icon={Activity}
+                  color="cyan"
+                  delay={0.3}
+                />
               </div>
 
               {/* Main Dashboard Grid */}
-              <div className="grid lg:grid-cols-2 gap-6 max-w-6xl mx-auto">
+              <div className="grid lg:grid-cols-2 gap-6">
                 {/* Speedometer */}
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
