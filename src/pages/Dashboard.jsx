@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, TrendingUp, TrendingDown, DollarSign, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import StatCard from '../components/visuals/StatCard';
-import SpeedometerGauge from '../components/visuals/SpeedometerGauge';
-import RiskChart from '../components/visuals/RiskChart';
-import { processAndForecast } from '../components/utils/forecastingLogic';
-import { dbService } from '../components/utils/dbService';
+import StatCard from '@/components/visuals/StatCard';
+import SpeedometerGauge from '@/components/visuals/SpeedometerGauge';
+import RiskChart from '@/components/visuals/RiskChart';
+import { processAndForecast } from '@/components/utils/forecastingLogic';
+import { dbService } from '@/components/utils/dbService';
 
 export default function Dashboard() {
   const [data, setData] = useState(null);
