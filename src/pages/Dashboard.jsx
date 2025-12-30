@@ -1,166 +1,336 @@
-import React, { useState, useRef } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-import { Upload, ShieldCheck, Wallet, ArrowDownLeft } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Upload, Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle, Activity, Shield } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { base44 } from '@/api/base44Client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { calculateWhatIf, SystemInfo } from '../components/utils/forecastingLogic';
 
-const FlowUpDashboard = () => {
-  // State for balances
-  const [currentBalance, setCurrentBalance] = useState(715.81);
-  const [safeBalance, setSafeBalance] = useState(617);
-  const [isWarning, setIsWarning] = useState(true);
+import SpeedometerGauge from '../components/dashboard/SpeedometerGauge';
+import StatCard from '../components/dashboard/StatCard';
+import RiskZoneChart from '../components/dashboard/RiskZoneChart';
+import WhatIfSimulator from '../components/dashboard/WhatIfSimulator';
+import CSVUploader from '../components/upload/CSVUploader';
+import EmptyState from '../components/dashboard/EmptyState';
+import Disclaimer from '../components/dashboard/Disclaimer';
+
+export default function Dashboard() {
+  const [showUploader, setShowUploader] = useState(false);
+  const [whatIfAmount, setWhatIfAmount] = useState(0);
+  const [whatIfName, setWhatIfName] = useState('');
+  const [localData, setLocalData] = useState(null);
+  const [engineData, setEngineData] = useState(null);
   
-  const fileInputRef = useRef(null);
+  const queryClient = useQueryClient();
 
-  // Gauge Data Calculation
-  // We assume 2000 is the max for the gauge visualization
-  const maxVal = 2000;
-  const gaugeVal = Math.min(safeBalance, maxVal);
-  const remaining = maxVal - gaugeVal;
-  
-  const data = [
-    { name: 'Safe', value: gaugeVal },
-    { name: 'Empty', value: remaining }
-  ];
+  // Fetch saved snapshot
+  const { data: snapshots, isLoading } = useQuery({
+    queryKey: ['financial-snapshots'],
+    queryFn: () => base44.entities.FinancialSnapshot.list('-upload_date', 1),
+    initialData: []
+  });
 
-  // Logic Engine: Process CSV
-  const handleFileUpload = (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+  // Fetch transactions for chart
+  const { data: transactions } = useQuery({
+    queryKey: ['transactions'],
+    queryFn: () => base44.entities.Transaction.list('-date', 90),
+    initialData: []
+  });
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target.result;
-      const rows = text.split('\n');
+  const snapshot = localData?.snapshot || snapshots?.[0];
+  const forecastData = localData?.forecastData || generateForecastFromTransactions(transactions);
+
+  // Generate forecast data from transactions
+  function generateForecastFromTransactions(txns) {
+    if (!txns || txns.length === 0) return [];
+    
+    const avgDaily = Math.abs(
+      txns.filter(t => t.amount < 0).reduce((sum, t) => sum + t.amount, 0) / 30
+    );
+    
+    const latestBalance = txns[0]?.balance || 
+      txns.reduce((sum, t) => sum + t.amount, 0);
+    
+    const today = new Date();
+    const daysRemaining = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate() - today.getDate();
+    
+    const data = [];
+    let balance = latestBalance;
+    
+    for (let i = 0; i <= daysRemaining; i++) {
+      const date = new Date();
+      date.setDate(date.getDate() + i);
+      data.push({
+        date: date.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' }),
+        balance: Math.round(balance)
+      });
+      balance -= avgDaily;
+    }
+    
+    return data;
+  }
+
+  // Save snapshot mutation
+  const saveSnapshotMutation = useMutation({
+    mutationFn: (data) => base44.entities.FinancialSnapshot.create(data),
+    onSuccess: () => queryClient.invalidateQueries(['financial-snapshots'])
+  });
+
+  // Save transactions mutation
+  const saveTransactionsMutation = useMutation({
+    mutationFn: (txns) => base44.entities.Transaction.bulkCreate(txns)
+  });
+
+  // Delete all data mutation
+  const deleteDataMutation = useMutation({
+    mutationFn: async () => {
+      const allSnapshots = await base44.entities.FinancialSnapshot.list();
+      const allTransactions = await base44.entities.Transaction.list();
       
-      // Simple parsing logic based on your bank file structure
-      // Taking the last non-empty row
-      const validRows = rows.filter(r => r.trim() !== '');
-      const lastRow = validRows[validRows.length - 1];
-      const columns = lastRow.split(',');
-      
-      // Extract balance (assuming column index 8 usually holds the balance)
-      // Cleaning '₪' and commas
-      let rawBalance = columns[8] || "0"; 
-      let cleanBalance = parseFloat(rawBalance.replace(/[₪,]/g, ''));
-      
-      if (isNaN(cleanBalance)) cleanBalance = 715.81; // Fallback if parsing fails
+      await Promise.all([
+        ...allSnapshots.map(s => base44.entities.FinancialSnapshot.delete(s.id)),
+        ...allTransactions.map(t => base44.entities.Transaction.delete(t.id))
+      ]);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['financial-snapshots']);
+      queryClient.invalidateQueries(['transactions']);
+      setLocalData(null);
+    }
+  });
 
-      // THE ENGINE LOGIC:
-      // 1. Calculate Monthly Trend (Fixed 0.91 for demo or calculated)
-      const dailyTrend = 0.91; 
-      const projected = cleanBalance + (dailyTrend * 30);
-      
-      // 2. Apply 17% Protection Rule
-      const safe = Math.floor(projected * 0.83);
-
-      // Update State
-      setCurrentBalance(cleanBalance);
-      setSafeBalance(safe);
-      setIsWarning(safe < 1000); // Warning logic
-    };
-    reader.readAsText(file);
+  const handleDataParsed = async (data) => {
+    setLocalData(data);
+    setEngineData(data.engineData);
+    
+    // Save to database
+    await saveSnapshotMutation.mutateAsync(data.snapshot);
+    
+    // Save first 100 transactions
+    if (data.transactions.length > 0) {
+      await saveTransactionsMutation.mutateAsync(data.transactions.slice(0, 100));
+    }
   };
 
+  const handleWhatIfSimulate = (amount, name) => {
+    setWhatIfAmount(amount);
+    setWhatIfName(name);
+    
+    // If we have engine data, recalculate with what-if
+    if (engineData && amount > 0) {
+      const whatIfResult = calculateWhatIf(engineData, amount);
+      setLocalData(prev => ({
+        ...prev,
+        snapshot: {
+          ...prev.snapshot,
+          projected_eom_balance: whatIfResult.projectedEOM,
+          risk_level: whatIfResult.riskStatus,
+          risk_day: whatIfResult.riskDay
+        },
+        forecastData: whatIfResult.graphPoints
+      }));
+    }
+  };
+
+  const hasData = snapshot && snapshot.current_balance !== undefined;
+
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-50 font-sans selection:bg-cyan-500/30" dir="rtl">
-      
-      {/* Navbar / Header area */}
-      <div className="p-6 flex justify-center">
-        <h1 className="text-slate-500 text-xs tracking-[0.3em] uppercase opacity-50">FlowUp Financial Engine</h1>
+    <div className="min-h-screen bg-[#020617]" dir="rtl" style={{ fontFamily: "'Inter', 'Heebo', sans-serif" }}>
+      {/* Background pattern */}
+      <div className="fixed inset-0 opacity-30 pointer-events-none">
+        <div className="absolute inset-0" style={{
+          backgroundImage: `radial-gradient(circle at 1px 1px, rgba(34, 211, 238, 0.15) 1px, transparent 0)`,
+          backgroundSize: '40px 40px'
+        }} />
       </div>
 
-      {/* Main Content Container */}
-      <div className="max-w-md mx-auto px-6 mt-4">
-        
-        {/* Top Stats Row: Right (Current) vs Left (Safe) */}
-        <div className="flex justify-between items-end mb-12">
+      {/* Header */}
+      <header className="relative z-10 px-4 py-6 md:px-8">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+              FlowUp
+            </h1>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-slate-500 text-sm">FutureFlow Dashboard</p>
+              {engineData && (
+                <div className="flex items-center gap-1 text-xs text-cyan-500/70">
+                  <Cpu size={12} />
+                  <span>v{SystemInfo.version}</span>
+                </div>
+              )}
+            </div>
+          </div>
           
-          {/* Right: Current Balance */}
-          <div className="text-right">
-            <div className="flex items-center gap-2 text-slate-400 mb-1">
-              <Wallet size={16} />
-              <span className="text-sm font-medium">בנק (נוכחי)</span>
-            </div>
-            <div className="text-3xl font-bold text-white tracking-tight">
-              ₪{currentBalance.toLocaleString()}
-            </div>
-          </div>
-
-          {/* Left: Safe Balance (The Hero) */}
-          <div className="text-left relative">
-            <div className="absolute -inset-4 bg-cyan-500/10 blur-xl rounded-full opacity-50"></div>
-            <div className="relative">
-              <div className="flex items-center justify-end gap-2 text-cyan-400 mb-1">
-                <span className="text-sm font-medium">יתרה בטוחה</span>
-                <ShieldCheck size={16} />
-              </div>
-              <div className="text-4xl font-bold text-cyan-400 drop-shadow-[0_0_15px_rgba(34,211,238,0.5)] tracking-tight">
-                ₪{safeBalance.toLocaleString()}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Center: The Gauge (Speedometer) */}
-        <div className="relative h-64 flex flex-col items-center justify-center mb-8">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={data}
-                cx="50%"
-                cy="70%"
-                startAngle={180}
-                endAngle={0}
-                innerRadius={80}
-                outerRadius={110}
-                paddingAngle={0}
-                stroke="none"
-                dataKey="value"
+          {hasData && (
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={() => setShowUploader(true)}
+                variant="outline"
+                size="sm"
+                className="border-slate-700 text-slate-300 hover:bg-slate-800"
               >
-                {/* Dynamic Color: Orange if warning, Cyan if safe */}
-                <Cell fill={isWarning ? "#f59e0b" : "#06b6d4"} /> 
-                <Cell fill="#1e293b" />
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-          
-          {/* Gauge Center Text */}
-          <div className="absolute bottom-10 flex flex-col items-center">
-             <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">תחזית מוגנת</div>
-             <div className={`text-2xl font-bold ${isWarning ? 'text-amber-500' : 'text-cyan-500'}`}>
-               {isWarning ? 'Warning Zone' : 'Safe Zone'}
-             </div>
-             <div className="text-[10px] text-slate-600 mt-1">17% מקדם ביטחון הופעל</div>
-          </div>
-        </div>
-
-        {/* Action Area: Logic Sync / Upload */}
-        <div className="mt-8">
-          <div 
-            onClick={() => fileInputRef.current.click()}
-            className="group cursor-pointer relative overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 hover:border-cyan-500/50 transition-all duration-300 p-6 text-center"
-          >
-            <div className="flex flex-col items-center gap-3">
-              <div className="p-3 rounded-full bg-slate-800 group-hover:bg-cyan-500/20 transition-colors">
-                <Upload size={20} className="text-slate-400 group-hover:text-cyan-400" />
-              </div>
-              <div>
-                <h3 className="text-slate-200 font-medium text-sm">סנכרון נתונים חכם</h3>
-                <p className="text-slate-500 text-xs mt-1">העלה דף חשבון (CSV) לחישוב מחדש</p>
-              </div>
+                <RefreshCw className="w-4 h-4 ml-2" />
+                עדכן נתונים
+              </Button>
+              <Button
+                onClick={() => deleteDataMutation.mutate()}
+                variant="ghost"
+                size="sm"
+                className="text-red-400 hover:text-red-300 hover:bg-red-950/50"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
             </div>
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              onChange={handleFileUpload} 
-              accept=".csv" 
-              className="hidden" 
-            />
-          </div>
+          )}
         </div>
+      </header>
 
-      </div>
+      {/* Main content */}
+      <main className="relative z-10 px-4 pb-8 md:px-8">
+        <div className="max-w-6xl mx-auto">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-[60vh]">
+              <div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : !hasData ? (
+            <EmptyState onUploadClick={() => setShowUploader(true)} />
+          ) : (
+            <>
+              {/* Stats Row */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
+                <StatCard
+                  title="יתרה נוכחית"
+                  value={`₪${snapshot.current_balance?.toLocaleString('he-IL')}`}
+                  icon={(snapshot.current_balance || 0) > 0 ? CheckCircle : TrendingDown}
+                  color={(snapshot.current_balance || 0) > 0 ? 'green' : 'red'}
+                  delay={0}
+                />
+                <StatCard
+                  title="סך הכנסות"
+                  value={`₪${snapshot.total_income?.toLocaleString('he-IL') || '0'}`}
+                  icon={TrendingUp}
+                  color="green"
+                  delay={0.1}
+                />
+                <StatCard
+                  title="סך הוצאות"
+                  value={`₪${snapshot.total_expenses?.toLocaleString('he-IL') || '0'}`}
+                  icon={TrendingDown}
+                  color="red"
+                  delay={0.2}
+                />
+                <StatCard
+                  title="ממוצע יומי"
+                  value={`₪${snapshot.avg_daily_spending?.toLocaleString('he-IL') || '0'}`}
+                  icon={Activity}
+                  color="cyan"
+                  delay={0.3}
+                />
+              </div>
+
+              {/* Main Dashboard Grid */}
+              <div className="grid lg:grid-cols-2 gap-6">
+                {/* Speedometer */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="relative p-8"
+                  style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '16px'
+                  }}
+                >
+                  <SpeedometerGauge
+                    projectedBalance={snapshot.projected_eom_balance || 0}
+                    riskLevel={snapshot.risk_level || 'green'}
+                    riskDay={snapshot.risk_day}
+                    whatIfAmount={whatIfAmount}
+                    safetyBuffer={engineData?.safetyBuffer || 0.17}
+                  />
+                  
+                  {whatIfAmount > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-4 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30"
+                    >
+                      <p className="text-sm text-yellow-400 text-center">
+                        {whatIfName ? `"${whatIfName}" - ` : ''}
+                        הוצאה של ₪{whatIfAmount.toLocaleString('he-IL')} תפחית את היתרה הצפויה
+                      </p>
+                    </motion.div>
+                  )}
+                  
+                  {engineData && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="mt-4 p-3 rounded-lg bg-slate-800/30 border border-slate-700/50"
+                    >
+                      <div className="text-xs text-slate-400 space-y-1">
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-1.5">
+                            <Shield className="w-3 h-3 text-slate-500" />
+                            <span className="text-slate-500">מרווח בטיחות:</span>
+                          </div>
+                          <span className="text-slate-500 text-[10px]">17%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>רמת ביטחון:</span>
+                          <span className={`font-medium ${
+                            engineData.confidence === 'high' ? 'text-green-400' :
+                            engineData.confidence === 'medium' ? 'text-yellow-400' :
+                            'text-red-400'
+                          }`}>
+                            {engineData.confidence === 'high' ? 'גבוהה' :
+                             engineData.confidence === 'medium' ? 'בינונית' : 'נמוכה'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>עסקאות:</span>
+                          <span className="text-slate-300">{engineData.transactionCount}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>מנוע:</span>
+                          <span className="text-cyan-400">{SystemInfo.engine}</span>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </motion.div>
+
+                {/* Right Column */}
+                <div className="space-y-6">
+                  <RiskZoneChart
+                    data={forecastData}
+                    riskThreshold={0}
+                    criticalDate={snapshot.risk_day}
+                  />
+                  
+                  <WhatIfSimulator
+                    onSimulate={handleWhatIfSimulate}
+                    currentBalance={snapshot.current_balance}
+                  />
+                </div>
+              </div>
+
+              <Disclaimer />
+            </>
+          )}
+        </div>
+      </main>
+
+      {/* Upload Modal */}
+      <AnimatePresence>
+        {showUploader && (
+          <CSVUploader
+            onDataParsed={handleDataParsed}
+            onClose={() => setShowUploader(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
-};
-
-export default FlowUpDashboard;
+}
