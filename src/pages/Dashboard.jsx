@@ -8,7 +8,7 @@ import { calculateWhatIf, SystemInfo } from '../components/utils/forecastingLogi
 
 import SpeedometerGauge from '../components/dashboard/SpeedometerGauge';
 import StatCard from '../components/dashboard/StatCard';
-import RiskZoneChart from '../components/dashboard/RiskZoneChart';
+
 import WhatIfSimulator from '../components/dashboard/WhatIfSimulator';
 import CSVUploader from '../components/upload/CSVUploader';
 import EmptyState from '../components/dashboard/EmptyState';
@@ -198,7 +198,7 @@ export default function Dashboard() {
           ) : (
             <>
               {/* Stats Row */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <StatCard
                   title="יתרה נוכחית"
                   value={`₪${snapshot.current_balance?.toLocaleString('he-IL')}`}
@@ -207,101 +207,83 @@ export default function Dashboard() {
                   delay={0}
                 />
                 <StatCard
-                  title="סך הכנסות"
-                  value={`₪${snapshot.total_income?.toLocaleString('he-IL') || '0'}`}
-                  icon={TrendingUp}
-                  color="green"
-                  delay={0.1}
-                />
-                <StatCard
                   title="סך הוצאות"
                   value={`₪${snapshot.total_expenses?.toLocaleString('he-IL') || '0'}`}
                   icon={TrendingDown}
                   color="red"
-                  delay={0.2}
+                  delay={0.1}
                 />
                 <StatCard
-                  title="ממוצע יומי"
-                  value={`₪${snapshot.avg_daily_spending?.toLocaleString('he-IL') || '0'}`}
-                  icon={Activity}
-                  color="cyan"
-                  delay={0.3}
+                  title="סך הכנסות"
+                  value={`₪${snapshot.total_income?.toLocaleString('he-IL') || '0'}`}
+                  icon={TrendingUp}
+                  color="green"
+                  delay={0.2}
                 />
               </div>
 
-              {/* Main Dashboard Grid */}
-              <div className="grid md:grid-cols-2 gap-6">
-                {/* Speedometer */}
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="relative rounded-2xl p-6 border border-cyan-500/20 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm"
-                >
-                  <SpeedometerGauge
-                    projectedBalance={snapshot.projected_eom_balance || 0}
-                    riskLevel={snapshot.risk_level || 'green'}
-                    riskDay={snapshot.risk_day}
-                    whatIfAmount={whatIfAmount}
-                  />
-                  
-                  {whatIfAmount > 0 && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="mt-4 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30"
-                    >
-                      <p className="text-sm text-yellow-400 text-center">
-                        {whatIfName ? `"${whatIfName}" - ` : ''}
-                        הוצאה של ₪{whatIfAmount.toLocaleString('he-IL')} תפחית את היתרה הצפויה
-                      </p>
-                    </motion.div>
-                  )}
-                  
-                  {engineData && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="mt-4 p-3 rounded-lg bg-slate-800/30 border border-slate-700/50"
-                    >
-                      <div className="text-xs text-slate-400 space-y-1">
-                        <div className="flex justify-between">
-                          <span>רמת ביטחון:</span>
-                          <span className={`font-medium ${
-                            engineData.confidence === 'high' ? 'text-green-400' :
-                            engineData.confidence === 'medium' ? 'text-yellow-400' :
-                            'text-red-400'
-                          }`}>
-                            {engineData.confidence === 'high' ? 'גבוהה' :
-                             engineData.confidence === 'medium' ? 'בינונית' : 'נמוכה'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>עסקאות:</span>
-                          <span className="text-slate-300">{engineData.transactionCount}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>מנוע:</span>
-                          <span className="text-cyan-400">{SystemInfo.engine}</span>
-                        </div>
+              {/* Speedometer Gauge */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="relative rounded-2xl p-6 border border-cyan-500/20 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm mb-6"
+              >
+                <SpeedometerGauge
+                  projectedBalance={snapshot.projected_eom_balance || 0}
+                  riskLevel={snapshot.risk_level || 'green'}
+                  riskDay={snapshot.risk_day}
+                  whatIfAmount={whatIfAmount}
+                />
+                
+                {whatIfAmount > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-4 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30"
+                  >
+                    <p className="text-sm text-yellow-400 text-center">
+                      {whatIfName ? `"${whatIfName}" - ` : ''}
+                      הוצאה של ₪{whatIfAmount.toLocaleString('he-IL')} תפחית את היתרה הצפויה
+                    </p>
+                  </motion.div>
+                )}
+                
+                {engineData && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="mt-4 p-3 rounded-lg bg-slate-800/30 border border-slate-700/50"
+                  >
+                    <div className="text-xs text-slate-400 space-y-1">
+                      <div className="flex justify-between">
+                        <span>רמת ביטחון:</span>
+                        <span className={`font-medium ${
+                          engineData.confidence === 'high' ? 'text-green-400' :
+                          engineData.confidence === 'medium' ? 'text-yellow-400' :
+                          'text-red-400'
+                        }`}>
+                          {engineData.confidence === 'high' ? 'גבוהה' :
+                           engineData.confidence === 'medium' ? 'בינונית' : 'נמוכה'}
+                        </span>
                       </div>
-                    </motion.div>
-                  )}
-                </motion.div>
+                      <div className="flex justify-between">
+                        <span>עסקאות:</span>
+                        <span className="text-slate-300">{engineData.transactionCount}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>מנוע:</span>
+                        <span className="text-cyan-400">{SystemInfo.engine}</span>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </motion.div>
 
-                {/* Right Column */}
-                <div className="space-y-6">
-                  <RiskZoneChart
-                    data={forecastData}
-                    riskThreshold={0}
-                    criticalDate={snapshot.risk_day}
-                  />
-                  
-                  <WhatIfSimulator
-                    onSimulate={handleWhatIfSimulate}
-                    currentBalance={snapshot.current_balance}
-                  />
-                </div>
-              </div>
+              {/* What-If Simulator */}
+              <WhatIfSimulator
+                onSimulate={handleWhatIfSimulate}
+                currentBalance={snapshot.current_balance}
+              />
 
               <Disclaimer />
             </>
