@@ -7,29 +7,27 @@ export default function SpeedometerGauge({
   riskDay,
   whatIfAmount = 0 
 }) {
-  // Calculate needle angle based on risk level and projected balance
-  const adjustedBalance = projectedBalance - whatIfAmount;
+  // Calculate needle angle based on projectedEOM
+  const projectedEOM = projectedBalance - whatIfAmount;
   
-  const { angle, color, glowColor } = useMemo(() => {
-    let calculatedRisk = riskLevel;
+  const { angle, color } = useMemo(() => {
+    let needleAngle = 90; // Default yellow center
+    let textColor = '#eab308'; // Yellow
     
-    // Recalculate risk based on what-if
-    if (adjustedBalance < 0) {
-      calculatedRisk = 'red';
-    } else if (adjustedBalance < 1000) {
-      calculatedRisk = 'yellow';
-    } else {
-      calculatedRisk = 'green';
+    // SNAP-LOGIC:
+    if (projectedEOM <= 0) {
+      needleAngle = 150; // Red zone
+      textColor = '#ef4444'; // Red
+    } else if (projectedEOM > 0 && projectedEOM < 2000) {
+      needleAngle = 90; // Yellow center
+      textColor = '#eab308'; // Yellow
+    } else if (projectedEOM >= 2000) {
+      needleAngle = 30; // Green zone
+      textColor = '#22c55e'; // Green
     }
     
-    const riskConfig = {
-      green: { angle: -60, color: '#22c55e', glowColor: 'rgba(34, 197, 94, 0.5)' },
-      yellow: { angle: 0, color: '#eab308', glowColor: 'rgba(234, 179, 8, 0.5)' },
-      red: { angle: 60, color: '#ef4444', glowColor: 'rgba(239, 68, 68, 0.5)' }
-    };
-    
-    return riskConfig[calculatedRisk];
-  }, [adjustedBalance, riskLevel]);
+    return { angle: needleAngle, color: textColor };
+  }, [projectedEOM]);
 
   return (
     <div className="relative flex flex-col items-center">
@@ -37,7 +35,6 @@ export default function SpeedometerGauge({
       <svg 
         viewBox="0 0 200 120" 
         className="w-full max-w-[280px] md:max-w-[320px]"
-        style={{ filter: `drop-shadow(0 0 20px ${glowColor})` }}
       >
         {/* Background arc segments */}
         <defs>
@@ -53,13 +50,6 @@ export default function SpeedometerGauge({
             <stop offset="0%" stopColor="#ef4444" stopOpacity="0.3" />
             <stop offset="100%" stopColor="#ef4444" stopOpacity="0.8" />
           </linearGradient>
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
-            <feMerge>
-              <feMergeNode in="coloredBlur"/>
-              <feMergeNode in="SourceGraphic"/>
-            </feMerge>
-          </filter>
         </defs>
         
         {/* Green segment */}
@@ -69,7 +59,6 @@ export default function SpeedometerGauge({
           stroke="url(#greenGrad)"
           strokeWidth="12"
           strokeLinecap="round"
-          filter="url(#glow)"
         />
         
         {/* Yellow segment */}
@@ -79,7 +68,6 @@ export default function SpeedometerGauge({
           stroke="url(#yellowGrad)"
           strokeWidth="12"
           strokeLinecap="round"
-          filter="url(#glow)"
         />
         
         {/* Red segment */}
@@ -89,45 +77,40 @@ export default function SpeedometerGauge({
           stroke="url(#redGrad)"
           strokeWidth="12"
           strokeLinecap="round"
-          filter="url(#glow)"
         />
         
-        {/* Needle */}
-        <motion.g
-          initial={{ rotate: -60 }}
-          animate={{ rotate: angle }}
-          transition={{ type: "spring", stiffness: 60, damping: 15 }}
-          style={{ transformOrigin: '100px 100px' }}
+        {/* White Needle with CSS transition */}
+        <g
+          style={{ 
+            transformOrigin: '100px 100px',
+            transform: `rotate(${angle}deg)`,
+            transition: 'transform 0.3s ease-out'
+          }}
         >
           <line
             x1="100"
             y1="100"
             x2="100"
             y2="40"
-            stroke={color}
+            stroke="#FFFFFF"
             strokeWidth="3"
             strokeLinecap="round"
-            filter="url(#glow)"
           />
-          <circle cx="100" cy="100" r="8" fill={color} filter="url(#glow)" />
-        </motion.g>
+        </g>
         
-        {/* Center dot */}
-        <circle cx="100" cy="100" r="4" fill="#fff" />
+        {/* White pivot circle */}
+        <circle cx="100" cy="100" r="6" fill="#FFFFFF" />
       </svg>
       
       {/* Balance Display */}
       <div className="text-center mt-2">
         <p className="text-xs text-slate-400 mb-1">יתרה צפויה לסוף החודש</p>
-        <motion.p 
-          key={adjustedBalance}
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="text-3xl md:text-4xl font-bold"
-          style={{ color, textShadow: `0 0 20px ${glowColor}` }}
+        <p 
+          className="text-3xl md:text-4xl font-bold transition-colors duration-300"
+          style={{ color }}
         >
-          ₪{adjustedBalance.toLocaleString('he-IL')}
-        </motion.p>
+          ₪{projectedEOM.toLocaleString('he-IL')}
+        </p>
         {riskDay && (
           <p className="text-sm mt-1">
             <span className="text-slate-400">יום סיכון: </span>
