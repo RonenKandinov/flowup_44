@@ -1,11 +1,22 @@
 import React, { useMemo } from 'react';
 
 export default function SmoothGauge({ projectedBalance, riskDay }) {
-  // Hard-coded snap logic: 150°/90°/30°
-  const angle = useMemo(() => {
-    if (projectedBalance <= 0) return 150;
-    if (projectedBalance < 2000) return 90;
-    return 30;
+  // Hard-coded snap logic: 150°/90°/30° and dynamic color
+  const { angle, textColor } = useMemo(() => {
+    let ang, color;
+    
+    if (projectedBalance <= 0) {
+      ang = 150;
+      color = '#ef4444'; // Red
+    } else if (projectedBalance < 2000) {
+      ang = 90;
+      color = '#eab308'; // Yellow
+    } else {
+      ang = 30;
+      color = '#22c55e'; // Green
+    }
+    
+    return { angle: ang, textColor: color };
   }, [projectedBalance]);
 
   return (
@@ -75,13 +86,16 @@ export default function SmoothGauge({ projectedBalance, riskDay }) {
       {/* Value Display */}
       <div className="text-center mt-2">
         <p className="text-xs text-slate-400 mb-1">יתרה צפויה לסוף החודש</p>
-        <p className="text-4xl font-bold text-white">
+        <p 
+          className="text-4xl font-bold transition-colors duration-300"
+          style={{ color: textColor }}
+        >
           ₪{projectedBalance.toLocaleString('he-IL')}
         </p>
         {riskDay && (
           <p className="text-sm mt-1">
             <span className="text-slate-400">יום סיכון: </span>
-            <span className="text-yellow-400">{riskDay}</span>
+            <span style={{ color: textColor }}>{riskDay}</span>
           </p>
         )}
       </div>
