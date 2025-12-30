@@ -14,15 +14,15 @@ export default function SpeedometerGauge({
     let needleAngle = 90; // Default yellow center
     let textColor = '#eab308'; // Yellow
     
-    // SNAP-LOGIC:
+    // SNAP-LOGIC (CENTER OF SEGMENTS):
     if (projectedEOM <= 0) {
-      needleAngle = 150; // Red zone
+      needleAngle = 135; // Red zone diagonal up-left
       textColor = '#ef4444'; // Red
     } else if (projectedEOM > 0 && projectedEOM < 2000) {
-      needleAngle = 90; // Yellow center
+      needleAngle = 90; // Yellow center straight up
       textColor = '#eab308'; // Yellow
     } else if (projectedEOM >= 2000) {
-      needleAngle = 30; // Green zone
+      needleAngle = 45; // Green zone diagonal up-right
       textColor = '#22c55e'; // Green
     }
     
@@ -36,47 +36,34 @@ export default function SpeedometerGauge({
         viewBox="0 0 200 120" 
         className="w-full max-w-[280px] md:max-w-[320px]"
       >
-        {/* Background arc segments */}
-        <defs>
-          <linearGradient id="greenGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#22c55e" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#22c55e" stopOpacity="0.8" />
-          </linearGradient>
-          <linearGradient id="yellowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#eab308" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#eab308" stopOpacity="0.8" />
-          </linearGradient>
-          <linearGradient id="redGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#ef4444" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#ef4444" stopOpacity="0.8" />
-          </linearGradient>
-        </defs>
-        
-        {/* Green segment */}
+        {/* Green segment - SOLID */}
         <path
           d="M 30 100 A 70 70 0 0 1 70 38"
           fill="none"
-          stroke="url(#greenGrad)"
+          stroke="#22c55e"
           strokeWidth="12"
           strokeLinecap="round"
+          opacity="1"
         />
         
-        {/* Yellow segment */}
+        {/* Yellow segment - SOLID */}
         <path
           d="M 75 35 A 70 70 0 0 1 125 35"
           fill="none"
-          stroke="url(#yellowGrad)"
+          stroke="#eab308"
           strokeWidth="12"
           strokeLinecap="round"
+          opacity="1"
         />
         
-        {/* Red segment */}
+        {/* Red segment - SOLID */}
         <path
           d="M 130 38 A 70 70 0 0 1 170 100"
           fill="none"
-          stroke="url(#redGrad)"
+          stroke="#ef4444"
           strokeWidth="12"
           strokeLinecap="round"
+          opacity="1"
         />
         
         {/* White Needle with CSS transition */}
