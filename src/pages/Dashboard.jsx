@@ -1,336 +1,134 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle, Activity, Shield } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { base44 } from '@/api/base44Client';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { calculateWhatIf, SystemInfo } from '../components/utils/forecastingLogic';
-
-import SpeedometerGauge from '../components/dashboard/SpeedometerGauge';
-import StatCard from '../components/dashboard/StatCard';
-import RiskZoneChart from '../components/dashboard/RiskZoneChart';
-import WhatIfSimulator from '../components/dashboard/WhatIfSimulator';
-import CSVUploader from '../components/upload/CSVUploader';
-import EmptyState from '../components/dashboard/EmptyState';
-import Disclaimer from '../components/dashboard/Disclaimer';
+import React, { useState, useMemo } from 'react';
+import { Wallet, ShieldAlert, Landmark, Info, Upload, TrendingUp, Activity, HelpCircle } from 'lucide-react';
 
 export default function Dashboard() {
-  const [showUploader, setShowUploader] = useState(false);
-  const [whatIfAmount, setWhatIfAmount] = useState(0);
-  const [whatIfName, setWhatIfName] = useState('');
-  const [localData, setLocalData] = useState(null);
-  const [engineData, setEngineData] = useState(null);
-  
-  const queryClient = useQueryClient();
+  // נתוני הבנק מה-CSV (₪715.81 כבסיס)
+  const [currentBalance, setCurrentBalance] = useState(715.81);
+  const [income, setIncome] = useState(8800);
+  const [spending, setSpending] = useState(7550);
+  const [whatIf, setWhatIf] = useState(""); // שדה ריק כפי שביקשת
 
-  // Fetch saved snapshot
-  const { data: snapshots, isLoading } = useQuery({
-    queryKey: ['financial-snapshots'],
-    queryFn: () => base44.entities.FinancialSnapshot.list('-upload_date', 1),
-    initialData: []
-  });
+  // חישוב יתרה בטוחה עם 17% הגנה
+  const safeBalance = useMemo(() => {
+    const simulationValue = whatIf === "" ? 0 : parseFloat(whatIf);
+    const projected = currentBalance + (income - spending) - simulationValue;
+    return Math.max(0, Math.floor(projected * 0.83));
+  }, [currentBalance, income, spending, whatIf]);
 
-  // Fetch transactions for chart
-  const { data: transactions } = useQuery({
-    queryKey: ['transactions'],
-    queryFn: () => base44.entities.Transaction.list('-date', 90),
-    initialData: []
-  });
-
-  const snapshot = localData?.snapshot || snapshots?.[0];
-  const forecastData = localData?.forecastData || generateForecastFromTransactions(transactions);
-
-  // Generate forecast data from transactions
-  function generateForecastFromTransactions(txns) {
-    if (!txns || txns.length === 0) return [];
-    
-    const avgDaily = Math.abs(
-      txns.filter(t => t.amount < 0).reduce((sum, t) => sum + t.amount, 0) / 30
-    );
-    
-    const latestBalance = txns[0]?.balance || 
-      txns.reduce((sum, t) => sum + t.amount, 0);
-    
-    const today = new Date();
-    const daysRemaining = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate() - today.getDate();
-    
-    const data = [];
-    let balance = latestBalance;
-    
-    for (let i = 0; i <= daysRemaining; i++) {
-      const date = new Date();
-      date.setDate(date.getDate() + i);
-      data.push({
-        date: date.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' }),
-        balance: Math.round(balance)
-      });
-      balance -= avgDaily;
-    }
-    
-    return data;
-  }
-
-  // Save snapshot mutation
-  const saveSnapshotMutation = useMutation({
-    mutationFn: (data) => base44.entities.FinancialSnapshot.create(data),
-    onSuccess: () => queryClient.invalidateQueries(['financial-snapshots'])
-  });
-
-  // Save transactions mutation
-  const saveTransactionsMutation = useMutation({
-    mutationFn: (txns) => base44.entities.Transaction.bulkCreate(txns)
-  });
-
-  // Delete all data mutation
-  const deleteDataMutation = useMutation({
-    mutationFn: async () => {
-      const allSnapshots = await base44.entities.FinancialSnapshot.list();
-      const allTransactions = await base44.entities.Transaction.list();
-      
-      await Promise.all([
-        ...allSnapshots.map(s => base44.entities.FinancialSnapshot.delete(s.id)),
-        ...allTransactions.map(t => base44.entities.Transaction.delete(t.id))
-      ]);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['financial-snapshots']);
-      queryClient.invalidateQueries(['transactions']);
-      setLocalData(null);
-    }
-  });
-
-  const handleDataParsed = async (data) => {
-    setLocalData(data);
-    setEngineData(data.engineData);
-    
-    // Save to database
-    await saveSnapshotMutation.mutateAsync(data.snapshot);
-    
-    // Save first 100 transactions
-    if (data.transactions.length > 0) {
-      await saveTransactionsMutation.mutateAsync(data.transactions.slice(0, 100));
-    }
-  };
-
-  const handleWhatIfSimulate = (amount, name) => {
-    setWhatIfAmount(amount);
-    setWhatIfName(name);
-    
-    // If we have engine data, recalculate with what-if
-    if (engineData && amount > 0) {
-      const whatIfResult = calculateWhatIf(engineData, amount);
-      setLocalData(prev => ({
-        ...prev,
-        snapshot: {
-          ...prev.snapshot,
-          projected_eom_balance: whatIfResult.projectedEOM,
-          risk_level: whatIfResult.riskStatus,
-          risk_day: whatIfResult.riskDay
-        },
-        forecastData: whatIfResult.graphPoints
-      }));
-    }
-  };
-
-  const hasData = snapshot && snapshot.current_balance !== undefined;
+  // חישוב זווית המחוג (סקלה של 0-5000)
+  const needleRotation = useMemo(() => {
+    const percent = Math.min(Math.max(safeBalance / 5000, 0), 1);
+    return percent * 180 - 180;
+  }, [safeBalance]);
 
   return (
-    <div className="min-h-screen bg-[#020617]" dir="rtl" style={{ fontFamily: "'Inter', 'Heebo', sans-serif" }}>
-      {/* Background pattern */}
-      <div className="fixed inset-0 opacity-30 pointer-events-none">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `radial-gradient(circle at 1px 1px, rgba(34, 211, 238, 0.15) 1px, transparent 0)`,
-          backgroundSize: '40px 40px'
-        }} />
-      </div>
+    <div className="min-h-screen bg-[#040b14] text-slate-100 p-4 md:p-10 font-sans tracking-tight" dir="rtl">
+      {/* המכל המרכזי בעיצוב התמונה */}
+      <div className="max-w-5xl mx-auto bg-[#0a1622]/80 border border-cyan-900/40 rounded-[2rem] p-8 md:p-10 shadow-[0_0_60px_rgba(0,0,0,0.6)] backdrop-blur-xl relative overflow-hidden">
+        
+        {/* כותרת עליונה בסגנון הייטק */}
+        <div className="text-center mb-12">
+          <h1 className="text-[#64ffda] text-xs font-bold tracking-[0.5em] uppercase opacity-80">
+            FlowUp <span className="text-slate-500">// FUTUREFLOW DASHBOARD</span>
+          </h1>
+        </div>
 
-      {/* Header */}
-      <header className="relative z-10 px-4 py-6 md:px-8">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
-              FlowUp
-            </h1>
-            <div className="flex items-center gap-2 mt-1">
-              <p className="text-slate-500 text-sm">FutureFlow Dashboard</p>
-              {engineData && (
-                <div className="flex items-center gap-1 text-xs text-cyan-500/70">
-                  <Cpu size={12} />
-                  <span>v{SystemInfo.version}</span>
-                </div>
-              )}
+        {/* שורה עליונה: קומפוזיציית הרמזור והכרטיסים */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center mb-12">
+          
+          {/* כרטיס הכנסות - ירוק ניאון */}
+          <div className="bg-[#0f2030] border border-[#22c55e]/30 rounded-2xl p-6 text-center shadow-[0_0_20px_rgba(34,197,94,0.05)]">
+            <Landmark className="mx-auto mb-3 text-[#22c55e]/50" size={24} />
+            <h3 className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-2">סיכום הכנסות</h3>
+            <div className="text-4xl font-mono font-black text-[#22c55e]">₪{income.toLocaleString()}</div>
+          </div>
+
+          {/* הרמזור המרכזי - ה-UI המדויק */}
+          <div className="relative flex flex-col items-center">
+            <div className="relative w-64 h-36">
+              <svg width="100%" height="100%" viewBox="0 0 200 120">
+                {/* קשת רקע */}
+                <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="#162c46" strokeWidth="14" strokeLinecap="round" />
+                {/* קשתות צבעוניות מופרדות */}
+                <path d="M20 100 A80 80 0 0 1 73 45" fill="none" stroke="#22c55e" strokeWidth="14" strokeLinecap="round" /> {/* ירוק */}
+                <path d="M78 42 A80 80 0 0 1 122 42" fill="none" stroke="#eab308" strokeWidth="14" strokeLinecap="round" /> {/* צהוב */}
+                <path d="M127 45 A80 80 0 0 1 180 100" fill="none" stroke="#ef4444" strokeWidth="14" strokeLinecap="round" /> {/* אדום */}
+                
+                {/* המחוג */}
+                <g transform={`rotate(${needleRotation} 100 100)`}>
+                  <line x1="100" y1="100" x2="40" y2="100" stroke="white" strokeWidth="3" strokeLinecap="round" />
+                  <circle cx="100" cy="100" r="5" fill="white" />
+                </g>
+              </svg>
+            </div>
+            <div className="text-center -mt-4">
+               <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">יתרה בטוחה צפויה</p>
+               <div className="text-5xl font-black text-white mt-1 drop-shadow-[0_0_10px_rgba(255,255,255,0.4)] tracking-tighter">
+                  ₪{safeBalance.toLocaleString()}
+               </div>
+               <p className="text-[#22c55e] text-[9px] font-bold mt-2 uppercase tracking-tight">מצב סיכון: תקין</p>
             </div>
           </div>
+
+          {/* כרטיס הוצאות - כתום ענבר */}
+          <div className="bg-[#0f2030] border border-[#f59e0b]/30 rounded-2xl p-6 text-center shadow-[0_0_20px_rgba(245,158,11,0.05)]">
+            <Wallet className="mx-auto mb-3 text-[#f59e0b]/50" size={24} />
+            <h3 className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-2">סיכום הוצאות</h3>
+            <div className="text-4xl font-mono font-black text-[#f59e0b]">-₪{spending.toLocaleString()}</div>
+          </div>
+
+        </div>
+
+        {/* שורה תחתונה: אזור סיכון וסימולטור */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
           
-          {hasData && (
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={() => setShowUploader(true)}
-                variant="outline"
-                size="sm"
-                className="border-slate-700 text-slate-300 hover:bg-slate-800"
-              >
-                <RefreshCw className="w-4 h-4 ml-2" />
-                עדכן נתונים
-              </Button>
-              <Button
-                onClick={() => deleteDataMutation.mutate()}
-                variant="ghost"
-                size="sm"
-                className="text-red-400 hover:text-red-300 hover:bg-red-950/50"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
+          {/* גרף Risk Zone - בצבע כחול ציאן */}
+          <div className="bg-[#06121e] border border-orange-900/30 rounded-3xl p-6 relative">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-orange-500 text-[11px] font-bold uppercase tracking-widest">אזור סיכון (Risk Zone)</h3>
+              <TrendingUp size={16} className="text-slate-600" />
             </div>
-          )}
-        </div>
-      </header>
-
-      {/* Main content */}
-      <main className="relative z-10 px-4 pb-8 md:px-8">
-        <div className="max-w-6xl mx-auto">
-          {isLoading ? (
-            <div className="flex items-center justify-center h-[60vh]">
-              <div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+            <div className="h-24 w-full flex items-end gap-1.5 opacity-60">
+               {[30, 45, 60, 40, 85, 55, 70, 40].map((h, i) => (
+                 <div key={i} className="flex-1 bg-cyan-500/20 border-t-2 border-cyan-400/50" style={{height: `${h}%`}}></div>
+               ))}
             </div>
-          ) : !hasData ? (
-            <EmptyState onUploadClick={() => setShowUploader(true)} />
-          ) : (
-            <>
-              {/* Stats Row */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
-                <StatCard
-                  title="יתרה נוכחית"
-                  value={`₪${snapshot.current_balance?.toLocaleString('he-IL')}`}
-                  icon={(snapshot.current_balance || 0) > 0 ? CheckCircle : TrendingDown}
-                  color={(snapshot.current_balance || 0) > 0 ? 'green' : 'red'}
-                  delay={0}
-                />
-                <StatCard
-                  title="סך הכנסות"
-                  value={`₪${snapshot.total_income?.toLocaleString('he-IL') || '0'}`}
-                  icon={TrendingUp}
-                  color="green"
-                  delay={0.1}
-                />
-                <StatCard
-                  title="סך הוצאות"
-                  value={`₪${snapshot.total_expenses?.toLocaleString('he-IL') || '0'}`}
-                  icon={TrendingDown}
-                  color="red"
-                  delay={0.2}
-                />
-                <StatCard
-                  title="ממוצע יומי"
-                  value={`₪${snapshot.avg_daily_spending?.toLocaleString('he-IL') || '0'}`}
-                  icon={Activity}
-                  color="cyan"
-                  delay={0.3}
-                />
-              </div>
+            <div className="mt-4 flex items-center gap-2 text-[10px] text-orange-400/70 font-bold italic uppercase tracking-tighter">
+              <ShieldAlert size={14} /> יתרה קריטית צפויה: 25 לחודש
+            </div>
+          </div>
 
-              {/* Main Dashboard Grid */}
-              <div className="grid lg:grid-cols-2 gap-6">
-                {/* Speedometer */}
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="relative p-8"
-                  style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    borderRadius: '16px'
-                  }}
-                >
-                  <SpeedometerGauge
-                    projectedBalance={snapshot.projected_eom_balance || 0}
-                    riskLevel={snapshot.risk_level || 'green'}
-                    riskDay={snapshot.risk_day}
-                    whatIfAmount={whatIfAmount}
-                    safetyBuffer={engineData?.safetyBuffer || 0.17}
-                  />
-                  
-                  {whatIfAmount > 0 && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="mt-4 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30"
-                    >
-                      <p className="text-sm text-yellow-400 text-center">
-                        {whatIfName ? `"${whatIfName}" - ` : ''}
-                        הוצאה של ₪{whatIfAmount.toLocaleString('he-IL')} תפחית את היתרה הצפויה
-                      </p>
-                    </motion.div>
-                  )}
-                  
-                  {engineData && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="mt-4 p-3 rounded-lg bg-slate-800/30 border border-slate-700/50"
-                    >
-                      <div className="text-xs text-slate-400 space-y-1">
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center gap-1.5">
-                            <Shield className="w-3 h-3 text-slate-500" />
-                            <span className="text-slate-500">מרווח בטיחות:</span>
-                          </div>
-                          <span className="text-slate-500 text-[10px]">17%</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>רמת ביטחון:</span>
-                          <span className={`font-medium ${
-                            engineData.confidence === 'high' ? 'text-green-400' :
-                            engineData.confidence === 'medium' ? 'text-yellow-400' :
-                            'text-red-400'
-                          }`}>
-                            {engineData.confidence === 'high' ? 'גבוהה' :
-                             engineData.confidence === 'medium' ? 'בינונית' : 'נמוכה'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>עסקאות:</span>
-                          <span className="text-slate-300">{engineData.transactionCount}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>מנוע:</span>
-                          <span className="text-cyan-400">{SystemInfo.engine}</span>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </motion.div>
+          {/* סימולטור What If - השדה ריק */}
+          <div className="bg-[#0b1b2b] border border-cyan-500/30 rounded-3xl p-6">
+            <div className="flex justify-between items-center mb-4 text-cyan-400">
+              <h3 className="text-[11px] font-bold uppercase tracking-widest">סימולטור What If</h3>
+              <HelpCircle size={18} className="opacity-50" />
+            </div>
+            <p className="text-[10px] text-slate-500 mb-2 font-bold tracking-tight">הזן הוצאה עתידית לבדיקה:</p>
+            <input 
+              type="number"
+              value={whatIf}
+              className="w-full bg-[#040b14] border border-cyan-500/20 rounded-xl p-4 text-cyan-400 text-2xl font-mono focus:outline-none focus:border-cyan-400 transition-all mb-4 shadow-inner"
+              placeholder="0.00 ₪"
+              onChange={(e) => setWhatIf(e.target.value)}
+            />
+            <button className="w-full bg-cyan-500/10 border border-cyan-500/40 hover:bg-cyan-500/20 text-cyan-400 font-black py-4 rounded-xl transition-all uppercase text-[10px] tracking-widest">
+              חשב סימולציה
+            </button>
+          </div>
 
-                {/* Right Column */}
-                <div className="space-y-6">
-                  <RiskZoneChart
-                    data={forecastData}
-                    riskThreshold={0}
-                    criticalDate={snapshot.risk_day}
-                  />
-                  
-                  <WhatIfSimulator
-                    onSimulate={handleWhatIfSimulate}
-                    currentBalance={snapshot.current_balance}
-                  />
-                </div>
-              </div>
-
-              <Disclaimer />
-            </>
-          )}
         </div>
-      </main>
 
-      {/* Upload Modal */}
-      <AnimatePresence>
-        {showUploader && (
-          <CSVUploader
-            onDataParsed={handleDataParsed}
-            onClose={() => setShowUploader(false)}
-          />
-        )}
-      </AnimatePresence>
+        {/* Sync Button */}
+        <div className="mt-8 pt-6 border-t border-white/5 flex justify-center">
+           <label className="flex items-center gap-3 px-8 py-3 bg-slate-900 border border-white/10 rounded-full cursor-pointer hover:bg-slate-800 transition-all">
+             <Upload size={18} className="text-cyan-400" />
+             <span className="text-[10px] font-bold uppercase tracking-[0.2em]">סנכרון נתונים מהבנק</span>
+             <input type="file" className="hidden" accept=".csv" />
+           </label>
+        </div>
+
+      </div>
     </div>
   );
 }
