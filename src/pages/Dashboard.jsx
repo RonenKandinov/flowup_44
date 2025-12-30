@@ -198,34 +198,27 @@ export default function Dashboard() {
           ) : (
             <>
               {/* Stats Row */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <StatCard
-                  title="יתרה נוכחית"
-                  value={`₪${snapshot.current_balance?.toLocaleString('he-IL')}`}
-                  icon={snapshot.risk_level === 'green' ? CheckCircle : snapshot.risk_level === 'yellow' ? Wallet : TrendingDown}
-                  color={snapshot.risk_level === 'green' ? 'green' : snapshot.risk_level === 'yellow' ? 'yellow' : 'red'}
-                  delay={0}
-                />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <StatCard
                   title="סך הכנסות"
                   value={`₪${snapshot.total_income?.toLocaleString('he-IL') || '0'}`}
                   icon={TrendingUp}
                   color="green"
-                  delay={0.1}
+                  delay={0}
                 />
                 <StatCard
                   title="סך הוצאות"
                   value={`₪${snapshot.total_expenses?.toLocaleString('he-IL') || '0'}`}
                   icon={TrendingDown}
                   color="red"
-                  delay={0.2}
+                  delay={0.1}
                 />
                 <StatCard
-                  title="ממוצע יומי"
-                  value={`₪${snapshot.avg_daily_spending?.toLocaleString('he-IL') || '0'}`}
-                  icon={Activity}
+                  title="יתרה נוכחית"
+                  value={`₪${snapshot.current_balance?.toLocaleString('he-IL')}`}
+                  icon={Wallet}
                   color="cyan"
-                  delay={0.3}
+                  delay={0.2}
                 />
               </div>
 
@@ -237,11 +230,9 @@ export default function Dashboard() {
                   animate={{ opacity: 1, scale: 1 }}
                   className="relative rounded-2xl p-6 border border-cyan-500/20 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm"
                 >
-                  <SpeedometerGauge
+                  <SmoothGauge
                     projectedBalance={snapshot.projected_eom_balance || 0}
-                    riskLevel={snapshot.risk_level || 'green'}
                     riskDay={snapshot.risk_day}
-                    whatIfAmount={whatIfAmount}
                   />
                   
                   {whatIfAmount > 0 && (
