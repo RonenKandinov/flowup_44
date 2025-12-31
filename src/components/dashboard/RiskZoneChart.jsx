@@ -1,93 +1,106 @@
-import React from 'react';
-import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, ReferenceLine, Tooltip } from 'recharts';
-import { motion } from 'framer-motion';
-import { TrendingDown, AlertTriangle } from 'lucide-react';
+import React, { useMemo } from 'react';
 
-export default function RiskZoneChart({ data, riskThreshold = 0, criticalDate }) {
-  const chartData = data.map(item => ({
-    ...item,
-    isRisk: item.balance < riskThreshold
-  }));
+const LeverageCard = ({ data }) => {
+  
+  // 1. חישוב הנתונים מתוך הדאטה של המשתמש
+  const analysis = useMemo(() => {
+    // הגנה מקריסה
+    if (!data || !Array.isArray(data)) return { fees: 0, credit: 0, income: 0 };
 
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-      const value = payload[0].value;
-      const isRisk = value < riskThreshold;
-      return (
-        <div className="bg-slate-800/90 backdrop-blur-sm border border-slate-700 rounded-lg p-3 shadow-xl">
-          <p className="text-slate-400 text-xs">{label}</p>
-          <p className={`text-lg font-bold ${isRisk ? 'text-red-400' : 'text-cyan-400'}`}>
-            ₪{value.toLocaleString('he-IL')}
-          </p>
-        </div>
-      );
+    let fees = 0;
+    let credit = 0;
+    let income = 0;
+
+    data.forEach(row => {
+      // תמיכה בעברית ואנגלית
+      const desc = row['תיאור הפעולה'] || row.description || '';
+      const debit = parseFloat(row['חובה'] || row.debit || 0);
+      const creditVal = parseFloat(row['זכות'] || row.credit || 0);
+
+      if (/עמ\'|רבית|ONTIME|ע\.מפעולות/i.test(desc)) fees += debit;
+      if (/ויזה|ישראכרט|מקס|כרטיס/i.test(desc)) credit += debit;
+      if (creditVal > 0) income += creditVal;
+    });
+
+    return { fees, credit, income };
+  }, [data]);
+
+  // 2. בניית ההמלצות בזמן אמת (פר משתמש)
+  const recommendations = useMemo(() => {
+    const list = [];
+
+    // המלצה 1: עמלות (מופיע רק אם יש עמלות!)
+    if (analysis.fees > 5) {
+      list.push({
+        id: 'fees', color: 'red', icon: '💸',
+        title: 'חיסול עמלות מיותרות',
+        val: `${analysis.fees.toFixed(2)} ₪`,
+        text: `אתה משלם סתם. מעבר למסלול דיגיטלי יחסוך לך כ-${(analysis.fees * 12).toFixed(0)} ₪ בשנה.`
+      });
     }
-    return null;
-  };
+
+    // המלצה 2: אשראי (מופיע רק אם יש שימוש גבוה)
+    if (analysis.credit > 2000) {
+      list.push({
+        id: 'credit', color: 'blue', icon: '💳',
+        title: 'אופטימיזציית אשראי',
+        val: `${analysis.credit.toLocaleString()} ₪`,
+        text: `ההוצאה באשראי גבוהה. זה הזמן לבקש כרטיס Cashback ולקבל כסף חזרה.`
+      });
+    }
+
+    // המלצה 3: השקעות (תמיד טוב)
+    if (analysis.income > 0) {
+      list.push({
+        id: 'invest', color: 'emerald', icon: '📈',
+        title: 'מנוע צמיחה אוטומטי',
+        val: 'פעיל',
+        text: `הכסף סתם שוכב? הגדר 10% מההכנסות להשקעה אוטומטית.`
+      });
+    }
+
+    return list;
+  }, [analysis]);
+
+  // אם אין דאטה בכלל
+  if (!data || !Array.isArray(data)) return null;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.3 }}
-      className="relative rounded-2xl p-4 md:p-5 border border-cyan-500/20 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm"
-    >
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-cyan-400 font-medium flex items-center gap-2">
-          <TrendingDown size={18} />
-          אזור סיכון
+    <div className="w-full bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden font-sans" dir="rtl">
+      
+      {/* כותרת */}
+      <div className="bg-slate-900 px-5 py-3 border-b border-slate-800">
+        <h3 className="text-white font-bold text-lg flex items-center gap-2">
+          <span>🚀</span> פעולות למינוף מיידי
         </h3>
       </div>
 
-      <div className="h-40 md:h-48">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-            <defs>
-              <linearGradient id="balanceGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.4}/>
-                <stop offset="95%" stopColor="#22d3ee" stopOpacity={0}/>
-              </linearGradient>
-              <linearGradient id="riskGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4}/>
-                <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
-              </linearGradient>
-            </defs>
-            <XAxis 
-              dataKey="date" 
-              tick={{ fill: '#64748b', fontSize: 10 }}
-              axisLine={{ stroke: '#334155' }}
-              tickLine={false}
-            />
-            <YAxis 
-              tick={{ fill: '#64748b', fontSize: 10 }}
-              axisLine={{ stroke: '#334155' }}
-              tickLine={false}
-              tickFormatter={(value) => `₪${(value/1000).toFixed(0)}k`}
-            />
-            <Tooltip content={<CustomTooltip />} />
-            <ReferenceLine 
-              y={riskThreshold} 
-              stroke="#ef4444" 
-              strokeDasharray="5 5" 
-              strokeOpacity={0.5}
-            />
-            <Area
-              type="monotone"
-              dataKey="balance"
-              stroke="#22d3ee"
-              strokeWidth={2}
-              fill="url(#balanceGradient)"
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+      {/* גוף הכרטיס - מציג רק מה שרלוונטי למשתמש */}
+      <div className="p-4 space-y-3">
+        {recommendations.length > 0 ? (
+          recommendations.map((rec) => (
+            <div key={rec.id} className={`bg-${rec.color}-50 p-3 rounded-lg border-r-4 border-${rec.color}-500`}>
+              <div className="flex justify-between items-start">
+                <h4 className="font-bold text-slate-800 text-sm flex gap-2">
+                  <span>{rec.icon}</span> {rec.title}
+                </h4>
+                <span className={`text-xs font-mono bg-white px-1 rounded text-${rec.color}-600 border border-${rec.color}-100`}>
+                  {rec.val}
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                {rec.text}
+              </p>
+            </div>
+          ))
+        ) : (
+          <div className="text-center py-4 text-slate-500 text-sm">
+            ✅ מצבך הפיננסי מצוין! אין פעולות מינוף דחופות כרגע.
+          </div>
+        )}
       </div>
-
-      {criticalDate && (
-        <div className="flex items-center gap-2 mt-3 text-sm text-yellow-400">
-          <AlertTriangle size={16} />
-          <span>יתרה נמוכה קריטית: {criticalDate}</span>
-        </div>
-      )}
-    </motion.div>
+    </div>
   );
-}
+};
+
+export default LeverageCard;
