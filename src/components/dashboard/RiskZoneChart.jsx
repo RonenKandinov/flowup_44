@@ -1,99 +1,94 @@
 import React, { useMemo } from 'react';
 
 const LeverageCard = (props) => {
-  // ניסיון למצוא את הנתונים בכל שם אפשרי ש-Base44 נותן
-  const rawData = props.data || props.transactions || props.rows || [];
+  // 1. ניסיון אגרסיבי למצוא את הנתונים
+  const rawData = useMemo(() => {
+    // בודק את כל האפשרויות של Base44
+    const data = props.data || props.transactions || props.rows || props.items || (props.payload && props.payload.data);
+    
+    // אם זה מגיע כטקסט (JSON), ננסה להמיר לאובייקט
+    if (typeof data === 'string') {
+      try { return JSON.parse(data); } catch (e) { return []; }
+    }
+    return Array.isArray(data) ? data : [];
+  }, [props]);
 
+  // 2. ניתוח הנתונים (עם התאמה מלאה לקובץ של רונן)
   const stats = useMemo(() => {
-    if (!Array.isArray(rawData) || rawData.length === 0) return null;
+    if (rawData.length === 0) return null;
     
     let fees = 0;
     let creditTotal = 0;
     let incomeTotal = 0;
 
     rawData.forEach(row => {
-      // מנקה את שמות העמודות מרווחים או גרשיים מיותרים
-      const cleanRow = {};
-      Object.keys(row).forEach(key => {
-        cleanRow[key.trim().replace(/['"]/g, '')] = row[key];
-      });
+      // ניקוי שמות עמודות בעברית (מטפל בבעיית הקידוד של CSV)
+      const keys = Object.keys(row);
+      const descKey = keys.find(k => k.includes('תיאור') || k.includes('Description')) || '';
+      const debitKey = keys.find(k => k.includes('חובה') || k.includes('Debit')) || '';
+      const creditKey = keys.find(k => k.includes('זכות') || k.includes('Credit')) || '';
 
-      // זיהוי שדות לפי השמות המדויקים בקובץ העברי שלך
-      const desc = cleanRow['תיאור הפעולה'] || cleanRow['Description'] || "";
-      const debit = parseFloat(String(cleanRow['חובה'] || cleanRow['Debit'] || 0).replace(/[^0-9.-]/g, ''));
-      const credit = parseFloat(String(cleanRow['זכות'] || cleanRow['Credit'] || 0).replace(/[^0-9.-]/g, ''));
+      const desc = String(row[descKey] || "").trim();
+      const debit = parseFloat(String(row[debitKey] || 0).replace(/[^\d.-]/g, '')) || 0;
+      const credit = parseFloat(String(row[creditKey] || 0).replace(/[^\d.-]/g, '')) || 0;
       
-      // סינון לפי המילים שמופיעות בקובץ של רונן
-      if (desc.includes("עמ'") || desc.includes("רבית") || desc.includes("ONTIME") || desc.includes("ע.מפעולות")) {
-        fees += debit;
-      }
-      if (desc.includes("ישראכרט") || desc.includes("מקס") || desc.includes("ויזה") || desc.includes("כרטיס")) {
-        creditTotal += debit;
-      }
-      if (desc.includes("bit") || desc.includes("משהב\"ט") || credit > 0) {
-        incomeTotal += credit;
-      }
+      // סינון לפי התנועות של רונן
+      if (/עמ\'|רבית|ONTIME|ע\.מפעולות/i.test(desc)) fees += debit;
+      if (/ישראכרט|מקס|ויזה|כרטיס/i.test(desc)) creditTotal += debit;
+      if (/bit|משהב\"ט/i.test(desc) || credit > 0) incomeTotal += credit;
     });
 
     return { fees, creditTotal, incomeTotal, count: rawData.length };
   }, [rawData]);
 
-  if (!stats || stats.count === 0) {
+  // הודעת שגיאה חכמה שתגיד לנו מה הבעיה
+  if (!stats) {
     return (
-      <div className="p-6 text-center border-2 border-dashed border-slate-300 rounded-xl bg-slate-50">
-        <p className="text-slate-500">מחפש נתונים בעברית בתוך ה-CSV...</p>
-        <p className="text-xs text-slate-400 mt-2">ודא שהעמודות הן: תיאור הפעולה, חובה, זכות</p>
+      <div className="p-4 border-2 border-red-200 bg-red-50 rounded-lg text-right" dir="rtl">
+        <p className="text-red-700 font-bold text-sm">המערכת לא זיהתה נתונים :(</p>
+        <p className="text-xs text-red-600 mt-1">
+          Base44 שלח לקומפוננטה: {Object.keys(props).join(', ') || 'כלום'}
+        </p>
+        <p className="text-[10px] text-gray-400 mt-2">ודא שאתה מעביר data={" {transactions} "} ב-Editor</p>
       </div>
     );
   }
 
   return (
-    <div className="w-full bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden font-sans" dir="rtl">
-      <div className="bg-slate-900 p-5">
-        <h2 className="text-white font-bold text-xl">המלצות למינוף מיידי</h2>
-        <div className="text-blue-400 text-xs mt-1">ניתוח חשבון: {stats.count} תנועות זוהו</div>
+    <div className="w-full bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden font-sans" dir="rtl">
+      <div className="bg-slate-900 p-4">
+        <h2 className="text-white font-bold">פעולות למינוף מיידי</h2>
+        <span className="text-[10px] text-blue-400">זוהו {stats.count} תנועות מהחשבון</span>
       </div>
 
-      <div className="p-5 space-y-4">
-        {/* עמלות */}
+      <div className="p-4 space-y-4">
         {stats.fees > 0 && (
-          <div className="flex items-center gap-4 p-4 bg-red-50 rounded-xl border-r-4 border-red-500">
-            <span className="text-3xl">💸</span>
-            <div className="flex-1">
-              <div className="flex justify-between items-center">
-                <h4 className="font-bold text-slate-800">חיסול עמלות עו"ש</h4>
-                <span className="font-mono font-bold text-red-600">{stats.fees.toFixed(2)} ₪</span>
-              </div>
-              <p className="text-xs text-slate-600 mt-1">נמצאו עמלות "ע.מפעולות" ו-"ONTIME". מעבר למסלול דיגיטלי יחסוך לך כ-620 ₪ בשנה.</p>
+          <div className="p-3 bg-red-50 rounded-lg border-r-4 border-red-500">
+            <div className="flex justify-between text-sm font-bold">
+              <span>💸 ביטול עמלות עו"ש</span>
+              <span className="text-red-600">{stats.fees.toFixed(2)} ₪</span>
             </div>
+            <p className="text-[11px] text-slate-600 mt-1">נמצאו עמלות שורה. מעבר למסלול דיגיטלי יחסוך כ-620 ₪ בשנה.</p>
           </div>
         )}
 
-        {/* אשראי */}
         {stats.creditTotal > 0 && (
-          <div className="flex items-center gap-4 p-4 bg-blue-50 rounded-xl border-r-4 border-blue-500">
-            <span className="text-3xl">💳</span>
-            <div className="flex-1">
-              <div className="flex justify-between items-center">
-                <h4 className="font-bold text-slate-800">מינוף אשראי (ישראכרט/מקס)</h4>
-                <span className="font-mono font-bold text-blue-600">{stats.creditTotal.toLocaleString()} ₪</span>
-              </div>
-              <p className="text-xs text-slate-600 mt-1">שימוש גבוה באשראי. כרטיס Cashback יחזיר לך כסף מזומן על כל קנייה.</p>
+          <div className="p-3 bg-blue-50 rounded-lg border-r-4 border-blue-500">
+            <div className="flex justify-between text-sm font-bold">
+              <span>💳 אופטימיזציית אשראי</span>
+              <span className="text-blue-600">{stats.creditTotal.toLocaleString()} ₪</span>
             </div>
+            <p className="text-[11px] text-slate-600 mt-1">שימוש גבוה באשראי. כרטיס Cashback יחזיר לך מאות שקלים בשנה.</p>
           </div>
         )}
 
-        {/* הכנסות */}
         {stats.incomeTotal > 0 && (
-          <div className="flex items-center gap-4 p-4 bg-emerald-50 rounded-xl border-r-4 border-emerald-500">
-            <span className="text-3xl">🚀</span>
-            <div className="flex-1">
-              <div className="flex justify-between items-center">
-                <h4 className="font-bold text-slate-800">מינוף כניסות bit</h4>
-                <span className="bg-emerald-200 text-emerald-700 text-[10px] px-2 py-0.5 rounded-full uppercase">זוהה</span>
-              </div>
-              <p className="text-xs text-slate-600 mt-1">נכנסו כספים מחזוריים. מומלץ להעביר 10% לחיסכון מניב ריבית דריבית.</p>
+          <div className="p-3 bg-emerald-50 rounded-lg border-r-4 border-emerald-500">
+            <div className="flex justify-between text-sm font-bold">
+              <span>🚀 מינוף כניסות כספים</span>
+              <span className="text-emerald-600">זוהו הכנסות</span>
             </div>
+            <p className="text-[11px] text-slate-600 mt-1">הגדר 10% מכל כניסת bit או משכורת לחיסכון מניב ריבית.</p>
           </div>
         )}
       </div>
