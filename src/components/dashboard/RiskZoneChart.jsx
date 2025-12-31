@@ -1,19 +1,16 @@
 import React, { useMemo } from 'react';
 
 const LeverageCard = (props) => {
-  // 1. ניסיון אגרסיבי למצוא את הנתונים
+  // 1. איתור נתונים בכל מצב
   const rawData = useMemo(() => {
-    // בודק את כל האפשרויות של Base44
-    const data = props.data || props.transactions || props.rows || props.items || (props.payload && props.payload.data);
-    
-    // אם זה מגיע כטקסט (JSON), ננסה להמיר לאובייקט
-    if (typeof data === 'string') {
-      try { return JSON.parse(data); } catch (e) { return []; }
-    }
-    return Array.isArray(data) ? data : [];
+    // בודק אם הנתונים בתוך data, transactions, או props ישירים
+    const possibleData = props.data || props.transactions || props.rows || props.items || props;
+    const finalArray = Array.isArray(possibleData) ? possibleData : 
+                       (possibleData.data && Array.isArray(possibleData.data) ? possibleData.data : []);
+    return finalArray;
   }, [props]);
 
-  // 2. ניתוח הנתונים (עם התאמה מלאה לקובץ של רונן)
+  // 2. ניתוח הנתונים מה-CSV העברי
   const stats = useMemo(() => {
     if (rawData.length === 0) return null;
     
@@ -22,73 +19,77 @@ const LeverageCard = (props) => {
     let incomeTotal = 0;
 
     rawData.forEach(row => {
-      // ניקוי שמות עמודות בעברית (מטפל בבעיית הקידוד של CSV)
-      const keys = Object.keys(row);
-      const descKey = keys.find(k => k.includes('תיאור') || k.includes('Description')) || '';
-      const debitKey = keys.find(k => k.includes('חובה') || k.includes('Debit')) || '';
-      const creditKey = keys.find(k => k.includes('זכות') || k.includes('Credit')) || '';
-
-      const desc = String(row[descKey] || "").trim();
-      const debit = parseFloat(String(row[debitKey] || 0).replace(/[^\d.-]/g, '')) || 0;
-      const credit = parseFloat(String(row[creditKey] || 0).replace(/[^\d.-]/g, '')) || 0;
+      // הופך הכל לטקסט אחד ארוך כדי לחפש מילים בלי קשר לשם העמודה
+      const rowString = JSON.stringify(row);
       
-      // סינון לפי התנועות של רונן
-      if (/עמ\'|רבית|ONTIME|ע\.מפעולות/i.test(desc)) fees += debit;
-      if (/ישראכרט|מקס|ויזה|כרטיס/i.test(desc)) creditTotal += debit;
-      if (/bit|משהב\"ט/i.test(desc) || credit > 0) incomeTotal += credit;
+      // מציאת ערכים מספריים בשורה
+      const values = Object.values(row).map(v => parseFloat(String(v).replace(/[^\d.-]/g, ''))).filter(v => !isNaN(v));
+      const maxVal = Math.max(...values, 0);
+      const minVal = Math.min(...values, 0);
+
+      // לוגיקה לפי מילים מהקובץ של רונן
+      if (/עמ\'|רבית|ONTIME|ע\.מפעולות/i.test(rowString)) {
+          fees += Math.abs(minVal || values[0] || 0);
+      }
+      if (/ישראכרט|מקס|ויזה|כרטיס/i.test(rowString)) {
+          creditTotal += Math.abs(minVal || values[0] || 0);
+      }
+      if (/bit|משהב\"ט/i.test(rowString)) {
+          incomeTotal += Math.max(...values);
+      }
     });
 
     return { fees, creditTotal, incomeTotal, count: rawData.length };
   }, [rawData]);
 
-  // הודעת שגיאה חכמה שתגיד לנו מה הבעיה
-  if (!stats) {
+  // 3. תצוגה
+  if (!stats || stats.count === 0) {
     return (
-      <div className="p-4 border-2 border-red-200 bg-red-50 rounded-lg text-right" dir="rtl">
-        <p className="text-red-700 font-bold text-sm">המערכת לא זיהתה נתונים :(</p>
-        <p className="text-xs text-red-600 mt-1">
-          Base44 שלח לקומפוננטה: {Object.keys(props).join(', ') || 'כלום'}
-        </p>
-        <p className="text-[10px] text-gray-400 mt-2">ודא שאתה מעביר data={" {transactions} "} ב-Editor</p>
+      <div className="p-6 border-2 border-dashed border-blue-200 bg-blue-50 rounded-xl text-center" dir="rtl">
+        <p className="text-blue-800 font-bold">ממתין לסנכרון נתונים...</p>
+        <p className="text-[10px] text-blue-600 mt-2">ודא שב-Base44 מוגדר: data={" {transactions} "}</p>
+        <div className="mt-2 text-[10px] bg-white p-2 rounded text-left overflow-auto max-h-20">
+          Debug: {JSON.stringify(Object.keys(props))}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden font-sans" dir="rtl">
-      <div className="bg-slate-900 p-4">
-        <h2 className="text-white font-bold">פעולות למינוף מיידי</h2>
-        <span className="text-[10px] text-blue-400">זוהו {stats.count} תנועות מהחשבון</span>
+    <div className="w-full bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden" dir="rtl">
+      <div className="bg-slate-900 p-4 border-b border-slate-800">
+        <h2 className="text-white font-bold text-lg">פעולות למינוף מיידי</h2>
+        <p className="text-blue-400 text-[10px]">ניתוח מותאם אישית עבור {stats.count} תנועות</p>
       </div>
 
       <div className="p-4 space-y-4">
         {stats.fees > 0 && (
-          <div className="p-3 bg-red-50 rounded-lg border-r-4 border-red-500">
-            <div className="flex justify-between text-sm font-bold">
-              <span>💸 ביטול עמלות עו"ש</span>
-              <span className="text-red-600">{stats.fees.toFixed(2)} ₪</span>
+          <div className="p-3 bg-red-50 rounded-lg border-r-4 border-red-500 transition-all">
+            <div className="flex justify-between items-center mb-1">
+              <span className="font-bold text-slate-800 text-sm">💸 חיסול עמלות עו"ש</span>
+              <span className="text-red-600 font-mono text-sm font-bold">{stats.fees.toFixed(2)} ₪</span>
             </div>
-            <p className="text-[11px] text-slate-600 mt-1">נמצאו עמלות שורה. מעבר למסלול דיגיטלי יחסוך כ-620 ₪ בשנה.</p>
+            <p className="text-[11px] text-slate-600 leading-tight">זיהינו עמלות "ע.מפעולות". מעבר למסלול דיגיטלי יחסוך לך כ-620 ₪ בשנה.</p>
           </div>
         )}
 
         {stats.creditTotal > 0 && (
           <div className="p-3 bg-blue-50 rounded-lg border-r-4 border-blue-500">
-            <div className="flex justify-between text-sm font-bold">
-              <span>💳 אופטימיזציית אשראי</span>
-              <span className="text-blue-600">{stats.creditTotal.toLocaleString()} ₪</span>
+            <div className="flex justify-between items-center mb-1">
+              <span className="font-bold text-slate-800 text-sm">💳 אופטימיזציית אשראי</span>
+              <span className="text-blue-600 font-mono text-sm font-bold">{stats.creditTotal.toLocaleString()} ₪</span>
             </div>
-            <p className="text-[11px] text-slate-600 mt-1">שימוש גבוה באשראי. כרטיס Cashback יחזיר לך מאות שקלים בשנה.</p>
+            <p className="text-[11px] text-slate-600 leading-tight">שימוש גבוה באשראי (ישראכרט/מקס). כרטיס Cashback יחזיר לך מאות שקלים בשנה.</p>
           </div>
         )}
 
         {stats.incomeTotal > 0 && (
           <div className="p-3 bg-emerald-50 rounded-lg border-r-4 border-emerald-500">
-            <div className="flex justify-between text-sm font-bold">
-              <span>🚀 מינוף כניסות כספים</span>
-              <span className="text-emerald-600">זוהו הכנסות</span>
+            <div className="flex justify-between items-center mb-1">
+              <span className="font-bold text-slate-800 text-sm">🚀 מינוף הכנסות bit</span>
+              <span className="text-emerald-600 text-[10px] font-bold">זוהה</span>
             </div>
-            <p className="text-[11px] text-slate-600 mt-1">הגדר 10% מכל כניסת bit או משכורת לחיסכון מניב ריבית.</p>
+            <p className="text-[11px] text-slate-600 leading-tight">נכנסו כספים. המלצה: הגדר הוראת קבע לחיסכון של 10% מכל כניסה.</p>
           </div>
         )}
       </div>
