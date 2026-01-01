@@ -24,11 +24,6 @@ export const processAndForecast = (csvText) => {
         let lastRowCredit = 0;
         let lastRowDebit = 0;
         const uniqueDates = new Set();
-        
-        // Get current month/year for filtering
-        const now = new Date();
-        const currentMonth = now.getMonth();
-        const currentYear = now.getFullYear();
 
         // Parse all rows (skip header at index 0)
         for (let i = 1; i < lines.length; i++) {
@@ -48,26 +43,11 @@ export const processAndForecast = (csvText) => {
             const credit = toNum(row[7]);
             const balance = toNum(row[8]);
             
-            // Parse date to check if it's in current month
-            let transactionDate = null;
-            if (date.includes('/')) {
-                const parts = date.split('/');
-                // Assume format: DD/MM/YYYY or DD/MM/YY
-                const day = parseInt(parts[0]);
-                const month = parseInt(parts[1]) - 1; // JS months are 0-based
-                const year = parts[2].length === 4 ? parseInt(parts[2]) : 2000 + parseInt(parts[2]);
-                transactionDate = new Date(year, month, day);
-            }
+            // Accumulate totals from ALL transactions in CSV
+            totalDebit += debit;
+            totalCredit += credit;
             
-            // Only accumulate totals for current month
-            if (transactionDate && 
-                transactionDate.getMonth() === currentMonth && 
-                transactionDate.getFullYear() === currentYear) {
-                totalDebit += debit;
-                totalCredit += credit;
-            }
-            
-            // Track unique dates (all dates for daily average calculation)
+            // Track unique dates
             if (date) {
                 uniqueDates.add(date);
             }
