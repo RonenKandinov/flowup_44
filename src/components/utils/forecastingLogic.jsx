@@ -117,6 +117,8 @@ export const processAndForecast = (csvText) => {
             forecastTotal: Math.round(safeForecast - currentBalance),
             projectedEOM: Math.round(projectedEOM),
             currentBalance: Math.round(currentBalance),
+            totalIncome: Math.round(totalCredit),
+            totalExpenses: Math.round(totalDebit),
             riskStatus,
             riskDay,
             rawScore: Math.round(rawForecast),
