@@ -8,16 +8,21 @@ import { Label } from '@/components/ui/label';
 export default function WhatIfSimulator({ onSimulate, currentBalance }) {
   const [expenseAmount, setExpenseAmount] = useState('');
   const [expenseName, setExpenseName] = useState('');
+  const [isActive, setIsActive] = useState(false);
 
   const handleSimulate = () => {
     const amount = parseFloat(expenseAmount) || 0;
-    onSimulate(amount, expenseName);
+    if (amount > 0) {
+      onSimulate(amount, expenseName);
+      setIsActive(true);
+    }
   };
 
   const handleReset = () => {
     setExpenseAmount('');
     setExpenseName('');
     onSimulate(0, '');
+    setIsActive(false);
   };
 
   const quickAmounts = [500, 1000, 2500, 5000];
@@ -27,7 +32,9 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.4 }}
-      className="relative rounded-2xl p-4 md:p-5 border border-cyan-500/20 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm"
+      className={`relative rounded-2xl p-4 md:p-5 border bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm transition-all ${
+        isActive ? 'border-yellow-500/50 shadow-lg shadow-yellow-500/20' : 'border-cyan-500/20'
+      }`}
     >
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-cyan-400 font-medium flex items-center gap-2">
