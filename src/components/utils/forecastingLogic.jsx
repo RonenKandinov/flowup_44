@@ -68,7 +68,7 @@ export const processAndForecast = (csvText) => {
             lastRowDebit = debit;
         }
 
-        // Find the most recent month in the data
+        // Find the most recent month in the data and calculate totals
         if (allTransactions.length > 0) {
             allTransactions.sort((a, b) => b.date - a.date);
             const mostRecentDate = allTransactions[0].date;
@@ -80,44 +80,6 @@ export const processAndForecast = (csvText) => {
                 if (tx.date.getMonth() === targetMonth && tx.date.getFullYear() === targetYear) {
                     totalDebit += tx.debit;
                     totalCredit += tx.credit;
-                }
-            }
-        }
-
-        // Also recalculate totals and daily averages
-        totalCredit = 0;
-        totalDebit = 0;
-
-        for (let i = 1; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (!line) continue;
-
-            const row = line.split(',').map(cell => cell.trim().replace(/"/g, ''));
-            const date = row[0] || '';
-            const debit = toNum(row[6]);
-            const credit = toNum(row[7]);
-
-            if (!date) continue;
-
-            // Parse date to check if it's in the last month
-            let transactionDate = null;
-            if (date.includes('/')) {
-                const parts = date.split('/');
-                const day = parseInt(parts[0]);
-                const month = parseInt(parts[1]) - 1;
-                const year = parts[2].length === 4 ? parseInt(parts[2]) : 2000 + parseInt(parts[2]);
-                transactionDate = new Date(year, month, day);
-            }
-
-            // Only count transactions from the most recent month
-            if (transactionDate && !isNaN(transactionDate.getTime()) && allTransactions.length > 0) {
-                const mostRecentDate = allTransactions[0].date;
-                const targetMonth = mostRecentDate.getMonth();
-                const targetYear = mostRecentDate.getFullYear();
-
-                if (transactionDate.getMonth() === targetMonth && transactionDate.getFullYear() === targetYear) {
-                    totalDebit += debit;
-                    totalCredit += credit;
                 }
             }
         }
