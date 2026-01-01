@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle, Activity, Plus } from 'lucide-react';
+import { Upload, Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -198,7 +198,7 @@ export default function Dashboard() {
           ) : (
             <>
               {/* Stats Row */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <StatCard
                   title="יתרה נוכחית"
                   value={`₪${snapshot.current_balance?.toLocaleString('he-IL')}`}
@@ -219,13 +219,6 @@ export default function Dashboard() {
                   icon={TrendingDown}
                   color="red"
                   delay={0.2}
-                />
-                <StatCard
-                  title="ממוצע יומי"
-                  value={`₪${snapshot.avg_daily_spending?.toLocaleString('he-IL') || '0'}`}
-                  icon={Activity}
-                  color="cyan"
-                  delay={0.3}
                 />
               </div>
 
