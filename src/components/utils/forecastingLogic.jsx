@@ -24,28 +24,38 @@ export const processAndForecast = (csvText) => {
         let lastRowCredit = 0;
         let lastRowDebit = 0;
         const uniqueDates = new Set();
+        const allTransactions = [];
 
-        // Parse all rows (skip header at index 0)
+        // First pass: collect all transactions with parsed dates
         for (let i = 1; i < lines.length; i++) {
             const line = lines[i].trim();
             if (!line) continue;
             
             const row = line.split(',').map(cell => cell.trim().replace(/"/g, ''));
             
-            // Position-Based Mapping (fixed indexes):
-            // row[0] = Date
-            // row[6] = Debit (חובה - Expense)
-            // row[7] = Credit (זכות - Income)
-            // row[8] = Balance (יתרה לאחר פעולה)
-            
             const date = row[0] || '';
             const debit = toNum(row[6]);
             const credit = toNum(row[7]);
             const balance = toNum(row[8]);
             
-            // Accumulate totals from ALL transactions in CSV
-            totalDebit += debit;
-            totalCredit += credit;
+            // Parse date
+            let transactionDate = null;
+            if (date.includes('/')) {
+                const parts = date.split('/');
+                const day = parseInt(parts[0]);
+                const month = parseInt(parts[1]) - 1;
+                const year = parts[2].length === 4 ? parseInt(parts[2]) : 2000 + parseInt(parts[2]);
+                transactionDate = new Date(year, month, day);
+            }
+            
+            if (transactionDate && !isNaN(transactionDate.getTime())) {
+                allTransactions.push({
+                    date: transactionDate,
+                    debit,
+                    credit,
+                    balance
+                });
+            }
             
             // Track unique dates
             if (date) {
@@ -56,6 +66,22 @@ export const processAndForecast = (csvText) => {
             currentBalance = balance;
             lastRowCredit = credit;
             lastRowDebit = debit;
+        }
+
+        // Find the most recent month in the data
+        if (allTransactions.length > 0) {
+            allTransactions.sort((a, b) => b.date - a.date);
+            const mostRecentDate = allTransactions[0].date;
+            const targetMonth = mostRecentDate.getMonth();
+            const targetYear = mostRecentDate.getFullYear();
+            
+            // Sum only transactions from the most recent month
+            for (const tx of allTransactions) {
+                if (tx.date.getMonth() === targetMonth && tx.date.getFullYear() === targetYear) {
+                    totalDebit += tx.debit;
+                    totalCredit += tx.credit;
+                }
+            }
         }
 
         if (uniqueDates.size === 0) {
