@@ -2,8 +2,13 @@ import React, { useMemo } from 'react';
 import { Lightbulb } from 'lucide-react';
 
 const LeverageCard = ({ projectedBalance, currentBalance }) => {
-  // אם היתרה הצפויה מעל 3000 שקלים - לא מציגים המלצות
-  if (!projectedBalance || projectedBalance > 3000) {
+  // אם אין נתונים - לא מציגים כלום
+  if (!projectedBalance && projectedBalance !== 0) {
+    return null;
+  }
+  
+  // אם היתרה הצפויה מעל 3000 שקלים - מציגים הודעת יציבות
+  if (projectedBalance > 3000) {
     return (
       <div className="w-full bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl shadow-lg border border-green-200 overflow-hidden p-6" dir="rtl">
         <div className="flex items-center gap-3 mb-2">

@@ -37,8 +37,10 @@ export default function Dashboard() {
     initialData: []
   });
 
+  // Use local data if exists, otherwise use saved data
   const snapshot = localData?.snapshot || snapshots?.[0];
   const forecastData = localData?.forecastData || generateForecastFromTransactions(transactions);
+  const currentEngineData = localData?.engineData || engineData;
 
   // Generate forecast data from transactions
   function generateForecastFromTransactions(txns) {
@@ -102,6 +104,8 @@ export default function Dashboard() {
   const handleDataParsed = async (data) => {
     setLocalData(data);
     setEngineData(data.engineData);
+    setWhatIfAmount(0);
+    setWhatIfName('');
     
     // Save to database
     await saveSnapshotMutation.mutateAsync(data.snapshot);
@@ -117,18 +121,23 @@ export default function Dashboard() {
     setWhatIfName(name);
     
     // If we have engine data, recalculate with what-if
-    if (engineData && amount > 0) {
-      const whatIfResult = calculateWhatIf(engineData, amount);
-      setLocalData(prev => ({
-        ...prev,
-        snapshot: {
-          ...prev.snapshot,
-          projected_eom_balance: whatIfResult.projectedEOM,
-          risk_level: whatIfResult.riskStatus,
-          risk_day: whatIfResult.riskDay
-        },
-        forecastData: whatIfResult.graphPoints
-      }));
+    const dataToUse = localData?.engineData || engineData;
+    if (dataToUse && amount > 0) {
+      const whatIfResult = calculateWhatIf(dataToUse, amount);
+      
+      // Update local data with what-if results
+      if (localData) {
+        setLocalData(prev => ({
+          ...prev,
+          snapshot: {
+            ...prev.snapshot,
+            projected_eom_balance: whatIfResult.projectedEOM,
+            risk_level: whatIfResult.riskStatus,
+            risk_day: whatIfResult.riskDay
+          },
+          forecastData: whatIfResult.graphPoints
+        }));
+      }
     }
   };
 
@@ -250,7 +259,7 @@ export default function Dashboard() {
                     </motion.div>
                   )}
                   
-                  {engineData && (
+                  {currentEngineData && (
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
@@ -260,17 +269,17 @@ export default function Dashboard() {
                         <div className="flex justify-between">
                           <span>רמת ביטחון:</span>
                           <span className={`font-medium ${
-                            engineData.confidence === 'high' ? 'text-green-400' :
-                            engineData.confidence === 'medium' ? 'text-yellow-400' :
+                            currentEngineData.confidence === 'high' ? 'text-green-400' :
+                            currentEngineData.confidence === 'medium' ? 'text-yellow-400' :
                             'text-red-400'
                           }`}>
-                            {engineData.confidence === 'high' ? 'גבוהה' :
-                             engineData.confidence === 'medium' ? 'בינונית' : 'נמוכה'}
+                            {currentEngineData.confidence === 'high' ? 'גבוהה' :
+                             currentEngineData.confidence === 'medium' ? 'בינונית' : 'נמוכה'}
                           </span>
                         </div>
                         <div className="flex justify-between">
                           <span>עסקאות:</span>
-                          <span className="text-slate-300">{engineData.transactionCount}</span>
+                          <span className="text-slate-300">{currentEngineData.transactionCount}</span>
                         </div>
                         <div className="flex justify-between">
                           <span>מנוע:</span>
