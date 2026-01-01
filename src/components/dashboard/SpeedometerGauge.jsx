@@ -7,29 +7,43 @@ export default function SpeedometerGauge({
   riskDay,
   whatIfAmount = 0 
 }) {
-  // Calculate needle angle based on risk level and projected balance
-  const adjustedBalance = projectedBalance - whatIfAmount;
+  // Calculate needle angle based on projected balance
+  const adjustedBalance = Math.max(0, projectedBalance - whatIfAmount);
   
   const { angle, color, glowColor } = useMemo(() => {
-    let calculatedRisk = riskLevel;
+    // Map balance to angle: 
+    // Balance >= 3000: green zone (-60°)
+    // Balance 1000-3000: yellow zone (0°)
+    // Balance < 1000: red zone (60°)
     
-    // Recalculate risk based on what-if
-    if (adjustedBalance < 0) {
-      calculatedRisk = 'red';
-    } else if (adjustedBalance < 1000) {
-      calculatedRisk = 'yellow';
+    let calculatedAngle;
+    let calculatedColor;
+    let calculatedGlow;
+    
+    if (adjustedBalance >= 3000) {
+      calculatedAngle = -60;
+      calculatedColor = '#22c55e';
+      calculatedGlow = 'rgba(34, 197, 94, 0.5)';
+    } else if (adjustedBalance >= 1000) {
+      // Linear interpolation between yellow (0°) and green (-60°)
+      const ratio = (adjustedBalance - 1000) / 2000;
+      calculatedAngle = -60 * ratio;
+      calculatedColor = '#eab308';
+      calculatedGlow = 'rgba(234, 179, 8, 0.5)';
     } else {
-      calculatedRisk = 'green';
+      // Linear interpolation between red (60°) and yellow (0°)
+      const ratio = adjustedBalance / 1000;
+      calculatedAngle = 60 - (60 * ratio);
+      calculatedColor = '#ef4444';
+      calculatedGlow = 'rgba(239, 68, 68, 0.5)';
     }
     
-    const riskConfig = {
-      green: { angle: -60, color: '#22c55e', glowColor: 'rgba(34, 197, 94, 0.5)' },
-      yellow: { angle: 0, color: '#eab308', glowColor: 'rgba(234, 179, 8, 0.5)' },
-      red: { angle: 60, color: '#ef4444', glowColor: 'rgba(239, 68, 68, 0.5)' }
+    return { 
+      angle: calculatedAngle, 
+      color: calculatedColor, 
+      glowColor: calculatedGlow 
     };
-    
-    return riskConfig[calculatedRisk];
-  }, [adjustedBalance, riskLevel]);
+  }, [adjustedBalance]);
 
   return (
     <div className="relative flex flex-col items-center">
@@ -92,28 +106,25 @@ export default function SpeedometerGauge({
           filter="url(#glow)"
         />
         
-        {/* Needle */}
+        {/* Needle - Classic Speedometer Style */}
         <motion.g
-          initial={{ rotate: -60 }}
+          initial={{ rotate: 0 }}
           animate={{ rotate: angle }}
           transition={{ type: "spring", stiffness: 60, damping: 15 }}
           style={{ transformOrigin: '100px 100px' }}
         >
-          <line
-            x1="100"
-            y1="100"
-            x2="100"
-            y2="40"
+          {/* Needle pointer */}
+          <path
+            d="M 100 100 L 95 95 L 100 35 L 105 95 Z"
+            fill={color}
             stroke={color}
-            strokeWidth="3"
-            strokeLinecap="round"
+            strokeWidth="1"
             filter="url(#glow)"
           />
-          <circle cx="100" cy="100" r="8" fill={color} filter="url(#glow)" />
+          {/* Center cap */}
+          <circle cx="100" cy="100" r="6" fill={color} filter="url(#glow)" />
+          <circle cx="100" cy="100" r="3" fill="#1e293b" />
         </motion.g>
-        
-        {/* Center dot */}
-        <circle cx="100" cy="100" r="4" fill="#fff" />
       </svg>
       
       {/* Balance Display */}
