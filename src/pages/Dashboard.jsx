@@ -294,6 +294,8 @@ export default function Dashboard() {
                     data={forecastData}
                     riskThreshold={0}
                     criticalDate={snapshot.risk_day}
+                    projectedBalance={snapshot.projected_eom_balance}
+                    currentBalance={snapshot.current_balance}
                   />
                   
                   <WhatIfSimulator
