@@ -114,21 +114,6 @@ export default function CSVUploader({ onDataParsed, onClose }) {
       // Parse CSV for database storage
       const transactions = parseCSVForDatabase(content);
 
-      // Calculate monthly income/expenses for stats
-      const monthlyTransactions = transactions.filter(t => {
-        const date = new Date(t.date);
-        const now = new Date();
-        return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-      });
-
-      const totalIncome = monthlyTransactions
-        .filter(t => t.amount > 0)
-        .reduce((sum, t) => sum + t.amount, 0);
-      
-      const totalExpenses = Math.abs(monthlyTransactions
-        .filter(t => t.amount < 0)
-        .reduce((sum, t) => sum + t.amount, 0));
-
       setStatus('success');
 
       // Pass data to parent
@@ -137,8 +122,8 @@ export default function CSVUploader({ onDataParsed, onClose }) {
         snapshot: {
           current_balance: forecastResult.currentBalance,
           projected_eom_balance: forecastResult.projectedEOM,
-          total_income: totalIncome,
-          total_expenses: totalExpenses,
+          total_income: forecastResult.totalIncome,
+          total_expenses: forecastResult.totalExpenses,
           risk_level: forecastResult.riskStatus,
           risk_day: forecastResult.riskDay,
           avg_daily_spending: forecastResult.avgDailySpending,
