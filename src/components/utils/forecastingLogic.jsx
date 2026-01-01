@@ -82,32 +82,20 @@ export const processAndForecast = (csvText) => {
         // 4. Calculate daily spending (from Column 6)
         const avgDailySpending = totalDebit / totalDays;
 
-        // 5. Determine risk status with 17% buffer logic
+        // 5. Determine risk status
         let riskStatus = "green";
         let riskDay = null;
         
-        const safeThreshold = currentBalance * 0.17; // 17% safety buffer
-        
         if (projectedEOM < 0) {
             riskStatus = "red";
-            // Calculate days until balance hits zero
             if (avgDailySpending > 0 && currentBalance > 0) {
-                const daysUntilZero = Math.floor(currentBalance / avgDailySpending);
+                const daysUntilNegative = Math.floor(currentBalance / avgDailySpending);
                 const riskDate = new Date();
-                riskDate.setDate(riskDate.getDate() + daysUntilZero);
+                riskDate.setDate(riskDate.getDate() + daysUntilNegative);
                 riskDay = riskDate.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
             }
-        } else if (projectedEOM < safeThreshold) {
+        } else if (projectedEOM < currentBalance * 0.2) {
             riskStatus = "yellow";
-            // Calculate when balance will hit safety threshold
-            if (avgDailySpending > 0 && currentBalance > safeThreshold) {
-                const daysToThreshold = Math.floor((currentBalance - safeThreshold) / avgDailySpending);
-                if (daysToThreshold <= 7) {
-                    const riskDate = new Date();
-                    riskDate.setDate(riskDate.getDate() + daysToThreshold);
-                    riskDay = riskDate.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
-                }
-            }
         }
 
         // 6. Generate forecast graph points
@@ -155,43 +143,33 @@ export const calculateWhatIf = (baselineForecast, expenseAmount) => {
         return baselineForecast;
     }
 
-    const adjustedBalance = baselineForecast.currentBalance - expenseAmount;
     const adjustedEOM = baselineForecast.projectedEOM - expenseAmount;
-    const safeThreshold = baselineForecast.currentBalance * 0.17;
     
     let newRiskStatus = "green";
     let newRiskDay = null;
     
     if (adjustedEOM < 0) {
         newRiskStatus = "red";
-        if (baselineForecast.avgDailySpending > 0 && adjustedBalance > 0) {
-            const daysUntilZero = Math.floor(adjustedBalance / baselineForecast.avgDailySpending);
+        if (baselineForecast.avgDailySpending > 0) {
+            const daysUntilNegative = Math.floor(
+                Math.abs((baselineForecast.currentBalance - expenseAmount) / baselineForecast.avgDailySpending)
+            );
             const riskDate = new Date();
-            riskDate.setDate(riskDate.getDate() + daysUntilZero);
+            riskDate.setDate(riskDate.getDate() + daysUntilNegative);
             newRiskDay = riskDate.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
         }
-    } else if (adjustedEOM < safeThreshold) {
+    } else if (adjustedEOM < 1000) {
         newRiskStatus = "yellow";
-        if (baselineForecast.avgDailySpending > 0 && adjustedBalance > safeThreshold) {
-            const daysToThreshold = Math.floor((adjustedBalance - safeThreshold) / baselineForecast.avgDailySpending);
-            if (daysToThreshold <= 7) {
-                const riskDate = new Date();
-                riskDate.setDate(riskDate.getDate() + daysToThreshold);
-                newRiskDay = riskDate.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
-            }
-        }
     }
 
-    // Adjust graph points - spread expense over 30 days
-    const dailyExpenseImpact = expenseAmount / 30;
-    const adjustedGraphPoints = baselineForecast.graphPoints.map((point, idx) => ({
+    // Adjust graph points
+    const adjustedGraphPoints = baselineForecast.graphPoints.map(point => ({
         ...point,
-        balance: point.balance - Math.round(dailyExpenseImpact * (idx + 1))
+        balance: point.balance - Math.round(expenseAmount / baselineForecast.graphPoints.length)
     }));
 
     return {
         ...baselineForecast,
-        currentBalance: Math.round(adjustedBalance),
         projectedEOM: Math.round(adjustedEOM),
         riskStatus: newRiskStatus,
         riskDay: newRiskDay,
