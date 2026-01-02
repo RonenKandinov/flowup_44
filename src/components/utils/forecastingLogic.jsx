@@ -166,12 +166,69 @@ export const processAndForecast = (csvText) => {
 /**
  * Calculate What-If scenario impact
  */
-export const calculateWhatIf = (baselineForecast, expenseAmount) => {
+export const calculateWhatIf = (baselineForecast, scenario) => {
     if (!baselineForecast || !baselineForecast.success) {
         return baselineForecast;
     }
 
-    const adjustedEOM = baselineForecast.projectedEOM - expenseAmount;
+    if (!scenario || scenario.type === 'reset') {
+        return baselineForecast;
+    }
+
+    let adjustedEOM = baselineForecast.projectedEOM;
+    let adjustedGraphPoints = [...baselineForecast.graphPoints];
+
+    // Handle different scenario types
+    switch (scenario.type) {
+        case 'expense':
+            // One-time expense
+            adjustedEOM -= scenario.amount;
+            adjustedGraphPoints = baselineForecast.graphPoints.map(point => ({
+                ...point,
+                balance: point.balance - Math.round(scenario.amount / baselineForecast.graphPoints.length)
+            }));
+            break;
+
+        case 'income':
+            // One-time income (bonus)
+            adjustedEOM += scenario.amount;
+            adjustedGraphPoints = baselineForecast.graphPoints.map(point => ({
+                ...point,
+                balance: point.balance + Math.round(scenario.amount / baselineForecast.graphPoints.length)
+            }));
+            break;
+
+        case 'monthly':
+            // Recurring monthly change
+            const daysInMonth = 30;
+            const dailyChange = scenario.amount / daysInMonth;
+            adjustedEOM -= scenario.amount;
+            adjustedGraphPoints = baselineForecast.graphPoints.map((point, index) => ({
+                ...point,
+                balance: point.balance - Math.round(dailyChange * index)
+            }));
+            break;
+
+        case 'salary_delay':
+            // Salary delay impact
+            const delayDays = scenario.days;
+            const avgDailySpend = baselineForecast.avgDailySpending;
+            const delayImpact = avgDailySpend * delayDays;
+            adjustedEOM -= delayImpact;
+            adjustedGraphPoints = baselineForecast.graphPoints.map((point, index) => {
+                if (index < delayDays) {
+                    return {
+                        ...point,
+                        balance: point.balance - Math.round(avgDailySpend * index)
+                    };
+                }
+                return {
+                    ...point,
+                    balance: point.balance - Math.round(delayImpact)
+                };
+            });
+            break;
+    }
     
     let newRiskStatus = "green";
     let newRiskDay = null;
@@ -179,8 +236,11 @@ export const calculateWhatIf = (baselineForecast, expenseAmount) => {
     if (adjustedEOM < 0) {
         newRiskStatus = "red";
         if (baselineForecast.avgDailySpending > 0) {
+            const currentBalanceAdjusted = scenario.type === 'expense' 
+                ? baselineForecast.currentBalance - scenario.amount 
+                : baselineForecast.currentBalance;
             const daysUntilNegative = Math.floor(
-                Math.abs((baselineForecast.currentBalance - expenseAmount) / baselineForecast.avgDailySpending)
+                Math.abs(currentBalanceAdjusted / baselineForecast.avgDailySpending)
             );
             const riskDate = new Date();
             riskDate.setDate(riskDate.getDate() + daysUntilNegative);
@@ -190,12 +250,6 @@ export const calculateWhatIf = (baselineForecast, expenseAmount) => {
         newRiskStatus = "yellow";
     }
 
-    // Adjust graph points
-    const adjustedGraphPoints = baselineForecast.graphPoints.map(point => ({
-        ...point,
-        balance: point.balance - Math.round(expenseAmount / baselineForecast.graphPoints.length)
-    }));
-
     return {
         ...baselineForecast,
         projectedEOM: Math.round(adjustedEOM),
@@ -203,7 +257,7 @@ export const calculateWhatIf = (baselineForecast, expenseAmount) => {
         riskDay: newRiskDay,
         graphPoints: adjustedGraphPoints,
         whatIfApplied: true,
-        whatIfAmount: expenseAmount
+        whatIfScenario: scenario
     };
 };
 

@@ -1,19 +1,49 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { HelpCircle, Calculator } from 'lucide-react';
+import { HelpCircle, Calculator, DollarSign, TrendingDown, Calendar } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function WhatIfSimulator({ onSimulate, currentBalance }) {
   const [expenseAmount, setExpenseAmount] = useState('');
   const [expenseName, setExpenseName] = useState('');
+  const [incomeAmount, setIncomeAmount] = useState('');
+  const [incomeName, setIncomeName] = useState('');
+  const [monthlyChange, setMonthlyChange] = useState('');
+  const [salaryDelay, setSalaryDelay] = useState('');
   const [isActive, setIsActive] = useState(false);
+  const [activeTab, setActiveTab] = useState('expense');
 
-  const handleSimulate = () => {
+  const handleExpenseSimulate = () => {
     const amount = parseFloat(expenseAmount) || 0;
     if (amount > 0) {
-      onSimulate(amount, expenseName);
+      onSimulate({ type: 'expense', amount, name: expenseName });
+      setIsActive(true);
+    }
+  };
+
+  const handleIncomeSimulate = () => {
+    const amount = parseFloat(incomeAmount) || 0;
+    if (amount > 0) {
+      onSimulate({ type: 'income', amount, name: incomeName });
+      setIsActive(true);
+    }
+  };
+
+  const handleMonthlySimulate = () => {
+    const amount = parseFloat(monthlyChange) || 0;
+    if (amount !== 0) {
+      onSimulate({ type: 'monthly', amount });
+      setIsActive(true);
+    }
+  };
+
+  const handleSalarySimulate = () => {
+    const days = parseInt(salaryDelay) || 0;
+    if (days > 0) {
+      onSimulate({ type: 'salary_delay', days });
       setIsActive(true);
     }
   };
@@ -21,7 +51,11 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
   const handleReset = () => {
     setExpenseAmount('');
     setExpenseName('');
-    onSimulate(0, '');
+    setIncomeAmount('');
+    setIncomeName('');
+    setMonthlyChange('');
+    setSalaryDelay('');
+    onSimulate({ type: 'reset' });
     setIsActive(false);
   };
 
@@ -39,65 +73,176 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-cyan-400 font-medium flex items-center gap-2">
           <Calculator size={18} />
-          מה אם?
+          סימולטור מה אם?
         </h3>
-        <HelpCircle size={16} className="text-slate-500" />
-      </div>
-
-      <div className="space-y-4">
-        <div>
-          <Label className="text-slate-400 text-xs mb-1.5 block">תיאור ההוצאה (אופציונלי)</Label>
-          <Input
-            placeholder="לדוגמה: מחשב חדש"
-            value={expenseName}
-            onChange={(e) => setExpenseName(e.target.value)}
-            className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
-          />
-        </div>
-
-        <div>
-          <Label className="text-slate-400 text-xs mb-1.5 block">סכום ההוצאה הצפויה</Label>
-          <Input
-            type="number"
-            placeholder="₪0.00"
-            value={expenseAmount}
-            onChange={(e) => setExpenseAmount(e.target.value)}
-            className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500 text-lg"
-            dir="ltr"
-          />
-        </div>
-
-        {/* Quick amounts */}
-        <div className="flex flex-wrap gap-2">
-          {quickAmounts.map((amount) => (
-            <button
-              key={amount}
-              onClick={() => setExpenseAmount(amount.toString())}
-              className="px-3 py-1 rounded-full text-xs bg-slate-700/50 text-slate-300 hover:bg-cyan-500/20 hover:text-cyan-400 transition-colors"
-            >
-              ₪{amount.toLocaleString('he-IL')}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex gap-2">
+        {isActive && (
           <Button
-            onClick={handleSimulate}
-            className="flex-1 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white font-medium shadow-lg shadow-cyan-500/25"
+            onClick={handleReset}
+            variant="ghost"
+            size="sm"
+            className="text-slate-400 hover:text-white text-xs"
           >
-            חשב
+            אפס הכל
           </Button>
-          {expenseAmount && (
-            <Button
-              onClick={handleReset}
-              variant="outline"
-              className="border-slate-600 text-slate-300 hover:bg-slate-800"
-            >
-              אפס
-            </Button>
-          )}
-        </div>
+        )}
       </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-4 bg-slate-900/50">
+          <TabsTrigger value="expense" className="text-xs">הוצאה</TabsTrigger>
+          <TabsTrigger value="income" className="text-xs">הכנסה</TabsTrigger>
+          <TabsTrigger value="monthly" className="text-xs">חודשי</TabsTrigger>
+          <TabsTrigger value="salary" className="text-xs">משכורת</TabsTrigger>
+        </TabsList>
+
+        {/* Expense Scenario */}
+        <TabsContent value="expense" className="space-y-3 mt-4">
+          <div>
+            <Label className="text-slate-400 text-xs mb-1.5 block">תיאור ההוצאה</Label>
+            <Input
+              placeholder="לדוגמה: מחשב חדש"
+              value={expenseName}
+              onChange={(e) => setExpenseName(e.target.value)}
+              className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
+            />
+          </div>
+          <div>
+            <Label className="text-slate-400 text-xs mb-1.5 block">סכום ההוצאה</Label>
+            <Input
+              type="number"
+              placeholder="₪0.00"
+              value={expenseAmount}
+              onChange={(e) => setExpenseAmount(e.target.value)}
+              className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
+              dir="ltr"
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {quickAmounts.map((amount) => (
+              <button
+                key={amount}
+                onClick={() => setExpenseAmount(amount.toString())}
+                className="px-3 py-1 rounded-full text-xs bg-slate-700/50 text-slate-300 hover:bg-red-500/20 hover:text-red-400 transition-colors"
+              >
+                ₪{amount.toLocaleString('he-IL')}
+              </button>
+            ))}
+          </div>
+          <Button
+            onClick={handleExpenseSimulate}
+            className="w-full bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white"
+          >
+            חשב השפעת הוצאה
+          </Button>
+        </TabsContent>
+
+        {/* Income Scenario */}
+        <TabsContent value="income" className="space-y-3 mt-4">
+          <div>
+            <Label className="text-slate-400 text-xs mb-1.5 block">תיאור ההכנסה</Label>
+            <Input
+              placeholder="לדוגמה: בונוס שנתי"
+              value={incomeName}
+              onChange={(e) => setIncomeName(e.target.value)}
+              className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
+            />
+          </div>
+          <div>
+            <Label className="text-slate-400 text-xs mb-1.5 block">סכום ההכנסה</Label>
+            <Input
+              type="number"
+              placeholder="₪0.00"
+              value={incomeAmount}
+              onChange={(e) => setIncomeAmount(e.target.value)}
+              className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
+              dir="ltr"
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {[1000, 3000, 5000, 10000].map((amount) => (
+              <button
+                key={amount}
+                onClick={() => setIncomeAmount(amount.toString())}
+                className="px-3 py-1 rounded-full text-xs bg-slate-700/50 text-slate-300 hover:bg-green-500/20 hover:text-green-400 transition-colors"
+              >
+                ₪{amount.toLocaleString('he-IL')}
+              </button>
+            ))}
+          </div>
+          <Button
+            onClick={handleIncomeSimulate}
+            className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white"
+          >
+            חשב השפעת הכנסה
+          </Button>
+        </TabsContent>
+
+        {/* Monthly Change Scenario */}
+        <TabsContent value="monthly" className="space-y-3 mt-4">
+          <p className="text-xs text-slate-400 mb-2">שינוי קבוע בהוצאות החודשיות</p>
+          <div>
+            <Label className="text-slate-400 text-xs mb-1.5 block">שינוי חודשי (חיובי = הוצאה, שלילי = חיסכון)</Label>
+            <Input
+              type="number"
+              placeholder="₪0.00"
+              value={monthlyChange}
+              onChange={(e) => setMonthlyChange(e.target.value)}
+              className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
+              dir="ltr"
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {[-500, -200, 200, 500].map((amount) => (
+              <button
+                key={amount}
+                onClick={() => setMonthlyChange(amount.toString())}
+                className={`px-3 py-1 rounded-full text-xs bg-slate-700/50 text-slate-300 hover:bg-purple-500/20 hover:text-purple-400 transition-colors`}
+              >
+                {amount > 0 ? '+' : ''}₪{amount.toLocaleString('he-IL')}
+              </button>
+            ))}
+          </div>
+          <Button
+            onClick={handleMonthlySimulate}
+            className="w-full bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 text-white"
+          >
+            חשב השפעה חודשית
+          </Button>
+        </TabsContent>
+
+        {/* Salary Delay Scenario */}
+        <TabsContent value="salary" className="space-y-3 mt-4">
+          <p className="text-xs text-slate-400 mb-2">דחיית מועד קבלת משכורת</p>
+          <div>
+            <Label className="text-slate-400 text-xs mb-1.5 block">עיכוב בימים</Label>
+            <Input
+              type="number"
+              placeholder="0"
+              value={salaryDelay}
+              onChange={(e) => setSalaryDelay(e.target.value)}
+              className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
+              dir="ltr"
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {[3, 5, 7, 10].map((days) => (
+              <button
+                key={days}
+                onClick={() => setSalaryDelay(days.toString())}
+                className="px-3 py-1 rounded-full text-xs bg-slate-700/50 text-slate-300 hover:bg-orange-500/20 hover:text-orange-400 transition-colors"
+              >
+                {days} ימים
+              </button>
+            ))}
+          </div>
+          <Button
+            onClick={handleSalarySimulate}
+            className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white"
+          >
+            חשב השפעת עיכוב
+          </Button>
+        </TabsContent>
+      </Tabs>
     </motion.div>
   );
 }

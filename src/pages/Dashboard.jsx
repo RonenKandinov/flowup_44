@@ -116,14 +116,36 @@ export default function Dashboard() {
     }
   };
 
-  const handleWhatIfSimulate = (amount, name) => {
+  const handleWhatIfSimulate = (scenario) => {
+    if (scenario.type === 'reset') {
+      setWhatIfAmount(0);
+      setWhatIfName('');
+      // Restore original data
+      if (engineData) {
+        setLocalData(prev => prev ? {
+          ...prev,
+          snapshot: {
+            ...prev.snapshot,
+            projected_eom_balance: engineData.projectedEOM,
+            risk_level: engineData.riskStatus,
+            risk_day: engineData.riskDay
+          },
+          forecastData: engineData.graphPoints
+        } : null);
+      }
+      return;
+    }
+
+    const amount = scenario.amount || 0;
+    const name = scenario.name || '';
+    
     setWhatIfAmount(amount);
     setWhatIfName(name);
     
     // If we have engine data, recalculate with what-if
     const dataToUse = localData?.engineData || engineData;
-    if (dataToUse && amount > 0) {
-      const whatIfResult = calculateWhatIf(dataToUse, amount);
+    if (dataToUse) {
+      const whatIfResult = calculateWhatIf(dataToUse, scenario);
       
       // Update local data with what-if results
       if (localData) {
@@ -246,15 +268,15 @@ export default function Dashboard() {
                     whatIfAmount={whatIfAmount}
                   />
                   
-                  {whatIfAmount > 0 && (
+                  {whatIfAmount !== 0 && (
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="mt-4 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30"
                     >
                       <p className="text-sm text-yellow-400 text-center">
-                        {whatIfName ? `"${whatIfName}" - ` : ''}
-                        הוצאה של ₪{whatIfAmount.toLocaleString('he-IL')} תפחית את היתרה הצפויה
+                        {whatIfName && `"${whatIfName}" - `}
+                        סימולציה פעילה
                       </p>
                     </motion.div>
                   )}
