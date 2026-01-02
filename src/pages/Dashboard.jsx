@@ -188,13 +188,8 @@ export default function Dashboard() {
                   />
                 </div>
 
-                {/* צד ימין: המלצות וסימולטור */}
+                {/* צד ימין: סימולטור */}
                 <div className="space-y-6">
-                  {/* המלצות החיסכון - מחוברות ליתרה */}
-                  <LeverageCard 
-                    projectedBalance={activeSnapshot.projected_eom_balance} 
-                    currentBalance={activeSnapshot.current_balance} 
-                  />
                   <WhatIfSimulator 
                     onSimulate={handleWhatIfSimulate} 
                     currentBalance={activeSnapshot.current_balance} 
