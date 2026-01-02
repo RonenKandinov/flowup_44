@@ -268,9 +268,9 @@ export default function Dashboard() {
                 >
                   <SpeedometerGauge
                     projectedBalance={snapshot.projected_eom_balance || 0}
-                    riskLevel={snapshot.risk_level || 'green'}
-                    riskDay={snapshot.risk_day}
-                    whatIfAmount={whatIfAmount}
+                    riskLevel={currentEngineData?.riskStatus || snapshot.risk_level || 'green'}
+                    riskDay={currentEngineData?.riskDay || snapshot.risk_day}
+                    whatIfAmount={0}
                   />
                   
                   {whatIfAmount !== 0 && currentEngineData?.riskDay && (
