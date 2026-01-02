@@ -196,33 +196,40 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
             break;
     }
     
+    // Calculate adjusted balance BEFORE safety buffer for risk day calculation
+    const adjustedBalance = currentBalance + simulatedIncome - simulatedExpense;
+    
     // Unified Formula: (CurrentBalance + Income - Expense) * 0.83
-    const newSafeBalance = (currentBalance + simulatedIncome - simulatedExpense) * 0.83;
+    const newSafeBalance = adjustedBalance * 0.83;
     
     // Dynamic Risk Day Calculation
     let newRiskDay = null;
     let daysUntilRisk = null;
     let trend = null;
     
-    if (newSafeBalance > 0 && avgDailySpending > 0) {
-        daysUntilRisk = Math.floor(newSafeBalance / avgDailySpending);
-        const riskDate = new Date();
-        riskDate.setDate(riskDate.getDate() + daysUntilRisk);
-        newRiskDay = riskDate.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' });
+    if (avgDailySpending > 0) {
+        if (adjustedBalance > 0) {
+            // Calculate days until balance reaches zero
+            daysUntilRisk = Math.floor(adjustedBalance / avgDailySpending);
+            const riskDate = new Date();
+            riskDate.setDate(riskDate.getDate() + daysUntilRisk);
+            newRiskDay = riskDate.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' });
+        } else {
+            // Balance is already negative - immediate risk
+            newRiskDay = 'מיידי';
+            daysUntilRisk = 0;
+        }
         
         // Calculate trend (original risk day vs new risk day)
-        const originalBalance = baselineForecast.currentBalance * 0.83;
-        const originalDays = Math.floor(originalBalance / avgDailySpending);
+        const originalDays = Math.floor(baselineForecast.currentBalance / avgDailySpending);
         
         if (daysUntilRisk < originalDays) {
             trend = 'negative'; // Date moved closer (bad)
         } else if (daysUntilRisk > originalDays) {
             trend = 'positive'; // Date moved further (good)
+        } else {
+            trend = 'neutral';
         }
-    } else if (newSafeBalance <= 0) {
-        newRiskDay = 'מיידי';
-        trend = 'negative';
-        daysUntilRisk = 0;
     }
     
     // Determine risk status
