@@ -8,7 +8,7 @@ export default function SpeedometerGauge({
   whatIfAmount = 0 
 }) {
   // Calculate needle angle based on projected balance
-  const adjustedBalance = Math.max(0, projectedBalance - whatIfAmount);
+  const adjustedBalance = projectedBalance - whatIfAmount;
   
   const { angle, color, glowColor } = useMemo(() => {
     // Map balance to angle: 
