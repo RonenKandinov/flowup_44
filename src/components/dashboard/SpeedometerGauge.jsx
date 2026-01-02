@@ -5,7 +5,8 @@ export default function SpeedometerGauge({
   projectedBalance, 
   riskLevel = 'green',
   riskDay,
-  whatIfAmount = 0 
+  whatIfAmount = 0,
+  engineData
 }) {
   // Use projected balance as-is (already calculated by forecasting logic)
   const adjustedBalance = projectedBalance;
@@ -143,12 +144,41 @@ export default function SpeedometerGauge({
         >
           ₪{adjustedBalance.toLocaleString('he-IL')}
         </motion.p>
+        
+        {/* Risk Day Display */}
         {riskDay && (
-          <div className="mt-2 p-2 rounded-lg bg-red-500/10 border border-red-500/30">
+          <div className="mt-3 p-2.5 rounded-lg bg-red-500/10 border border-red-500/30">
             <p className="text-xs text-red-400">
               <span className="font-medium">יום סיכון: </span>
               <span className="text-sm font-bold">{riskDay}</span>
             </p>
+          </div>
+        )}
+        
+        {/* Engine Stats */}
+        {engineData && (
+          <div className="mt-3 p-3 rounded-lg bg-slate-800/30 border border-slate-700/50">
+            <div className="text-xs text-slate-400 space-y-1.5">
+              <div className="flex justify-between items-center">
+                <span>רמת ביטחון:</span>
+                <span className={`font-medium ${
+                  engineData.confidence === 'high' ? 'text-green-400' :
+                  engineData.confidence === 'medium' ? 'text-yellow-400' :
+                  'text-red-400'
+                }`}>
+                  {engineData.confidence === 'high' ? 'גבוהה' :
+                   engineData.confidence === 'medium' ? 'בינונית' : 'נמוכה'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>עסקאות נותחו:</span>
+                <span className="text-slate-300 font-medium">{engineData.transactionCount}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>מנוע חיזוי:</span>
+                <span className="text-cyan-400 text-[10px]">Hybrid SES</span>
+              </div>
+            </div>
           </div>
         )}
       </div>
