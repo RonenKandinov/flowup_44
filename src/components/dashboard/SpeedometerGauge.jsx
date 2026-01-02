@@ -114,16 +114,16 @@ export default function SpeedometerGauge({
           style={{ transformOrigin: '100px 100px' }}
         >
           {/* Needle pointer */}
-          <path
-            d="M 100 100 L 95 95 L 100 35 L 105 95 Z"
-            fill={color}
-            stroke={color}
-            strokeWidth="1"
-            filter="url(#glow)"
-          />
-          {/* Center cap */}
-          <circle cx="100" cy="100" r="6" fill={color} filter="url(#glow)" />
-          <circle cx="100" cy="100" r="3" fill="#1e293b" />
+            <path
+              d="M 100 100 L 95 95 L 100 35 L 105 95 Z"
+              fill="white"
+              stroke="white"
+              strokeWidth="1"
+              filter="url(#glow)"
+            />
+            {/* Center cap */}
+            <circle cx="100" cy="100" r="6" fill="white" filter="url(#glow)" />
+            <circle cx="100" cy="100" r="3" fill="#1e293b" />
         </motion.g>
       </svg>
       
@@ -134,15 +134,14 @@ export default function SpeedometerGauge({
           key={adjustedBalance}
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="text-3xl md:text-4xl font-bold"
-          style={{ color, textShadow: `0 0 20px ${glowColor}` }}
+          className="text-3xl md:text-4xl font-bold text-white"
         >
           ₪{adjustedBalance.toLocaleString('he-IL')}
         </motion.p>
         {riskDay && (
-          <p className="text-sm mt-1">
+          <p className="text-sm mt-1 text-slate-300">
             <span className="text-slate-400">יום סיכון: </span>
-            <span style={{ color }}>{riskDay}</span>
+            <span className="font-medium">{riskDay}</span>
           </p>
         )}
       </div>
