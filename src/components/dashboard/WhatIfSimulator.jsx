@@ -11,8 +11,6 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
   const [expenseName, setExpenseName] = useState('');
   const [incomeAmount, setIncomeAmount] = useState('');
   const [incomeName, setIncomeName] = useState('');
-  const [monthlyChange, setMonthlyChange] = useState('');
-  const [salaryDelay, setSalaryDelay] = useState('');
   const [isActive, setIsActive] = useState(false);
   const [activeTab, setActiveTab] = useState('expense');
 
@@ -32,29 +30,11 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
     }
   };
 
-  const handleMonthlySimulate = () => {
-    const amount = parseFloat(monthlyChange) || 0;
-    if (amount !== 0) {
-      onSimulate({ type: 'monthly', amount });
-      setIsActive(true);
-    }
-  };
-
-  const handleSalarySimulate = () => {
-    const days = parseInt(salaryDelay) || 0;
-    if (days > 0) {
-      onSimulate({ type: 'salary_delay', days });
-      setIsActive(true);
-    }
-  };
-
   const handleReset = () => {
     setExpenseAmount('');
     setExpenseName('');
     setIncomeAmount('');
     setIncomeName('');
-    setMonthlyChange('');
-    setSalaryDelay('');
     onSimulate({ type: 'reset' });
     setIsActive(false);
   };
@@ -88,11 +68,9 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 bg-slate-900/50">
+        <TabsList className="grid w-full grid-cols-2 bg-slate-900/50">
           <TabsTrigger value="expense" className="text-xs">הוצאה</TabsTrigger>
           <TabsTrigger value="income" className="text-xs">הכנסה</TabsTrigger>
-          <TabsTrigger value="monthly" className="text-xs">חודשי</TabsTrigger>
-          <TabsTrigger value="salary" className="text-xs">משכורת</TabsTrigger>
         </TabsList>
 
         {/* Expense Scenario */}
@@ -152,50 +130,6 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
             className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white"
           >
             חשב השפעת הכנסה
-          </Button>
-        </TabsContent>
-
-        {/* Monthly Change Scenario */}
-        <TabsContent value="monthly" className="space-y-3 mt-4">
-          <p className="text-xs text-slate-400 mb-2">שינוי קבוע בהוצאות החודשיות</p>
-          <div>
-            <Label className="text-slate-400 text-xs mb-1.5 block">שינוי חודשי (חיובי = הוצאה, שלילי = חיסכון)</Label>
-            <Input
-              type="number"
-              placeholder="₪0.00"
-              value={monthlyChange}
-              onChange={(e) => setMonthlyChange(e.target.value)}
-              className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
-              dir="ltr"
-            />
-          </div>
-          <Button
-            onClick={handleMonthlySimulate}
-            className="w-full bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 text-white"
-          >
-            חשב השפעה חודשית
-          </Button>
-        </TabsContent>
-
-        {/* Salary Delay Scenario */}
-        <TabsContent value="salary" className="space-y-3 mt-4">
-          <p className="text-xs text-slate-400 mb-2">דחיית מועד קבלת משכורת</p>
-          <div>
-            <Label className="text-slate-400 text-xs mb-1.5 block">עיכוב בימים</Label>
-            <Input
-              type="number"
-              placeholder="0"
-              value={salaryDelay}
-              onChange={(e) => setSalaryDelay(e.target.value)}
-              className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
-              dir="ltr"
-            />
-          </div>
-          <Button
-            onClick={handleSalarySimulate}
-            className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white"
-          >
-            חשב השפעת עיכוב
           </Button>
         </TabsContent>
       </Tabs>
