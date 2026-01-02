@@ -130,7 +130,11 @@ export default function Dashboard() {
             risk_level: engineData.riskStatus,
             risk_day: engineData.riskDay
           },
-          forecastData: engineData.graphPoints
+          forecastData: engineData.graphPoints,
+          engineData: {
+            ...engineData,
+            riskTrend: null
+          }
         } : null);
       }
       return;
@@ -147,7 +151,7 @@ export default function Dashboard() {
     if (dataToUse) {
       const whatIfResult = calculateWhatIf(dataToUse, scenario);
       
-      // Update local data with what-if results
+      // Update local data with what-if results including trend
       if (localData) {
         setLocalData(prev => ({
           ...prev,
@@ -157,7 +161,8 @@ export default function Dashboard() {
             risk_level: whatIfResult.riskStatus,
             risk_day: whatIfResult.riskDay
           },
-          forecastData: whatIfResult.graphPoints
+          forecastData: whatIfResult.graphPoints,
+          engineData: whatIfResult
         }));
       }
     }
@@ -268,16 +273,41 @@ export default function Dashboard() {
                     whatIfAmount={whatIfAmount}
                   />
                   
-                  {whatIfAmount !== 0 && (
+                  {whatIfAmount !== 0 && currentEngineData?.riskDay && (
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="mt-4 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30"
+                      className={`mt-4 p-3 rounded-lg border ${
+                        currentEngineData.riskTrend === 'negative' 
+                          ? 'bg-red-500/10 border-red-500/30' 
+                          : currentEngineData.riskTrend === 'positive'
+                          ? 'bg-green-500/10 border-green-500/30'
+                          : 'bg-yellow-500/10 border-yellow-500/30'
+                      }`}
                     >
-                      <p className="text-sm text-yellow-400 text-center">
-                        {whatIfName && `"${whatIfName}" - `}
-                        סימולציה פעילה
-                      </p>
+                      <div className="text-center space-y-1">
+                        {whatIfName && (
+                          <p className="text-xs text-slate-400">"{whatIfName}"</p>
+                        )}
+                        <p className={`text-sm font-medium ${
+                          currentEngineData.riskTrend === 'negative'
+                            ? 'text-red-400'
+                            : currentEngineData.riskTrend === 'positive'
+                            ? 'text-green-400'
+                            : 'text-yellow-400'
+                        }`}>
+                          {currentEngineData.riskDay === 'מיידי' ? (
+                            <>⚠️ יתרה שלילית מיידית</>
+                          ) : (
+                            <>יום סיכון חדש: {currentEngineData.riskDay}</>
+                          )}
+                        </p>
+                        {currentEngineData.riskDaysCount !== null && currentEngineData.riskDay !== 'מיידי' && (
+                          <p className="text-xs text-slate-500">
+                            ({currentEngineData.riskDaysCount} ימים מהיום)
+                          </p>
+                        )}
+                      </div>
                     </motion.div>
                   )}
                   
