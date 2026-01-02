@@ -143,6 +143,14 @@ export default function SpeedometerGauge({
         >
           ₪{adjustedBalance.toLocaleString('he-IL')}
         </motion.p>
+        {riskDay && (
+          <div className="mt-2 p-2 rounded-lg bg-red-500/10 border border-red-500/30">
+            <p className="text-xs text-red-400">
+              <span className="font-medium">יום סיכון: </span>
+              <span className="text-sm font-bold">{riskDay}</span>
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

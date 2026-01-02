@@ -113,23 +113,18 @@ export const processAndForecast = (csvText) => {
         const daysInTargetMonth = uniqueDaysInTargetMonth.size > 0 ? uniqueDaysInTargetMonth.size : totalDays;
         const avgDailySpending = totalDebit / daysInTargetMonth;
 
-        // 5. Determine risk status and calculate risk day
+        // 5. Determine risk status
         let riskStatus = "green";
         let riskDay = null;
-        let riskDaysCount = null;
         
-        // Always calculate risk day if we have spending data
-        if (avgDailySpending > 0 && currentBalance > 0) {
-            const daysUntilNegative = Math.floor(currentBalance / avgDailySpending);
-            riskDaysCount = daysUntilNegative;
-            const riskDate = new Date();
-            riskDate.setDate(riskDate.getDate() + daysUntilNegative);
-            riskDay = riskDate.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' });
-        }
-        
-        // Determine risk status based on projected balance
         if (projectedEOM < 0) {
             riskStatus = "red";
+            if (avgDailySpending > 0 && currentBalance > 0) {
+                const daysUntilNegative = Math.floor(currentBalance / avgDailySpending);
+                const riskDate = new Date();
+                riskDate.setDate(riskDate.getDate() + daysUntilNegative);
+                riskDay = riskDate.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
+            }
         } else if (projectedEOM < currentBalance * 0.2) {
             riskStatus = "yellow";
         }
@@ -157,7 +152,6 @@ export const processAndForecast = (csvText) => {
             totalExpenses: Math.round(totalDebit),
             riskStatus,
             riskDay,
-            riskDaysCount,
             rawScore: Math.round(rawForecast),
             avgDailySpending: Math.round(avgDailySpending),
             graphPoints,
