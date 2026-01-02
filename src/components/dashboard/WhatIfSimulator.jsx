@@ -117,17 +117,6 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
               dir="ltr"
             />
           </div>
-          <div className="flex flex-wrap gap-2">
-            {quickAmounts.map((amount) => (
-              <button
-                key={amount}
-                onClick={() => setExpenseAmount(amount.toString())}
-                className="px-3 py-1 rounded-full text-xs bg-slate-700/50 text-slate-300 hover:bg-red-500/20 hover:text-red-400 transition-colors"
-              >
-                ₪{amount.toLocaleString('he-IL')}
-              </button>
-            ))}
-          </div>
           <Button
             onClick={handleExpenseSimulate}
             className="w-full bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white"
@@ -158,17 +147,6 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
               dir="ltr"
             />
           </div>
-          <div className="flex flex-wrap gap-2">
-            {[1000, 3000, 5000, 10000].map((amount) => (
-              <button
-                key={amount}
-                onClick={() => setIncomeAmount(amount.toString())}
-                className="px-3 py-1 rounded-full text-xs bg-slate-700/50 text-slate-300 hover:bg-green-500/20 hover:text-green-400 transition-colors"
-              >
-                ₪{amount.toLocaleString('he-IL')}
-              </button>
-            ))}
-          </div>
           <Button
             onClick={handleIncomeSimulate}
             className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white"
@@ -191,17 +169,6 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
               dir="ltr"
             />
           </div>
-          <div className="flex flex-wrap gap-2">
-            {[-500, -200, 200, 500].map((amount) => (
-              <button
-                key={amount}
-                onClick={() => setMonthlyChange(amount.toString())}
-                className={`px-3 py-1 rounded-full text-xs bg-slate-700/50 text-slate-300 hover:bg-purple-500/20 hover:text-purple-400 transition-colors`}
-              >
-                {amount > 0 ? '+' : ''}₪{amount.toLocaleString('he-IL')}
-              </button>
-            ))}
-          </div>
           <Button
             onClick={handleMonthlySimulate}
             className="w-full bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 text-white"
@@ -223,17 +190,6 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
               className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
               dir="ltr"
             />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {[3, 5, 7, 10].map((days) => (
-              <button
-                key={days}
-                onClick={() => setSalaryDelay(days.toString())}
-                className="px-3 py-1 rounded-full text-xs bg-slate-700/50 text-slate-300 hover:bg-orange-500/20 hover:text-orange-400 transition-colors"
-              >
-                {days} ימים
-              </button>
-            ))}
           </div>
           <Button
             onClick={handleSalarySimulate}
