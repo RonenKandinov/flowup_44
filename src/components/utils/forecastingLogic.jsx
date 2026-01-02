@@ -204,14 +204,8 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
     let daysUntilRisk = null;
     let trend = null;
     
-    if (avgDailySpending > 0) {
-        if (newSafeBalance > 0) {
-            daysUntilRisk = Math.floor(newSafeBalance / avgDailySpending);
-        } else {
-            // If balance is negative, risk day is today
-            daysUntilRisk = 0;
-        }
-        
+    if (newSafeBalance > 0 && avgDailySpending > 0) {
+        daysUntilRisk = Math.floor(newSafeBalance / avgDailySpending);
         const riskDate = new Date();
         riskDate.setDate(riskDate.getDate() + daysUntilRisk);
         newRiskDay = riskDate.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' });
@@ -225,6 +219,10 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
         } else if (daysUntilRisk > originalDays) {
             trend = 'positive'; // Date moved further (good)
         }
+    } else if (newSafeBalance <= 0) {
+        newRiskDay = 'מיידי';
+        trend = 'negative';
+        daysUntilRisk = 0;
     }
     
     // Determine risk status
