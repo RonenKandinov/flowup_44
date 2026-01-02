@@ -11,7 +11,7 @@ export default function SpeedometerGauge({
   const adjustedBalance = projectedBalance - whatIfAmount;
   
   const { angle, color, glowColor } = useMemo(() => {
-    // Map balance to angle: 
+    // Map balance to angle based on risk level and balance
     // Balance >= 3000: green zone (-60°)
     // Balance 1000-3000: yellow zone (0°)
     // Balance < 1000: red zone (60°)
@@ -20,19 +20,19 @@ export default function SpeedometerGauge({
     let calculatedColor;
     let calculatedGlow;
     
-    if (adjustedBalance >= 3000) {
+    // Use risk level as primary indicator if available
+    if (riskLevel === 'green' || adjustedBalance >= 3000) {
       calculatedAngle = -60;
       calculatedColor = '#22c55e';
       calculatedGlow = 'rgba(34, 197, 94, 0.5)';
-    } else if (adjustedBalance >= 1000) {
+    } else if (riskLevel === 'yellow' || (adjustedBalance >= 1000 && adjustedBalance < 3000)) {
       // Linear interpolation between yellow (0°) and green (-60°)
       const ratio = (adjustedBalance - 1000) / 2000;
       calculatedAngle = -60 * ratio;
       calculatedColor = '#eab308';
       calculatedGlow = 'rgba(234, 179, 8, 0.5)';
     } else {
-      // Linear interpolation between red (60°) and yellow (0°)
-      // If balance is negative, stay at max red (60°)
+      // Red zone
       if (adjustedBalance < 0) {
         calculatedAngle = 60;
       } else {
@@ -48,7 +48,7 @@ export default function SpeedometerGauge({
       color: calculatedColor, 
       glowColor: calculatedGlow 
     };
-  }, [adjustedBalance]);
+  }, [adjustedBalance, riskLevel]);
 
   return (
     <div className="relative flex flex-col items-center">

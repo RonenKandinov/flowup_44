@@ -69,6 +69,7 @@ export const processAndForecast = (csvText) => {
         }
 
         // Find the most recent month in the data and calculate totals
+        let uniqueDaysInTargetMonth = new Set();
         if (allTransactions.length > 0) {
             allTransactions.sort((a, b) => b.date - a.date);
             const mostRecentDate = allTransactions[0].date;
@@ -80,6 +81,9 @@ export const processAndForecast = (csvText) => {
                 if (tx.date.getMonth() === targetMonth && tx.date.getFullYear() === targetYear) {
                     totalDebit += tx.debit;
                     totalCredit += tx.credit;
+                    // Track unique days in the target month
+                    const dayKey = `${tx.date.getFullYear()}-${tx.date.getMonth()}-${tx.date.getDate()}`;
+                    uniqueDaysInTargetMonth.add(dayKey);
                 }
             }
         }
@@ -90,23 +94,24 @@ export const processAndForecast = (csvText) => {
 
         // 2. HYBRID ALGORITHM
         const totalDays = uniqueDates.size;
-        
+
         // Average Daily Net = (TotalCredit - TotalDebit) / TotalDays
         const avgDailyNet = (totalCredit - totalDebit) / totalDays;
-        
+
         // Recent Trend = LastRow Credit - LastRow Debit
         const recentTrend = lastRowCredit - lastRowDebit;
-        
+
         // Hybrid Daily = (AverageDailyNet * 0.7) + (RecentTrend * 0.3)
         const hybridDaily = (avgDailyNet * 0.7) + (recentTrend * 0.3);
-        
+
         // 3. Safe Forecast with 17% Buffer
         const rawForecast = currentBalance + (hybridDaily * 30);
         const safeForecast = rawForecast * 0.83;
         const projectedEOM = safeForecast;
 
-        // 4. Calculate daily spending (from Column 6)
-        const avgDailySpending = totalDebit / totalDays;
+        // 4. Calculate daily spending from target month only
+        const daysInTargetMonth = uniqueDaysInTargetMonth.size > 0 ? uniqueDaysInTargetMonth.size : totalDays;
+        const avgDailySpending = totalDebit / daysInTargetMonth;
 
         // 5. Determine risk status
         let riskStatus = "green";
