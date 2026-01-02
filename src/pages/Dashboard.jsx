@@ -8,7 +8,6 @@ import { calculateWhatIf, SystemInfo } from '../components/utils/forecastingLogi
 
 import SpeedometerGauge from '../components/dashboard/SpeedometerGauge';
 import StatCard from '../components/dashboard/StatCard';
-import RiskZoneChart from '../components/dashboard/RiskZoneChart';
 import WhatIfSimulator from '../components/dashboard/WhatIfSimulator';
 import CSVUploader from '../components/upload/CSVUploader';
 import EmptyState from '../components/dashboard/EmptyState';
@@ -38,10 +37,10 @@ export default function Dashboard() {
     initialData: []
   });
 
-  // Use local data if exists, otherwise use saved data
-  const snapshot = localData?.snapshot || snapshots?.[0];
+  // Prioritize local data for live simulation updates
+  const activeSnapshot = localData?.snapshot || snapshots?.[0] || {};
+  const activeEngineData = localData?.engineData || engineData;
   const forecastData = localData?.forecastData || generateForecastFromTransactions(transactions);
-  const currentEngineData = localData?.engineData || engineData;
 
   // Generate forecast data from transactions
   function generateForecastFromTransactions(txns) {
@@ -169,7 +168,7 @@ export default function Dashboard() {
     }
   };
 
-  const hasData = snapshot && snapshot.current_balance !== undefined;
+  const hasData = activeSnapshot && activeSnapshot.current_balance !== undefined;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950" dir="rtl">
@@ -238,21 +237,21 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <StatCard
                   title="יתרה נוכחית"
-                  value={`₪${snapshot.current_balance?.toLocaleString('he-IL')}`}
-                  icon={snapshot.risk_level === 'green' ? CheckCircle : snapshot.risk_level === 'yellow' ? Wallet : TrendingDown}
-                  color={snapshot.risk_level === 'green' ? 'green' : snapshot.risk_level === 'yellow' ? 'yellow' : 'red'}
+                  value={`₪${activeSnapshot.current_balance?.toLocaleString('he-IL')}`}
+                  icon={activeSnapshot.risk_level === 'green' ? CheckCircle : activeSnapshot.risk_level === 'yellow' ? Wallet : TrendingDown}
+                  color={activeSnapshot.risk_level === 'green' ? 'green' : activeSnapshot.risk_level === 'yellow' ? 'yellow' : 'red'}
                   delay={0}
                 />
                 <StatCard
                   title="סך הכנסות"
-                  value={`₪${snapshot.total_income?.toLocaleString('he-IL') || '0'}`}
+                  value={`₪${activeSnapshot.total_income?.toLocaleString('he-IL') || '0'}`}
                   icon={TrendingUp}
                   color="green"
                   delay={0.1}
                 />
                 <StatCard
                   title="סך הוצאות"
-                  value={`₪${snapshot.total_expenses?.toLocaleString('he-IL') || '0'}`}
+                  value={`₪${activeSnapshot.total_expenses?.toLocaleString('he-IL') || '0'}`}
                   icon={TrendingDown}
                   color="red"
                   delay={0.2}
@@ -268,18 +267,18 @@ export default function Dashboard() {
                   className="relative rounded-2xl p-6 border border-cyan-500/20 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm"
                 >
                   <SpeedometerGauge
-                    projectedBalance={snapshot.projected_eom_balance || 0}
-                    riskLevel={currentEngineData?.riskStatus || snapshot.risk_level || 'green'}
-                    riskDay={currentEngineData?.riskDay || snapshot.risk_day}
+                    projectedBalance={activeSnapshot.projected_eom_balance || 0}
+                    riskLevel={activeEngineData?.riskStatus || activeSnapshot.risk_level || 'green'}
+                    riskDay={activeSnapshot.risk_day}
                     whatIfAmount={0}
                   />
                   
                   {/* Risk Day Display - Always show if available */}
                   <div className="mt-4">
                     <RiskDayDisplay
-                      riskDay={currentEngineData?.riskDay || snapshot.risk_day}
-                      riskDaysCount={currentEngineData?.riskDaysCount}
-                      trend={currentEngineData?.riskTrend}
+                      riskDay={activeEngineData?.riskDay || activeSnapshot.risk_day}
+                      riskDaysCount={activeEngineData?.riskDaysCount}
+                      trend={activeEngineData?.riskTrend}
                     />
                   </div>
                   
@@ -295,7 +294,7 @@ export default function Dashboard() {
                     </motion.div>
                   )}
                   
-                  {currentEngineData && (
+                  {activeEngineData && (
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
@@ -305,17 +304,17 @@ export default function Dashboard() {
                         <div className="flex justify-between">
                           <span>רמת ביטחון:</span>
                           <span className={`font-medium ${
-                            currentEngineData.confidence === 'high' ? 'text-green-400' :
-                            currentEngineData.confidence === 'medium' ? 'text-yellow-400' :
+                            activeEngineData.confidence === 'high' ? 'text-green-400' :
+                            activeEngineData.confidence === 'medium' ? 'text-yellow-400' :
                             'text-red-400'
                           }`}>
-                            {currentEngineData.confidence === 'high' ? 'גבוהה' :
-                             currentEngineData.confidence === 'medium' ? 'בינונית' : 'נמוכה'}
+                            {activeEngineData.confidence === 'high' ? 'גבוהה' :
+                             activeEngineData.confidence === 'medium' ? 'בינונית' : 'נמוכה'}
                           </span>
                         </div>
                         <div className="flex justify-between">
                           <span>עסקאות:</span>
-                          <span className="text-slate-300">{currentEngineData.transactionCount}</span>
+                          <span className="text-slate-300">{activeEngineData.transactionCount}</span>
                         </div>
                         <div className="flex justify-between">
                           <span>מנוע:</span>
@@ -328,17 +327,9 @@ export default function Dashboard() {
 
                 {/* Right Column */}
                 <div className="space-y-6">
-                  <RiskZoneChart
-                    data={forecastData}
-                    riskThreshold={0}
-                    criticalDate={snapshot.risk_day}
-                    projectedBalance={snapshot.projected_eom_balance}
-                    currentBalance={snapshot.current_balance}
-                  />
-                  
                   <WhatIfSimulator
                     onSimulate={handleWhatIfSimulate}
-                    currentBalance={snapshot.current_balance}
+                    currentBalance={activeSnapshot.current_balance}
                   />
                 </div>
               </div>
