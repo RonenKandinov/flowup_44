@@ -17,47 +17,46 @@ export default function CSVUploader({ onDataParsed, onClose }) {
       throw new Error('קובץ ה-CSV חייב להכיל לפחות שורת כותרת ושורת נתונים אחת');
     }
 
-    // Try to detect Hebrew bank format
+    // Parse Hebrew bank format
     const headerLine = lines[0];
     const headers = headerLine.split(',').map(h => h.trim().replace(/"/g, ''));
-    
-    // Common Hebrew bank column names
-    const dateColumns = ['תאריך', 'תאריך עסקה', 'date', 'Date'];
-    const descColumns = ['תיאור', 'פרטים', 'description', 'Description'];
-    const amountColumns = ['סכום', 'זכות', 'חובה', 'amount', 'Amount'];
-    const balanceColumns = ['יתרה', 'balance', 'Balance'];
 
-    const findColumnIndex = (possibleNames) => {
-      for (const name of possibleNames) {
-        const index = headers.findIndex(h => h.includes(name));
-        if (index !== -1) return index;
-      }
-      return -1;
-    };
+    // Find column indices
+    const dateIdx = headers.findIndex(h => h.includes('תאריך'));
+    const descIdx = headers.findIndex(h => h.includes('תיאור'));
+    const debitIdx = headers.findIndex(h => h.includes('חובה')); // Expense
+    const creditIdx = headers.findIndex(h => h.includes('זכות')); // Income
+    const balanceIdx = headers.findIndex(h => h.includes('יתרה'));
 
-    const dateIdx = findColumnIndex(dateColumns);
-    const descIdx = findColumnIndex(descColumns);
-    const amountIdx = findColumnIndex(amountColumns);
-    const balanceIdx = findColumnIndex(balanceColumns);
-
-    if (dateIdx === -1 || amountIdx === -1) {
-      throw new Error('לא נמצאו עמודות תאריך או סכום בקובץ');
+    if (dateIdx === -1) {
+      throw new Error('לא נמצאה עמודת תאריך בקובץ');
     }
 
     const transactions = [];
-    
+    let totalIncome = 0;
+    let totalExpenses = 0;
+    let currentBalance = 0;
+
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
-      
-      if (values.length <= dateIdx || values.length <= amountIdx) continue;
+
+      if (values.length <= dateIdx) continue;
 
       const dateStr = values[dateIdx];
-      const amountStr = values[amountIdx]?.replace(/[^\d.-]/g, '');
-      const amount = parseFloat(amountStr);
-      
-      if (!dateStr || isNaN(amount)) continue;
+      const debitStr = debitIdx !== -1 ? values[debitIdx]?.replace(/[^\d.-]/g, '') : '';
+      const creditStr = creditIdx !== -1 ? values[creditIdx]?.replace(/[^\d.-]/g, '') : '';
+      const balanceStr = balanceIdx !== -1 ? values[balanceIdx]?.replace(/[^\d.-]/g, '') : '';
 
-      // Parse date (handle various formats)
+      const debit = parseFloat(debitStr) || 0;
+      const credit = parseFloat(creditStr) || 0;
+      const balance = parseFloat(balanceStr) || 0;
+
+      // Calculate amount: positive for income (זכות), negative for expense (חובה)
+      const amount = credit > 0 ? credit : (debit > 0 ? -debit : 0);
+
+      if (!dateStr || amount === 0) continue;
+
+      // Parse date
       let parsedDate;
       if (dateStr.includes('/')) {
         const parts = dateStr.split('/');
@@ -72,11 +71,16 @@ export default function CSVUploader({ onDataParsed, onClose }) {
 
       if (isNaN(parsedDate.getTime())) continue;
 
+      // Accumulate totals
+      if (credit > 0) totalIncome += credit;
+      if (debit > 0) totalExpenses += debit;
+      if (balance > 0) currentBalance = balance;
+
       transactions.push({
         date: parsedDate.toISOString().split('T')[0],
         description: descIdx !== -1 ? values[descIdx] : '',
         amount: amount,
-        balance: balanceIdx !== -1 ? parseFloat(values[balanceIdx]?.replace(/[^\d.-]/g, '')) : null,
+        balance: balance || null,
         category: amount > 0 ? 'income' : 'expense'
       });
     }
@@ -85,7 +89,15 @@ export default function CSVUploader({ onDataParsed, onClose }) {
       throw new Error('לא נמצאו עסקאות תקינות בקובץ');
     }
 
-    return transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
+    // Sort by date and return with totals
+    const sortedTransactions = transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    return {
+      transactions: sortedTransactions,
+      totalIncome,
+      totalExpenses,
+      currentBalance
+    };
   };
 
   const processFile = async (file) => {
@@ -112,18 +124,18 @@ export default function CSVUploader({ onDataParsed, onClose }) {
       }
 
       // Parse CSV for database storage
-      const transactions = parseCSVForDatabase(content);
+      const parsedData = parseCSVForDatabase(content);
 
       setStatus('success');
 
       // Pass data to parent
       onDataParsed({
-        transactions,
+        transactions: parsedData.transactions,
         snapshot: {
-          current_balance: forecastResult.currentBalance,
+          current_balance: parsedData.currentBalance,
           projected_eom_balance: forecastResult.projectedEOM,
-          total_income: forecastResult.totalIncome,
-          total_expenses: forecastResult.totalExpenses,
+          total_income: parsedData.totalIncome,
+          total_expenses: parsedData.totalExpenses,
           risk_level: forecastResult.riskStatus,
           risk_day: forecastResult.riskDay,
           avg_daily_spending: forecastResult.avgDailySpending,
