@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle, Plus } from 'lucide-react';
+import { Upload, Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, CheckCircle, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { calculateWhatIf, SystemInfo } from '../components/utils/forecastingLogic';
+import { calculateWhatIf } from '../components/utils/forecastingLogic';
 
 import SpeedometerGauge from '../components/dashboard/SpeedometerGauge';
 import StatCard from '../components/dashboard/StatCard';
@@ -182,15 +182,7 @@ export default function Dashboard() {
             <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
               FlowUp
             </h1>
-            <div className="flex items-center gap-2 mt-1">
-              <p className="text-slate-500 text-sm">FutureFlow Dashboard</p>
-              {engineData && (
-                <div className="flex items-center gap-1 text-xs text-cyan-500/70">
-                  <Cpu size={12} />
-                  <span>v{SystemInfo.version}</span>
-                </div>
-              )}
-            </div>
+            <p className="text-slate-500 text-sm mt-1">FutureFlow Dashboard</p>
           </div>
           
           {hasData && (
@@ -281,35 +273,7 @@ export default function Dashboard() {
                     </motion.div>
                   )}
                   
-                  {currentEngineData && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="mt-4 p-3 rounded-lg bg-slate-800/30 border border-slate-700/50"
-                    >
-                      <div className="text-xs text-slate-400 space-y-1">
-                        <div className="flex justify-between">
-                          <span>רמת ביטחון:</span>
-                          <span className={`font-medium ${
-                            currentEngineData.confidence === 'high' ? 'text-green-400' :
-                            currentEngineData.confidence === 'medium' ? 'text-yellow-400' :
-                            'text-red-400'
-                          }`}>
-                            {currentEngineData.confidence === 'high' ? 'גבוהה' :
-                             currentEngineData.confidence === 'medium' ? 'בינונית' : 'נמוכה'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>עסקאות:</span>
-                          <span className="text-slate-300">{currentEngineData.transactionCount}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>מנוע:</span>
-                          <span className="text-cyan-400">{SystemInfo.engine}</span>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
+
                 </motion.div>
 
                 {/* Right Column */}
