@@ -32,8 +32,13 @@ export default function SpeedometerGauge({
       calculatedGlow = 'rgba(234, 179, 8, 0.5)';
     } else {
       // Linear interpolation between red (60°) and yellow (0°)
-      const ratio = adjustedBalance / 1000;
-      calculatedAngle = 60 - (60 * ratio);
+      // If balance is negative, stay at max red (60°)
+      if (adjustedBalance < 0) {
+        calculatedAngle = 60;
+      } else {
+        const ratio = adjustedBalance / 1000;
+        calculatedAngle = 60 - (60 * ratio);
+      }
       calculatedColor = '#ef4444';
       calculatedGlow = 'rgba(239, 68, 68, 0.5)';
     }
@@ -139,10 +144,12 @@ export default function SpeedometerGauge({
           ₪{adjustedBalance.toLocaleString('he-IL')}
         </motion.p>
         {riskDay && (
-          <p className="text-sm mt-1 text-slate-300">
-            <span className="text-slate-400">יום סיכון: </span>
-            <span className="font-medium">{riskDay}</span>
-          </p>
+          <div className="mt-2 p-2 rounded-lg bg-red-500/10 border border-red-500/30">
+            <p className="text-xs text-red-400">
+              <span className="font-medium">יום סיכון: </span>
+              <span className="text-sm font-bold">{riskDay}</span>
+            </p>
+          </div>
         )}
       </div>
     </div>
