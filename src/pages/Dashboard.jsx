@@ -169,17 +169,24 @@ export default function Dashboard() {
               </div>
 
               <div className="grid md:grid-cols-2 gap-6">
-                {/* צד שמאל: ויזואליזציה (גרף + מד) */}
+                {/* צד שמאל: ויזואליזציה */}
                 <div className="space-y-6">
-                  <div className="rounded-2xl p-6 border border-cyan-500/20 bg-slate-800/50 backdrop-blur-sm">
-                    <SpeedometerGauge 
+                  {/* מד והמלצות בשורה אחת */}
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="rounded-2xl p-6 border border-cyan-500/20 bg-slate-800/50 backdrop-blur-sm">
+                      <SpeedometerGauge 
+                        projectedBalance={activeSnapshot.projected_eom_balance} 
+                        riskLevel={activeSnapshot.risk_level} 
+                        riskDay={activeSnapshot.risk_day}
+                        whatIfAmount={whatIfAmount}
+                      />
+                    </div>
+                    <LeverageCard 
                       projectedBalance={activeSnapshot.projected_eom_balance} 
-                      riskLevel={activeSnapshot.risk_level} 
-                      riskDay={activeSnapshot.risk_day} // <-- כאן נכנס התאריך המדויק
-                      whatIfAmount={whatIfAmount}
+                      currentBalance={activeSnapshot.current_balance} 
                     />
                   </div>
-                  {/* הגרף נשאר ומקבל נתונים חיים */}
+                  {/* הגרף מתחת */}
                   <RiskZoneChart 
                     data={activeForecastData} 
                     criticalDate={activeSnapshot.risk_day} 
