@@ -234,7 +234,7 @@ export default function Dashboard() {
           ) : (
             <>
               {/* Stats Row */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <StatCard
                   title="יתרה נוכחית"
                   value={`₪${snapshot.current_balance?.toLocaleString('he-IL')}`}
@@ -243,18 +243,25 @@ export default function Dashboard() {
                   delay={0}
                 />
                 <StatCard
+                  title="יום סיכון"
+                  value={snapshot.risk_day || 'לא זוהה'}
+                  icon={snapshot.risk_level === 'red' ? TrendingDown : snapshot.risk_level === 'yellow' ? Wallet : CheckCircle}
+                  color={snapshot.risk_level === 'red' ? 'red' : snapshot.risk_level === 'yellow' ? 'yellow' : 'green'}
+                  delay={0.1}
+                />
+                <StatCard
                   title="סך הכנסות"
                   value={`₪${snapshot.total_income?.toLocaleString('he-IL') || '0'}`}
                   icon={TrendingUp}
                   color="green"
-                  delay={0.1}
+                  delay={0.2}
                 />
                 <StatCard
                   title="סך הוצאות"
                   value={`₪${snapshot.total_expenses?.toLocaleString('he-IL') || '0'}`}
                   icon={TrendingDown}
                   color="red"
-                  delay={0.2}
+                  delay={0.3}
                 />
               </div>
 

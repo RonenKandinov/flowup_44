@@ -17,7 +17,7 @@ const LeverageCard = ({ projectedBalance, currentBalance }) => {
           </div>
           <h2 className="text-green-800 font-bold text-lg">מצב פיננסי יציב</h2>
         </div>
-        <p className="text-green-700 text-sm">היתרה הצפויה שלך מעל ₪3,000 - אין צורך בהמלצות חיסכון כרגע</p>
+        <p className="text-green-700 text-sm">המצב הפיננסי שלך טוב - אין צורך בהמלצות חיסכון כרגע</p>
       </div>
     );
   }
@@ -78,7 +78,7 @@ const LeverageCard = ({ projectedBalance, currentBalance }) => {
           <Lightbulb className="w-5 h-5 text-white" />
           <h2 className="text-white font-bold text-lg">המלצות חיסכון מותאמות אישית</h2>
         </div>
-        <p className="text-cyan-100 text-xs">יתרה צפויה: ₪{projectedBalance?.toLocaleString('he-IL')} - 3 פעולות לשיפור</p>
+        <p className="text-cyan-100 text-xs">3 פעולות לשיפור המצב הפיננסי</p>
       </div>
 
       <div className="p-4 space-y-3">
