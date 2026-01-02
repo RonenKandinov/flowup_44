@@ -271,7 +271,6 @@ export default function Dashboard() {
                     riskLevel={currentEngineData?.riskStatus || snapshot.risk_level || 'green'}
                     riskDay={currentEngineData?.riskDay || snapshot.risk_day}
                     whatIfAmount={0}
-                    engineData={currentEngineData}
                   />
                   
                   {whatIfAmount !== 0 && currentEngineData?.riskDay && (
@@ -308,6 +307,36 @@ export default function Dashboard() {
                             ({currentEngineData.riskDaysCount} ימים מהיום)
                           </p>
                         )}
+                      </div>
+                    </motion.div>
+                  )}
+                  
+                  {currentEngineData && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="mt-4 p-3 rounded-lg bg-slate-800/30 border border-slate-700/50"
+                    >
+                      <div className="text-xs text-slate-400 space-y-1">
+                        <div className="flex justify-between">
+                          <span>רמת ביטחון:</span>
+                          <span className={`font-medium ${
+                            currentEngineData.confidence === 'high' ? 'text-green-400' :
+                            currentEngineData.confidence === 'medium' ? 'text-yellow-400' :
+                            'text-red-400'
+                          }`}>
+                            {currentEngineData.confidence === 'high' ? 'גבוהה' :
+                             currentEngineData.confidence === 'medium' ? 'בינונית' : 'נמוכה'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>עסקאות:</span>
+                          <span className="text-slate-300">{currentEngineData.transactionCount}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>מנוע:</span>
+                          <span className="text-cyan-400">{SystemInfo.engine}</span>
+                        </div>
                       </div>
                     </motion.div>
                   )}
