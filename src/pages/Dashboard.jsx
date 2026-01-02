@@ -13,6 +13,7 @@ import CSVUploader from '../components/upload/CSVUploader';
 import EmptyState from '../components/dashboard/EmptyState';
 import Disclaimer from '../components/dashboard/Disclaimer';
 import RiskDayDisplay from '../components/dashboard/RiskDayDisplay';
+import LeverageCard from '../components/dashboard/RiskZoneChart';
 
 export default function Dashboard() {
   const [showUploader, setShowUploader] = useState(false);
@@ -327,6 +328,11 @@ export default function Dashboard() {
 
                 {/* Right Column */}
                 <div className="space-y-6">
+                  <LeverageCard
+                    projectedBalance={activeSnapshot.projected_eom_balance}
+                    currentBalance={activeSnapshot.current_balance}
+                  />
+                  
                   <WhatIfSimulator
                     onSimulate={handleWhatIfSimulate}
                     currentBalance={activeSnapshot.current_balance}
