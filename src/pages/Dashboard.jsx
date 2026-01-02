@@ -13,6 +13,7 @@ import WhatIfSimulator from '../components/dashboard/WhatIfSimulator';
 import CSVUploader from '../components/upload/CSVUploader';
 import EmptyState from '../components/dashboard/EmptyState';
 import Disclaimer from '../components/dashboard/Disclaimer';
+import RiskDayDisplay from '../components/dashboard/RiskDayDisplay';
 
 export default function Dashboard() {
   const [showUploader, setShowUploader] = useState(false);
@@ -273,41 +274,24 @@ export default function Dashboard() {
                     whatIfAmount={0}
                   />
                   
-                  {whatIfAmount !== 0 && currentEngineData?.riskDay && (
+                  {/* Risk Day Display - Always show if available */}
+                  <div className="mt-4">
+                    <RiskDayDisplay
+                      riskDay={currentEngineData?.riskDay || snapshot.risk_day}
+                      riskDaysCount={currentEngineData?.riskDaysCount}
+                      trend={currentEngineData?.riskTrend}
+                    />
+                  </div>
+                  
+                  {whatIfName && whatIfAmount !== 0 && (
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className={`mt-4 p-3 rounded-lg border ${
-                        currentEngineData.riskTrend === 'negative' 
-                          ? 'bg-red-500/10 border-red-500/30' 
-                          : currentEngineData.riskTrend === 'positive'
-                          ? 'bg-green-500/10 border-green-500/30'
-                          : 'bg-yellow-500/10 border-yellow-500/30'
-                      }`}
+                      className="mt-3 p-2 rounded-lg bg-slate-800/50 border border-slate-700"
                     >
-                      <div className="text-center space-y-1">
-                        {whatIfName && (
-                          <p className="text-xs text-slate-400">"{whatIfName}"</p>
-                        )}
-                        <p className={`text-sm font-medium ${
-                          currentEngineData.riskTrend === 'negative'
-                            ? 'text-red-400'
-                            : currentEngineData.riskTrend === 'positive'
-                            ? 'text-green-400'
-                            : 'text-yellow-400'
-                        }`}>
-                          {currentEngineData.riskDay === 'מיידי' ? (
-                            <>⚠️ יתרה שלילית מיידית</>
-                          ) : (
-                            <>יום סיכון חדש: {currentEngineData.riskDay}</>
-                          )}
-                        </p>
-                        {currentEngineData.riskDaysCount !== null && currentEngineData.riskDay !== 'מיידי' && (
-                          <p className="text-xs text-slate-500">
-                            ({currentEngineData.riskDaysCount} ימים מהיום)
-                          </p>
-                        )}
-                      </div>
+                      <p className="text-xs text-slate-400 text-center">
+                        סימולציה: "{whatIfName}" (₪{Math.abs(whatIfAmount).toLocaleString('he-IL')})
+                      </p>
                     </motion.div>
                   )}
                   
