@@ -7,8 +7,8 @@ export default function SpeedometerGauge({
   riskDay,
   whatIfAmount = 0 
 }) {
-  // Calculate needle angle based on projected balance
-  const adjustedBalance = projectedBalance - whatIfAmount;
+  // Use projected balance as-is (already calculated by forecasting logic)
+  const adjustedBalance = projectedBalance;
   
   const { angle, color, glowColor } = useMemo(() => {
     // Map balance to angle based on risk level and balance
