@@ -169,7 +169,7 @@ export const processAndForecast = (csvText) => {
 };
 
 /**
- * Calculate What-If scenario impact
+ * Calculate What-If scenario impact with 17% Safety Buffer
  */
 export const calculateWhatIf = (baselineForecast, scenario) => {
     if (!baselineForecast || !baselineForecast.success) {
@@ -180,86 +180,75 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
         return baselineForecast;
     }
 
-    let adjustedEOM = baselineForecast.projectedEOM;
-    let adjustedGraphPoints = [...baselineForecast.graphPoints];
-
-    // Handle different scenario types
+    const currentBalance = baselineForecast.currentBalance;
+    const avgDailySpending = baselineForecast.avgDailySpending;
+    
+    // Calculate adjusted balance based on scenario
+    let simulatedIncome = 0;
+    let simulatedExpense = 0;
+    
     switch (scenario.type) {
         case 'expense':
-            // One-time expense
-            adjustedEOM -= scenario.amount;
-            adjustedGraphPoints = baselineForecast.graphPoints.map(point => ({
-                ...point,
-                balance: point.balance - Math.round(scenario.amount / baselineForecast.graphPoints.length)
-            }));
+            simulatedExpense = scenario.amount;
             break;
-
         case 'income':
-            // One-time income (bonus)
-            adjustedEOM += scenario.amount;
-            adjustedGraphPoints = baselineForecast.graphPoints.map(point => ({
-                ...point,
-                balance: point.balance + Math.round(scenario.amount / baselineForecast.graphPoints.length)
-            }));
-            break;
-
-        case 'monthly':
-            // Recurring monthly change
-            const daysInMonth = 30;
-            const dailyChange = scenario.amount / daysInMonth;
-            adjustedEOM -= scenario.amount;
-            adjustedGraphPoints = baselineForecast.graphPoints.map((point, index) => ({
-                ...point,
-                balance: point.balance - Math.round(dailyChange * index)
-            }));
-            break;
-
-        case 'salary_delay':
-            // Salary delay impact
-            const delayDays = scenario.days;
-            const avgDailySpend = baselineForecast.avgDailySpending;
-            const delayImpact = avgDailySpend * delayDays;
-            adjustedEOM -= delayImpact;
-            adjustedGraphPoints = baselineForecast.graphPoints.map((point, index) => {
-                if (index < delayDays) {
-                    return {
-                        ...point,
-                        balance: point.balance - Math.round(avgDailySpend * index)
-                    };
-                }
-                return {
-                    ...point,
-                    balance: point.balance - Math.round(delayImpact)
-                };
-            });
+            simulatedIncome = scenario.amount;
             break;
     }
     
-    let newRiskStatus = "green";
-    let newRiskDay = null;
+    // Unified Formula: (CurrentBalance + Income - Expense) * 0.83
+    const newSafeBalance = (currentBalance + simulatedIncome - simulatedExpense) * 0.83;
     
-    if (adjustedEOM < 0) {
-        newRiskStatus = "red";
-        if (baselineForecast.avgDailySpending > 0) {
-            const currentBalanceAdjusted = scenario.type === 'expense' 
-                ? baselineForecast.currentBalance - scenario.amount 
-                : baselineForecast.currentBalance;
-            const daysUntilNegative = Math.floor(
-                Math.abs(currentBalanceAdjusted / baselineForecast.avgDailySpending)
-            );
-            const riskDate = new Date();
-            riskDate.setDate(riskDate.getDate() + daysUntilNegative);
-            newRiskDay = riskDate.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
+    // Dynamic Risk Day Calculation
+    let newRiskDay = null;
+    let daysUntilRisk = null;
+    let trend = null;
+    
+    if (newSafeBalance > 0 && avgDailySpending > 0) {
+        daysUntilRisk = Math.floor(newSafeBalance / avgDailySpending);
+        const riskDate = new Date();
+        riskDate.setDate(riskDate.getDate() + daysUntilRisk);
+        newRiskDay = riskDate.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' });
+        
+        // Calculate trend (original risk day vs new risk day)
+        const originalBalance = baselineForecast.currentBalance * 0.83;
+        const originalDays = Math.floor(originalBalance / avgDailySpending);
+        
+        if (daysUntilRisk < originalDays) {
+            trend = 'negative'; // Date moved closer (bad)
+        } else if (daysUntilRisk > originalDays) {
+            trend = 'positive'; // Date moved further (good)
         }
-    } else if (adjustedEOM < 1000) {
+    } else if (newSafeBalance <= 0) {
+        newRiskDay = 'מיידי';
+        trend = 'negative';
+        daysUntilRisk = 0;
+    }
+    
+    // Determine risk status
+    let newRiskStatus = "green";
+    if (newSafeBalance < 0) {
+        newRiskStatus = "red";
+    } else if (newSafeBalance < 1000) {
+        newRiskStatus = "yellow";
+    } else if (newSafeBalance < 3000) {
         newRiskStatus = "yellow";
     }
+    
+    // Update graph points
+    const adjustedGraphPoints = baselineForecast.graphPoints.map(point => ({
+        ...point,
+        balance: Math.round(point.balance + simulatedIncome - simulatedExpense)
+    }));
 
     return {
         ...baselineForecast,
-        projectedEOM: Math.round(adjustedEOM),
+        currentBalance: Math.round(currentBalance + simulatedIncome - simulatedExpense),
+        projectedEOM: Math.round(newSafeBalance),
         riskStatus: newRiskStatus,
         riskDay: newRiskDay,
+        riskDaysCount: daysUntilRisk,
+        riskTrend: trend,
         graphPoints: adjustedGraphPoints,
         whatIfApplied: true,
         whatIfScenario: scenario
