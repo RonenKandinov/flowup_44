@@ -303,15 +303,11 @@ export default function Dashboard() {
                             ? 'text-green-400'
                             : 'text-yellow-400'
                         }`}>
-                          {currentEngineData.riskDay === 'מיידי' ? (
-                            <>⚠️ יתרה שלילית מיידית</>
-                          ) : (
-                            <>יום סיכון חדש: {currentEngineData.riskDay}</>
-                          )}
+                          יום סיכון חדש: {currentEngineData.riskDay}
                         </p>
-                        {currentEngineData.riskDaysCount !== null && currentEngineData.riskDay !== 'מיידי' && (
+                        {currentEngineData.riskDaysCount !== null && (
                           <p className="text-xs text-slate-500">
-                            ({currentEngineData.riskDaysCount} ימים מהיום)
+                            ({currentEngineData.riskDaysCount === 0 ? 'היום' : `${currentEngineData.riskDaysCount} ימים מהיום`})
                           </p>
                         )}
                       </div>
