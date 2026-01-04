@@ -121,7 +121,7 @@ export default function Dashboard() {
     if (scenario.type === 'reset') {
       setWhatIfAmount(0);
       setWhatIfName('');
-      // Restore original data
+      // Restore original data from engineData or snapshot
       if (engineData) {
         setLocalData(prev => prev ? {
           ...prev,
@@ -134,9 +134,18 @@ export default function Dashboard() {
           forecastData: engineData.graphPoints,
           engineData: {
             ...engineData,
+            whatIfApplied: false,
             riskTrend: null
           }
         } : null);
+      } else if (snapshots?.[0]) {
+        // Fallback to snapshot from database
+        setLocalData({
+          snapshot: snapshots[0],
+          forecastData: generateForecastFromTransactions(transactions),
+          engineData: null,
+          transactions: transactions || []
+        });
       }
       return;
     }
