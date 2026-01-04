@@ -164,19 +164,6 @@ export default function Dashboard() {
           forecastData: whatIfResult.graphPoints,
           engineData: whatIfResult
         }));
-      } else if (snapshots?.[0]) {
-        // If no localData yet, create it from snapshot
-        setLocalData({
-          snapshot: {
-            ...snapshots[0],
-            projected_eom_balance: whatIfResult.projectedEOM,
-            risk_level: whatIfResult.riskStatus,
-            risk_day: whatIfResult.riskDay
-          },
-          forecastData: whatIfResult.graphPoints,
-          engineData: whatIfResult,
-          transactions: transactions || []
-        });
       }
     }
   };
