@@ -1,8 +1,8 @@
 /**
- * FlowUp Hybrid Forecasting Engine (Client-Side)
+ * FlowUp SARIMAX Lite Forecasting Engine (Client-Side)
  * -----------------------------------------------
  * Position-Based CSV Parser (ISO-8859-8 encoding)
- * Hybrid Algorithm: Average Daily Net (70%) + Recent Trend (30%)
+ * SARIMAX Lite: Seasonal Decomposition + Auto-Regressive Trend + Exogenous Shocks
  * Safety Buffer: 17% Risk Management (multiply by 0.83)
  * Privacy: All calculations happen in-browser, no data sent to server
  */
