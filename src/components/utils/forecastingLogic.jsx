@@ -236,11 +236,11 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
     
     // Determine risk status
     let newRiskStatus = "green";
-    if (newSafeBalance < 0) {
+    if (newProjectedEOM < 0) {
         newRiskStatus = "red";
-    } else if (newSafeBalance < 1000) {
+    } else if (newProjectedEOM < 1000) {
         newRiskStatus = "yellow";
-    } else if (newSafeBalance < 3000) {
+    } else if (newProjectedEOM < 3000) {
         newRiskStatus = "yellow";
     }
     
