@@ -111,24 +111,27 @@ export default function SpeedometerGauge({
           filter="url(#glow)"
         />
         
-        {/* Needle - Classic Speedometer Style */}
+        {/* Needle - Straight Classic Speedometer Style */}
         <motion.g
           initial={{ rotate: 0 }}
           animate={{ rotate: angle }}
           transition={{ type: "spring", stiffness: 60, damping: 15 }}
           style={{ transformOrigin: '100px 100px' }}
         >
-          {/* Needle pointer */}
-            <path
-              d="M 100 100 L 95 95 L 100 35 L 105 95 Z"
-              fill="white"
-              stroke="white"
-              strokeWidth="1"
-              filter="url(#glow)"
-            />
-            {/* Center cap */}
-            <circle cx="100" cy="100" r="6" fill="white" filter="url(#glow)" />
-            <circle cx="100" cy="100" r="3" fill="#1e293b" />
+          {/* Straight needle pointer */}
+          <line
+            x1="100"
+            y1="100"
+            x2="100"
+            y2="40"
+            stroke="white"
+            strokeWidth="3"
+            strokeLinecap="round"
+            filter="url(#glow)"
+          />
+          {/* Center cap */}
+          <circle cx="100" cy="100" r="6" fill="white" filter="url(#glow)" />
+          <circle cx="100" cy="100" r="3" fill="#1e293b" />
         </motion.g>
       </svg>
       
