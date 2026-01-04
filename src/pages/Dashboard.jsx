@@ -312,39 +312,7 @@ export default function Dashboard() {
                     whatIfAmount={whatIfAmount}
                   />
                   
-                  {whatIfAmount !== 0 && currentEngineData?.riskDay && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`mt-4 p-3 rounded-lg border ${
-                        currentEngineData.riskTrend === 'negative' 
-                          ? 'bg-red-500/10 border-red-500/30' 
-                          : currentEngineData.riskTrend === 'positive'
-                          ? 'bg-green-500/10 border-green-500/30'
-                          : 'bg-yellow-500/10 border-yellow-500/30'
-                      }`}
-                    >
-                      <div className="text-center space-y-1">
-                        {whatIfName && (
-                          <p className="text-xs text-slate-400">"{whatIfName}"</p>
-                        )}
-                        <p className={`text-sm font-medium ${
-                          currentEngineData.riskTrend === 'negative'
-                            ? 'text-red-400'
-                            : currentEngineData.riskTrend === 'positive'
-                            ? 'text-green-400'
-                            : 'text-yellow-400'
-                        }`}>
-                          יום סיכון חדש: {currentEngineData.riskDay}
-                        </p>
-                        {currentEngineData.riskDaysCount !== null && (
-                          <p className="text-xs text-slate-500">
-                            ({currentEngineData.riskDaysCount > 0 ? `${currentEngineData.riskDaysCount} ימים מהיום` : 'יתרה שלילית'})
-                          </p>
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
+
                   
                   {currentEngineData && (
                     <motion.div
