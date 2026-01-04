@@ -336,10 +336,6 @@ export default function Dashboard() {
                           <span>עסקאות:</span>
                           <span className="text-slate-300">{currentEngineData.transactionCount}</span>
                         </div>
-                        <div className="flex justify-between">
-                          <span>מנוע:</span>
-                          <span className="text-cyan-400">{SystemInfo.engine}</span>
-                        </div>
                       </div>
                     </motion.div>
                   )}
