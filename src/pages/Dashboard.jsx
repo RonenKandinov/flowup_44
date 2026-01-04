@@ -102,8 +102,9 @@ export default function Dashboard() {
   });
 
   const handleDataParsed = async (data) => {
+    const originalEngineData = { ...data.engineData, whatIfApplied: false };
     setLocalData(data);
-    setEngineData(data.engineData);
+    setEngineData(originalEngineData);
     setWhatIfAmount(0);
     setWhatIfName('');
     

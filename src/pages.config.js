@@ -1,10 +1,10 @@
-import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
+import Home from './pages/Home';
 
 
 export const PAGES = {
-    "Home": Home,
     "Dashboard": Dashboard,
+    "Home": Home,
 }
 
 export const pagesConfig = {
