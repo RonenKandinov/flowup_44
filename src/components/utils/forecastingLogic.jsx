@@ -268,7 +268,7 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
 export const SystemInfo = {
     version: "1.0.0",
     type: "Client-Side MVP",
-    //engine: "Hybrid SES + Seasonal Average",//
+    engine: "Hybrid SES + Seasonal Average",
     safetyBuffer: "17% Standard Deviation",
     privacy: "All calculations in-browser"
 };
