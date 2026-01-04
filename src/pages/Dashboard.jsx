@@ -143,28 +143,28 @@ export default function Dashboard() {
     const amount = scenario.amount || 0;
     const name = scenario.name || '';
     
-    // Set amount with correct sign for display
-    const signedAmount = scenario.type === 'expense' ? -amount : amount;
-    setWhatIfAmount(signedAmount);
+    setWhatIfAmount(amount);
     setWhatIfName(name);
     
-    // Use the most current engine data
+    // If we have engine data, recalculate with what-if
     const dataToUse = localData?.engineData || engineData;
     if (dataToUse) {
       const whatIfResult = calculateWhatIf(dataToUse, scenario);
       
-      // Update local data with complete what-if results
-      setLocalData(prev => prev ? {
-        ...prev,
-        snapshot: {
-          ...prev.snapshot,
-          projected_eom_balance: whatIfResult.projectedEOM,
-          risk_level: whatIfResult.riskStatus,
-          risk_day: whatIfResult.riskDay
-        },
-        forecastData: whatIfResult.graphPoints,
-        engineData: whatIfResult
-      } : null);
+      // Update local data with what-if results including trend
+      if (localData) {
+        setLocalData(prev => ({
+          ...prev,
+          snapshot: {
+            ...prev.snapshot,
+            projected_eom_balance: whatIfResult.projectedEOM,
+            risk_level: whatIfResult.riskStatus,
+            risk_day: whatIfResult.riskDay
+          },
+          forecastData: whatIfResult.graphPoints,
+          engineData: whatIfResult
+        }));
+      }
     }
   };
 

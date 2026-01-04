@@ -11,46 +11,38 @@ export default function SpeedometerGauge({
   const adjustedBalance = projectedBalance;
   
   const { angle, color, glowColor } = useMemo(() => {
-    // Linear mapping: -90° to +90° arc
+    // Map balance to angle based on risk level and balance
     // Balance >= 3000: green zone (-60°)
-    // Balance = 0: center (0°)
-    // Balance < 0: red zone (+60°)
-
+    // Balance 1000-3000: yellow zone (0°)
+    // Balance < 1000: red zone (60°)
+    
     let calculatedAngle;
     let calculatedColor;
     let calculatedGlow;
-
-    if (adjustedBalance >= 3000) {
-      // Green zone - max left
+    
+    // Use risk level as primary indicator if available
+    if (riskLevel === 'green' || adjustedBalance >= 3000) {
       calculatedAngle = -60;
       calculatedColor = '#22c55e';
       calculatedGlow = 'rgba(34, 197, 94, 0.5)';
-    } else if (adjustedBalance >= 2000) {
-      // Yellow to green transition (2000-3000)
-      const ratio = (adjustedBalance - 2000) / 1000;
+    } else if (riskLevel === 'yellow' || (adjustedBalance >= 1000 && adjustedBalance < 3000)) {
+      // Linear interpolation between yellow (0°) and green (-60°)
+      const ratio = (adjustedBalance - 1000) / 2000;
       calculatedAngle = -60 * ratio;
       calculatedColor = '#eab308';
       calculatedGlow = 'rgba(234, 179, 8, 0.5)';
-    } else if (adjustedBalance > 0) {
-      // Yellow zone (0-2000): linear from 0° to slight right
-      const ratio = adjustedBalance / 2000;
-      calculatedAngle = 30 - (30 * ratio); // From +30° at 0 to 0° at 2000
-      calculatedColor = '#eab308';
-      calculatedGlow = 'rgba(234, 179, 8, 0.5)';
-    } else if (adjustedBalance === 0) {
-      // Exactly at center
-      calculatedAngle = 0;
-      calculatedColor = '#eab308';
-      calculatedGlow = 'rgba(234, 179, 8, 0.5)';
     } else {
-      // Red zone - negative balance
-      // Map negative values to +30° to +60°
-      const ratio = Math.min(Math.abs(adjustedBalance) / 1000, 1);
-      calculatedAngle = 30 + (30 * ratio); // From +30° to +60°
+      // Red zone
+      if (adjustedBalance < 0) {
+        calculatedAngle = 60;
+      } else {
+        const ratio = adjustedBalance / 1000;
+        calculatedAngle = 60 - (60 * ratio);
+      }
       calculatedColor = '#ef4444';
       calculatedGlow = 'rgba(239, 68, 68, 0.5)';
     }
-
+    
     return { 
       angle: calculatedAngle, 
       color: calculatedColor, 
