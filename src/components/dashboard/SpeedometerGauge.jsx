@@ -51,11 +51,11 @@ export default function SpeedometerGauge({
   }, [adjustedBalance, riskLevel]);
 
   return (
-    <div className="relative flex flex-col items-center">
+    <div className="relative flex flex-col items-center justify-center w-full">
       {/* Gauge SVG */}
       <svg 
         viewBox="0 0 200 120" 
-        className="w-full max-w-[280px] md:max-w-[320px]"
+        className="w-full max-w-[280px] md:max-w-[320px] mx-auto"
       >
         {/* Background arc segments */}
         <defs>
@@ -131,7 +131,7 @@ export default function SpeedometerGauge({
       </svg>
       
       {/* Balance Display */}
-      <div className="text-center mt-2">
+      <div className="text-center mt-2 w-full">
         <p className="text-xs text-slate-400 mb-1">יתרה צפויה לסוף החודש</p>
         <motion.p 
           key={adjustedBalance}
