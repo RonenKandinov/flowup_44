@@ -146,8 +146,24 @@ export default function Dashboard() {
     setWhatIfAmount(amount);
     setWhatIfName(name);
     
-    // If we have engine data, recalculate with what-if
-    const dataToUse = localData?.engineData || engineData;
+    // Build engine data from snapshot if not available
+    let dataToUse = localData?.engineData || engineData;
+    
+    // If no engineData exists but we have a snapshot, construct baseline data
+    if (!dataToUse && snapshot) {
+      dataToUse = {
+        success: true,
+        currentBalance: snapshot.current_balance,
+        projectedEOM: snapshot.projected_eom_balance,
+        riskStatus: snapshot.risk_level || 'green',
+        riskDay: snapshot.risk_day,
+        avgDailySpending: snapshot.avg_daily_spending || 0,
+        totalIncome: snapshot.total_income || 0,
+        totalExpenses: snapshot.total_expenses || 0,
+        graphPoints: forecastData
+      };
+    }
+    
     if (dataToUse) {
       const whatIfResult = calculateWhatIf(dataToUse, scenario);
       
@@ -164,6 +180,19 @@ export default function Dashboard() {
           forecastData: whatIfResult.graphPoints,
           engineData: whatIfResult
         }));
+      } else if (snapshots?.[0]) {
+        // If no localData yet, create it from snapshot
+        setLocalData({
+          snapshot: {
+            ...snapshots[0],
+            projected_eom_balance: whatIfResult.projectedEOM,
+            risk_level: whatIfResult.riskStatus,
+            risk_day: whatIfResult.riskDay
+          },
+          forecastData: whatIfResult.graphPoints,
+          engineData: whatIfResult,
+          transactions: transactions || []
+        });
       }
     }
   };
