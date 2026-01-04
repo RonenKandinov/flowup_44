@@ -315,12 +315,12 @@ export default function Dashboard() {
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      className="mt-4 p-3 rounded-lg bg-slate-800/30 border border-slate-700/50 w-full"
+                      className="mt-4 p-3 rounded-lg bg-slate-800/30 border border-slate-700/50"
                     >
-                      <div className="text-sm text-slate-300 space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-slate-400">רמת ביטחון:</span>
-                          <span className={`font-semibold ${
+                      <div className="text-xs text-slate-400 space-y-1">
+                        <div className="flex justify-between">
+                          <span>רמת ביטחון:</span>
+                          <span className={`font-medium ${
                             currentEngineData.confidence === 'high' ? 'text-green-400' :
                             currentEngineData.confidence === 'medium' ? 'text-yellow-400' :
                             'text-red-400'
@@ -329,9 +329,13 @@ export default function Dashboard() {
                              currentEngineData.confidence === 'medium' ? 'בינונית' : 'נמוכה'}
                           </span>
                         </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-slate-400">עסקאות שנותחו:</span>
-                          <span className="font-semibold text-cyan-400">{currentEngineData.transactionCount}</span>
+                        <div className="flex justify-between">
+                          <span>עסקאות:</span>
+                          <span className="text-slate-300">{currentEngineData.transactionCount}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>מנוע:</span>
+                          <span className="text-cyan-400">{SystemInfo.engine}</span>
                         </div>
                       </div>
                     </motion.div>
