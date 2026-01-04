@@ -13,36 +13,39 @@ export default function SpeedometerGauge({
   const { angle, color, glowColor } = useMemo(() => {
     // Map balance to angle based on risk level and balance
     // Balance >= 3000: green zone (-60°)
-    // Balance 1000-3000: yellow zone (0°)
-    // Balance < 1000: red zone (60°)
-    
+    // Balance 2000-3000: yellow-green transition
+    // Balance 0-2000: yellow zone (0° to 30°)
+    // Balance < 0: red zone (60°)
+
     let calculatedAngle;
     let calculatedColor;
     let calculatedGlow;
-    
+
     // Use risk level as primary indicator if available
     if (riskLevel === 'green' || adjustedBalance >= 3000) {
       calculatedAngle = -60;
       calculatedColor = '#22c55e';
       calculatedGlow = 'rgba(34, 197, 94, 0.5)';
-    } else if (riskLevel === 'yellow' || (adjustedBalance >= 1000 && adjustedBalance < 3000)) {
-      // Linear interpolation between yellow (0°) and green (-60°)
-      const ratio = (adjustedBalance - 1000) / 2000;
-      calculatedAngle = -60 * ratio;
+    } else if (riskLevel === 'yellow' || (adjustedBalance >= 0 && adjustedBalance < 3000)) {
+      // Yellow zone for 0-2000
+      if (adjustedBalance <= 2000) {
+        // Linear interpolation in yellow zone (0° to 30°)
+        const ratio = adjustedBalance / 2000;
+        calculatedAngle = 30 - (30 * ratio);
+      } else {
+        // Transition from yellow to green (2000-3000)
+        const ratio = (adjustedBalance - 2000) / 1000;
+        calculatedAngle = -60 * ratio;
+      }
       calculatedColor = '#eab308';
       calculatedGlow = 'rgba(234, 179, 8, 0.5)';
     } else {
-      // Red zone
-      if (adjustedBalance < 0) {
-        calculatedAngle = 60;
-      } else {
-        const ratio = adjustedBalance / 1000;
-        calculatedAngle = 60 - (60 * ratio);
-      }
+      // Red zone - negative balance
+      calculatedAngle = 60;
       calculatedColor = '#ef4444';
       calculatedGlow = 'rgba(239, 68, 68, 0.5)';
     }
-    
+
     return { 
       angle: calculatedAngle, 
       color: calculatedColor, 
