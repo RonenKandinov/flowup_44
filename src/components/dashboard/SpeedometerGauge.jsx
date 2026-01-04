@@ -11,34 +11,27 @@ export default function SpeedometerGauge({
   const adjustedBalance = projectedBalance;
   
   const { angle, color, glowColor } = useMemo(() => {
-    // Map balance to angle based on risk level and balance
-    // Balance >= 3000: green zone (-60°)
-    // Balance 1000-3000: yellow zone (0°)
-    // Balance < 1000: red zone (60°)
-    
+    // Optimized Mapping: 0 = Center (0°), +3000 = Green (-60°), Negative = Red (+60°)
     let calculatedAngle;
     let calculatedColor;
     let calculatedGlow;
     
-    // Use risk level as primary indicator if available
-    if (riskLevel === 'green' || adjustedBalance >= 3000) {
+    if (adjustedBalance >= 3000) {
+      // Green zone: Full left
       calculatedAngle = -60;
       calculatedColor = '#22c55e';
       calculatedGlow = 'rgba(34, 197, 94, 0.5)';
-    } else if (riskLevel === 'yellow' || (adjustedBalance >= 1000 && adjustedBalance < 3000)) {
-      // Linear interpolation between yellow (0°) and green (-60°)
-      const ratio = (adjustedBalance - 1000) / 2000;
+    } else if (adjustedBalance > 0) {
+      // Yellow zone: Linear interpolation from 0° (at 0) to -60° (at 3000)
+      const ratio = adjustedBalance / 3000;
       calculatedAngle = -60 * ratio;
-      calculatedColor = '#eab308';
+      calculatedColor = adjustedBalance >= 1500 ? '#eab308' : '#f59e0b';
       calculatedGlow = 'rgba(234, 179, 8, 0.5)';
     } else {
-      // Red zone
-      if (adjustedBalance < 0) {
-        calculatedAngle = 60;
-      } else {
-        const ratio = adjustedBalance / 1000;
-        calculatedAngle = 60 - (60 * ratio);
-      }
+      // Red zone: Balance is negative, map to right side (0° to +60°)
+      const negativeAmount = Math.abs(adjustedBalance);
+      const ratio = Math.min(negativeAmount / 3000, 1); // Cap at 60°
+      calculatedAngle = 60 * ratio;
       calculatedColor = '#ef4444';
       calculatedGlow = 'rgba(239, 68, 68, 0.5)';
     }
@@ -48,7 +41,7 @@ export default function SpeedometerGauge({
       color: calculatedColor, 
       glowColor: calculatedGlow 
     };
-  }, [adjustedBalance, riskLevel]);
+  }, [adjustedBalance]);
 
   return (
     <div className="relative flex flex-col items-center justify-center w-full">
