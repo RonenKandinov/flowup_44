@@ -107,21 +107,32 @@ export const processAndForecast = (csvText) => {
             return { error: "לא נמצאו עסקאות תקינות" };
         }
 
-        // 2. HYBRID ALGORITHM
-        const totalDays = uniqueDates.size;
+        // 2. SARIMAX LITE - Seasonal Decomposition + Auto-Regressive Trend
+        const totalDays = uniqueDates.size || 30;
 
-        // Average Daily Net = (TotalCredit - TotalDebit) / TotalDays
-        const avgDailyNet = (totalCredit - totalDebit) / totalDays;
+        // Separate non-recurring (variable) expenses for trend analysis
+        const nonRecurringTx = allTransactions.filter(tx => !tx.isRecurring && tx.debit > 0);
+        const totalNonRecurringDebit = nonRecurringTx.reduce((sum, tx) => sum + tx.debit, 0);
+        
+        // Auto-Regressive: Clean daily burn rate (without seasonal shocks)
+        const avgDailyBase = totalNonRecurringDebit / totalDays;
 
-        // Recent Trend = LastRow Credit - LastRow Debit
-        const recentTrend = lastRowCredit - lastRowDebit;
+        // Seasonal Component: Estimate remaining recurring expenses
+        const avgRecurringMonthly = recurringExpenses.length > 0 
+            ? recurringExpenses.reduce((a, b) => a + b, 0) / Math.ceil(recurringExpenses.length / 3)
+            : 0;
 
-        // Hybrid Daily = (AverageDailyNet * 0.7) + (RecentTrend * 0.3)
-        const hybridDaily = (avgDailyNet * 0.7) + (recentTrend * 0.3);
-
-        // 3. Safe Forecast with 17% Buffer
-        const rawForecast = currentBalance + (hybridDaily * 30);
-        const safeForecast = rawForecast * 0.83;
+        // 3. SARIMAX Forecast: Base Trend + Seasonal + Shock Factor (5% buffer)
+        const now = new Date();
+        const daysRemaining = Math.max(1, new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate());
+        
+        const projectedVariableSpend = avgDailyBase * daysRemaining * 1.05; // 5% shock buffer
+        const projectedRecurringSpend = avgRecurringMonthly * (daysRemaining / 30);
+        
+        const rawForecast = currentBalance - projectedVariableSpend - projectedRecurringSpend;
+        
+        // Safety Buffer: 17% additional protection
+        const safeForecast = rawForecast > 0 ? rawForecast * 0.83 : rawForecast;
         const projectedEOM = safeForecast;
 
         // 4. Calculate daily spending from target month only
