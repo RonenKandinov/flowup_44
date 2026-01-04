@@ -252,8 +252,8 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
 
     return {
         ...baselineForecast,
-        currentBalance: Math.round(currentBalance + simulatedIncome - simulatedExpense),
-        projectedEOM: Math.round(newSafeBalance),
+        currentBalance: Math.round(adjustedBalance),
+        projectedEOM: Math.round(newProjectedEOM),
         riskStatus: newRiskStatus,
         riskDay: newRiskDay,
         riskDaysCount: daysUntilRisk,
