@@ -270,7 +270,7 @@ export default function Dashboard() {
                     projectedBalance={snapshot.projected_eom_balance || 0}
                     riskLevel={currentEngineData?.riskStatus || snapshot.risk_level || 'green'}
                     riskDay={currentEngineData?.riskDay || snapshot.risk_day}
-                    whatIfAmount={0}
+                    whatIfAmount={whatIfAmount}
                   />
                   
                   {whatIfAmount !== 0 && currentEngineData?.riskDay && (
