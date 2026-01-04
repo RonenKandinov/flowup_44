@@ -21,12 +21,11 @@ export const processAndForecast = (csvText) => {
         let totalCredit = 0;
         let totalDebit = 0;
         let currentBalance = 0;
-        let lastRowCredit = 0;
-        let lastRowDebit = 0;
         const uniqueDates = new Set();
         const allTransactions = [];
+        const recurringExpenses = [];
 
-        // First pass: collect all transactions with parsed dates
+        // First pass: collect all transactions with recurring detection
         for (let i = 1; i < lines.length; i++) {
             const line = lines[i].trim();
             if (!line) continue;
@@ -34,9 +33,11 @@ export const processAndForecast = (csvText) => {
             const row = line.split(',').map(cell => cell.trim().replace(/"/g, ''));
             
             const date = row[0] || '';
+            const description = (row[2] || '').toLowerCase();
             const debit = toNum(row[6]);
             const credit = toNum(row[7]);
             const balance = toNum(row[8]);
+            const amount = credit - debit;
             
             // Parse date
             let transactionDate = null;
@@ -48,13 +49,29 @@ export const processAndForecast = (csvText) => {
                 transactionDate = new Date(year, month, day);
             }
             
+            // SARIMAX: Identify recurring/seasonal expenses
+            const isRecurring = debit > 0 && (
+                description.includes('שכירות') || 
+                description.includes('משכנתא') || 
+                description.includes('ביטוח') ||
+                description.includes('מנוי') ||
+                description.includes('קבוע') ||
+                (debit >= 500 && debit % 100 === 0) // Round amounts likely recurring
+            );
+            
             if (transactionDate && !isNaN(transactionDate.getTime())) {
                 allTransactions.push({
                     date: transactionDate,
                     debit,
                     credit,
-                    balance
+                    balance,
+                    amount,
+                    isRecurring
                 });
+                
+                if (isRecurring) {
+                    recurringExpenses.push(debit);
+                }
             }
             
             // Track unique dates
@@ -64,8 +81,6 @@ export const processAndForecast = (csvText) => {
             
             // Last row = most recent transaction
             currentBalance = balance;
-            lastRowCredit = credit;
-            lastRowDebit = debit;
         }
 
         // Find the most recent month in the data and calculate totals
