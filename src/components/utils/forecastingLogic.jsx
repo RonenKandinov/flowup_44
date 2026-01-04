@@ -155,9 +155,10 @@ export const processAndForecast = (csvText) => {
             riskStatus = "yellow";
         }
 
-        // 6. Generate forecast graph points
+        // 6. Generate stabilized forecast graph points
         const graphPoints = [];
         let runningBalance = currentBalance;
+        const dailyBurnRate = avgDailyBase + (avgRecurringMonthly / 30);
         
         for (let i = 0; i <= 30; i++) {
             const date = new Date();
@@ -166,7 +167,7 @@ export const processAndForecast = (csvText) => {
                 date: date.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' }),
                 balance: Math.round(runningBalance)
             });
-            runningBalance += hybridDaily;
+            runningBalance -= dailyBurnRate; // SARIMAX: steady decline model
         }
 
         return {
