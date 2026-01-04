@@ -196,11 +196,13 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
             break;
     }
     
-    // Calculate adjusted balance BEFORE safety buffer for risk day calculation
+    // Calculate adjusted balance
     const adjustedBalance = currentBalance + simulatedIncome - simulatedExpense;
     
-    // Unified Formula: (CurrentBalance + Income - Expense) * 0.83
-    const newSafeBalance = adjustedBalance * 0.83;
+    // Calculate projected EOM using the same hybrid approach as baseline
+    const avgDailyNet = baselineForecast.projectedEOM - currentBalance;
+    const projectedChange = avgDailyNet; // This already includes the 30-day forecast
+    const newProjectedEOM = adjustedBalance + projectedChange;
     
     // Dynamic Risk Day Calculation
     let newRiskDay = null;
