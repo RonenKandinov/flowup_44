@@ -11,35 +11,29 @@ export default function SpeedometerGauge({
   const adjustedBalance = projectedBalance;
   
   const { angle, color, glowColor } = useMemo(() => {
-    // Visual Mapping: 0-180° scale where 0₪ = 90° (center)
-    // Range: -3000₪ (0°) → 0₪ (90°) → +5000₪ (180°)
+    // Optimized Mapping: 0 = Center (0°), +3000 = Green (-60°), Negative = Red (+60°)
     let calculatedAngle;
     let calculatedColor;
     let calculatedGlow;
     
-    if (adjustedBalance >= 5000) {
-      // Maximum green: 180°
-      calculatedAngle = 180;
+    if (adjustedBalance >= 3000) {
+      // Green zone: Full left
+      calculatedAngle = -60;
       calculatedColor = '#22c55e';
       calculatedGlow = 'rgba(34, 197, 94, 0.5)';
     } else if (adjustedBalance > 0) {
-      // Positive zone: 90° → 180° (green/yellow)
-      const ratio = adjustedBalance / 5000;
-      calculatedAngle = 90 + (90 * ratio);
-      calculatedColor = adjustedBalance >= 2500 ? '#22c55e' : '#eab308';
-      calculatedGlow = adjustedBalance >= 2500 ? 'rgba(34, 197, 94, 0.5)' : 'rgba(234, 179, 8, 0.5)';
-    } else if (adjustedBalance === 0) {
-      // Exact center
-      calculatedAngle = 90;
-      calculatedColor = '#eab308';
+      // Yellow zone: Linear interpolation from 0° (at 0) to -60° (at 3000)
+      const ratio = adjustedBalance / 3000;
+      calculatedAngle = -60 * ratio;
+      calculatedColor = adjustedBalance >= 1500 ? '#eab308' : '#f59e0b';
       calculatedGlow = 'rgba(234, 179, 8, 0.5)';
     } else {
-      // Negative zone: 0° → 90° (red/yellow)
+      // Red zone: Balance is negative, map to right side (0° to +60°)
       const negativeAmount = Math.abs(adjustedBalance);
-      const ratio = Math.min(negativeAmount / 3000, 1);
-      calculatedAngle = 90 - (90 * ratio);
-      calculatedColor = negativeAmount > 1500 ? '#ef4444' : '#f59e0b';
-      calculatedGlow = negativeAmount > 1500 ? 'rgba(239, 68, 68, 0.5)' : 'rgba(234, 179, 8, 0.5)';
+      const ratio = Math.min(negativeAmount / 3000, 1); // Cap at 60°
+      calculatedAngle = 60 * ratio;
+      calculatedColor = '#ef4444';
+      calculatedGlow = 'rgba(239, 68, 68, 0.5)';
     }
     
     return { 
@@ -79,38 +73,38 @@ export default function SpeedometerGauge({
           </filter>
         </defs>
         
-        {/* Red segment (0° - 90°) */}
+        {/* Green segment */}
         <path
-          d="M 30 100 A 70 70 0 0 1 100 30"
-          fill="none"
-          stroke="url(#redGrad)"
-          strokeWidth="12"
-          strokeLinecap="round"
-        />
-
-        {/* Yellow segment (90° center) */}
-        <path
-          d="M 100 30 A 70 70 0 0 1 100 30"
-          fill="none"
-          stroke="url(#yellowGrad)"
-          strokeWidth="14"
-          strokeLinecap="round"
-        />
-
-        {/* Green segment (90° - 180°) */}
-        <path
-          d="M 100 30 A 70 70 0 0 1 170 100"
+          d="M 30 100 A 70 70 0 0 1 70 38"
           fill="none"
           stroke="url(#greenGrad)"
           strokeWidth="12"
           strokeLinecap="round"
         />
         
+        {/* Yellow segment */}
+        <path
+          d="M 75 35 A 70 70 0 0 1 125 35"
+          fill="none"
+          stroke="url(#yellowGrad)"
+          strokeWidth="12"
+          strokeLinecap="round"
+        />
+        
+        {/* Red segment */}
+        <path
+          d="M 130 38 A 70 70 0 0 1 170 100"
+          fill="none"
+          stroke="url(#redGrad)"
+          strokeWidth="12"
+          strokeLinecap="round"
+        />
+        
         {/* Needle - Straight Classic Speedometer Style */}
         <motion.g
-          initial={{ rotate: 90 }}
+          initial={{ rotate: 0 }}
           animate={{ rotate: angle }}
-          transition={{ duration: 0.5, ease: "easeInOut" }}
+          transition={{ type: "spring", stiffness: 60, damping: 15 }}
           style={{ transformOrigin: '100px 100px' }}
         >
           {/* Straight needle pointer */}

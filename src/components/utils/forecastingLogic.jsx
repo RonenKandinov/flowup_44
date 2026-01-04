@@ -1,8 +1,8 @@
 /**
- * FlowUp SARIMAX Lite Forecasting Engine (Client-Side)
+ * FlowUp Hybrid Forecasting Engine (Client-Side)
  * -----------------------------------------------
  * Position-Based CSV Parser (ISO-8859-8 encoding)
- * SARIMAX Lite: Seasonal Decomposition + Auto-Regressive Trend + Exogenous Shocks
+ * Hybrid Algorithm: Average Daily Net (70%) + Recent Trend (30%)
  * Safety Buffer: 17% Risk Management (multiply by 0.83)
  * Privacy: All calculations happen in-browser, no data sent to server
  */
@@ -21,11 +21,12 @@ export const processAndForecast = (csvText) => {
         let totalCredit = 0;
         let totalDebit = 0;
         let currentBalance = 0;
+        let lastRowCredit = 0;
+        let lastRowDebit = 0;
         const uniqueDates = new Set();
         const allTransactions = [];
-        const recurringExpenses = [];
 
-        // First pass: collect all transactions with recurring detection
+        // First pass: collect all transactions with parsed dates
         for (let i = 1; i < lines.length; i++) {
             const line = lines[i].trim();
             if (!line) continue;
@@ -33,11 +34,9 @@ export const processAndForecast = (csvText) => {
             const row = line.split(',').map(cell => cell.trim().replace(/"/g, ''));
             
             const date = row[0] || '';
-            const description = (row[2] || '').toLowerCase();
             const debit = toNum(row[6]);
             const credit = toNum(row[7]);
             const balance = toNum(row[8]);
-            const amount = credit - debit;
             
             // Parse date
             let transactionDate = null;
@@ -49,29 +48,13 @@ export const processAndForecast = (csvText) => {
                 transactionDate = new Date(year, month, day);
             }
             
-            // SARIMAX: Identify recurring/seasonal expenses
-            const isRecurring = debit > 0 && (
-                description.includes('שכירות') || 
-                description.includes('משכנתא') || 
-                description.includes('ביטוח') ||
-                description.includes('מנוי') ||
-                description.includes('קבוע') ||
-                (debit >= 500 && debit % 100 === 0) // Round amounts likely recurring
-            );
-            
             if (transactionDate && !isNaN(transactionDate.getTime())) {
                 allTransactions.push({
                     date: transactionDate,
                     debit,
                     credit,
-                    balance,
-                    amount,
-                    isRecurring
+                    balance
                 });
-                
-                if (isRecurring) {
-                    recurringExpenses.push(debit);
-                }
             }
             
             // Track unique dates
@@ -81,9 +64,11 @@ export const processAndForecast = (csvText) => {
             
             // Last row = most recent transaction
             currentBalance = balance;
+            lastRowCredit = credit;
+            lastRowDebit = debit;
         }
 
-        // Find the most recent month and calculate totals
+        // Find the most recent month in the data and calculate totals
         let uniqueDaysInTargetMonth = new Set();
         if (allTransactions.length > 0) {
             allTransactions.sort((a, b) => b.date - a.date);
@@ -91,11 +76,12 @@ export const processAndForecast = (csvText) => {
             const targetMonth = mostRecentDate.getMonth();
             const targetYear = mostRecentDate.getFullYear();
 
-            // Sum transactions from the most recent month
+            // Sum only transactions from the most recent month
             for (const tx of allTransactions) {
                 if (tx.date.getMonth() === targetMonth && tx.date.getFullYear() === targetYear) {
                     totalDebit += tx.debit;
                     totalCredit += tx.credit;
+                    // Track unique days in the target month
                     const dayKey = `${tx.date.getFullYear()}-${tx.date.getMonth()}-${tx.date.getDate()}`;
                     uniqueDaysInTargetMonth.add(dayKey);
                 }
@@ -106,33 +92,21 @@ export const processAndForecast = (csvText) => {
             return { error: "לא נמצאו עסקאות תקינות" };
         }
 
-        // 2. SARIMAX LITE - Seasonal Decomposition + Auto-Regressive Trend
-        const totalDays = uniqueDates.size || 30;
+        // 2. HYBRID ALGORITHM
+        const totalDays = uniqueDates.size;
 
-        // AR Component: Separate non-recurring (variable) expenses for clean trend
-        const nonRecurringTx = allTransactions.filter(tx => !tx.isRecurring && tx.debit > 0);
-        const totalNonRecurringDebit = nonRecurringTx.reduce((sum, tx) => sum + tx.debit, 0);
-        
-        // Clean daily burn rate (without seasonal shocks)
-        const avgDailyBase = totalNonRecurringDebit / totalDays;
+        // Average Daily Net = (TotalCredit - TotalDebit) / TotalDays
+        const avgDailyNet = (totalCredit - totalDebit) / totalDays;
 
-        // S Component: Seasonal recurring expenses estimation
-        const avgRecurringMonthly = recurringExpenses.length > 0 
-            ? recurringExpenses.reduce((a, b) => a + b, 0) / Math.max(1, Math.ceil(recurringExpenses.length / 3))
-            : 0;
+        // Recent Trend = LastRow Credit - LastRow Debit
+        const recentTrend = lastRowCredit - lastRowDebit;
 
-        // 3. SARIMAX Forecast: AR Trend + Seasonal + Exogenous Shock (5%)
-        const now = new Date();
-        const daysRemaining = Math.max(1, new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate());
-        
-        // Stability Factor: prevent small transactions from causing volatility
-        const projectedVariableSpend = avgDailyBase * daysRemaining * 1.05; // 5% shock buffer
-        const projectedRecurringSpend = avgRecurringMonthly * (daysRemaining / 30);
-        
-        const rawForecast = currentBalance - projectedVariableSpend - projectedRecurringSpend;
-        
-        // Safety Buffer: 17% protection
-        const safeForecast = rawForecast > 0 ? rawForecast * 0.83 : rawForecast;
+        // Hybrid Daily = (AverageDailyNet * 0.7) + (RecentTrend * 0.3)
+        const hybridDaily = (avgDailyNet * 0.7) + (recentTrend * 0.3);
+
+        // 3. Safe Forecast with 17% Buffer
+        const rawForecast = currentBalance + (hybridDaily * 30);
+        const safeForecast = rawForecast * 0.83;
         const projectedEOM = safeForecast;
 
         // 4. Calculate daily spending from target month only
@@ -155,10 +129,9 @@ export const processAndForecast = (csvText) => {
             riskStatus = "yellow";
         }
 
-        // 6. Generate stabilized forecast graph points
+        // 6. Generate forecast graph points
         const graphPoints = [];
         let runningBalance = currentBalance;
-        const dailyBurnRate = avgDailyBase + (avgRecurringMonthly / 30);
         
         for (let i = 0; i <= 30; i++) {
             const date = new Date();
@@ -167,7 +140,7 @@ export const processAndForecast = (csvText) => {
                 date: date.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' }),
                 balance: Math.round(runningBalance)
             });
-            runningBalance -= dailyBurnRate; // SARIMAX: steady decline model
+            runningBalance += hybridDaily;
         }
 
         return {
@@ -196,7 +169,7 @@ export const processAndForecast = (csvText) => {
 };
 
 /**
- * SARIMAX What-If: Calculate scenario impact with Exogenous Shock Detection
+ * Calculate What-If scenario impact with 17% Safety Buffer
  */
 export const calculateWhatIf = (baselineForecast, scenario) => {
     if (!baselineForecast || !baselineForecast.success) {
@@ -214,7 +187,7 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
     const currentBalance = baselineForecast.currentBalance || 0;
     const avgDailySpending = baselineForecast.avgDailySpending || 0;
     
-    // Calculate scenario impact
+    // Calculate adjusted balance based on scenario
     let simulatedIncome = 0;
     let simulatedExpense = 0;
     
@@ -227,62 +200,59 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
             break;
     }
     
-    // Adjusted balance calculation
+    // Calculate adjusted balance BEFORE safety buffer for risk day calculation
     const adjustedBalance = currentBalance + simulatedIncome - simulatedExpense;
     
-    // X Component: Shock Factor Detection
-    // If expense is 5x+ larger than daily average, apply additional shock factor
-    const isExogenousShock = simulatedExpense > (avgDailySpending * 5);
-    const shockMultiplier = isExogenousShock ? 1.15 : 1.0;
+    // Unified Formula: (CurrentBalance + Income - Expense) * 0.83
+    const newSafeBalance = adjustedBalance * 0.83;
     
-    // SARIMAX Formula: (Balance ± Scenario) * SafetyBuffer * ShockFactor
-    let newSafeBalance = adjustedBalance * 0.83 * shockMultiplier;
-    
-    // Dynamic Risk Day with SARIMAX Stability
+    // Dynamic Risk Day Calculation
     let newRiskDay = null;
     let daysUntilRisk = null;
     let trend = null;
     
     if (avgDailySpending > 0) {
         if (adjustedBalance > 0) {
-            // Days until zero with shock adjustment
-            daysUntilRisk = Math.floor((adjustedBalance / avgDailySpending) / shockMultiplier);
+            // Calculate days until balance reaches zero using ADJUSTED balance
+            daysUntilRisk = Math.floor(adjustedBalance / avgDailySpending);
             const riskDate = new Date();
             riskDate.setDate(riskDate.getDate() + daysUntilRisk);
             newRiskDay = riskDate.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' });
         } else {
+            // Balance is already negative - immediate risk
             newRiskDay = 'מיידי';
             daysUntilRisk = 0;
         }
         
-        // Trend calculation
+        // Calculate trend (original risk day vs new risk day)
         const originalDays = currentBalance > 0 ? Math.floor(currentBalance / avgDailySpending) : 0;
         
         if (daysUntilRisk < originalDays) {
-            trend = 'negative';
+            trend = 'negative'; // Date moved closer (bad)
         } else if (daysUntilRisk > originalDays) {
-            trend = 'positive';
+            trend = 'positive'; // Date moved further (good)
         } else {
             trend = 'neutral';
         }
     } else {
+        // No spending data - use simple thresholds
         if (newSafeBalance < 0) {
             newRiskDay = 'מיידי';
         }
     }
     
-    // Risk status with shock consideration
+    // Determine risk status based on SAFE balance (after 0.83)
     let newRiskStatus = "green";
     if (newSafeBalance < 0) {
         newRiskStatus = "red";
-    } else if (newSafeBalance < 1500 || isExogenousShock) {
+    } else if (newSafeBalance < 1500) {
         newRiskStatus = "yellow";
     }
     
-    // Graph points with shock factor
+    // Update graph points proportionally
     const adjustedGraphPoints = baselineForecast.graphPoints.map(point => ({
         ...point,
-        balance: Math.round((point.balance + simulatedIncome - simulatedExpense) * shockMultiplier)
+        balance: Math.round(point.balance + simulatedIncome - simulatedExpense)
     }));
 
     return {
@@ -295,8 +265,7 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
         riskTrend: trend,
         graphPoints: adjustedGraphPoints,
         whatIfApplied: true,
-        whatIfScenario: scenario,
-        shockDetected: isExogenousShock
+        whatIfScenario: scenario
     };
 };
 
@@ -304,9 +273,9 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
  * System Information
  */
 export const SystemInfo = {
-    version: "2.0.0",
-    type: "Client-Side SARIMAX Lite",
-    engine: "Seasonal AR + Exogenous Shocks",
-    safetyBuffer: "17% + 5% Shock Factor",
+    version: "1.0.0",
+    type: "Client-Side MVP",
+    engine: "Hybrid SES + Seasonal Average",
+    safetyBuffer: "17% Standard Deviation",
     privacy: "All calculations in-browser"
 };

@@ -119,12 +119,10 @@ export default function Dashboard() {
 
   const handleWhatIfSimulate = (scenario) => {
     if (scenario.type === 'reset') {
-      // Deep State Cleanup
       setWhatIfAmount(0);
       setWhatIfName('');
-      
-      // Restore pure baseline from engineData
-      if (engineData && !engineData.whatIfApplied) {
+      // Restore original data from engineData or snapshot
+      if (engineData) {
         setLocalData(prev => prev ? {
           ...prev,
           snapshot: {
@@ -133,41 +131,20 @@ export default function Dashboard() {
             risk_level: engineData.riskStatus,
             risk_day: engineData.riskDay
           },
-          forecastData: [...engineData.graphPoints], // Deep copy
+          forecastData: engineData.graphPoints,
           engineData: {
             ...engineData,
             whatIfApplied: false,
-            riskTrend: null,
-            riskDaysCount: null
+            riskTrend: null
           }
         } : null);
       } else if (snapshots?.[0]) {
-        // Fallback: Rebuild from database snapshot
-        const freshForecast = generateForecastFromTransactions(transactions);
+        // Fallback to snapshot from database
         setLocalData({
-          snapshot: { ...snapshots[0] },
-          forecastData: freshForecast,
-          engineData: {
-            success: true,
-            currentBalance: snapshots[0].current_balance,
-            projectedEOM: snapshots[0].projected_eom_balance,
-            riskStatus: snapshots[0].risk_level,
-            riskDay: snapshots[0].risk_day,
-            avgDailySpending: snapshots[0].avg_daily_spending || 50,
-            graphPoints: freshForecast,
-            whatIfApplied: false
-          },
+          snapshot: snapshots[0],
+          forecastData: generateForecastFromTransactions(transactions),
+          engineData: null,
           transactions: transactions || []
-        });
-        setEngineData({
-          success: true,
-          currentBalance: snapshots[0].current_balance,
-          projectedEOM: snapshots[0].projected_eom_balance,
-          riskStatus: snapshots[0].risk_level,
-          riskDay: snapshots[0].risk_day,
-          avgDailySpending: snapshots[0].avg_daily_spending || 50,
-          graphPoints: freshForecast,
-          whatIfApplied: false
         });
       }
       return;
