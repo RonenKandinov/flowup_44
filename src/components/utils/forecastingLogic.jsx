@@ -300,9 +300,9 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
  * System Information
  */
 export const SystemInfo = {
-    version: "1.0.0",
-    type: "Client-Side MVP",
-    engine: "Hybrid SES + Seasonal Average",
-    safetyBuffer: "17% Standard Deviation",
+    version: "2.0.0",
+    type: "Client-Side SARIMAX Lite",
+    engine: "Seasonal AR + Exogenous Shocks",
+    safetyBuffer: "17% + 5% Shock Factor",
     privacy: "All calculations in-browser"
 };
