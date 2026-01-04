@@ -177,7 +177,11 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
     }
 
     if (!scenario || scenario.type === 'reset') {
-        return baselineForecast;
+        return {
+            ...baselineForecast,
+            whatIfApplied: false,
+            riskTrend: null
+        };
     }
 
     const currentBalance = baselineForecast.currentBalance;
