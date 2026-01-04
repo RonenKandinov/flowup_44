@@ -158,19 +158,19 @@ export default function Dashboard() {
     
     // Build engine data from snapshot if not available
     let dataToUse = localData?.engineData || engineData;
-    
+
     // If no engineData exists but we have a snapshot, construct baseline data
     if (!dataToUse && snapshot) {
       dataToUse = {
         success: true,
-        currentBalance: snapshot.current_balance,
-        projectedEOM: snapshot.projected_eom_balance,
+        currentBalance: snapshot.current_balance || 0,
+        projectedEOM: snapshot.projected_eom_balance || 0,
         riskStatus: snapshot.risk_level || 'green',
-        riskDay: snapshot.risk_day,
-        avgDailySpending: snapshot.avg_daily_spending || 0,
+        riskDay: snapshot.risk_day || null,
+        avgDailySpending: snapshot.avg_daily_spending || 50, // Default fallback
         totalIncome: snapshot.total_income || 0,
         totalExpenses: snapshot.total_expenses || 0,
-        graphPoints: forecastData
+        graphPoints: forecastData || []
       };
     }
     
