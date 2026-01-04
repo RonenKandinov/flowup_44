@@ -303,7 +303,7 @@ export default function Dashboard() {
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="relative rounded-2xl p-8 md:p-10 border border-cyan-500/20 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm flex flex-col items-center"
+                  className="relative rounded-2xl p-6 border border-cyan-500/20 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm flex flex-col items-center"
                 >
                   <SpeedometerGauge
                     projectedBalance={snapshot.projected_eom_balance || 0}
@@ -335,6 +335,10 @@ export default function Dashboard() {
                         <div className="flex justify-between">
                           <span>עסקאות:</span>
                           <span className="text-slate-300">{currentEngineData.transactionCount}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>מנוע:</span>
+                          <span className="text-cyan-400">{SystemInfo.engine}</span>
                         </div>
                       </div>
                     </motion.div>
