@@ -79,29 +79,29 @@ export default function SpeedometerGauge({
           </filter>
         </defs>
         
-        {/* Green segment */}
+        {/* Red segment (0° - 90°) */}
         <path
-          d="M 30 100 A 70 70 0 0 1 70 38"
-          fill="none"
-          stroke="url(#greenGrad)"
-          strokeWidth="12"
-          strokeLinecap="round"
-        />
-        
-        {/* Yellow segment */}
-        <path
-          d="M 75 35 A 70 70 0 0 1 125 35"
-          fill="none"
-          stroke="url(#yellowGrad)"
-          strokeWidth="12"
-          strokeLinecap="round"
-        />
-        
-        {/* Red segment */}
-        <path
-          d="M 130 38 A 70 70 0 0 1 170 100"
+          d="M 30 100 A 70 70 0 0 1 100 30"
           fill="none"
           stroke="url(#redGrad)"
+          strokeWidth="12"
+          strokeLinecap="round"
+        />
+
+        {/* Yellow segment (90° center) */}
+        <path
+          d="M 100 30 A 70 70 0 0 1 100 30"
+          fill="none"
+          stroke="url(#yellowGrad)"
+          strokeWidth="14"
+          strokeLinecap="round"
+        />
+
+        {/* Green segment (90° - 180°) */}
+        <path
+          d="M 100 30 A 70 70 0 0 1 170 100"
+          fill="none"
+          stroke="url(#greenGrad)"
           strokeWidth="12"
           strokeLinecap="round"
         />
