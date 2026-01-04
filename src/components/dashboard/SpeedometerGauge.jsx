@@ -56,7 +56,6 @@ export default function SpeedometerGauge({
       <svg 
         viewBox="0 0 200 120" 
         className="w-full max-w-[280px] md:max-w-[320px]"
-        style={{ filter: `drop-shadow(0 0 20px ${glowColor})` }}
       >
         {/* Background arc segments */}
         <defs>
@@ -88,7 +87,6 @@ export default function SpeedometerGauge({
           stroke="url(#greenGrad)"
           strokeWidth="12"
           strokeLinecap="round"
-          filter="url(#glow)"
         />
         
         {/* Yellow segment */}
@@ -98,7 +96,6 @@ export default function SpeedometerGauge({
           stroke="url(#yellowGrad)"
           strokeWidth="12"
           strokeLinecap="round"
-          filter="url(#glow)"
         />
         
         {/* Red segment */}
@@ -108,7 +105,6 @@ export default function SpeedometerGauge({
           stroke="url(#redGrad)"
           strokeWidth="12"
           strokeLinecap="round"
-          filter="url(#glow)"
         />
         
         {/* Needle - Straight Classic Speedometer Style */}
@@ -127,10 +123,9 @@ export default function SpeedometerGauge({
             stroke="white"
             strokeWidth="3"
             strokeLinecap="round"
-            filter="url(#glow)"
           />
           {/* Center cap */}
-          <circle cx="100" cy="100" r="6" fill="white" filter="url(#glow)" />
+          <circle cx="100" cy="100" r="6" fill="white" />
           <circle cx="100" cy="100" r="3" fill="#1e293b" />
         </motion.g>
       </svg>
