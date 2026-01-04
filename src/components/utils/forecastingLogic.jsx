@@ -212,17 +212,11 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
     let trend = null;
     
     if (avgDailySpending > 0) {
-        if (adjustedBalance > 0) {
-            // Calculate days until balance reaches zero using ADJUSTED balance
-            daysUntilRisk = Math.floor(adjustedBalance / avgDailySpending);
-            const riskDate = new Date();
-            riskDate.setDate(riskDate.getDate() + daysUntilRisk);
-            newRiskDay = riskDate.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' });
-        } else {
-            // Balance is already negative - immediate risk
-            newRiskDay = 'מיידי';
-            daysUntilRisk = 0;
-        }
+        // Calculate days until balance reaches zero (can be negative if already in deficit)
+        daysUntilRisk = Math.floor(adjustedBalance / avgDailySpending);
+        const riskDate = new Date();
+        riskDate.setDate(riskDate.getDate() + daysUntilRisk);
+        newRiskDay = riskDate.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' });
         
         // Calculate trend (original risk day vs new risk day)
         const originalDays = currentBalance > 0 ? Math.floor(currentBalance / avgDailySpending) : 0;
@@ -235,9 +229,10 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
             trend = 'neutral';
         }
     } else {
-        // No spending data - use simple thresholds
+        // No spending data - calculate based on threshold
         if (newSafeBalance < 0) {
-            newRiskDay = 'מיידי';
+            const today = new Date();
+            newRiskDay = today.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' });
         }
     }
     
