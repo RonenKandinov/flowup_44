@@ -184,8 +184,8 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
         };
     }
 
-    const currentBalance = baselineForecast.currentBalance;
-    const avgDailySpending = baselineForecast.avgDailySpending;
+    const currentBalance = baselineForecast.currentBalance || 0;
+    const avgDailySpending = baselineForecast.avgDailySpending || 0;
     
     // Calculate adjusted balance based on scenario
     let simulatedIncome = 0;
@@ -193,10 +193,10 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
     
     switch (scenario.type) {
         case 'expense':
-            simulatedExpense = scenario.amount;
+            simulatedExpense = scenario.amount || 0;
             break;
         case 'income':
-            simulatedIncome = scenario.amount;
+            simulatedIncome = scenario.amount || 0;
             break;
     }
     
@@ -213,7 +213,7 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
     
     if (avgDailySpending > 0) {
         if (adjustedBalance > 0) {
-            // Calculate days until balance reaches zero
+            // Calculate days until balance reaches zero using ADJUSTED balance
             daysUntilRisk = Math.floor(adjustedBalance / avgDailySpending);
             const riskDate = new Date();
             riskDate.setDate(riskDate.getDate() + daysUntilRisk);
@@ -225,7 +225,7 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
         }
         
         // Calculate trend (original risk day vs new risk day)
-        const originalDays = Math.floor(baselineForecast.currentBalance / avgDailySpending);
+        const originalDays = currentBalance > 0 ? Math.floor(currentBalance / avgDailySpending) : 0;
         
         if (daysUntilRisk < originalDays) {
             trend = 'negative'; // Date moved closer (bad)
@@ -234,19 +234,22 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
         } else {
             trend = 'neutral';
         }
+    } else {
+        // No spending data - use simple thresholds
+        if (newSafeBalance < 0) {
+            newRiskDay = 'מיידי';
+        }
     }
     
-    // Determine risk status
+    // Determine risk status based on SAFE balance (after 0.83)
     let newRiskStatus = "green";
     if (newSafeBalance < 0) {
         newRiskStatus = "red";
-    } else if (newSafeBalance < 1000) {
-        newRiskStatus = "yellow";
-    } else if (newSafeBalance < 3000) {
+    } else if (newSafeBalance < 1500) {
         newRiskStatus = "yellow";
     }
     
-    // Update graph points
+    // Update graph points proportionally
     const adjustedGraphPoints = baselineForecast.graphPoints.map(point => ({
         ...point,
         balance: Math.round(point.balance + simulatedIncome - simulatedExpense)
@@ -254,7 +257,7 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
 
     return {
         ...baselineForecast,
-        currentBalance: Math.round(currentBalance + simulatedIncome - simulatedExpense),
+        currentBalance: Math.round(adjustedBalance),
         projectedEOM: Math.round(newSafeBalance),
         riskStatus: newRiskStatus,
         riskDay: newRiskDay,
