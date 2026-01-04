@@ -108,9 +108,9 @@ export default function SpeedometerGauge({
         
         {/* Needle - Straight Classic Speedometer Style */}
         <motion.g
-          initial={{ rotate: 0 }}
+          initial={{ rotate: 90 }}
           animate={{ rotate: angle }}
-          transition={{ type: "spring", stiffness: 60, damping: 15 }}
+          transition={{ duration: 0.5, ease: "easeInOut" }}
           style={{ transformOrigin: '100px 100px' }}
         >
           {/* Straight needle pointer */}
