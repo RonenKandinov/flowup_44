@@ -4,12 +4,14 @@ import { Upload, FileText, CheckCircle, AlertCircle, Loader2 } from 'lucide-reac
 import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
 import { processAndForecast } from '../utils/forecastingLogic';
+import { detectBankFromHeader, parseCSVRow, getBankDisplayName } from '../utils/bankParsers';
 
 export default function CSVUploader({ onDataParsed, onClose }) {
   const [isDragging, setIsDragging] = useState(false);
   const [status, setStatus] = useState('idle'); // idle, uploading, processing, success, error
   const [errorMessage, setErrorMessage] = useState('');
   const [fileName, setFileName] = useState('');
+  const [detectedBank, setDetectedBank] = useState('');
 
   const parseCSVForDatabase = (content) => {
     const lines = content.split('\n').filter(line => line.trim());
@@ -17,20 +19,19 @@ export default function CSVUploader({ onDataParsed, onClose }) {
       throw new Error('קובץ ה-CSV חייב להכיל לפחות שורת כותרת ושורת נתונים אחת');
     }
 
-    // Parse Hebrew bank format
+    // Detect bank type from header
     const headerLine = lines[0];
-    const headers = headerLine.split(',').map(h => h.trim().replace(/"/g, ''));
-
-    // Find column indices
-    const dateIdx = headers.findIndex(h => h.includes('תאריך'));
-    const descIdx = headers.findIndex(h => h.includes('תיאור'));
-    const debitIdx = headers.findIndex(h => h.includes('חובה')); // Expense
-    const creditIdx = headers.findIndex(h => h.includes('זכות')); // Income
-    const balanceIdx = headers.findIndex(h => h.includes('יתרה'));
-
-    if (dateIdx === -1) {
-      throw new Error('לא נמצאה עמודת תאריך בקובץ');
+    const bankType = detectBankFromHeader(headerLine);
+    
+    if (bankType === 'unknown') {
+      throw new Error('פורמט הקובץ אינו נתמך. אנא ייצא קובץ CSV מבנק הפועלים, לאומי, דיסקונט, מזרחי או הבינלאומי');
     }
+    
+    setDetectedBank(getBankDisplayName(bankType));
+
+    // Parse headers (try both comma and semicolon)
+    const delimiter = headerLine.includes(';') ? ';' : ',';
+    const headers = headerLine.split(delimiter).map(h => h.trim().replace(/"/g, ''));
 
     const transactions = [];
     let totalIncome = 0;
@@ -38,49 +39,46 @@ export default function CSVUploader({ onDataParsed, onClose }) {
     let currentBalance = 0;
 
     for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
-
-      if (values.length <= dateIdx) continue;
-
-      const dateStr = values[dateIdx];
-      const debitStr = debitIdx !== -1 ? values[debitIdx]?.replace(/[^\d.-]/g, '') : '';
-      const creditStr = creditIdx !== -1 ? values[creditIdx]?.replace(/[^\d.-]/g, '') : '';
-      const balanceStr = balanceIdx !== -1 ? values[balanceIdx]?.replace(/[^\d.-]/g, '') : '';
-
-      const debit = parseFloat(debitStr) || 0;
-      const credit = parseFloat(creditStr) || 0;
-      const balance = parseFloat(balanceStr) || 0;
-
-      // Calculate amount: positive for income (זכות), negative for expense (חובה)
-      const amount = credit > 0 ? credit : (debit > 0 ? -debit : 0);
-
-      if (!dateStr || amount === 0) continue;
+      const line = lines[i].trim();
+      if (!line) continue;
+      
+      const values = line.split(delimiter).map(v => v.trim().replace(/"/g, ''));
+      
+      // Use bank-specific parser
+      const parsed = parseCSVRow(values, headers, bankType);
+      
+      if (!parsed || !parsed.date) continue;
 
       // Parse date
       let parsedDate;
-      if (dateStr.includes('/')) {
-        const parts = dateStr.split('/');
+      if (parsed.date.includes('/')) {
+        const parts = parsed.date.split('/');
         if (parts[2]?.length === 4) {
           parsedDate = new Date(`${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`);
         } else {
           parsedDate = new Date(`20${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`);
         }
       } else {
-        parsedDate = new Date(dateStr);
+        parsedDate = new Date(parsed.date);
       }
 
       if (isNaN(parsedDate.getTime())) continue;
 
+      // Calculate amount: positive for income (credit), negative for expense (debit)
+      const amount = parsed.credit > 0 ? parsed.credit : (parsed.debit > 0 ? -parsed.debit : 0);
+      
+      if (amount === 0) continue;
+
       // Accumulate totals
-      if (credit > 0) totalIncome += credit;
-      if (debit > 0) totalExpenses += debit;
-      if (balance > 0) currentBalance = balance;
+      if (parsed.credit > 0) totalIncome += parsed.credit;
+      if (parsed.debit > 0) totalExpenses += parsed.debit;
+      if (parsed.balance > 0) currentBalance = parsed.balance;
 
       transactions.push({
         date: parsedDate.toISOString().split('T')[0],
-        description: descIdx !== -1 ? values[descIdx] : '',
+        description: parsed.description || 'תנועה',
         amount: amount,
-        balance: balance || null,
+        balance: parsed.balance || null,
         category: amount > 0 ? 'income' : 'expense'
       });
     }
@@ -192,7 +190,8 @@ export default function CSVUploader({ onDataParsed, onClose }) {
         <div className="p-6">
           <h2 className="text-xl font-bold text-white mb-2">העלאת קובץ בנק</h2>
           <p className="text-slate-400 text-sm mb-6">
-            העלה את קובץ ה-CSV שהורדת מהבנק (פועלים, לאומי, דיסקונט וכו')
+            העלה את קובץ ה-CSV שהורדת מהבנק (פועלים, לאומי, דיסקונט, מזרחי, בינלאומי)
+            {detectedBank && <span className="block mt-1 text-cyan-400">זוהה: {detectedBank}</span>}
           </p>
 
           <div
