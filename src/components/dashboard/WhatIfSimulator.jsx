@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { HelpCircle, Calculator, DollarSign, TrendingDown, Calendar } from 'lucide-react';
-import { Input, Button, Label, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function WhatIfSimulator({ onSimulate, currentBalance }) {
   const [expenseAmount, setExpenseAmount] = useState('');

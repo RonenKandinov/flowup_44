@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, FileText, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui';
+import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
 import { processAndForecast } from '../utils/forecastingLogic';
 import { detectBankFromHeader, parseCSVRow, getBankDisplayName } from '../utils/bankParsers';
