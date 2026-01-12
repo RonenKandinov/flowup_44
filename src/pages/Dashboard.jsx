@@ -13,6 +13,7 @@ import WhatIfSimulator from '../components/dashboard/WhatIfSimulator';
 import CSVUploader from '../components/upload/CSVUploader';
 import EmptyState from '../components/dashboard/EmptyState';
 import Disclaimer from '../components/dashboard/Disclaimer';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function Dashboard() {
   const [showUploader, setShowUploader] = useState(false);
@@ -272,39 +273,13 @@ export default function Dashboard() {
             <EmptyState onUploadClick={() => setShowUploader(true)} />
           ) : (
             <>
-              {/* Stats Row */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <StatCard
-                  title="יתרה נוכחית"
-                  value={`₪${snapshot.current_balance?.toLocaleString('he-IL')}`}
-                  icon={snapshot.risk_level === 'green' ? CheckCircle : snapshot.risk_level === 'yellow' ? Wallet : TrendingDown}
-                  color={snapshot.risk_level === 'green' ? 'green' : snapshot.risk_level === 'yellow' ? 'yellow' : 'red'}
-                  delay={0}
-                />
-                <StatCard
-                  title="סך הכנסות"
-                  value={`₪${snapshot.total_income?.toLocaleString('he-IL') || '0'}`}
-                  icon={TrendingUp}
-                  color="green"
-                  delay={0.1}
-                />
-                <StatCard
-                  title="סך הוצאות"
-                  value={`₪${snapshot.total_expenses?.toLocaleString('he-IL') || '0'}`}
-                  icon={TrendingDown}
-                  color="red"
-                  delay={0.2}
-                />
-              </div>
-
-              {/* Main Dashboard Grid */}
-              <div className="grid md:grid-cols-2 gap-6">
-                {/* Speedometer */}
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="relative rounded-2xl p-6 border border-cyan-500/20 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm flex flex-col items-center"
-                >
+              {/* Speedometer - Stand Alone */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="relative rounded-2xl p-6 mb-6 border border-cyan-500/20 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm"
+              >
+                <div className="flex flex-col items-center">
                   <SpeedometerGauge
                     projectedBalance={snapshot.projected_eom_balance || 0}
                     riskLevel={currentEngineData?.riskStatus || snapshot.risk_level || 'green'}
@@ -312,13 +287,11 @@ export default function Dashboard() {
                     whatIfAmount={whatIfAmount}
                   />
                   
-
-                  
                   {currentEngineData && (
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      className="mt-4 p-3 rounded-lg bg-slate-800/30 border border-slate-700/50"
+                      className="mt-4 p-3 rounded-lg bg-slate-800/30 border border-slate-700/50 w-full max-w-sm"
                     >
                       <div className="text-xs text-slate-400 space-y-1">
                         <div className="flex justify-between">
@@ -343,10 +316,46 @@ export default function Dashboard() {
                       </div>
                     </motion.div>
                   )}
-                </motion.div>
+                </div>
+              </motion.div>
 
-                {/* Right Column */}
-                <div className="space-y-6">
+              {/* Tabbed Content - Everything Else */}
+              <Tabs defaultValue="overview" className="w-full" dir="rtl">
+                <TabsList className="w-full bg-slate-800/50 border border-slate-700/50 mb-6">
+                  <TabsTrigger value="overview" className="flex-1">סקירה כללית</TabsTrigger>
+                  <TabsTrigger value="forecast" className="flex-1">תחזית</TabsTrigger>
+                  <TabsTrigger value="simulator" className="flex-1">סימולטור</TabsTrigger>
+                </TabsList>
+
+                {/* Overview Tab - Stats Cards */}
+                <TabsContent value="overview" className="mt-0">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <StatCard
+                      title="יתרה נוכחית"
+                      value={`₪${snapshot.current_balance?.toLocaleString('he-IL')}`}
+                      icon={snapshot.risk_level === 'green' ? CheckCircle : snapshot.risk_level === 'yellow' ? Wallet : TrendingDown}
+                      color={snapshot.risk_level === 'green' ? 'green' : snapshot.risk_level === 'yellow' ? 'yellow' : 'red'}
+                      delay={0}
+                    />
+                    <StatCard
+                      title="סך הכנסות"
+                      value={`₪${snapshot.total_income?.toLocaleString('he-IL') || '0'}`}
+                      icon={TrendingUp}
+                      color="green"
+                      delay={0.1}
+                    />
+                    <StatCard
+                      title="סך הוצאות"
+                      value={`₪${snapshot.total_expenses?.toLocaleString('he-IL') || '0'}`}
+                      icon={TrendingDown}
+                      color="red"
+                      delay={0.2}
+                    />
+                  </div>
+                </TabsContent>
+
+                {/* Forecast Tab - Chart */}
+                <TabsContent value="forecast" className="mt-0">
                   <RiskZoneChart
                     data={forecastData}
                     riskThreshold={0}
@@ -354,13 +363,16 @@ export default function Dashboard() {
                     projectedBalance={snapshot.projected_eom_balance}
                     currentBalance={snapshot.current_balance}
                   />
-                  
+                </TabsContent>
+
+                {/* Simulator Tab */}
+                <TabsContent value="simulator" className="mt-0">
                   <WhatIfSimulator
                     onSimulate={handleWhatIfSimulate}
                     currentBalance={snapshot.current_balance}
                   />
-                </div>
-              </div>
+                </TabsContent>
+              </Tabs>
 
               <Disclaimer />
             </>
