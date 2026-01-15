@@ -1,14 +1,33 @@
 /**
- * FlowUp Hybrid Forecasting Engine (Client-Side)
- * -----------------------------------------------
+ * FlowUp Advanced Forecasting Engine (Client-Side)
+ * ------------------------------------------------
  * Position-Based CSV Parser (ISO-8859-8 encoding)
  * Hybrid Algorithm: Average Daily Net (70%) + Recent Trend (30%)
- * Safety Buffer: 17% Risk Management (multiply by 0.83)
+ * Dynamic Risk Buffer: Calculated from Standard Deviation of daily net flow
+ * Recent Trend: EWMA on last 14-21 days (not full history)
  * Privacy: All calculations happen in-browser, no data sent to server
  */
 
 // Safe number conversion utility
 const toNum = (v) => parseFloat(v?.toString().replace(/[^\d.-]/g, '')) || 0;
+
+// Calculate standard deviation
+const calcStdDev = (values) => {
+    if (values.length === 0) return 0;
+    const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
+    const variance = values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / values.length;
+    return Math.sqrt(variance);
+};
+
+// Calculate EWMA (Exponentially Weighted Moving Average)
+const calcEWMA = (values, alpha = 0.3) => {
+    if (values.length === 0) return 0;
+    let ewma = values[0];
+    for (let i = 1; i < values.length; i++) {
+        ewma = alpha * values[i] + (1 - alpha) * ewma;
+    }
+    return ewma;
+};
 
 export const processAndForecast = (csvText) => {
     try {
@@ -70,19 +89,47 @@ export const processAndForecast = (csvText) => {
 
         // Find the most recent month in the data and calculate totals
         let uniqueDaysInTargetMonth = new Set();
+        const dailyNetFlows = []; // For standard deviation calculation
+        const recentDailyNets = []; // Last 14-21 days for trend
+        
         if (allTransactions.length > 0) {
             allTransactions.sort((a, b) => b.date - a.date);
             const mostRecentDate = allTransactions[0].date;
             const targetMonth = mostRecentDate.getMonth();
             const targetYear = mostRecentDate.getFullYear();
 
-            // Sum only transactions from the most recent month
+            // Group transactions by day for net flow calculation
+            const dailyGroups = new Map();
+            
             for (const tx of allTransactions) {
-                if (tx.date.getMonth() === targetMonth && tx.date.getFullYear() === targetYear) {
-                    totalDebit += tx.debit;
-                    totalCredit += tx.credit;
-                    // Track unique days in the target month
-                    const dayKey = `${tx.date.getFullYear()}-${tx.date.getMonth()}-${tx.date.getDate()}`;
+                const dayKey = `${tx.date.getFullYear()}-${tx.date.getMonth()}-${tx.date.getDate()}`;
+                if (!dailyGroups.has(dayKey)) {
+                    dailyGroups.set(dayKey, { credit: 0, debit: 0, date: tx.date });
+                }
+                const group = dailyGroups.get(dayKey);
+                group.credit += tx.credit;
+                group.debit += tx.debit;
+            }
+            
+            // Calculate daily net flows and collect recent trend data
+            const sortedDays = Array.from(dailyGroups.values()).sort((a, b) => b.date - a.date);
+            const recentWindowDays = 18; // Use 18 days for recent trend
+            
+            for (let i = 0; i < sortedDays.length; i++) {
+                const day = sortedDays[i];
+                const netFlow = day.credit - day.debit;
+                dailyNetFlows.push(netFlow);
+                
+                // Collect last 18 days for recent trend
+                if (i < recentWindowDays) {
+                    recentDailyNets.push(netFlow);
+                }
+                
+                // Sum totals from target month
+                if (day.date.getMonth() === targetMonth && day.date.getFullYear() === targetYear) {
+                    totalDebit += day.debit;
+                    totalCredit += day.credit;
+                    const dayKey = `${day.date.getFullYear()}-${day.date.getMonth()}-${day.date.getDate()}`;
                     uniqueDaysInTargetMonth.add(dayKey);
                 }
             }
@@ -92,21 +139,25 @@ export const processAndForecast = (csvText) => {
             return { error: "לא נמצאו עסקאות תקינות" };
         }
 
-        // 2. HYBRID ALGORITHM
+        // 2. ADVANCED HYBRID ALGORITHM
         const totalDays = uniqueDates.size;
 
         // Average Daily Net = (TotalCredit - TotalDebit) / TotalDays
         const avgDailyNet = (totalCredit - totalDebit) / totalDays;
 
-        // Recent Trend = LastRow Credit - LastRow Debit
-        const recentTrend = lastRowCredit - lastRowDebit;
+        // Recent Trend = EWMA on last 14-21 days (not full history)
+        const recentTrend = recentDailyNets.length > 0 ? calcEWMA(recentDailyNets) : avgDailyNet;
 
         // Hybrid Daily = (AverageDailyNet * 0.7) + (RecentTrend * 0.3)
         const hybridDaily = (avgDailyNet * 0.7) + (recentTrend * 0.3);
 
-        // 3. Safe Forecast with 17% Buffer
+        // 3. Dynamic Risk Buffer (k * std)
+        const stdDev = calcStdDev(dailyNetFlows);
+        const k = 1.5; // Risk sensitivity factor (1.5 σ ≈ 87% confidence)
+        const riskBuffer = k * stdDev * Math.sqrt(30); // Scale for 30 days
+        
         const rawForecast = currentBalance + (hybridDaily * 30);
-        const safeForecast = rawForecast * 0.83;
+        const safeForecast = rawForecast - riskBuffer;
         const projectedEOM = safeForecast;
 
         // 4. Calculate daily spending from target month only
@@ -154,6 +205,9 @@ export const processAndForecast = (csvText) => {
             riskDay,
             rawScore: Math.round(rawForecast),
             avgDailySpending: Math.round(avgDailySpending),
+            riskBuffer: Math.round(riskBuffer),
+            stdDev: Math.round(stdDev),
+            hybridDaily: Math.round(hybridDaily),
             graphPoints,
             transactionCount: lines.length - 1,
             confidence: totalDays >= 30 ? "high" : totalDays >= 10 ? "medium" : "low"
@@ -169,7 +223,8 @@ export const processAndForecast = (csvText) => {
 };
 
 /**
- * Calculate What-If scenario impact with 17% Safety Buffer
+ * Calculate What-If scenario impact with Dynamic Risk Buffer
+ * Improved: Event-based injection at specific day
  */
 export const calculateWhatIf = (baselineForecast, scenario) => {
     if (!baselineForecast || !baselineForecast.success) {
@@ -186,10 +241,13 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
 
     const currentBalance = baselineForecast.currentBalance || 0;
     const avgDailySpending = baselineForecast.avgDailySpending || 0;
+    const hybridDaily = baselineForecast.hybridDaily || 0;
+    const riskBuffer = baselineForecast.riskBuffer || 0;
     
     // Calculate adjusted balance based on scenario
     let simulatedIncome = 0;
     let simulatedExpense = 0;
+    const eventDay = scenario.day || 0; // Default: today (day 0)
     
     switch (scenario.type) {
         case 'expense':
@@ -200,11 +258,13 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
             break;
     }
     
-    // Calculate adjusted balance BEFORE safety buffer for risk day calculation
-    const adjustedBalance = currentBalance + simulatedIncome - simulatedExpense;
+    // Event-based injection: calculate balance at event day, then apply event
+    const balanceAtEvent = currentBalance + (hybridDaily * eventDay);
+    const adjustedBalance = balanceAtEvent + simulatedIncome - simulatedExpense;
     
-    // Unified Formula: (CurrentBalance + Income - Expense) * 0.83
-    const newSafeBalance = adjustedBalance * 0.83;
+    // Calculate new EOM with dynamic risk buffer
+    const rawForecast = adjustedBalance + (hybridDaily * (30 - eventDay));
+    const newSafeBalance = rawForecast - riskBuffer;
     
     // Dynamic Risk Day Calculation
     let newRiskDay = null;
@@ -244,11 +304,20 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
         newRiskStatus = "yellow";
     }
     
-    // Update graph points proportionally
-    const adjustedGraphPoints = baselineForecast.graphPoints.map(point => ({
-        ...point,
-        balance: Math.round(point.balance + simulatedIncome - simulatedExpense)
-    }));
+    // Update graph points with event injection at specific day
+    const adjustedGraphPoints = baselineForecast.graphPoints.map((point, index) => {
+        let newBalance = currentBalance + (hybridDaily * index);
+        
+        // Apply event impact from event day onwards
+        if (index >= eventDay) {
+            newBalance += (simulatedIncome - simulatedExpense);
+        }
+        
+        return {
+            ...point,
+            balance: Math.round(newBalance)
+        };
+    });
 
     return {
         ...baselineForecast,
@@ -268,9 +337,10 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
  * System Information
  */
 export const SystemInfo = {
-    version: "1.0.0",
-    type: "Client-Side MVP",
-    engine: "Hybrid SES + Seasonal Average",
-    safetyBuffer: "17% Standard Deviation",
+    version: "2.0.0",
+    type: "Client-Side Advanced",
+    engine: "Hybrid Average + EWMA Trend (18-day window)",
+    safetyBuffer: "Dynamic Risk Buffer (1.5σ × √30)",
+    whatIf: "Event-based injection with timeline impact",
     privacy: "All calculations in-browser"
 };
