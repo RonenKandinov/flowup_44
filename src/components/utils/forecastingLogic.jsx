@@ -140,14 +140,7 @@ export const processAndForecast = (csvText) => {
         }
 
         // 2. ADVANCED HYBRID ALGORITHM
-        const dailyGroups = new Map();
-        for (const tx of allTransactions) {
-            const dayKey = `${tx.date.getFullYear()}-${tx.date.getMonth()}-${tx.date.getDate()}`;
-            if (!dailyGroups.has(dayKey)) {
-                dailyGroups.set(dayKey, { credit: 0, debit: 0, date: tx.date });
-            }
-        }
-        const totalDays = dailyGroups.size;
+        const totalDays = uniqueDates.size;
 
         // Average Daily Net = (TotalCredit - TotalDebit) / TotalDays
         const avgDailyNet = (totalCredit - totalDebit) / totalDays;
@@ -177,14 +170,13 @@ export const processAndForecast = (csvText) => {
         
         if (projectedEOM < 0) {
             riskStatus = "red";
-            const dailyBurn = hybridDaily < 0 ? -hybridDaily : avgDailySpending;
-            if (dailyBurn > 0 && currentBalance > 0) {
-                const daysUntilNegative = Math.floor(currentBalance / dailyBurn);
+            if (avgDailySpending > 0 && currentBalance > 0) {
+                const daysUntilNegative = Math.floor(currentBalance / avgDailySpending);
                 const riskDate = new Date();
                 riskDate.setDate(riskDate.getDate() + daysUntilNegative);
                 riskDay = riskDate.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
             }
-        } else if (projectedEOM < riskBuffer) {
+        } else if (projectedEOM < currentBalance * 0.2) {
             riskStatus = "yellow";
         }
 
@@ -279,16 +271,15 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
     let daysUntilRisk = null;
     let trend = null;
     
-    const dailyBurn = hybridDaily < 0 ? -hybridDaily : avgDailySpending;
-    if (dailyBurn > 0) {
+    if (avgDailySpending > 0) {
         // Calculate days until balance reaches zero (can be negative if already in deficit)
-        daysUntilRisk = Math.floor(adjustedBalance / dailyBurn);
+        daysUntilRisk = Math.floor(adjustedBalance / avgDailySpending);
         const riskDate = new Date();
         riskDate.setDate(riskDate.getDate() + daysUntilRisk);
         newRiskDay = riskDate.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' });
         
         // Calculate trend (original risk day vs new risk day)
-        const originalDays = currentBalance > 0 ? Math.floor(currentBalance / dailyBurn) : 0;
+        const originalDays = currentBalance > 0 ? Math.floor(currentBalance / avgDailySpending) : 0;
         
         if (daysUntilRisk < originalDays) {
             trend = 'negative'; // Date moved closer (bad)
