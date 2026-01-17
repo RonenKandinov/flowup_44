@@ -46,13 +46,13 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.4 }}
-      className={`relative rounded-2xl p-4 md:p-5 border bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm transition-all ${
-        isActive ? 'border-yellow-500/50 shadow-lg shadow-yellow-500/20' : 'border-cyan-500/20'
+      className={`relative rounded-xl p-5 border bg-slate-800/30 backdrop-blur-sm transition-all ${
+        isActive ? 'border-yellow-500/40 shadow-sm shadow-yellow-500/10' : 'border-slate-700/30'
       }`}
     >
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-cyan-400 font-medium flex items-center gap-2">
-          <Calculator size={18} />
+        <h3 className="text-cyan-400 text-sm font-medium flex items-center gap-2 uppercase tracking-wide">
+          <Calculator size={16} />
           סימולטור מה אם?
         </h3>
         {isActive && (
