@@ -9,7 +9,7 @@ import { calculateWhatIf, SystemInfo } from '../components/utils/forecastingLogi
 
 import SpeedometerGauge from '../components/dashboard/SpeedometerGauge';
 import StatCard from '../components/dashboard/StatCard';
-import RiskZoneChart from '../components/dashboard/RiskZoneChart';
+
 import WhatIfSimulator from '../components/dashboard/WhatIfSimulator';
 import AIInsights from '../components/dashboard/AIInsights';
 import CSVUploader from '../components/upload/CSVUploader';
@@ -293,7 +293,7 @@ export default function Dashboard() {
 
               {/* Main Dashboard Grid */}
               <div className="grid md:grid-cols-2 gap-6">
-                {/* Left Column: Speedometer + AI Insights */}
+                {/* Speedometer Column */}
                 <div className="space-y-6">
                   <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
@@ -308,23 +308,14 @@ export default function Dashboard() {
                       engineData={currentEngineData}
                     />
                   </motion.div>
-                  
-                  {/* AI Analyst Module */}
+                </div>
+
+                {/* Right Column: AI Insights & WhatIf */}
+                <div className="space-y-6">
                   <AIInsights 
                     transactions={localData?.transactions || transactions || []}
                     currentBalance={snapshot.current_balance}
                     projectedBalance={snapshot.projected_eom_balance}
-                  />
-                </div>
-
-                {/* Right Column */}
-                <div className="space-y-6">
-                  <RiskZoneChart
-                    data={forecastData}
-                    riskThreshold={0}
-                    criticalDate={snapshot.risk_day}
-                    projectedBalance={snapshot.projected_eom_balance}
-                    currentBalance={snapshot.current_balance}
                   />
                   
                   <WhatIfSimulator
