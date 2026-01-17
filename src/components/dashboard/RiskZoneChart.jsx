@@ -73,26 +73,26 @@ const LeverageCard = ({ projectedBalance, currentBalance }) => {
 
   return (
     <div className="w-full bg-slate-800/40 rounded-xl border border-slate-700/40 overflow-hidden" dir="rtl">
-      <div className="p-5 border-b border-slate-700/40">
-        <div className="flex items-center gap-2.5 mb-1.5">
+      <div className="px-5 py-4 border-b border-slate-700/40">
+        <div className="flex items-center gap-2.5 mb-1">
           <Lightbulb className="w-5 h-5 text-cyan-400" />
           <h2 className="text-slate-100 font-bold text-lg">המלצות חיסכון</h2>
         </div>
         <p className="text-slate-400 text-sm">יתרה צפויה: ₪{projectedBalance?.toLocaleString('he-IL')}</p>
       </div>
 
-      <div className="p-5 space-y-4">
+      <div className="p-4 space-y-3">
         {recommendations.map((rec, index) => {
           return (
-            <div key={index} className="p-4 bg-slate-800/60 rounded-xl border border-slate-700/60 hover:border-slate-500 transition-colors">
-              <div className="flex justify-between items-start mb-3">
+            <div key={index} className="p-3.5 bg-slate-800/60 rounded-xl border border-slate-700/60 hover:border-slate-500 transition-colors">
+              <div className="flex justify-between items-center mb-2">
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl opacity-90">{rec.icon}</span>
+                  <span className="text-xl opacity-90">{rec.icon}</span>
                   <span className="font-bold text-slate-200 text-base">{rec.title}</span>
                 </div>
                 <span className="text-cyan-400 font-mono text-sm font-bold bg-cyan-950/30 px-2 py-1 rounded">₪{rec.amount}/חודש</span>
               </div>
-              <p className="text-sm text-slate-400 leading-relaxed mb-3 pr-1">{rec.description}</p>
+              <p className="text-sm text-slate-400 leading-relaxed mb-2 pr-1 opacity-90">{rec.description}</p>
               <div className="flex items-center gap-1.5 text-xs text-slate-500 border-t border-slate-700/50 pt-2 mt-1">
                 <span>💰 חיסכון שנתי מוערך:</span>
                 <span className="font-bold text-emerald-400 text-sm">₪{rec.impact.toLocaleString('he-IL')}</span>
@@ -102,8 +102,8 @@ const LeverageCard = ({ projectedBalance, currentBalance }) => {
         })}
       </div>
       
-      <div className="px-5 pb-5">
-        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 text-center">
+      <div className="px-4 pb-4">
+        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 text-center">
           <p className="text-sm text-emerald-300 font-medium">
             סה"כ חיסכון פוטנציאלי: 
             <span className="text-xl font-bold mr-1.5 text-emerald-400">₪{recommendations.reduce((sum, r) => sum + r.impact, 0).toLocaleString('he-IL')}</span>

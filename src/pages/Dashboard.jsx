@@ -296,46 +296,15 @@ export default function Dashboard() {
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-full"
+                  className="relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-full min-h-[400px]"
                 >
                   <SpeedometerGauge
                     projectedBalance={snapshot.projected_eom_balance || 0}
                     riskLevel={currentEngineData?.riskStatus || snapshot.risk_level || 'green'}
                     riskDay={currentEngineData?.riskDay || snapshot.risk_day}
                     whatIfAmount={whatIfAmount}
+                    engineData={currentEngineData}
                   />
-                  
-
-                  
-                  {currentEngineData && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="mt-4 p-3 rounded-lg bg-slate-800/30 border border-slate-700/50"
-                    >
-                      <div className="text-xs text-slate-400 space-y-1">
-                        <div className="flex justify-between">
-                          <span>רמת ביטחון:</span>
-                          <span className={`font-medium ${
-                            currentEngineData.confidence === 'high' ? 'text-green-400' :
-                            currentEngineData.confidence === 'medium' ? 'text-yellow-400' :
-                            'text-red-400'
-                          }`}>
-                            {currentEngineData.confidence === 'high' ? 'גבוהה' :
-                             currentEngineData.confidence === 'medium' ? 'בינונית' : 'נמוכה'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>עסקאות:</span>
-                          <span className="text-slate-300">{currentEngineData.transactionCount}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>מנוע:</span>
-                          <span className="text-cyan-400">{SystemInfo.engine}</span>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
                 </motion.div>
 
                 {/* Right Column */}

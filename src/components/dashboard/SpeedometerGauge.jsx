@@ -1,11 +1,14 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 
+import { SystemInfo } from '@/components/utils/forecastingLogic';
+
 export default function SpeedometerGauge({ 
   projectedBalance, 
   riskLevel = 'green',
   riskDay,
-  whatIfAmount = 0 
+  whatIfAmount = 0,
+  engineData
 }) {
   // Use projected balance as-is (already calculated by forecasting logic)
   const adjustedBalance = projectedBalance;
@@ -124,25 +127,54 @@ export default function SpeedometerGauge({
       </svg>
       
       {/* Balance Display */}
-      <div className="text-center mt-2 w-full">
-        <p className="text-xs text-slate-400 mb-1">יתרה צפויה לסוף החודש</p>
+      <div className="text-center mt-4 w-full relative z-10">
+        <p className="text-xs text-slate-400 mb-2 uppercase tracking-wide">יתרה צפויה לסוף החודש</p>
         <motion.p 
           key={adjustedBalance}
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="text-3xl md:text-4xl font-bold text-white"
+          className="text-4xl md:text-5xl font-bold text-white tracking-tight"
         >
           ₪{adjustedBalance.toLocaleString('he-IL')}
         </motion.p>
-        {riskDay && (
-          <div className="mt-2 p-2 rounded-lg bg-red-500/10 border border-red-500/30">
+        
+        {riskDay ? (
+          <div className="mt-4 inline-flex items-center px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/20">
             <p className="text-xs text-red-400">
-              <span className="font-medium">יום סיכון: </span>
-              <span className="text-sm font-bold">{riskDay}</span>
+              <span className="opacity-75">יום סיכון צפוי: </span>
+              <span className="font-bold mr-1">{riskDay}</span>
             </p>
           </div>
+        ) : (
+           <div className="mt-4 h-8"></div> 
         )}
       </div>
+
+      {engineData && (
+        <div className="w-full mt-auto pt-8 border-t border-slate-700/30">
+          <div className="grid grid-cols-3 gap-2 text-center text-xs">
+            <div className="p-2 rounded-lg bg-slate-800/40">
+              <span className="block text-slate-500 text-[10px] mb-0.5">רמת ביטחון</span>
+              <span className={`font-medium ${
+                engineData.confidence === 'high' ? 'text-green-400' :
+                engineData.confidence === 'medium' ? 'text-yellow-400' :
+                'text-red-400'
+              }`}>
+                {engineData.confidence === 'high' ? 'גבוהה' :
+                 engineData.confidence === 'medium' ? 'בינונית' : 'נמוכה'}
+              </span>
+            </div>
+            <div className="p-2 rounded-lg bg-slate-800/40">
+              <span className="block text-slate-500 text-[10px] mb-0.5">עסקאות</span>
+              <span className="text-slate-300 font-medium">{engineData.transactionCount}</span>
+            </div>
+            <div className="p-2 rounded-lg bg-slate-800/40">
+              <span className="block text-slate-500 text-[10px] mb-0.5">מנוע</span>
+              <span className="text-cyan-400 font-medium">{SystemInfo.engine.split(' ')[0]}</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
