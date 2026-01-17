@@ -30,15 +30,14 @@ export default function Disclaimer() {
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="p-4 text-xs text-slate-500 space-y-2 bg-slate-800/20 rounded-b-lg border-x border-b border-slate-700/50">
+            <div className="p-4 text-xs text-slate-500 space-y-3 bg-slate-800/20 rounded-b-lg border-x border-b border-slate-700/50">
               <p>
-                <strong className="text-slate-400">אין ייעוץ פיננסי:</strong> כל התחזיות, תאריכי הסיכון ומצבי ה"מד מהירות" מוצגים למטרות מידע בלבד ואינם מהווים ייעוץ פיננסי או המלצה לפעולה כלשהי.
+                <strong className="text-slate-400 block mb-1">הבהרה משפטית:</strong>
+                המערכת הנה כלי עזר ויזואלי לסימולציה וניתוח נתונים בלבד, ואינה מהווה ייעוץ פיננסי, השקעותי או פנסיוני לפי חוק. התחזיות מבוססות על מודלים סטטיסטיים ואין לראות בהן הבטחה לביצועים עתידיים. האחריות על כל החלטה פיננסית הנה על המשתמש בלבד. המערכת פועלת במודל "קריאה בלבד" (Read-only) ואינה מבצעת פעולות בחשבון הבנק.
               </p>
               <p>
-                <strong className="text-slate-400">שגיאה סטטיסטית:</strong> התחזיות מבוססות על מודלים סטטיסטיים ודפוסי הוצאה היסטוריים. ההתנהגות העתידית עשויה לחרוג מהתחזיות והדיוק אינו מובטח.
-              </p>
-              <p>
-                <strong className="text-slate-400">תקינות נתונים:</strong> הדיוק של לוח המחוונים תלוי לחלוטין בתקינות קובץ ה-CSV שסופק. FlowUp אינה אחראית לשגיאות הנובעות מקבצים חלקיים או שעברו שינוי.
+                <strong className="text-slate-400 block mb-1">פרטיות ואבטחה:</strong>
+                הנתונים מעובדים במחשב שלך בלבד (Local-First) ואינם נשמרים בשרתי המערכת. אנו משתמשים ב-PII Sanitizer לניקוי פרטים מזהים לפני הניתוח.
               </p>
             </div>
           </motion.div>
