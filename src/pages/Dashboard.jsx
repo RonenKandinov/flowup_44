@@ -229,12 +229,6 @@ export default function Dashboard() {
             </h1>
             <div className="flex items-center gap-2 mt-1">
               <p className="text-slate-500 text-sm">FutureFlow Dashboard</p>
-              {engineData && (
-                <div className="flex items-center gap-1 text-xs text-cyan-500/70">
-                  <Cpu size={12} />
-                  <span>v{SystemInfo.version}</span>
-                </div>
-              )}
             </div>
           </div>
           
@@ -242,9 +236,9 @@ export default function Dashboard() {
             <div className="flex items-center gap-2">
               <Button
                 onClick={() => setShowUploader(true)}
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                className="border-slate-700 text-slate-300 hover:bg-slate-800"
+                className="bg-slate-800/50 border border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white transition-all"
               >
                 <RefreshCw className="w-4 h-4 ml-2" />
                 עדכן נתונים
