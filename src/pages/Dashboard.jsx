@@ -222,14 +222,12 @@ export default function Dashboard() {
 
       {/* Header */}
       <header className="relative z-10 px-4 py-6 md:px-8">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
+        <div className="max-w-6xl mx-auto flex items-center justify-between border-b border-slate-800/60 pb-6">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+            <h1 className="text-3xl font-bold text-white tracking-tight">
               FlowUp
             </h1>
-            <div className="flex items-center gap-2 mt-1">
-              <p className="text-slate-500 text-sm">FutureFlow Dashboard</p>
-            </div>
+            <p className="text-slate-500 text-xs mt-1 tracking-wide uppercase">FutureFlow Dashboard</p>
           </div>
           
           {hasData && (
@@ -238,16 +236,16 @@ export default function Dashboard() {
                 onClick={() => setShowUploader(true)}
                 variant="ghost"
                 size="sm"
-                className="bg-slate-800/50 border border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white transition-all"
+                className="bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:bg-slate-800 hover:text-white transition-all h-9 px-4 rounded-lg"
               >
-                <RefreshCw className="w-4 h-4 ml-2" />
-                עדכן נתונים
+                <RefreshCw className="w-3.5 h-3.5 ml-2" />
+                <span className="text-xs font-medium">עדכן נתונים</span>
               </Button>
               <Button
                 onClick={() => deleteDataMutation.mutate()}
                 variant="ghost"
                 size="sm"
-                className="text-red-400 hover:text-red-300 hover:bg-red-950/50"
+                className="text-red-400 hover:text-red-300 hover:bg-red-950/30 border border-transparent hover:border-red-900/30 rounded-lg h-9 w-9 p-0"
               >
                 <Trash2 className="w-4 h-4" />
               </Button>
@@ -298,7 +296,7 @@ export default function Dashboard() {
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="relative rounded-2xl p-6 border border-cyan-500/20 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm flex flex-col items-center"
+                  className="relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-full"
                 >
                   <SpeedometerGauge
                     projectedBalance={snapshot.projected_eom_balance || 0}
