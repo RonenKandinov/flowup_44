@@ -107,7 +107,7 @@ export default function SpeedometerGauge({
         <motion.g
           initial={{ rotate: 0 }}
           animate={{ rotate: angle }}
-          transition={{ type: "spring", stiffness: 60, damping: 15 }}
+          transition={{ type: "spring", stiffness: 90, damping: 12 }}
           style={{ transformOrigin: '100px 100px' }}
         >
           {/* Straight needle pointer */}
@@ -127,8 +127,8 @@ export default function SpeedometerGauge({
       </svg>
       
       {/* Balance Display */}
-      <div className="text-center mt-4 w-full relative z-10">
-        <p className="text-xs text-slate-400 mb-2 uppercase tracking-wide">יתרה צפויה לסוף החודש</p>
+      <div className="text-center mt-2 md:mt-4 w-full relative z-10">
+        <p className="text-[10px] md:text-xs text-slate-400 mb-1 md:mb-2 uppercase tracking-wide">יתרה צפויה לסוף החודש</p>
         <motion.p 
           key={adjustedBalance}
           initial={{ scale: 0.9, opacity: 0 }}
@@ -139,14 +139,14 @@ export default function SpeedometerGauge({
         </motion.p>
         
         {riskDay ? (
-          <div className="mt-4 inline-flex items-center px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/20">
+          <div className="mt-3 md:mt-4 inline-flex items-center px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/20">
             <p className="text-xs text-red-400">
               <span className="opacity-75">יום סיכון צפוי: </span>
               <span className="font-bold mr-1">{riskDay}</span>
             </p>
           </div>
         ) : (
-           <div className="mt-4 h-8"></div> 
+           <div className="mt-3 md:mt-4 h-8"></div> 
         )}
       </div>
 

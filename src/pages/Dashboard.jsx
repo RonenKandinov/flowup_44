@@ -296,7 +296,7 @@ export default function Dashboard() {
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-full min-h-[400px]"
+                  className="relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-full min-h-[320px] md:min-h-[400px]"
                 >
                   <SpeedometerGauge
                     projectedBalance={snapshot.projected_eom_balance || 0}
