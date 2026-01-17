@@ -14,40 +14,38 @@ export default function SpeedometerGauge({
   const adjustedBalance = projectedBalance;
   
   const { angle, color, glowColor } = useMemo(() => {
-    // 1. Dynamic Color Logic (Color Mapping)
-    // Red (Danger): Balance < 0
-    // Orange (Warning): 0 <= Balance <= 2000
-    // Green (Safe): Balance > 2000
+    // New Logic based on Risk Zones:
+    // Green (Safe): Balance > 1500 -> Angle -20° to -60° (Left)
+    // Yellow (Caution): Balance 0 to 1500 -> Angle +20° to -20° (Center)
+    // Red (Danger): Balance < 0 -> Angle +20° to +60° (Right)
 
     let calculatedAngle;
     let calculatedColor;
     let calculatedGlow;
 
-    const SAFE_THRESHOLD = 2000;
-    const MAX_SAFE_VAL = 8000; // Cap for max green angle
-    const MAX_RISK_VAL = 4000; // Cap for max red angle
+    const CAUTION_THRESHOLD = 1500;
+    const MAX_SAFE_VAL = 6000; // Cap for max green angle
+    const MAX_RISK_VAL = 3000; // Cap for max red angle
 
-    if (adjustedBalance > SAFE_THRESHOLD) {
-      // Green Zone (Safe) - Left Side
-      // Map 2000 -> -20deg, 8000+ -> -60deg
-      const ratio = Math.min((adjustedBalance - SAFE_THRESHOLD) / (MAX_SAFE_VAL - SAFE_THRESHOLD), 1);
-      calculatedAngle = -20 + (ratio * -40); 
-      calculatedColor = '#22c55e'; // Green
-      calculatedGlow = 'rgba(34, 197, 94, 0.6)';
+    if (adjustedBalance >= CAUTION_THRESHOLD) {
+      // Green Zone
+      const ratio = Math.min((adjustedBalance - CAUTION_THRESHOLD) / (MAX_SAFE_VAL - CAUTION_THRESHOLD), 1);
+      calculatedAngle = -20 + (ratio * -40); // -20 to -60
+      calculatedColor = '#22c55e';
+      calculatedGlow = 'rgba(34, 197, 94, 0.5)';
     } else if (adjustedBalance >= 0) {
-      // Orange Zone (Warning) - Center
-      // Map 0 -> +20deg, 2000 -> -20deg
-      const ratio = adjustedBalance / SAFE_THRESHOLD; // 0 to 1
+      // Yellow Zone
+      const ratio = adjustedBalance / CAUTION_THRESHOLD; // 0 to 1
+      // Map 0 -> +20 (Start of Red), 1 -> -20 (Start of Green)
       calculatedAngle = 20 - (ratio * 40); 
-      calculatedColor = '#f97316'; // Orange (Tailwind orange-500)
-      calculatedGlow = 'rgba(249, 115, 22, 0.6)';
+      calculatedColor = '#eab308';
+      calculatedGlow = 'rgba(234, 179, 8, 0.5)';
     } else {
-      // Red Zone (Danger) - Right Side
-      // Map 0 -> +20deg, -4000 -> +60deg
+      // Red Zone
       const ratio = Math.min(Math.abs(adjustedBalance) / MAX_RISK_VAL, 1);
-      calculatedAngle = 20 + (ratio * 40);
-      calculatedColor = '#ef4444'; // Red
-      calculatedGlow = 'rgba(239, 68, 68, 0.6)';
+      calculatedAngle = 20 + (ratio * 40); // +20 to +60
+      calculatedColor = '#ef4444';
+      calculatedGlow = 'rgba(239, 68, 68, 0.5)';
     }
     
     return { 
@@ -58,11 +56,11 @@ export default function SpeedometerGauge({
   }, [adjustedBalance]);
 
   return (
-    <div className="relative flex flex-col items-center justify-center w-full p-6 rounded-xl bg-slate-800/30 border border-slate-700/30 backdrop-blur-sm h-full transition-colors duration-700" style={{ borderColor: `${color}30` }}>
+    <div className="relative flex flex-col items-center justify-center w-full p-6 rounded-xl bg-slate-800/30 border border-slate-700/30 backdrop-blur-sm h-full">
       {/* Gauge SVG */}
       <svg 
         viewBox="0 0 200 120" 
-        className="w-full max-w-[450px] mx-auto transition-all duration-700"
+        className="w-full max-w-[280px] md:max-w-[320px] mx-auto"
       >
         {/* Background arc segments */}
         <defs>
@@ -70,9 +68,9 @@ export default function SpeedometerGauge({
             <stop offset="0%" stopColor="#22c55e" stopOpacity="0.3" />
             <stop offset="100%" stopColor="#22c55e" stopOpacity="0.8" />
           </linearGradient>
-          <linearGradient id="orangeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#f97316" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#f97316" stopOpacity="0.8" />
+          <linearGradient id="yellowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#eab308" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#eab308" stopOpacity="0.8" />
           </linearGradient>
           <linearGradient id="redGrad" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor="#ef4444" stopOpacity="0.3" />
@@ -96,11 +94,11 @@ export default function SpeedometerGauge({
           strokeLinecap="round"
         />
         
-        {/* Orange segment */}
+        {/* Yellow segment */}
         <path
           d="M 75 35 A 70 70 0 0 1 125 35"
           fill="none"
-          stroke="url(#orangeGrad)"
+          stroke="url(#yellowGrad)"
           strokeWidth="12"
           strokeLinecap="round"
         />
@@ -121,22 +119,19 @@ export default function SpeedometerGauge({
           transition={{ type: "spring", stiffness: 90, damping: 12 }}
           style={{ transformOrigin: '100px 100px' }}
         >
-          {/* Straight needle pointer - Color Animated */}
-          <motion.line
+          {/* Straight needle pointer */}
+          <line
             x1="100"
             y1="100"
             x2="100"
-            y2="35"
-            stroke={color}
-            strokeWidth="4"
+            y2="40"
+            stroke="white"
+            strokeWidth="3"
             strokeLinecap="round"
-            animate={{ stroke: color }}
-            transition={{ duration: 0.8, ease: "easeInOut" }}
-            style={{ filter: `drop-shadow(0 0 8px ${glowColor})` }}
           />
           {/* Center cap */}
-          <motion.circle cx="100" cy="100" r="6" fill="white" animate={{ stroke: color }} strokeWidth="2" />
-          <circle cx="100" cy="100" r="3" fill="#0f172a" />
+          <circle cx="100" cy="100" r="6" fill="white" />
+          <circle cx="100" cy="100" r="3" fill="#1e293b" />
         </motion.g>
       </svg>
       
