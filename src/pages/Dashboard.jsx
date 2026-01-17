@@ -369,6 +369,17 @@ export default function Dashboard() {
         </div>
       </main>
 
+      <footer className="relative z-10 py-5 text-center px-4">
+        <div className="max-w-4xl mx-auto text-[11px] leading-relaxed text-[#666666] opacity-70">
+          <p className="mb-2">
+            <strong>הבהרה משפטית:</strong> המערכת הנה כלי עזר ויזואלי לסימולציה וניתוח נתונים בלבד, ואינה מהווה ייעוץ פיננסי, השקעותי או פנסיוני לפי חוק. התחזיות מבוססות על מודלים סטטיסטיים ואין לראות בהן הבטחה לביצועים עתידיים. האחריות על כל החלטה פיננסית הנה על המשתמש בלבד. המערכת פועלת במודל "קריאה בלבד" (Read-only) ואינה מבצעת פעולות בחשבון הבנק.
+          </p>
+          <p>
+            <strong>פרטיות ואבטחה:</strong> הנתונים מעובדים במחשב שלך בלבד (Local-First) ואינם נשמרים בשרתי המערכת. אנו משתמשים ב-PII Sanitizer לניקוי פרטים מזהים לפני הניתוח.
+          </p>
+        </div>
+      </footer>
+
       {/* Upload Modal */}
       <AnimatePresence>
         {showUploader && (
