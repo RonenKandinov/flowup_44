@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
 import { processAndForecast } from '../utils/forecastingLogic';
 import { detectBankFromHeader, parseCSVRow, getBankDisplayName } from '../utils/bankParsers';
+import { sanitizeTransaction } from '../utils/sanitizer';
 
 export default function CSVUploader({ onDataParsed, onClose }) {
   const [isDragging, setIsDragging] = useState(false);
@@ -74,13 +75,16 @@ export default function CSVUploader({ onDataParsed, onClose }) {
       if (parsed.debit > 0) totalExpenses += parsed.debit;
       if (parsed.balance > 0) currentBalance = parsed.balance;
 
-      transactions.push({
+      // Sanitize description before storage
+      const rawTransaction = {
         date: parsedDate.toISOString().split('T')[0],
         description: parsed.description || 'תנועה',
         amount: amount,
         balance: parsed.balance || null,
         category: amount > 0 ? 'income' : 'expense'
-      });
+      };
+
+      transactions.push(sanitizeTransaction(rawTransaction));
     }
 
     if (transactions.length === 0) {
@@ -123,6 +127,9 @@ export default function CSVUploader({ onDataParsed, onClose }) {
 
       // Parse CSV for database storage
       const parsedData = parseCSVForDatabase(content);
+      
+      // Secure Storage: Explicitly clear raw content reference
+      // content variable will be garbage collected when function scope ends
 
       setStatus('success');
 

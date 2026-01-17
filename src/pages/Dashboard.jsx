@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { calculateWhatIf, SystemInfo } from '../components/utils/forecastingLogic';
+// Note: Encryption Utility available in components/utils/encryption.js for future integration
 
 import SpeedometerGauge from '../components/dashboard/SpeedometerGauge';
 import StatCard from '../components/dashboard/StatCard';
