@@ -11,6 +11,7 @@ import SpeedometerGauge from '../components/dashboard/SpeedometerGauge';
 import StatCard from '../components/dashboard/StatCard';
 import RiskZoneChart from '../components/dashboard/RiskZoneChart';
 import WhatIfSimulator from '../components/dashboard/WhatIfSimulator';
+import AIInsights from '../components/dashboard/AIInsights';
 import CSVUploader from '../components/upload/CSVUploader';
 import EmptyState from '../components/dashboard/EmptyState';
 import Disclaimer from '../components/dashboard/Disclaimer';
@@ -292,20 +293,29 @@ export default function Dashboard() {
 
               {/* Main Dashboard Grid */}
               <div className="grid md:grid-cols-2 gap-6">
-                {/* Speedometer */}
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-full min-h-[320px] md:min-h-[400px]"
-                >
-                  <SpeedometerGauge
-                    projectedBalance={snapshot.projected_eom_balance || 0}
-                    riskLevel={currentEngineData?.riskStatus || snapshot.risk_level || 'green'}
-                    riskDay={currentEngineData?.riskDay || snapshot.risk_day}
-                    whatIfAmount={whatIfAmount}
-                    engineData={currentEngineData}
+                {/* Left Column: Speedometer + AI Insights */}
+                <div className="space-y-6">
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center min-h-[320px] md:min-h-[400px]"
+                  >
+                    <SpeedometerGauge
+                      projectedBalance={snapshot.projected_eom_balance || 0}
+                      riskLevel={currentEngineData?.riskStatus || snapshot.risk_level || 'green'}
+                      riskDay={currentEngineData?.riskDay || snapshot.risk_day}
+                      whatIfAmount={whatIfAmount}
+                      engineData={currentEngineData}
+                    />
+                  </motion.div>
+                  
+                  {/* AI Analyst Module */}
+                  <AIInsights 
+                    transactions={localData?.transactions || transactions || []}
+                    currentBalance={snapshot.current_balance}
+                    projectedBalance={snapshot.projected_eom_balance}
                   />
-                </motion.div>
+                </div>
 
                 {/* Right Column */}
                 <div className="space-y-6">
