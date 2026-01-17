@@ -148,9 +148,10 @@ export default function SpeedometerGauge({
         ) : (
            <div className="mt-3 md:mt-4 h-8"></div> 
         )}
-      </div>
+        </div>
+        </div>
 
-      {engineData && (
+        {engineData && (
         <div className="w-full mt-auto pt-8 border-t border-slate-700/30">
           <div className="grid grid-cols-3 gap-2 text-center text-xs">
             <div className="p-2 rounded-lg bg-slate-800/40">
