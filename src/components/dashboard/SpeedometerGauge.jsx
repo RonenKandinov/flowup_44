@@ -44,7 +44,7 @@ export default function SpeedometerGauge({
   }, [adjustedBalance]);
 
   return (
-    <div className="relative flex flex-col items-center justify-center w-full">
+    <div className="relative flex flex-col items-center justify-center w-full p-6 rounded-xl bg-slate-800/30 border border-slate-700/30 backdrop-blur-sm h-full">
       {/* Gauge SVG */}
       <svg 
         viewBox="0 0 200 120" 

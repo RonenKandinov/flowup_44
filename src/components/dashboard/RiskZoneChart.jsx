@@ -72,31 +72,30 @@ const LeverageCard = ({ projectedBalance, currentBalance }) => {
   };
 
   return (
-    <div className="w-full bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden" dir="rtl">
-      <div className="bg-gradient-to-r from-cyan-600 to-blue-600 p-4 border-b border-slate-800">
+    <div className="w-full bg-slate-800/30 rounded-xl border border-slate-700/30 overflow-hidden" dir="rtl">
+      <div className="p-4 border-b border-slate-700/30">
         <div className="flex items-center gap-2 mb-1">
-          <Lightbulb className="w-5 h-5 text-white" />
-          <h2 className="text-white font-bold text-lg">המלצות חיסכון מותאמות אישית</h2>
+          <Lightbulb className="w-4 h-4 text-cyan-400" />
+          <h2 className="text-slate-200 font-semibold text-sm">המלצות חיסכון</h2>
         </div>
-        <p className="text-cyan-100 text-xs">יתרה צפויה: ₪{projectedBalance?.toLocaleString('he-IL')} - 3 פעולות לשיפור</p>
+        <p className="text-slate-500 text-xs">יתרה צפויה: ₪{projectedBalance?.toLocaleString('he-IL')}</p>
       </div>
 
       <div className="p-4 space-y-3">
         {recommendations.map((rec, index) => {
-          const colors = colorMap[rec.color];
           return (
-            <div key={index} className={`p-3 ${colors.bg} rounded-lg border-r-4 ${colors.border}`}>
+            <div key={index} className="p-3 bg-slate-800/50 rounded-lg border border-slate-700/50 hover:border-slate-600 transition-colors">
               <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-2xl">{rec.icon}</span>
-                  <span className="font-bold text-slate-800 text-sm">{rec.title}</span>
+                  <span className="text-lg opacity-80">{rec.icon}</span>
+                  <span className="font-medium text-slate-300 text-xs">{rec.title}</span>
                 </div>
-                <span className={`${colors.text} font-mono text-sm font-bold`}>₪{rec.amount}/חודש</span>
+                <span className="text-cyan-400 font-mono text-xs font-bold">₪{rec.amount}/חודש</span>
               </div>
-              <p className="text-[11px] text-slate-600 leading-tight mb-2">{rec.description}</p>
-              <div className="flex items-center gap-1 text-[10px] text-slate-500">
+              <p className="text-[11px] text-slate-500 leading-tight mb-2">{rec.description}</p>
+              <div className="flex items-center gap-1 text-[10px] text-slate-600">
                 <span>💰 חיסכון שנתי:</span>
-                <span className="font-bold text-green-600">₪{rec.impact.toLocaleString('he-IL')}</span>
+                <span className="font-bold text-emerald-500">₪{rec.impact.toLocaleString('he-IL')}</span>
               </div>
             </div>
           );
@@ -104,10 +103,10 @@ const LeverageCard = ({ projectedBalance, currentBalance }) => {
       </div>
       
       <div className="px-4 pb-4">
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-          <p className="text-xs text-green-800 font-medium">
+        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3 text-center">
+          <p className="text-xs text-emerald-400 font-medium">
             סה"כ חיסכון פוטנציאלי: 
-            <span className="text-lg font-bold mr-1">₪{recommendations.reduce((sum, r) => sum + r.impact, 0).toLocaleString('he-IL')}</span>
+            <span className="text-base font-bold mr-1">₪{recommendations.reduce((sum, r) => sum + r.impact, 0).toLocaleString('he-IL')}</span>
             לשנה
           </p>
         </div>
