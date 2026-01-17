@@ -10,124 +10,133 @@ export default function SpeedometerGauge({
   whatIfAmount = 0,
   engineData
 }) {
+  // Use projected balance as-is (already calculated by forecasting logic)
   const adjustedBalance = projectedBalance;
   
-  const { angle, color } = useMemo(() => {
-    // UPDATED Logic:
-    // Red (Left): Balance < 0 (-60° to -20°)
-    // Orange (Center): 0 <= Balance <= 2000 (-20° to +20°)
-    // Green (Right): Balance > 2000 (+20° to +60°)
+  const { angle, color, glowColor } = useMemo(() => {
+    // New Logic based on Risk Zones:
+    // Green (Safe): Balance > 1500 -> Angle -20° to -60° (Left)
+    // Yellow (Caution): Balance 0 to 1500 -> Angle +20° to -20° (Center)
+    // Red (Danger): Balance < 0 -> Angle +20° to +60° (Right)
 
     let calculatedAngle;
     let calculatedColor;
+    let calculatedGlow;
 
-    const MAX_NEG_VAL = 3000;  // Cap for red zone
-    const MAX_POS_VAL = 6000;  // Cap for green zone
-    const MID_ZONE_LIMIT = 2000;
+    const CAUTION_THRESHOLD = 1500;
+    const MAX_SAFE_VAL = 6000; // Cap for max green angle
+    const MAX_RISK_VAL = 3000; // Cap for max red angle
 
-    if (adjustedBalance < 0) {
-      // Red Zone (Left)
-      // Map 0 -> -20, -3000 -> -60
-      const ratio = Math.min(Math.abs(adjustedBalance) / MAX_NEG_VAL, 1);
-      calculatedAngle = -20 - (ratio * 40);
-      calculatedColor = '#ef4444';
-    } else if (adjustedBalance <= MID_ZONE_LIMIT) {
-      // Orange Zone (Center)
-      // Map 0 -> -20, 2000 -> +20
-      const ratio = adjustedBalance / MID_ZONE_LIMIT;
-      calculatedAngle = -20 + (ratio * 40);
-      calculatedColor = '#f97316'; // Orange-500
-    } else {
-      // Green Zone (Right)
-      // Map 2000 -> +20, 6000 -> +60
-      const ratio = Math.min((adjustedBalance - MID_ZONE_LIMIT) / (MAX_POS_VAL - MID_ZONE_LIMIT), 1);
-      calculatedAngle = 20 + (ratio * 40);
+    if (adjustedBalance >= CAUTION_THRESHOLD) {
+      // Green Zone
+      const ratio = Math.min((adjustedBalance - CAUTION_THRESHOLD) / (MAX_SAFE_VAL - CAUTION_THRESHOLD), 1);
+      calculatedAngle = -20 + (ratio * -40); // -20 to -60
       calculatedColor = '#22c55e';
+      calculatedGlow = 'rgba(34, 197, 94, 0.5)';
+    } else if (adjustedBalance >= 0) {
+      // Yellow Zone
+      const ratio = adjustedBalance / CAUTION_THRESHOLD; // 0 to 1
+      // Map 0 -> +20 (Start of Red), 1 -> -20 (Start of Green)
+      calculatedAngle = 20 - (ratio * 40); 
+      calculatedColor = '#eab308';
+      calculatedGlow = 'rgba(234, 179, 8, 0.5)';
+    } else {
+      // Red Zone
+      const ratio = Math.min(Math.abs(adjustedBalance) / MAX_RISK_VAL, 1);
+      calculatedAngle = 20 + (ratio * 40); // +20 to +60
+      calculatedColor = '#ef4444';
+      calculatedGlow = 'rgba(239, 68, 68, 0.5)';
     }
     
     return { 
       angle: calculatedAngle, 
-      color: calculatedColor
+      color: calculatedColor, 
+      glowColor: calculatedGlow 
     };
   }, [adjustedBalance]);
 
   return (
-    <div className="relative w-full max-w-[320px] aspect-square mx-auto flex flex-col items-center justify-center p-4 rounded-xl bg-slate-800/30 border border-slate-700/30 backdrop-blur-sm">
-      {/* Gauge SVG Container */}
-      <div className="w-full h-full relative flex items-center justify-center">
-        <svg 
-          viewBox="0 0 200 120" 
-          className="w-full h-auto max-h-full"
-          preserveAspectRatio="xMidYMid meet"
-        >
-          {/* Gradients */}
-          <defs>
-            <linearGradient id="redGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#ef4444" stopOpacity="0.8" />
-              <stop offset="100%" stopColor="#ef4444" stopOpacity="0.4" />
-            </linearGradient>
-            <linearGradient id="orangeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#f97316" stopOpacity="0.8" />
-              <stop offset="100%" stopColor="#f97316" stopOpacity="0.4" />
-            </linearGradient>
-            <linearGradient id="greenGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#22c55e" stopOpacity="0.4" />
-              <stop offset="100%" stopColor="#22c55e" stopOpacity="0.8" />
-            </linearGradient>
-          </defs>
-          
-          {/* Left Segment (Red) */}
-          <path
-            d="M 30 100 A 70 70 0 0 1 70 38"
-            fill="none"
-            stroke="url(#redGrad)"
-            strokeWidth="8"
-            strokeLinecap="round"
-            className="opacity-90"
-          />
-          
-          {/* Center Segment (Orange) */}
-          <path
-            d="M 75 35 A 70 70 0 0 1 125 35"
-            fill="none"
-            stroke="url(#orangeGrad)"
-            strokeWidth="8"
-            strokeLinecap="round"
-            className="opacity-90"
-          />
-          
-          {/* Right Segment (Green) */}
-          <path
-            d="M 130 38 A 70 70 0 0 1 170 100"
-            fill="none"
-            stroke="url(#greenGrad)"
-            strokeWidth="8"
-            strokeLinecap="round"
-            className="opacity-90"
-          />
-          
-          {/* Needle */}
-          <motion.g
-            initial={{ rotate: 0 }}
-            animate={{ rotate: angle }}
-            transition={{ type: "tween", duration: 1, ease: [0.4, 0, 0.2, 1] }}
-            style={{ transformOrigin: '100px 100px' }}
-          >
-            <line
-              x1="100"
-              y1="100"
-              x2="100"
-              y2="35"
-              stroke="#f8fafc"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-            <circle cx="100" cy="100" r="4" fill="#f8fafc" />
-          </motion.g>
-        </svg>
+    <div className="relative flex flex-col items-center justify-center w-full p-6 rounded-xl bg-slate-800/30 border border-slate-700/30 backdrop-blur-sm h-full">
+      {/* Gauge SVG */}
+      <svg 
+        viewBox="0 0 200 120" 
+        className="w-full max-w-[280px] md:max-w-[320px] mx-auto"
+      >
+        {/* Background arc segments */}
+        <defs>
+          <linearGradient id="greenGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#22c55e" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#22c55e" stopOpacity="0.8" />
+          </linearGradient>
+          <linearGradient id="yellowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#eab308" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#eab308" stopOpacity="0.8" />
+          </linearGradient>
+          <linearGradient id="redGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#ef4444" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#ef4444" stopOpacity="0.8" />
+          </linearGradient>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+            <feMerge>
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+        </defs>
         
-        {/* Centered Text Overlay */}
-        <div className="absolute bottom-0 left-0 right-0 text-center pb-2 md:pb-6">
+        {/* Green segment */}
+        <path
+          d="M 30 100 A 70 70 0 0 1 70 38"
+          fill="none"
+          stroke="url(#greenGrad)"
+          strokeWidth="12"
+          strokeLinecap="round"
+        />
+        
+        {/* Yellow segment */}
+        <path
+          d="M 75 35 A 70 70 0 0 1 125 35"
+          fill="none"
+          stroke="url(#yellowGrad)"
+          strokeWidth="12"
+          strokeLinecap="round"
+        />
+        
+        {/* Red segment */}
+        <path
+          d="M 130 38 A 70 70 0 0 1 170 100"
+          fill="none"
+          stroke="url(#redGrad)"
+          strokeWidth="12"
+          strokeLinecap="round"
+        />
+        
+        {/* Needle - Straight Classic Speedometer Style */}
+        <motion.g
+          initial={{ rotate: 0 }}
+          animate={{ rotate: angle }}
+          transition={{ type: "spring", stiffness: 90, damping: 12 }}
+          style={{ transformOrigin: '100px 100px' }}
+        >
+          {/* Straight needle pointer */}
+          <line
+            x1="100"
+            y1="100"
+            x2="100"
+            y2="40"
+            stroke="white"
+            strokeWidth="3"
+            strokeLinecap="round"
+          />
+          {/* Center cap */}
+          <circle cx="100" cy="100" r="6" fill="white" />
+          <circle cx="100" cy="100" r="3" fill="#1e293b" />
+        </motion.g>
+      </svg>
+      
+      {/* Balance Display */}
+      <div className="text-center mt-2 md:mt-4 w-full relative z-10">
         <p className="text-[10px] md:text-xs text-slate-400 mb-1 md:mb-2 uppercase tracking-wide">יתרה צפויה לסוף החודש</p>
         <motion.p 
           key={adjustedBalance}
@@ -148,10 +157,9 @@ export default function SpeedometerGauge({
         ) : (
            <div className="mt-3 md:mt-4 h-8"></div> 
         )}
-        </div>
-        </div>
+      </div>
 
-        {engineData && (
+      {engineData && (
         <div className="w-full mt-auto pt-8 border-t border-slate-700/30">
           <div className="grid grid-cols-3 gap-2 text-center text-xs">
             <div className="p-2 rounded-lg bg-slate-800/40">
