@@ -14,27 +14,36 @@ export default function SpeedometerGauge({
   const adjustedBalance = projectedBalance;
   
   const { angle, color, glowColor } = useMemo(() => {
-    // Optimized Mapping: 0 = Center (0°), +3000 = Green (-60°), Negative = Red (+60°)
+    // New Logic based on Risk Zones:
+    // Green (Safe): Balance > 1500 -> Angle -20° to -60° (Left)
+    // Yellow (Caution): Balance 0 to 1500 -> Angle +20° to -20° (Center)
+    // Red (Danger): Balance < 0 -> Angle +20° to +60° (Right)
+
     let calculatedAngle;
     let calculatedColor;
     let calculatedGlow;
-    
-    if (adjustedBalance >= 3000) {
-      // Green zone: Full left
-      calculatedAngle = -60;
+
+    const CAUTION_THRESHOLD = 1500;
+    const MAX_SAFE_VAL = 6000; // Cap for max green angle
+    const MAX_RISK_VAL = 3000; // Cap for max red angle
+
+    if (adjustedBalance >= CAUTION_THRESHOLD) {
+      // Green Zone
+      const ratio = Math.min((adjustedBalance - CAUTION_THRESHOLD) / (MAX_SAFE_VAL - CAUTION_THRESHOLD), 1);
+      calculatedAngle = -20 + (ratio * -40); // -20 to -60
       calculatedColor = '#22c55e';
       calculatedGlow = 'rgba(34, 197, 94, 0.5)';
-    } else if (adjustedBalance > 0) {
-      // Yellow zone: Linear interpolation from 0° (at 0) to -60° (at 3000)
-      const ratio = adjustedBalance / 3000;
-      calculatedAngle = -60 * ratio;
-      calculatedColor = adjustedBalance >= 1500 ? '#eab308' : '#f59e0b';
+    } else if (adjustedBalance >= 0) {
+      // Yellow Zone
+      const ratio = adjustedBalance / CAUTION_THRESHOLD; // 0 to 1
+      // Map 0 -> +20 (Start of Red), 1 -> -20 (Start of Green)
+      calculatedAngle = 20 - (ratio * 40); 
+      calculatedColor = '#eab308';
       calculatedGlow = 'rgba(234, 179, 8, 0.5)';
     } else {
-      // Red zone: Balance is negative, map to right side (0° to +60°)
-      const negativeAmount = Math.abs(adjustedBalance);
-      const ratio = Math.min(negativeAmount / 3000, 1); // Cap at 60°
-      calculatedAngle = 60 * ratio;
+      // Red Zone
+      const ratio = Math.min(Math.abs(adjustedBalance) / MAX_RISK_VAL, 1);
+      calculatedAngle = 20 + (ratio * 40); // +20 to +60
       calculatedColor = '#ef4444';
       calculatedGlow = 'rgba(239, 68, 68, 0.5)';
     }
