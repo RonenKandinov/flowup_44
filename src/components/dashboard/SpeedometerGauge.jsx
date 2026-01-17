@@ -133,7 +133,7 @@ export default function SpeedometerGauge({
           key={adjustedBalance}
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="text-4xl md:text-5xl font-bold text-white tracking-tight"
+          className="text-3xl md:text-4xl font-bold text-white tracking-tight"
         >
           ₪{adjustedBalance.toLocaleString('he-IL')}
         </motion.p>
