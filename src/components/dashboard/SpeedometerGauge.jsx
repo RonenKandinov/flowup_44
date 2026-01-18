@@ -14,36 +14,44 @@ export default function SpeedometerGauge({
   const adjustedBalance = projectedBalance;
   
   const { angle, color, glowColor } = useMemo(() => {
-    // New Logic based on Risk Zones:
-    // Green (Safe): Balance > 1500 -> Angle -20° to -60° (Left)
-    // Yellow (Caution): Balance 0 to 1500 -> Angle +20° to -20° (Center)
-    // Red (Danger): Balance < 0 -> Angle +20° to +60° (Right)
+    // Exact requested calibration:
+    // 1. Balance < 0 (Red): 0 -> +20°, -1000 -> +40° (Middle), -2000+ -> +60°
+    // 2. 0 <= Balance < 1500 (Yellow): 0 -> +20°, 1500 -> -20°
+    // 3. Balance >= 1500 (Green):
+    //    - 1500 to 2000: -20° to -40° (Middle)
+    //    - 2000+: -40° to -60°
 
     let calculatedAngle;
     let calculatedColor;
     let calculatedGlow;
 
-    const CAUTION_THRESHOLD = 1500;
-    const MAX_SAFE_VAL = 6000; // Cap for max green angle
-    const MAX_RISK_VAL = 3000; // Cap for max red angle
-
-    if (adjustedBalance >= CAUTION_THRESHOLD) {
-      // Green Zone
-      const ratio = Math.min((adjustedBalance - CAUTION_THRESHOLD) / (MAX_SAFE_VAL - CAUTION_THRESHOLD), 1);
-      calculatedAngle = -20 + (ratio * -40); // -20 to -60
+    if (adjustedBalance >= 2000) {
+      // Super Safe (Middle of Green to End)
+      // 2000 -> -40, 4000 -> -60
+      const ratio = Math.min((adjustedBalance - 2000) / 2000, 1);
+      calculatedAngle = -40 + (ratio * -20);
+      calculatedColor = '#22c55e';
+      calculatedGlow = 'rgba(34, 197, 94, 0.5)';
+    } else if (adjustedBalance >= 1500) {
+      // Safe Entry (Start of Green to Middle)
+      // 1500 -> -20, 2000 -> -40
+      const ratio = (adjustedBalance - 1500) / 500;
+      calculatedAngle = -20 + (ratio * -20);
       calculatedColor = '#22c55e';
       calculatedGlow = 'rgba(34, 197, 94, 0.5)';
     } else if (adjustedBalance >= 0) {
-      // Yellow Zone
-      const ratio = adjustedBalance / CAUTION_THRESHOLD; // 0 to 1
-      // Map 0 -> +20 (Start of Red), 1 -> -20 (Start of Green)
-      calculatedAngle = 20 - (ratio * 40); 
+      // Caution (Yellow)
+      // 0 -> +20, 1500 -> -20
+      const ratio = adjustedBalance / 1500;
+      calculatedAngle = 20 - (ratio * 40);
       calculatedColor = '#eab308';
       calculatedGlow = 'rgba(234, 179, 8, 0.5)';
     } else {
-      // Red Zone
-      const ratio = Math.min(Math.abs(adjustedBalance) / MAX_RISK_VAL, 1);
-      calculatedAngle = 20 + (ratio * 40); // +20 to +60
+      // Danger (Red)
+      // 0 -> +20, -1000 -> +40 (Middle), -2000 -> +60
+      const negativeVal = Math.abs(adjustedBalance);
+      const ratio = Math.min(negativeVal / 2000, 1);
+      calculatedAngle = 20 + (ratio * 40);
       calculatedColor = '#ef4444';
       calculatedGlow = 'rgba(239, 68, 68, 0.5)';
     }
