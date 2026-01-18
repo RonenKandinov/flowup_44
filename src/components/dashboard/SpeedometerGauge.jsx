@@ -121,24 +121,34 @@ export default function SpeedometerGauge({
         />
         
         {/* Needle - Straight Classic Speedometer Style */}
-        {/* Fixed Pivot Point: Rotating around absolute center (100, 100) */}
-        <motion.g
-          initial={{ rotate: 0 }}
-          animate={{ rotate: angle }}
-          transition={{ type: "spring", stiffness: 90, damping: 12 }}
-          style={{ originX: "100px", originY: "100px" }}
-        >
-          {/* Needle drawn from center (100,100) upwards */}
-          <line
-            x1="100"
-            y1="100"
-            x2="100"
-            y2="40"
-            stroke="white"
-            strokeWidth="3"
-            strokeLinecap="round"
-          />
-        </motion.g>
+        {/* Geometric Centering: Translate to center, rotate, then draw relative to 0,0 */}
+        <g transform="translate(100, 100)">
+          <motion.g
+            initial={{ rotate: 0 }}
+            animate={{ rotate: angle }}
+            transition={{ type: "spring", stiffness: 90, damping: 12 }}
+          >
+            {/* Visible Needle (Upwards) */}
+            <line
+              x1="0"
+              y1="0"
+              x2="0"
+              y2="-60"
+              stroke="white"
+              strokeWidth="3"
+              strokeLinecap="round"
+            />
+            {/* Invisible Counterbalance (Downwards) - Forces center of rotation to be exactly 0,0 */}
+            <line
+              x1="0"
+              y1="0"
+              x2="0"
+              y2="60"
+              stroke="transparent"
+              strokeWidth="0"
+            />
+          </motion.g>
+        </g>
 
         {/* Static Center Cap - Anchored at (100,100) */}
         <circle cx="100" cy="100" r="6" fill="white" />
