@@ -43,22 +43,22 @@ export default function StatCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.5 }}
       className={`
-        relative overflow-hidden rounded-xl p-3 md:p-5
+        relative overflow-hidden rounded-xl p-5
         border ${styles.border}
         ${styles.bg}
         backdrop-blur-sm
         hover:bg-slate-800/60 transition-all duration-300
       `}
     >
-      <div className="flex items-center justify-between mb-1 md:mb-3">
-        <p className="text-slate-400 text-[10px] md:text-xs font-medium uppercase tracking-wider truncate">{title}</p>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">{title}</p>
         {Icon && (
-          <Icon size={16} className={`${styles.text} opacity-60 hidden md:block`} />
+          <Icon size={16} className={`${styles.text} opacity-60`} />
         )}
       </div>
       
       <div className="flex items-baseline">
-        <p className={`text-lg md:text-2xl font-semibold ${styles.text} tracking-tight`}>
+        <p className={`text-2xl font-semibold ${styles.text} tracking-tight`}>
           {value}
         </p>
       </div>

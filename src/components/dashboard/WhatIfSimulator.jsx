@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { HelpCircle, Calculator, DollarSign, TrendingDown, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { HelpCircle, Calculator, DollarSign, TrendingDown, Calendar } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -12,7 +12,6 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
   const [incomeAmount, setIncomeAmount] = useState('');
   const [incomeName, setIncomeName] = useState('');
   const [isActive, setIsActive] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState('expense');
 
   const handleExpenseSimulate = () => {
@@ -47,43 +46,28 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.4 }}
-      className={`relative rounded-xl border bg-slate-800/30 backdrop-blur-sm transition-all ${
+      className={`relative rounded-xl p-5 border bg-slate-800/30 backdrop-blur-sm transition-all ${
         isActive ? 'border-yellow-500/40 shadow-sm shadow-yellow-500/10' : 'border-slate-700/30'
-      } ${isExpanded ? 'p-5' : 'p-4'}`}
+      }`}
     >
-      <div 
-        className="flex items-center justify-between cursor-pointer"
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
+      <div className="flex items-center justify-between mb-4">
         <h3 className="text-cyan-400 text-sm font-medium flex items-center gap-2 uppercase tracking-wide">
           <Calculator size={16} />
           סימולטור מה אם?
         </h3>
-        <div className="flex items-center gap-2">
-          {isActive && (
-            <Button
-              onClick={(e) => { e.stopPropagation(); handleReset(); }}
-              variant="ghost"
-              size="sm"
-              className="text-slate-400 hover:text-white text-xs h-6 px-2"
-            >
-              אפס
-            </Button>
-          )}
-          {isExpanded ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
-        </div>
+        {isActive && (
+          <Button
+            onClick={handleReset}
+            variant="ghost"
+            size="sm"
+            className="text-slate-400 hover:text-white text-xs"
+          >
+            אפס הכל
+          </Button>
+        )}
       </div>
 
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden"
-          >
-            <div className="pt-4">
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2 bg-slate-900/50">
           <TabsTrigger value="expense" className="text-xs">הוצאה</TabsTrigger>
           <TabsTrigger value="income" className="text-xs">הכנסה</TabsTrigger>
@@ -147,12 +131,8 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
           >
             חשב השפעת הכנסה
           </Button>
-              </TabsContent>
-            </Tabs>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        </TabsContent>
+      </Tabs>
     </motion.div>
   );
 }
