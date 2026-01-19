@@ -7,16 +7,76 @@
  * Privacy: All calculations happen in-browser, no data sent to server
  */
 
+import { detectBankFromHeader, parseCSVRow } from './bankParsers';
+
 // Safe number conversion utility
 const toNum = (v) => parseFloat(v?.toString().replace(/[^\d.-]/g, '')) || 0;
 
+/**
+ * Advanced AI Analysis Module (Local-First)
+ */
+const analyzeSmartInsights = (transactions) => {
+    const insights = [];
+    if (!transactions || transactions.length < 5) return insights;
+
+    // 1. Group by description for recurring payments
+    const groups = {};
+    transactions.forEach(t => {
+        if (t.debit > 0) {
+            // Normalize description (remove dates, numbers at end)
+            const key = t.description.replace(/[0-9\/\-\.]/g, '').trim().substring(0, 15);
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(t);
+        }
+    });
+
+    // 2. Identify Anomalies & Recurring Bills
+    Object.entries(groups).forEach(([name, items]) => {
+        if (items.length >= 2) {
+            const amounts = items.map(i => i.debit);
+            const avg = amounts.reduce((a, b) => a + b, 0) / amounts.length;
+            const lastAmount = amounts[0]; // Assuming sorted desc by date
+
+            // Alert: Bill increased by > 20%
+            if (lastAmount > avg * 1.2 && lastAmount > 100) {
+                insights.push({
+                    type: 'alert',
+                    title: `חריגה בחיוב: ${name}`,
+                    description: `זוהתה עלייה של ${Math.round(((lastAmount/avg)-1)*100)}% בחיוב האחרון (₪${lastAmount}) ביחס לממוצע`,
+                    icon: 'TrendingUp',
+                    impact: lastAmount - avg
+                });
+            }
+
+            // Insight: Recurring Subscription Detected
+            if (items.length >= 3 && amounts.every(a => Math.abs(a - avg) < 5)) {
+                // If it's a fixed amount, it's a subscription
+                insights.push({
+                    type: 'info',
+                    title: `מנוי קבוע: ${name}`,
+                    description: `חיוב קבוע של ₪${Math.round(avg)} מזוהה בחשבונך`,
+                    icon: 'Calendar',
+                    impact: avg * 12 // Annual cost
+                });
+            }
+        }
+    });
+
+    return insights.slice(0, 5); // Return top 5 insights
+};
+
 export const processAndForecast = (csvText) => {
     try {
-        // 1. Parse CSV - Position-based (bypass Hebrew encoding issues)
         const lines = csvText.split('\n').filter(line => line.trim());
         if (lines.length < 2) {
             return { error: "קובץ ריק או לא תקין" };
         }
+
+        // Improved Parsing using dedicated Bank Parsers
+        const headerLine = lines[0];
+        const bankType = detectBankFromHeader(headerLine);
+        const delimiter = headerLine.includes(';') ? ';' : ',';
+        const headers = headerLine.split(delimiter).map(h => h.trim().replace(/"/g, ''));
 
         let totalCredit = 0;
         let totalDebit = 0;
@@ -26,46 +86,52 @@ export const processAndForecast = (csvText) => {
         const uniqueDates = new Set();
         const allTransactions = [];
 
-        // First pass: collect all transactions with parsed dates
+        // Parse using robust parser
         for (let i = 1; i < lines.length; i++) {
             const line = lines[i].trim();
             if (!line) continue;
             
-            const row = line.split(',').map(cell => cell.trim().replace(/"/g, ''));
+            const row = line.split(delimiter).map(v => v.trim().replace(/"/g, ''));
+            const parsed = parseCSVRow(row, headers, bankType);
             
-            const date = row[0] || '';
-            const debit = toNum(row[6]);
-            const credit = toNum(row[7]);
-            const balance = toNum(row[8]);
-            
-            // Parse date
-            let transactionDate = null;
-            if (date.includes('/')) {
-                const parts = date.split('/');
-                const day = parseInt(parts[0]);
-                const month = parseInt(parts[1]) - 1;
-                const year = parts[2].length === 4 ? parseInt(parts[2]) : 2000 + parseInt(parts[2]);
-                transactionDate = new Date(year, month, day);
+            if (parsed) {
+                // Parse date
+                let transactionDate = null;
+                const dateStr = parsed.date;
+                if (dateStr.includes('/')) {
+                    const parts = dateStr.split('/');
+                    const day = parseInt(parts[0]);
+                    const month = parseInt(parts[1]) - 1;
+                    const year = parts[2].length === 4 ? parseInt(parts[2]) : 2000 + parseInt(parts[2]);
+                    transactionDate = new Date(year, month, day);
+                } else {
+                    transactionDate = new Date(dateStr);
+                }
+
+                if (transactionDate && !isNaN(transactionDate.getTime())) {
+                    allTransactions.push({
+                        date: transactionDate,
+                        description: parsed.description || 'תנועה',
+                        debit: parsed.debit || 0,
+                        credit: parsed.credit || 0,
+                        balance: parsed.balance
+                    });
+                    uniqueDates.add(transactionDate.toDateString());
+                }
+                
+                // Track latest balance (assuming file is sorted, but safe to update)
+                if (parsed.balance) currentBalance = parsed.balance;
             }
-            
-            if (transactionDate && !isNaN(transactionDate.getTime())) {
-                allTransactions.push({
-                    date: transactionDate,
-                    debit,
-                    credit,
-                    balance
-                });
-            }
-            
-            // Track unique dates
-            if (date) {
-                uniqueDates.add(date);
-            }
-            
-            // Last row = most recent transaction
-            currentBalance = balance;
-            lastRowCredit = credit;
-            lastRowDebit = debit;
+        }
+
+        // Sort transactions by date (descending)
+        allTransactions.sort((a, b) => b.date - a.date);
+        
+        // Update currentBalance from most recent transaction if available
+        if (allTransactions.length > 0) {
+            currentBalance = allTransactions[0].balance;
+            lastRowCredit = allTransactions[0].credit;
+            lastRowDebit = allTransactions[0].debit;
         }
 
         // Find the most recent month in the data and calculate totals
@@ -129,7 +195,10 @@ export const processAndForecast = (csvText) => {
             riskStatus = "yellow";
         }
 
-        // 6. Generate forecast graph points
+        // 6. Generate AI Insights
+        const smartInsights = analyzeSmartInsights(allTransactions);
+
+        // 7. Generate forecast graph points
         const graphPoints = [];
         let runningBalance = currentBalance;
         
@@ -155,7 +224,8 @@ export const processAndForecast = (csvText) => {
             rawScore: Math.round(rawForecast),
             avgDailySpending: Math.round(avgDailySpending),
             graphPoints,
-            transactionCount: lines.length - 1,
+            smartInsights, // Return AI insights
+            transactionCount: allTransactions.length,
             confidence: totalDays >= 30 ? "high" : totalDays >= 10 ? "medium" : "low"
         };
 

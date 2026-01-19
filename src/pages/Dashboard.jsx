@@ -315,6 +315,7 @@ export default function Dashboard() {
                     criticalDate={snapshot.risk_day}
                     projectedBalance={snapshot.projected_eom_balance}
                     currentBalance={snapshot.current_balance}
+                    insights={currentEngineData?.smartInsights}
                   />
                   
                   <WhatIfSimulator

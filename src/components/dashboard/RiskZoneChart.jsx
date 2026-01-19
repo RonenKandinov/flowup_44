@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Lightbulb } from 'lucide-react';
 
-const LeverageCard = ({ projectedBalance, currentBalance }) => {
+const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
   // אם אין נתונים - לא מציגים כלום
   if (!projectedBalance && projectedBalance !== 0) {
     return null;
@@ -25,20 +25,49 @@ const LeverageCard = ({ projectedBalance, currentBalance }) => {
   // חישוב המלצות ספציפיות לפי המצב הפיננסי
   const recommendations = useMemo(() => {
     const recs = [];
+    
+    // 1. Add AI Smart Insights first
+    if (insights && insights.length > 0) {
+      insights.forEach(insight => {
+        if (insight.type === 'alert') {
+          recs.push({
+            title: insight.title,
+            amount: Math.round(insight.impact),
+            description: insight.description,
+            impact: Math.round(insight.impact * 12),
+            icon: '⚠️',
+            color: 'red',
+            isAI: true
+          });
+        } else if (insight.type === 'info') {
+          recs.push({
+            title: insight.title,
+            amount: Math.round(insight.impact / 12),
+            description: insight.description,
+            impact: Math.round(insight.impact),
+            icon: '💡',
+            color: 'purple',
+            isAI: true
+          });
+        }
+      });
+    }
+
     const urgency = projectedBalance < 1000 ? 'high' : projectedBalance < 2000 ? 'medium' : 'low';
     
-    // המלצה 1: חיסכון אוטומטי
-    recs.push({
-      title: 'הגדר חיסכון אוטומטי',
-      amount: urgency === 'high' ? 50 : urgency === 'medium' ? 100 : 200,
-      description: 'הגדר העברה אוטומטית לחשבון חיסכון בכל תחילת חודש',
-      impact: urgency === 'high' ? 600 : urgency === 'medium' ? 1200 : 2400,
-      icon: '🏦',
-      color: 'blue'
-    });
+    // 2. Add standard recommendations if we need more padding
+    if (recs.length < 3) {
+        recs.push({
+          title: 'הגדר חיסכון אוטומטי',
+          amount: urgency === 'high' ? 50 : urgency === 'medium' ? 100 : 200,
+          description: 'הגדר העברה אוטומטית לחשבון חיסכון בכל תחילת חודש',
+          impact: urgency === 'high' ? 600 : urgency === 'medium' ? 1200 : 2400,
+          icon: '🏦',
+          color: 'blue'
+        });
+    }
     
-    // המלצה 2: צמצום הוצאות
-    if (currentBalance && projectedBalance) {
+    if (recs.length < 3 && currentBalance && projectedBalance) {
       const monthlyDrop = currentBalance - projectedBalance;
       if (monthlyDrop > 500) {
         recs.push({
@@ -52,18 +81,19 @@ const LeverageCard = ({ projectedBalance, currentBalance }) => {
       }
     }
     
-    // המלצה 3: מעבר לתוכניות זולות יותר
-    recs.push({
-      title: 'בדוק תוכניות סלולר וביטוח',
-      amount: urgency === 'high' ? 30 : urgency === 'medium' ? 50 : 80,
-      description: 'מעבר לחברת סלולר זולה יותר או ביטוח משתלם יכול לחסוך עד',
-      impact: urgency === 'high' ? 360 : urgency === 'medium' ? 600 : 960,
-      icon: '📱',
-      color: 'purple'
-    });
+    if (recs.length < 3) {
+        recs.push({
+          title: 'בדוק תוכניות סלולר וביטוח',
+          amount: urgency === 'high' ? 30 : urgency === 'medium' ? 50 : 80,
+          description: 'מעבר לחברת סלולר זולה יותר או ביטוח משתלם יכול לחסוך עד',
+          impact: urgency === 'high' ? 360 : urgency === 'medium' ? 600 : 960,
+          icon: '📱',
+          color: 'purple'
+        });
+    }
     
     return recs.slice(0, 3);
-  }, [projectedBalance, currentBalance]);
+  }, [projectedBalance, currentBalance, insights]);
 
   const colorMap = {
     blue: { bg: 'bg-blue-50', border: 'border-blue-500', text: 'text-blue-600' },
@@ -89,9 +119,12 @@ const LeverageCard = ({ projectedBalance, currentBalance }) => {
               <div className="flex justify-between items-start mb-2">
                 <div className="flex items-start gap-2">
                   <span className="text-lg opacity-90 mt-0.5">{rec.icon}</span>
-                  <span className="font-bold text-slate-200 text-sm leading-tight">{rec.title}</span>
+                  <div className="flex flex-col">
+                    <span className="font-bold text-slate-200 text-sm leading-tight">{rec.title}</span>
+                    {rec.isAI && <span className="text-[10px] text-purple-400 font-medium">✨ AI Alert</span>}
+                  </div>
                 </div>
-                <span className="text-cyan-400 font-mono text-xs font-bold bg-cyan-950/30 px-1.5 py-0.5 rounded whitespace-nowrap mr-2">₪{rec.amount}/חודש</span>
+                <span className="text-cyan-400 font-mono text-xs font-bold bg-cyan-950/30 px-1.5 py-0.5 rounded whitespace-nowrap mr-2">₪{rec.amount.toLocaleString('he-IL')}{rec.title.includes('חיסכון') ? '/חודש' : ''}</span>
               </div>
               <p className="text-xs text-slate-400 leading-relaxed mb-2 opacity-90 line-clamp-2">{rec.description}</p>
               <div className="flex items-center gap-1 text-[10px] text-slate-500 border-t border-slate-700/50 pt-2 mt-auto">
