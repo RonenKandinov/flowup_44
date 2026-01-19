@@ -56,8 +56,8 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
         className="flex items-center justify-between mb-0 cursor-pointer"
         onClick={() => setIsOpen(!isOpen)}
       >
-        <h3 className="text-cyan-400 text-sm font-medium flex items-center gap-2 uppercase tracking-wide">
-          <Calculator size={16} />
+        <h3 className="text-white text-sm font-medium flex items-center gap-2 uppercase tracking-wide">
+          <Calculator size={16} className="text-cyan-400" />
           סימולטור מה אם?
         </h3>
         <div className="flex items-center gap-2">
