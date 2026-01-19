@@ -236,10 +236,10 @@ export default function Dashboard() {
                 onClick={() => setShowUploader(true)}
                 variant="ghost"
                 size="sm"
-                className="bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:bg-slate-800 hover:text-white transition-all h-9 px-4 rounded-lg"
+                className="bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:bg-slate-800 hover:text-white transition-all h-7 px-3 rounded-md"
               >
-                <RefreshCw className="w-3.5 h-3.5 ml-2" />
-                <span className="text-xs font-medium">עדכן נתונים</span>
+                <RefreshCw className="w-3 h-3 ml-1.5" />
+                <span className="text-[11px] font-medium">עדכן נתונים</span>
               </Button>
               <Button
                 onClick={() => deleteDataMutation.mutate()}
