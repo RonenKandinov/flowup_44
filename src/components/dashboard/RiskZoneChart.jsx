@@ -5,26 +5,6 @@ import { Lightbulb, CreditCard, Wallet, AlertTriangle, Phone, Shield, Tv, Chevro
 const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  // אם אין נתונים - לא מציגים כלום
-  if (!projectedBalance && projectedBalance !== 0) {
-    return null;
-  }
-  
-  // אם היתרה הצפויה מעל 3000 שקלים - מציגים הודעת יציבות
-  if (projectedBalance > 3000) {
-    return (
-      <div className="w-full bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl shadow-lg border border-green-200 overflow-hidden p-6" dir="rtl">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
-            <span className="text-xl">✓</span>
-          </div>
-          <h2 className="text-green-800 font-bold text-lg">מצב פיננסי יציב</h2>
-        </div>
-        <p className="text-green-700 text-sm">היתרה הצפויה שלך מעל ₪3,000 - אין צורך בהמלצות חיסכון כרגע</p>
-      </div>
-    );
-  }
-
   // חישוב המלצות ספציפיות לפי המצב הפיננסי
   const recommendations = useMemo(() => {
     const recs = [];
@@ -104,6 +84,26 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
     
     return recs.slice(0, 3);
   }, [projectedBalance, currentBalance, insights]);
+
+  // אם אין נתונים - לא מציגים כלום
+  if (!projectedBalance && projectedBalance !== 0) {
+    return null;
+  }
+  
+  // אם היתרה הצפויה מעל 3000 שקלים - מציגים הודעת יציבות
+  if (projectedBalance > 3000) {
+    return (
+      <div className="w-full bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl shadow-lg border border-green-200 overflow-hidden p-6" dir="rtl">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
+            <span className="text-xl">✓</span>
+          </div>
+          <h2 className="text-green-800 font-bold text-lg">מצב פיננסי יציב</h2>
+        </div>
+        <p className="text-green-700 text-sm">היתרה הצפויה שלך מעל ₪3,000 - אין צורך בהמלצות חיסכון כרגע</p>
+      </div>
+    );
+  }
 
   const colorMap = {
     blue: { bg: 'bg-blue-50', border: 'border-blue-500', text: 'text-blue-600' },
