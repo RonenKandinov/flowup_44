@@ -13,7 +13,7 @@ export default function SpeedometerGauge({
   // Use projected balance as-is (already calculated by forecasting logic)
   const adjustedBalance = projectedBalance;
   
-  const { angle, color, glowColor } = useMemo(() => {
+  const { angle, color, glowColor, statusColor } = useMemo(() => {
     // Exact requested calibration:
     // 1. Balance < 0 (Red): 0 -> +20°, -1000 -> +40° (Middle), -2000+ -> +60°
     // 2. 0 <= Balance < 1500 (Yellow): 0 -> +20°, 1500 -> -20°
@@ -24,6 +24,7 @@ export default function SpeedometerGauge({
     let calculatedAngle;
     let calculatedColor;
     let calculatedGlow;
+    let statusColor;
 
     if (adjustedBalance >= 2000) {
       // Super Safe (Middle of Green to End)
@@ -32,6 +33,7 @@ export default function SpeedometerGauge({
       calculatedAngle = -40 + (ratio * -20);
       calculatedColor = '#22c55e';
       calculatedGlow = 'rgba(34, 197, 94, 0.5)';
+      statusColor = 'green';
     } else if (adjustedBalance >= 1500) {
       // Safe Entry (Start of Green to Middle)
       // 1500 -> -20, 2000 -> -40
@@ -39,6 +41,7 @@ export default function SpeedometerGauge({
       calculatedAngle = -20 + (ratio * -20);
       calculatedColor = '#22c55e';
       calculatedGlow = 'rgba(34, 197, 94, 0.5)';
+      statusColor = 'green';
     } else if (adjustedBalance >= 0) {
       // Caution (Yellow)
       // 0 -> +20, 1500 -> -20
@@ -46,6 +49,7 @@ export default function SpeedometerGauge({
       calculatedAngle = 20 - (ratio * 40);
       calculatedColor = '#eab308';
       calculatedGlow = 'rgba(234, 179, 8, 0.5)';
+      statusColor = 'yellow';
     } else {
       // Danger (Red)
       // 0 -> +20, -1000 -> +40 (Middle), -2000 -> +60
@@ -54,12 +58,14 @@ export default function SpeedometerGauge({
       calculatedAngle = 20 + (ratio * 40);
       calculatedColor = '#ef4444';
       calculatedGlow = 'rgba(239, 68, 68, 0.5)';
+      statusColor = 'red';
     }
     
     return { 
       angle: calculatedAngle, 
       color: calculatedColor, 
-      glowColor: calculatedGlow 
+      glowColor: calculatedGlow,
+      statusColor
     };
   }, [adjustedBalance]);
 
@@ -168,8 +174,16 @@ export default function SpeedometerGauge({
         </motion.p>
         
         {riskDay ? (
-          <div className="mt-3 md:mt-4 inline-flex items-center px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/20">
-            <p className="text-xs text-red-400">
+          <div className={`mt-3 md:mt-4 inline-flex items-center px-3 py-1.5 rounded-full border ${
+            statusColor === 'green' ? 'bg-green-500/10 border-green-500/20' :
+            statusColor === 'yellow' ? 'bg-yellow-500/10 border-yellow-500/20' :
+            'bg-red-500/10 border-red-500/20'
+          }`}>
+            <p className={`text-xs ${
+              statusColor === 'green' ? 'text-green-400' :
+              statusColor === 'yellow' ? 'text-yellow-400' :
+              'text-red-400'
+            }`}>
               <span className="opacity-75">יום סיכון צפוי: </span>
               <span className="font-bold mr-1">{riskDay}</span>
             </p>
