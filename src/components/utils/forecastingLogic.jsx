@@ -31,7 +31,16 @@ const analyzeSmartInsights = (transactions) => {
     });
 
     // 2. Identify Anomalies & Recurring Bills
+    const FIXED_KEYWORDS = ['מכבי', 'כללית', 'חברת חשמל', 'חשמל', 'ארנונה', 'מים', 'משכנתא', 'שכר דירה', 'גז', 'ועד בית'];
+    
     Object.entries(groups).forEach(([name, items]) => {
+        // Check if this is a "Fixed/Hard" expense
+        const isFixed = FIXED_KEYWORDS.some(kw => name.includes(kw));
+        
+        // If it's a fixed expense, we use it to stabilize the forecast (it's already part of the average)
+        // BUT we do NOT generate savings insights/alerts for it as requested.
+        if (isFixed) return;
+
         if (items.length >= 2) {
             const amounts = items.map(i => i.debit);
             const avg = amounts.reduce((a, b) => a + b, 0) / amounts.length;

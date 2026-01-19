@@ -121,7 +121,6 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
                   <span className="text-lg opacity-90 mt-0.5">{rec.icon}</span>
                   <div className="flex flex-col">
                     <span className="font-bold text-slate-200 text-sm leading-tight">{rec.title}</span>
-                    {rec.isAI && <span className="text-[10px] text-purple-400 font-medium">✨ AI Alert</span>}
                   </div>
                 </div>
                 <span className="text-cyan-400 font-mono text-xs font-bold bg-cyan-950/30 px-1.5 py-0.5 rounded whitespace-nowrap mr-2">₪{rec.amount.toLocaleString('he-IL')}{rec.title.includes('חיסכון') ? '/חודש' : ''}</span>
