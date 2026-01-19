@@ -59,7 +59,7 @@ export default function StatCard({
       </div>
       
       <div className="flex items-baseline">
-        <p className={`text-sm md:text-2xl font-semibold ${styles.text} tracking-tight truncate`}>
+        <p className={`text-sm sm:text-base md:text-2xl font-bold ${styles.text} tracking-tight truncate`}>
           {value}
         </p>
       </div>
