@@ -57,14 +57,41 @@ const analyzeSmartInsights = (transactions) => {
                 });
             }
 
-            // Insight: Recurring Subscription Detected
+            // Insight: Recurring Subscription Detected - Categorize for Actionable Advice
             if (items.length >= 3 && amounts.every(a => Math.abs(a - avg) < 5)) {
-                // If it's a fixed amount, it's a subscription
+                let actionTitle = `שקול לבטל: ${name}`;
+                let actionDesc = `חיוב קבוע של ₪${Math.round(avg)}. האם הוא הכרחי?`;
+                let iconType = 'CreditCard';
+
+                // Categorize for Specific Advice
+                const telecom = ['פרטנר', 'סלקום', 'פלאפון', 'הוט', 'בזק', 'גולן', '019', 'we4g'];
+                const insurance = ['הראל', 'מגדל', 'מנורה', 'הפניקס', 'כלל', 'איידי', 'ביטוח ישיר', 'AIG'];
+                const media = ['נטפליקס', 'ספוטיפיי', 'יוטיוב', 'דיסני', 'אפל', 'APPLE', 'NETFLIX', 'SPOTIFY'];
+                const bank = ['עמלה', 'דמי כרטיס', 'דמי ניהול'];
+
+                if (telecom.some(t => name.includes(t))) {
+                    actionTitle = `הוזל תקשורת: ${name}`;
+                    actionDesc = `לקוחות משלמים בממוצע 30% פחות. התקשר למקח על המחיר.`;
+                    iconType = 'Phone';
+                } else if (insurance.some(i => name.includes(i))) {
+                    actionTitle = `בדיקת תיק ביטוח: ${name}`;
+                    actionDesc = `בדוק באתר 'הר הביטוח' אם קיים כפל ביטוחים מיותר.`;
+                    iconType = 'Shield';
+                } else if (media.some(m => name.toUpperCase().includes(m))) {
+                    actionTitle = `ניצול מנוי: ${name}`;
+                    actionDesc = `האם המנוי בשימוש יומיומי? שקול חבילה משפחתית או ביטול.`;
+                    iconType = 'Tv';
+                } else if (bank.some(b => name.includes(b))) {
+                    actionTitle = `ביטול עמלות: ${name}`;
+                    actionDesc = `התקשר לבנק לבקש פטור מעמלות עו"ש ודמי כרטיס.`;
+                    iconType = 'Wallet';
+                }
+
                 insights.push({
                     type: 'info',
-                    title: `שקול לבטל: ${name}`,
-                    description: `ביטול המנוי יחסוך לך ₪${Math.round(avg * 12)} בשנה`,
-                    icon: 'CreditCard',
+                    title: actionTitle,
+                    description: actionDesc,
+                    icon: iconType,
                     impact: avg * 12 // Annual cost
                 });
             }

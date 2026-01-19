@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Lightbulb, CreditCard, Wallet, AlertTriangle } from 'lucide-react';
+import { Lightbulb, CreditCard, Wallet, AlertTriangle, Phone, Shield, Tv } from 'lucide-react';
 
 const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
   // אם אין נתונים - לא מציגים כלום
@@ -40,12 +40,19 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
             isAI: true
           });
         } else if (insight.type === 'info') {
+            // Map icon string back to component if needed
+            let IconComp = CreditCard;
+            if (insight.icon === 'Phone') IconComp = Phone;
+            if (insight.icon === 'Shield') IconComp = Shield;
+            if (insight.icon === 'Tv') IconComp = Tv;
+            if (insight.icon === 'Wallet') IconComp = Wallet;
+
           recs.push({
             title: insight.title,
             amount: Math.round(insight.impact / 12),
             description: insight.description,
             impact: Math.round(insight.impact),
-            icon: <CreditCard className="w-5 h-5 text-purple-400" />,
+            icon: <IconComp className="w-5 h-5 text-purple-400" />,
             color: 'purple',
             isAI: true
           });
@@ -111,23 +118,23 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
         <p className="text-slate-400 text-sm">יתרה צפויה: ₪{projectedBalance?.toLocaleString('he-IL')}</p>
       </div>
 
-      {/* Carousel on Mobile, List on Desktop */}
-      <div className="flex overflow-x-auto pb-4 gap-3 px-4 md:grid md:grid-cols-1 md:gap-3 md:px-4 md:pb-4 snap-x [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+      {/* Carousel on Mobile, Grid on Desktop (Standard Size Cards) */}
+      <div className="flex overflow-x-auto pb-4 gap-3 px-4 md:grid md:grid-cols-3 md:gap-4 md:px-4 md:pb-4 snap-x [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         {recommendations.map((rec, index) => {
           return (
-            <div key={index} className="min-w-[80%] md:min-w-0 snap-center p-3 bg-slate-800/60 rounded-xl border border-slate-700/60 hover:border-slate-500 transition-colors flex flex-col justify-between">
-              <div className="flex justify-between items-start mb-2">
-                <div className="flex items-start gap-2">
-                  <span className="text-lg opacity-90 mt-0.5">{rec.icon}</span>
-                  <div className="flex flex-col">
-                    <span className="font-bold text-slate-200 text-sm leading-tight">{rec.title}</span>
-                  </div>
+            <div key={index} className="min-w-[80%] md:min-w-0 snap-center p-3 bg-slate-800/60 rounded-xl border border-slate-700/60 hover:border-slate-500 hover:bg-slate-800 transition-all flex flex-col justify-between h-32">
+              <div className="flex justify-between items-start mb-1">
+                <div className="flex items-start gap-2 max-w-[70%]">
+                  <span className="opacity-90 mt-0.5 shrink-0">{rec.icon}</span>
+                  <span className="font-bold text-slate-200 text-xs leading-tight line-clamp-2">{rec.title}</span>
                 </div>
-                <span className="text-cyan-400 font-mono text-xs font-bold bg-cyan-950/30 px-1.5 py-0.5 rounded whitespace-nowrap mr-2">₪{rec.amount.toLocaleString('he-IL')}{rec.title.includes('חיסכון') ? '/חודש' : ''}</span>
+                <span className="text-cyan-400 font-mono text-[10px] font-bold bg-cyan-950/30 px-1.5 py-0.5 rounded whitespace-nowrap">₪{rec.amount}</span>
               </div>
-              <p className="text-xs text-slate-400 leading-relaxed mb-2 opacity-90 line-clamp-2">{rec.description}</p>
-              <div className="flex items-center gap-1 text-[10px] text-slate-500 border-t border-slate-700/50 pt-2 mt-auto">
-                <span>💰 חיסכון שנתי:</span>
+              
+              <p className="text-[11px] text-slate-400 leading-snug mb-1 opacity-90 line-clamp-2">{rec.description}</p>
+              
+              <div className="flex items-center justify-between border-t border-slate-700/50 pt-1.5 mt-auto">
+                <span className="text-[10px] text-slate-500">חיסכון שנתי</span>
                 <span className="font-bold text-emerald-400 text-xs">₪{rec.impact.toLocaleString('he-IL')}</span>
               </div>
             </div>
