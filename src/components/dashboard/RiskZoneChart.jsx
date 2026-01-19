@@ -122,8 +122,7 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
             <div className="flex items-center gap-2.5">
                 <Lightbulb className="w-5 h-5 text-cyan-400" />
                 <div>
-                    <h2 className="text-white text-sm font-medium uppercase tracking-wide leading-none mb-1">המלצות חיסכון</h2>
-                    <p className="text-slate-400 text-xs">יתרה צפויה: ₪{projectedBalance?.toLocaleString('he-IL')}</p>
+                    <h2 className="text-white text-sm font-medium uppercase tracking-wide leading-none">המלצות חיסכון</h2>
                 </div>
             </div>
             {isOpen ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
