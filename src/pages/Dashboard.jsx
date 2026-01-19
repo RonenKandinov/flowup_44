@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { calculateWhatIf, SystemInfo } from '../components/utils/forecastingLogic';
-// Note: Encryption Utility available in components/utils/encryption.js for future integration
+import { Storage } from '../components/utils/storage';
 
 import SpeedometerGauge from '../components/dashboard/SpeedometerGauge';
 import StatCard from '../components/dashboard/StatCard';
@@ -21,8 +21,35 @@ export default function Dashboard() {
   const [whatIfName, setWhatIfName] = useState('');
   const [localData, setLocalData] = useState(null);
   const [engineData, setEngineData] = useState(null);
+  const [isStorageLoading, setIsStorageLoading] = useState(true);
   
   const queryClient = useQueryClient();
+
+  // Load from Local Storage on mount
+  useEffect(() => {
+    const loadFromStorage = async () => {
+      try {
+        const data = await Storage.load();
+        if (data) {
+          // Rehydrate Date objects if needed (JSON.parse makes them strings)
+          if (data.transactions) {
+            data.transactions.forEach(t => t.date = new Date(t.date));
+          }
+          if (data.forecastData) {
+            // Usually strings for graph points, but just in case
+          }
+          
+          setLocalData(data);
+          setEngineData(data.engineData);
+        }
+      } catch (e) {
+        console.error("Failed to load local data", e);
+      } finally {
+        setIsStorageLoading(false);
+      }
+    };
+    loadFromStorage();
+  }, []);
 
   // Fetch saved snapshot
   const { data: snapshots, isLoading } = useQuery({
@@ -87,6 +114,9 @@ export default function Dashboard() {
   // Delete all data mutation
   const deleteDataMutation = useMutation({
     mutationFn: async () => {
+      // Clear local storage
+      await Storage.clear();
+
       const allSnapshots = await base44.entities.FinancialSnapshot.list();
       const allTransactions = await base44.entities.Transaction.list();
       
@@ -109,6 +139,9 @@ export default function Dashboard() {
     setWhatIfAmount(0);
     setWhatIfName('');
     
+    // Save locally (encrypted)
+    await Storage.save(data);
+
     // Save to database
     await saveSnapshotMutation.mutateAsync(data.snapshot);
     
@@ -209,6 +242,14 @@ export default function Dashboard() {
   };
 
   const hasData = snapshot && snapshot.current_balance !== undefined;
+
+  if (isStorageLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950" dir="rtl">
