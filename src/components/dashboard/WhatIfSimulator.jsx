@@ -13,7 +13,7 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
   const [incomeName, setIncomeName] = useState('');
   const [isActive, setIsActive] = useState(false);
   const [activeTab, setActiveTab] = useState('expense');
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false); // Controls collapsible state
 
   const handleExpenseSimulate = () => {
     const amount = parseFloat(expenseAmount) || 0;
