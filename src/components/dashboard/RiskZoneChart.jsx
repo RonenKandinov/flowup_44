@@ -118,25 +118,40 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
         <p className="text-slate-400 text-sm">יתרה צפויה: ₪{projectedBalance?.toLocaleString('he-IL')}</p>
       </div>
 
-      {/* Carousel on Mobile, Grid on Desktop (Standard Size Cards) */}
-      <div className="flex overflow-x-auto pb-4 gap-3 px-4 md:grid md:grid-cols-3 md:gap-4 md:px-4 md:pb-4 snap-x [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+      {/* Mobile: Grid (Compact), Desktop: List (Original) */}
+      <div className="grid grid-cols-2 gap-3 px-4 pb-4 md:grid-cols-1 md:gap-3 md:px-4 md:pb-4">
         {recommendations.map((rec, index) => {
           return (
-            <div key={index} className="min-w-[80%] md:min-w-0 snap-center p-3 bg-slate-800/60 rounded-xl border border-slate-700/60 hover:border-slate-500 hover:bg-slate-800 transition-all flex flex-col justify-between h-32">
-              <div className="flex justify-between items-start mb-1">
-                <div className="flex items-start gap-2 max-w-[70%]">
-                  <span className="opacity-90 mt-0.5 shrink-0">{rec.icon}</span>
-                  <span className="font-bold text-slate-200 text-xs leading-tight line-clamp-2">{rec.title}</span>
+            <div key={index} className="p-3 bg-slate-800/60 rounded-xl border border-slate-700/60 hover:border-slate-500 hover:bg-slate-800 transition-all flex flex-col justify-between h-32 md:h-auto md:min-h-[100px] md:flex-row md:items-center md:gap-4">
+              
+              {/* Header / Main Info */}
+              <div className="flex flex-col md:flex-row md:items-center md:flex-1 md:gap-4">
+                <div className="flex justify-between items-start mb-1 md:mb-0 md:justify-start md:gap-3 md:w-1/3">
+                    <div className="flex items-start gap-2 max-w-[85%] md:max-w-none md:items-center">
+                        <span className="opacity-90 mt-0.5 md:mt-0 shrink-0">{rec.icon}</span>
+                        <span className="font-bold text-slate-200 text-xs md:text-sm leading-tight line-clamp-2">{rec.title}</span>
+                    </div>
+                    {/* Price on Mobile Top Right */}
+                    <span className="md:hidden text-cyan-400 font-mono text-[10px] font-bold bg-cyan-950/30 px-1.5 py-0.5 rounded whitespace-nowrap">₪{rec.amount}</span>
                 </div>
-                <span className="text-cyan-400 font-mono text-[10px] font-bold bg-cyan-950/30 px-1.5 py-0.5 rounded whitespace-nowrap">₪{rec.amount}</span>
+                
+                {/* Description */}
+                <p className="text-[11px] md:text-xs text-slate-400 leading-snug mb-1 md:mb-0 opacity-90 line-clamp-2 md:line-clamp-none md:flex-1">
+                    {rec.description}
+                </p>
               </div>
               
-              <p className="text-[11px] text-slate-400 leading-snug mb-1 opacity-90 line-clamp-2">{rec.description}</p>
-              
-              <div className="flex items-center justify-between border-t border-slate-700/50 pt-1.5 mt-auto">
-                <span className="text-[10px] text-slate-500">חיסכון שנתי</span>
-                <span className="font-bold text-emerald-400 text-xs">₪{rec.impact.toLocaleString('he-IL')}</span>
+              {/* Footer / Stats */}
+              <div className="flex items-center justify-between border-t border-slate-700/50 pt-1.5 mt-auto md:border-t-0 md:pt-0 md:mt-0 md:w-auto md:gap-6 md:justify-end">
+                {/* Price on Desktop (In flow) */}
+                <span className="hidden md:block text-cyan-400 font-mono text-xs font-bold bg-cyan-950/30 px-2 py-1 rounded whitespace-nowrap">₪{rec.amount}</span>
+
+                <div className="flex items-center gap-1.5 md:flex-col md:items-end md:gap-0">
+                    <span className="text-[10px] text-slate-500 md:text-[10px] md:uppercase md:tracking-wider">חיסכון שנתי</span>
+                    <span className="font-bold text-emerald-400 text-xs md:text-sm">₪{rec.impact.toLocaleString('he-IL')}</span>
+                </div>
               </div>
+
             </div>
           );
         })}
