@@ -81,10 +81,11 @@ const LeverageCard = ({ projectedBalance, currentBalance }) => {
         <p className="text-slate-400 text-sm">יתרה צפויה: ₪{projectedBalance?.toLocaleString('he-IL')}</p>
       </div>
 
-      <div className="p-4 space-y-3">
+      {/* Carousel on Mobile, List on Desktop */}
+      <div className="flex overflow-x-auto pb-4 gap-3 px-4 md:grid md:grid-cols-1 md:gap-3 md:px-4 md:pb-4 snap-x scrollbar-hide">
         {recommendations.map((rec, index) => {
           return (
-            <div key={index} className="p-3.5 bg-slate-800/60 rounded-xl border border-slate-700/60 hover:border-slate-500 transition-colors">
+            <div key={index} className="min-w-[85%] md:min-w-0 snap-center p-3.5 bg-slate-800/60 rounded-xl border border-slate-700/60 hover:border-slate-500 transition-colors flex flex-col justify-between">
               <div className="flex justify-between items-center mb-2">
                 <div className="flex items-center gap-3">
                   <span className="text-xl opacity-90">{rec.icon}</span>

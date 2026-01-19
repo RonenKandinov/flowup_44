@@ -265,10 +265,10 @@ export default function Dashboard() {
             <EmptyState onUploadClick={() => setShowUploader(true)} />
           ) : (
             <>
-              {/* Stats Row */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              {/* Stats Row - Compact on Mobile */}
+              <div className="grid grid-cols-3 gap-2 md:grid-cols-3 md:gap-4 mb-4 md:mb-6">
                 <StatCard
-                  title="יתרה נוכחית"
+                  title="יתרה"
                   value={`₪${snapshot.current_balance?.toLocaleString('he-IL')}`}
                   icon={snapshot.risk_level === 'green' ? CheckCircle : snapshot.risk_level === 'yellow' ? Wallet : TrendingDown}
                   color={snapshot.risk_level === 'green' ? 'green' : snapshot.risk_level === 'yellow' ? 'yellow' : 'red'}
@@ -292,11 +292,11 @@ export default function Dashboard() {
 
               {/* Main Dashboard Grid */}
               <div className="grid md:grid-cols-2 gap-6">
-                {/* Speedometer */}
+                {/* Speedometer - Adjusted height for mobile */}
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-full min-h-[320px] md:min-h-[400px]"
+                  className="relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-full min-h-[260px] md:min-h-[400px]"
                 >
                   <SpeedometerGauge
                     projectedBalance={snapshot.projected_eom_balance || 0}

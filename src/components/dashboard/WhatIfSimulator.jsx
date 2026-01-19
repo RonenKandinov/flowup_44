@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { HelpCircle, Calculator, DollarSign, TrendingDown, Calendar } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { HelpCircle, Calculator, DollarSign, TrendingDown, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -13,6 +13,7 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
   const [incomeName, setIncomeName] = useState('');
   const [isActive, setIsActive] = useState(false);
   const [activeTab, setActiveTab] = useState('expense');
+  const [isOpen, setIsOpen] = useState(false);
 
   const handleExpenseSimulate = () => {
     const amount = parseFloat(expenseAmount) || 0;
@@ -50,24 +51,43 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
         isActive ? 'border-yellow-500/40 shadow-sm shadow-yellow-500/10' : 'border-slate-700/30'
       }`}
     >
-      <div className="flex items-center justify-between mb-4">
+      {/* Collapsible Header */}
+      <div 
+        className="flex items-center justify-between mb-0 cursor-pointer"
+        onClick={() => setIsOpen(!isOpen)}
+      >
         <h3 className="text-cyan-400 text-sm font-medium flex items-center gap-2 uppercase tracking-wide">
           <Calculator size={16} />
           סימולטור מה אם?
         </h3>
-        {isActive && (
-          <Button
-            onClick={handleReset}
-            variant="ghost"
-            size="sm"
-            className="text-slate-400 hover:text-white text-xs"
-          >
-            אפס הכל
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {isActive && (
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleReset();
+              }}
+              variant="ghost"
+              size="sm"
+              className="text-slate-400 hover:text-white text-xs h-6 px-2"
+            >
+              אפס
+            </Button>
+          )}
+          {isOpen ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+        </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="pt-4">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2 bg-slate-900/50">
           <TabsTrigger value="expense" className="text-xs">הוצאה</TabsTrigger>
           <TabsTrigger value="income" className="text-xs">הכנסה</TabsTrigger>
