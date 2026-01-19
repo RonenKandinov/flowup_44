@@ -81,18 +81,18 @@ const LeverageCard = ({ projectedBalance, currentBalance }) => {
         <p className="text-slate-400 text-sm">יתרה צפויה: ₪{projectedBalance?.toLocaleString('he-IL')}</p>
       </div>
 
-      <div className="p-4 space-y-3">
+      <div className="p-4 flex md:block gap-3 md:gap-0 md:space-y-3 overflow-x-auto snap-x snap-mandatory pb-4 hide-scrollbar">
         {recommendations.map((rec, index) => {
           return (
-            <div key={index} className="p-3.5 bg-slate-800/60 rounded-xl border border-slate-700/60 hover:border-slate-500 transition-colors">
+            <div key={index} className="min-w-[85%] md:min-w-0 snap-center p-3.5 bg-slate-800/60 rounded-xl border border-slate-700/60 hover:border-slate-500 transition-colors">
               <div className="flex justify-between items-center mb-2">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 md:gap-3">
                   <span className="text-xl opacity-90">{rec.icon}</span>
                   <span className="font-bold text-slate-200 text-base">{rec.title}</span>
                 </div>
-                <span className="text-cyan-400 font-mono text-sm font-bold bg-cyan-950/30 px-2 py-1 rounded">₪{rec.amount}/חודש</span>
+                <span className="text-cyan-400 font-mono text-xs md:text-sm font-bold bg-cyan-950/30 px-2 py-1 rounded">₪{rec.amount}/חודש</span>
               </div>
-              <p className="text-sm text-slate-400 leading-relaxed mb-2 pr-1 opacity-90">{rec.description}</p>
+              <p className="text-sm text-slate-400 leading-relaxed mb-2 pr-1 opacity-90 line-clamp-2 md:line-clamp-none">{rec.description}</p>
               <div className="flex items-center gap-1.5 text-xs text-slate-500 border-t border-slate-700/50 pt-2 mt-1">
                 <span>💰 חיסכון שנתי מוערך:</span>
                 <span className="font-bold text-emerald-400 text-sm">₪{rec.impact.toLocaleString('he-IL')}</span>
