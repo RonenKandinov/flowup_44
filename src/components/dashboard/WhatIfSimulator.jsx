@@ -153,6 +153,10 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
           </Button>
         </TabsContent>
       </Tabs>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
