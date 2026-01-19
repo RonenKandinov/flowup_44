@@ -1,7 +1,10 @@
-import React, { useMemo } from 'react';
-import { Lightbulb, CreditCard, Wallet, AlertTriangle, Phone, Shield, Tv } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Lightbulb, CreditCard, Wallet, AlertTriangle, Phone, Shield, Tv, ChevronDown, ChevronUp } from 'lucide-react';
 
 const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
   // אם אין נתונים - לא מציגים כלום
   if (!projectedBalance && projectedBalance !== 0) {
     return null;
@@ -110,64 +113,84 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
 
   return (
     <div className="w-full bg-slate-800/40 rounded-xl border border-slate-700/40 overflow-hidden" dir="rtl">
-      <div className="px-5 py-4 border-b border-slate-700/40">
-        <div className="flex items-center gap-2.5 mb-1">
-          <Lightbulb className="w-5 h-5 text-cyan-400" />
-          <h2 className="text-slate-100 font-bold text-lg">המלצות חיסכון</h2>
+      {/* Collapsible Header */}
+      <div 
+        className="px-5 py-4 border-b border-slate-700/40 cursor-pointer hover:bg-slate-800/50 transition-colors"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+                <Lightbulb className="w-5 h-5 text-cyan-400" />
+                <div>
+                    <h2 className="text-slate-100 font-bold text-lg leading-none mb-1">המלצות חיסכון</h2>
+                    <p className="text-slate-400 text-xs">יתרה צפויה: ₪{projectedBalance?.toLocaleString('he-IL')}</p>
+                </div>
+            </div>
+            {isOpen ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
         </div>
-        <p className="text-slate-400 text-sm">יתרה צפויה: ₪{projectedBalance?.toLocaleString('he-IL')}</p>
       </div>
 
-      {/* Mobile: Grid (Compact), Desktop: List (Original) */}
-      <div className="grid grid-cols-2 gap-3 px-4 pb-4 md:grid-cols-1 md:gap-3 md:px-4 md:pb-4">
-        {recommendations.map((rec, index) => {
-          return (
-            <div key={index} className="p-3 bg-slate-800/60 rounded-xl border border-slate-700/60 hover:border-slate-500 hover:bg-slate-800 transition-all flex flex-col justify-between h-32 md:h-auto md:min-h-[100px] md:flex-row md:items-center md:gap-4">
-              
-              {/* Header / Main Info */}
-              <div className="flex flex-col md:flex-row md:items-center md:flex-1 md:gap-4">
-                <div className="flex justify-between items-start mb-1 md:mb-0 md:justify-start md:gap-3 md:w-1/3">
-                    <div className="flex items-start gap-2 max-w-[85%] md:max-w-none md:items-center">
-                        <span className="opacity-90 mt-0.5 md:mt-0 shrink-0">{rec.icon}</span>
-                        <span className="font-bold text-slate-200 text-xs md:text-sm leading-tight line-clamp-2">{rec.title}</span>
-                    </div>
-                    {/* Price on Mobile Top Right */}
-                    <span className="md:hidden text-cyan-400 font-mono text-[10px] font-bold bg-cyan-950/30 px-1.5 py-0.5 rounded whitespace-nowrap">₪{rec.amount}</span>
+      <AnimatePresence>
+        {isOpen && (
+            <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+            >
+                {/* Mobile: Grid (Compact), Desktop: List (Original) */}
+                <div className="grid grid-cols-2 gap-3 px-4 py-4 md:grid-cols-1 md:gap-3">
+                    {recommendations.map((rec, index) => {
+                    return (
+                        <div key={index} className="p-3 bg-slate-800/60 rounded-xl border border-slate-700/60 hover:border-slate-500 hover:bg-slate-800 transition-all flex flex-col justify-between h-32 md:h-auto md:min-h-[100px] md:flex-row md:items-center md:gap-4">
+                        
+                        {/* Header / Main Info */}
+                        <div className="flex flex-col md:flex-row md:items-center md:flex-1 md:gap-4">
+                            <div className="flex justify-between items-start mb-1 md:mb-0 md:justify-start md:gap-3 md:w-1/3">
+                                <div className="flex items-start gap-2 max-w-[85%] md:max-w-none md:items-center">
+                                    <span className="opacity-90 mt-0.5 md:mt-0 shrink-0">{rec.icon}</span>
+                                    <span className="font-bold text-slate-200 text-xs md:text-sm leading-tight line-clamp-2">{rec.title}</span>
+                                </div>
+                                {/* Price on Mobile Top Right */}
+                                <span className="md:hidden text-cyan-400 font-mono text-[10px] font-bold bg-cyan-950/30 px-1.5 py-0.5 rounded whitespace-nowrap">₪{rec.amount}</span>
+                            </div>
+                            
+                            {/* Description */}
+                            <p className="text-[11px] md:text-xs text-slate-400 leading-snug mb-1 md:mb-0 opacity-90 line-clamp-2 md:line-clamp-none md:flex-1">
+                                {rec.description}
+                            </p>
+                        </div>
+                        
+                        {/* Footer / Stats */}
+                        <div className="flex items-center justify-between border-t border-slate-700/50 pt-1.5 mt-auto md:border-t-0 md:pt-0 md:mt-0 md:w-auto md:gap-6 md:justify-end">
+                            {/* Price on Desktop (In flow) */}
+                            <span className="hidden md:block text-cyan-400 font-mono text-xs font-bold bg-cyan-950/30 px-2 py-1 rounded whitespace-nowrap">₪{rec.amount}</span>
+
+                            <div className="flex items-center gap-1.5 md:flex-col md:items-end md:gap-0">
+                                <span className="text-[10px] text-slate-500 md:text-[10px] md:uppercase md:tracking-wider">חיסכון שנתי</span>
+                                <span className="font-bold text-emerald-400 text-xs md:text-sm">₪{rec.impact.toLocaleString('he-IL')}</span>
+                            </div>
+                        </div>
+
+                        </div>
+                    );
+                    })}
                 </div>
                 
-                {/* Description */}
-                <p className="text-[11px] md:text-xs text-slate-400 leading-snug mb-1 md:mb-0 opacity-90 line-clamp-2 md:line-clamp-none md:flex-1">
-                    {rec.description}
-                </p>
-              </div>
-              
-              {/* Footer / Stats */}
-              <div className="flex items-center justify-between border-t border-slate-700/50 pt-1.5 mt-auto md:border-t-0 md:pt-0 md:mt-0 md:w-auto md:gap-6 md:justify-end">
-                {/* Price on Desktop (In flow) */}
-                <span className="hidden md:block text-cyan-400 font-mono text-xs font-bold bg-cyan-950/30 px-2 py-1 rounded whitespace-nowrap">₪{rec.amount}</span>
-
-                <div className="flex items-center gap-1.5 md:flex-col md:items-end md:gap-0">
-                    <span className="text-[10px] text-slate-500 md:text-[10px] md:uppercase md:tracking-wider">חיסכון שנתי</span>
-                    <span className="font-bold text-emerald-400 text-xs md:text-sm">₪{rec.impact.toLocaleString('he-IL')}</span>
+                <div className="px-3 pb-3">
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2.5 text-center">
+                    <p className="text-xs text-emerald-300 font-medium flex flex-col sm:flex-row items-center justify-center gap-1">
+                        <span>סה"כ חיסכון פוטנציאלי:</span>
+                        <span>
+                        <span className="text-lg font-bold text-emerald-400">₪{recommendations.reduce((sum, r) => sum + r.impact, 0).toLocaleString('he-IL')}</span>
+                        <span className="text-[10px] mr-1 opacity-80">לשנה</span>
+                        </span>
+                    </p>
+                    </div>
                 </div>
-              </div>
-
-            </div>
-          );
-        })}
-      </div>
-      
-      <div className="px-3 pb-3">
-        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2.5 text-center">
-          <p className="text-xs text-emerald-300 font-medium flex flex-col sm:flex-row items-center justify-center gap-1">
-            <span>סה"כ חיסכון פוטנציאלי:</span>
-            <span>
-              <span className="text-lg font-bold text-emerald-400">₪{recommendations.reduce((sum, r) => sum + r.impact, 0).toLocaleString('he-IL')}</span>
-              <span className="text-[10px] mr-1 opacity-80">לשנה</span>
-            </span>
-          </p>
-        </div>
-      </div>
+            </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
