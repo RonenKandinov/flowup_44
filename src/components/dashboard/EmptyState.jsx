@@ -21,11 +21,11 @@ export default function EmptyState({ onUploadClick }) {
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         transition={{ type: "spring", delay: 0.2 }}
-        className="relative mb-8"
+        className="relative mb-6"
       >
-        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center">
-            <Upload className="w-8 h-8 text-cyan-400" />
+        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center">
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center">
+            <Upload className="w-6 h-6 text-cyan-400" />
           </div>
         </div>
         {/* Decorative rings */}
@@ -36,34 +36,33 @@ export default function EmptyState({ onUploadClick }) {
         />
       </motion.div>
 
-      <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
+      <h2 className="text-xl md:text-3xl font-bold text-white mb-2">
         ברוכים הבאים ל-FlowUp
       </h2>
-      <p className="text-slate-400 max-w-md mb-8">
+      <p className="text-sm text-slate-400 max-w-md mb-6 leading-relaxed">
         העלה את דוח העסקאות מהבנק שלך וקבל תמונה ברורה של המצב הפיננסי שלך
       </p>
 
       <Button
         onClick={onUploadClick}
-        size="lg"
-        className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-medium px-8 py-6 rounded-xl shadow-lg shadow-cyan-500/25 mb-12"
+        className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-medium px-8 h-12 rounded-xl shadow-lg shadow-cyan-500/25 mb-8"
       >
-        <Upload className="w-5 h-5 ml-2" />
+        <Upload className="w-4 h-4 ml-2" />
         העלה קובץ CSV
       </Button>
 
       {/* Features */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-2xl">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 w-full max-w-2xl">
         {features.map((feature, index) => (
           <motion.div
             key={index}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 + index * 0.1 }}
-            className="flex items-center gap-3 p-4 rounded-xl bg-slate-800/30 border border-slate-700/50"
+            className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/30 border border-slate-700/50"
           >
-            <feature.icon className="w-5 h-5 text-cyan-400 flex-shrink-0" />
-            <span className="text-sm text-slate-300">{feature.text}</span>
+            <feature.icon className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+            <span className="text-xs text-slate-300">{feature.text}</span>
           </motion.div>
         ))}
       </div>
