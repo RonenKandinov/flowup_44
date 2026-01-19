@@ -62,9 +62,9 @@ const analyzeSmartInsights = (transactions) => {
                 // If it's a fixed amount, it's a subscription
                 insights.push({
                     type: 'info',
-                    title: `מנוי קבוע: ${name}`,
-                    description: `חיוב קבוע של ₪${Math.round(avg)} מזוהה בחשבונך`,
-                    icon: 'Calendar',
+                    title: `שקול לבטל: ${name}`,
+                    description: `ביטול המנוי יחסוך לך ₪${Math.round(avg * 12)} בשנה`,
+                    icon: 'CreditCard',
                     impact: avg * 12 // Annual cost
                 });
             }

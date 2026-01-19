@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Lightbulb } from 'lucide-react';
+import { Lightbulb, CreditCard, Wallet, AlertTriangle } from 'lucide-react';
 
 const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
   // אם אין נתונים - לא מציגים כלום
@@ -35,7 +35,7 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
             amount: Math.round(insight.impact),
             description: insight.description,
             impact: Math.round(insight.impact * 12),
-            icon: '⚠️',
+            icon: <AlertTriangle className="w-5 h-5 text-red-400" />,
             color: 'red',
             isAI: true
           });
@@ -45,7 +45,7 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
             amount: Math.round(insight.impact / 12),
             description: insight.description,
             impact: Math.round(insight.impact),
-            icon: '💡',
+            icon: <CreditCard className="w-5 h-5 text-purple-400" />,
             color: 'purple',
             isAI: true
           });
@@ -62,7 +62,7 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
           amount: urgency === 'high' ? 50 : urgency === 'medium' ? 100 : 200,
           description: 'הגדר העברה אוטומטית לחשבון חיסכון בכל תחילת חודש',
           impact: urgency === 'high' ? 600 : urgency === 'medium' ? 1200 : 2400,
-          icon: '🏦',
+          icon: <Wallet className="w-5 h-5 text-blue-400" />,
           color: 'blue'
         });
     }
@@ -75,7 +75,7 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
           amount: Math.min(Math.round(monthlyDrop * 0.2), 300),
           description: 'זיהינו ירידה חודשית גבוהה - נסה לצמצם הוצאות לא הכרחיות',
           impact: Math.round(monthlyDrop * 0.2 * 12),
-          icon: '✂️',
+          icon: <Wallet className="w-5 h-5 text-red-400" />,
           color: 'red'
         });
       }
@@ -87,7 +87,7 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
           amount: urgency === 'high' ? 30 : urgency === 'medium' ? 50 : 80,
           description: 'מעבר לחברת סלולר זולה יותר או ביטוח משתלם יכול לחסוך עד',
           impact: urgency === 'high' ? 360 : urgency === 'medium' ? 600 : 960,
-          icon: '📱',
+          icon: <Wallet className="w-5 h-5 text-purple-400" />,
           color: 'purple'
         });
     }
