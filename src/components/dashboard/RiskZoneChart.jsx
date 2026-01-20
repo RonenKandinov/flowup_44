@@ -89,20 +89,26 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
   if (!projectedBalance && projectedBalance !== 0) {
     return null;
   }
-  
-  // אם היתרה הצפויה מעל 3000 שקלים - מציגים הודעת יציבות
-  if (projectedBalance > 3000) {
-    return (
-      <div className="w-full bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl shadow-lg border border-green-200 overflow-hidden p-6" dir="rtl">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
-            <span className="text-xl">✓</span>
-          </div>
-          <h2 className="text-green-800 font-bold text-lg">מצב פיננסי יציב</h2>
-        </div>
-        <p className="text-green-700 text-sm">היתרה הצפויה שלך מעל ₪3,000 - אין צורך בהמלצות חיסכון כרגע</p>
-      </div>
-    );
+
+  // High balance optimization recommendations
+  if (projectedBalance > 3000 && recommendations.length < 2) {
+     recommendations.push({
+       title: 'הגדל את החיסכון החודשי',
+       amount: 500,
+       description: 'המצב היציב מאפשר לך להפריש יותר לחיסכון או השקעה',
+       impact: 6000,
+       icon: <Wallet className="w-5 h-5 text-emerald-400" />,
+       color: 'green'
+     });
+
+     recommendations.push({
+       title: 'בדיקת תיק השקעות',
+       amount: 200,
+       description: 'זה הזמן לבדוק ערוצי השקעה לכסף הפנוי שלך',
+       impact: 2400,
+       icon: <Shield className="w-5 h-5 text-emerald-400" />,
+       color: 'green'
+     });
   }
 
   const colorMap = {

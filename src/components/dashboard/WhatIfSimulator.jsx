@@ -13,7 +13,14 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
   const [incomeName, setIncomeName] = useState('');
   const [isActive, setIsActive] = useState(false);
   const [activeTab, setActiveTab] = useState('expense');
-  const [isOpen, setIsOpen] = useState(false); // Controls collapsible state
+  const [isOpen, setIsOpen] = useState(false); 
+
+  // Expand by default on mobile
+  React.useEffect(() => {
+    if (window.innerWidth < 768) {
+      setIsOpen(true);
+    }
+  }, []);
 
   const handleExpenseSimulate = () => {
     const amount = parseFloat(expenseAmount) || 0;
