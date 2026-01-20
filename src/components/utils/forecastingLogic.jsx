@@ -245,72 +245,57 @@ export const processAndForecast = (csvText) => {
             riskStatus = "yellow";
         }
 
-        // 6. Milestone-Only Forecasting Logic
-        const MILESTONE_DAYS = [1, 10, 15];
-        const LARGE_EXPENSE_THRESHOLD = 1000;
-        const SMALL_EXPENSE_LIMIT = 1000;
+        // 6. 10th of Month Checkpoint Logic (FlowUp Specific)
+        const TARGET_DAY = 10;
+        const CONSERVATISM = 0.88;
 
-        const today = new Date();
-        let closestMilestone = null;
-        let minDaysToMilestone = Infinity;
-
-        // Helper: Get next occurrence
-        const getNextOccurrence = (day) => {
+        // Helper: Get next occurrence of the 10th
+        const getNextCheckpoint = () => {
             const d = new Date();
-            // If we are past the day in current month, move to next month
-            // Example: today 20th, target 1st -> Next month 1st
-            // Example: today 20th, target 25th -> This month 25th
-            if (d.getDate() >= day) {
+            if (d.getDate() >= TARGET_DAY) {
                 d.setMonth(d.getMonth() + 1);
             }
-            d.setDate(day);
+            d.setDate(TARGET_DAY);
             return d;
         };
 
-        for (const day of MILESTONE_DAYS) {
-            // Filter debits on this day (all history)
-            const dayTxns = allTransactions.filter(t => t.debit > 0 && t.date.getDate() === day);
+        // 1. Expected Salary (Income days 1-10)
+        // Filter credits between day 1 and 10
+        const incomeTxns = allTransactions.filter(t => t.credit > 0 && t.date.getDate() <= 10);
+        const incomeByMonth = {};
+        incomeTxns.forEach(t => {
+            const key = `${t.date.getFullYear()}-${t.date.getMonth()}`;
+            incomeByMonth[key] = (incomeByMonth[key] || 0) + t.credit;
+        });
+        const incomeValues = Object.values(incomeByMonth);
+        const avgSalary = incomeValues.length > 0 
+            ? incomeValues.reduce((a,b) => a+b, 0) / incomeValues.length 
+            : 0;
 
-            // Group by Month to get Average "Hit"
-            const monthlySums = {};
-            dayTxns.forEach(t => {
-                const key = `${t.date.getFullYear()}-${t.date.getMonth()}`;
-                monthlySums[key] = (monthlySums[key] || 0) + t.debit;
-            });
+        // 2. Expected Credit Charges (Debits on the 10th, +/- 1 day buffer)
+        const creditChargeTxns = allTransactions.filter(t => t.debit > 0 && t.date.getDate() >= 9 && t.date.getDate() <= 11);
+        const chargesByMonth = {};
+        creditChargeTxns.forEach(t => {
+             const key = `${t.date.getFullYear()}-${t.date.getMonth()}`;
+             chargesByMonth[key] = (chargesByMonth[key] || 0) + t.debit;
+        });
+        const chargeValues = Object.values(chargesByMonth);
+        const avgCreditCharge = chargeValues.length > 0
+            ? chargeValues.reduce((a,b) => a+b, 0) / chargeValues.length
+            : 0;
 
-            const values = Object.values(monthlySums);
-            if (values.length > 0) {
-                const avg = values.reduce((a, b) => a + b, 0) / values.length;
+        // 3. Monthly Profit & Conservatism
+        const monthlyProfit = avgSalary - avgCreditCharge;
+        const conservativeProfit = monthlyProfit * CONSERVATISM;
 
-                if (avg > LARGE_EXPENSE_THRESHOLD) {
-                    const nextDate = getNextOccurrence(day);
-                    const diffTime = nextDate - today;
-                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        // 4. Projection: Current Balance + Conservative Profit
+        const projection = currentBalance + conservativeProfit;
 
-                    if (diffDays >= 0 && diffDays < minDaysToMilestone) {
-                        minDaysToMilestone = diffDays;
-                        closestMilestone = { day, avg };
-                    }
-                }
-            }
-        }
-
-        let milestoneData = null;
-        if (closestMilestone) {
-            // Burn Rate: Avg of small daily expenses
-            const smallTxns = allTransactions.filter(t => t.debit > 0 && t.debit < SMALL_EXPENSE_LIMIT);
-            const totalSmallDebit = smallTxns.reduce((sum, t) => sum + t.debit, 0);
-            const burnRate = totalDays > 0 ? totalSmallDebit / totalDays : 0;
-
-            const days = minDaysToMilestone;
-            const hit = closestMilestone.avg;
-
-            const projection = currentBalance - hit - (burnRate * days);
-            milestoneData = {
-                projection: Math.round(projection),
-                text: `יתרה צפויה לאחר מועד החיוב הקרוב (ה-${closestMilestone.day} לחודש)`
-            };
-        }
+        const nextDate = getNextCheckpoint();
+        const milestoneData = {
+            projection: Math.round(projection),
+            text: `יתרה צפויה לאחר ה-10 לחודש (${nextDate.toLocaleDateString('he-IL', {day: 'numeric', month: 'numeric'})})`
+        };
 
         // 7. Generate AI Insights
         const smartInsights = analyzeSmartInsights(allTransactions);
