@@ -225,9 +225,9 @@ export const processAndForecast = (csvText) => {
         const safeForecast = rawForecast * 0.83;
         const projectedEOM = safeForecast;
 
-        // 4. Calculate daily spending from target month only
-        const daysInTargetMonth = uniqueDaysInTargetMonth.size > 0 ? uniqueDaysInTargetMonth.size : totalDays;
-        const avgDailySpending = totalDebit / daysInTargetMonth;
+        // 4. Calculate daily spending (Avg Daily Spending based on Whole CSV)
+        // We use All-Time Debit for the risk calculation to align with the "Whole CSV" requirement
+        const avgDailySpending = allTimeDebit / totalDays;
 
         // 5. Determine risk status
         let riskStatus = "green";
