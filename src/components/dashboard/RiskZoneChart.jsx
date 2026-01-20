@@ -25,18 +25,7 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
     // 1. Add AI Smart Insights first
     if (insights && insights.length > 0) {
       insights.forEach(insight => {
-        if (insight.type === 'spotlight') {
-             recs.unshift({ // Add to top
-                 title: 'שים לב: חריגה מהשגרה',
-                 amount: Math.round(insight.impact),
-                 description: insight.description,
-                 impact: Math.round(insight.impact), // One-time impact mainly
-                 icon: <Lightbulb className="w-5 h-5 text-yellow-400" />,
-                 color: 'yellow',
-                 isSpotlight: true,
-                 isAI: true
-             });
-        } else if (insight.type === 'alert') {
+        if (insight.type === 'alert') {
           recs.push({
             title: insight.title,
             amount: Math.round(insight.impact),
@@ -185,17 +174,9 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
                             </div>
                             
                             {/* Description */}
-                            <div className="md:flex-1">
-                                {rec.isSpotlight ? (
-                                    <div className="text-[11px] md:text-xs text-slate-300 leading-relaxed whitespace-pre-line p-2 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
-                                        {rec.description}
-                                    </div>
-                                ) : (
-                                    <p className="text-[11px] md:text-xs text-slate-400 leading-snug mb-1 md:mb-0 opacity-90 line-clamp-2 md:line-clamp-none">
-                                        {rec.description}
-                                    </p>
-                                )}
-                            </div>
+                            <p className="text-[11px] md:text-xs text-slate-400 leading-snug mb-1 md:mb-0 opacity-90 line-clamp-2 md:line-clamp-none md:flex-1">
+                                {rec.description}
+                            </p>
                         </div>
                         
                         {/* Footer / Stats */}
