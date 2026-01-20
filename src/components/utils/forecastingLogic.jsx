@@ -3,7 +3,7 @@
  * -----------------------------------------------
  * Position-Based CSV Parser (ISO-8859-8 encoding)
  * Hybrid Algorithm: Average Daily Net (70%) + Recent Trend (30%)
- * Safety Buffer: 17% Risk Management (multiply by 0.83)
+ * Safety Buffer: 12% Risk Management (multiply by 0.88)
  * Privacy: All calculations happen in-browser, no data sent to server
  */
 
@@ -220,9 +220,9 @@ export const processAndForecast = (csvText) => {
         // Hybrid Daily = (AverageDailyNet * 0.7) + (RecentTrend * 0.3)
         const hybridDaily = (avgDailyNet * 0.7) + (recentTrend * 0.3);
 
-        // 3. Safe Forecast with 17% Buffer
+        // 3. Safe Forecast with 12% Buffer
         const rawForecast = currentBalance + (hybridDaily * 30);
-        const safeForecast = rawForecast * 0.83;
+        const safeForecast = rawForecast * 0.88;
         const projectedEOM = safeForecast;
 
         // 4. Calculate daily spending (Avg Daily Spending based on Whole CSV)
@@ -289,7 +289,7 @@ export const processAndForecast = (csvText) => {
 };
 
 /**
- * Calculate What-If scenario impact with 17% Safety Buffer
+ * Calculate What-If scenario impact with 12% Safety Buffer
  */
 export const calculateWhatIf = (baselineForecast, scenario) => {
     if (!baselineForecast || !baselineForecast.success) {
@@ -323,8 +323,8 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
     // Calculate adjusted balance BEFORE safety buffer for risk day calculation
     const adjustedBalance = currentBalance + simulatedIncome - simulatedExpense;
     
-    // Unified Formula: (CurrentBalance + Income - Expense) * 0.83
-    const newSafeBalance = adjustedBalance * 0.83;
+    // Unified Formula: (CurrentBalance + Income - Expense) * 0.88
+    const newSafeBalance = adjustedBalance * 0.88;
     
     // Dynamic Risk Day Calculation
     let newRiskDay = null;
@@ -391,6 +391,6 @@ export const SystemInfo = {
     version: "1.0.0",
     type: "Client-Side MVP",
     engine: "Hybrid SES + Seasonal Average",
-    safetyBuffer: "17% Standard Deviation",
+    safetyBuffer: "12% Standard Deviation",
     privacy: "All calculations in-browser"
 };
