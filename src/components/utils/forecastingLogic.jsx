@@ -24,7 +24,7 @@ const analyzeSmartInsights = (transactions) => {
     transactions.forEach(t => {
         if (t.debit > 0) {
             // Normalize description (remove dates, numbers at end)
-            const key = t.description.replace(/[0-9\/\-\.]/g, '').trim().substring(0, 15);
+            const key = t.description.replace(/[0-9\/\-\.]/g, '').trim().substring(0, 25);
             if (!groups[key]) groups[key] = [];
             groups[key].push(t);
         }
@@ -48,10 +48,11 @@ const analyzeSmartInsights = (transactions) => {
 
             // Alert: Bill increased by > 20%
             if (lastAmount > avg * 1.2 && lastAmount > 100) {
+                const percent = Math.round(((lastAmount/avg)-1)*100);
                 insights.push({
                     type: 'alert',
-                    title: `חריגה בחיוב: ${name}`,
-                    description: `זוהתה עלייה של ${Math.round(((lastAmount/avg)-1)*100)}% בחיוב האחרון (₪${lastAmount}) ביחס לממוצע`,
+                    title: name,
+                    description: `חריגה של ${percent}% בחיוב האחרון (₪${lastAmount}). כדאי לבדוק את החשבונית.`,
                     icon: 'TrendingUp',
                     impact: lastAmount - avg
                 });
@@ -59,8 +60,8 @@ const analyzeSmartInsights = (transactions) => {
 
             // Insight: Recurring Subscription Detected - Categorize for Actionable Advice
             if (items.length >= 3 && amounts.every(a => Math.abs(a - avg) < 5)) {
-                let actionTitle = `שקול לבטל: ${name}`;
-                let actionDesc = `חיוב קבוע של ₪${Math.round(avg)}. האם הוא הכרחי?`;
+                let actionTitle = name;
+                let actionDesc = `חיוב קבוע של ₪${Math.round(avg)}. האם הוא הכרחי? שקול לבטל.`;
                 let iconType = 'CreditCard';
 
                 // Categorize for Specific Advice
@@ -70,20 +71,16 @@ const analyzeSmartInsights = (transactions) => {
                 const bank = ['עמלה', 'דמי כרטיס', 'דמי ניהול'];
 
                 if (telecom.some(t => name.includes(t))) {
-                    actionTitle = `הוזל תקשורת: ${name}`;
-                    actionDesc = `לקוחות משלמים בממוצע 30% פחות. התקשר למקח על המחיר.`;
+                    actionDesc = `ניתן להוזיל עלויות. לקוחות משלמים בממוצע 30% פחות על חבילות תקשורת.`;
                     iconType = 'Phone';
                 } else if (insurance.some(i => name.includes(i))) {
-                    actionTitle = `בדיקת תיק ביטוח: ${name}`;
-                    actionDesc = `בדוק באתר 'הר הביטוח' אם קיים כפל ביטוחים מיותר.`;
+                    actionDesc = `מומלץ לבדוק באתר 'הר הביטוח' אם קיים כפל ביטוחים מיותר.`;
                     iconType = 'Shield';
                 } else if (media.some(m => name.toUpperCase().includes(m))) {
-                    actionTitle = `ניצול מנוי: ${name}`;
-                    actionDesc = `האם המנוי בשימוש יומיומי? שקול חבילה משפחתית או ביטול.`;
+                    actionDesc = `האם המנוי בשימוש יומיומי? שקול מעבר לחבילה משפחתית או ביטול.`;
                     iconType = 'Tv';
                 } else if (bank.some(b => name.includes(b))) {
-                    actionTitle = `ביטול עמלות: ${name}`;
-                    actionDesc = `התקשר לבנק לבקש פטור מעמלות עו"ש ודמי כרטיס.`;
+                    actionDesc = `עמלה מיותרת. מומלץ להתקשר לבנק ולבקש פטור מלא.`;
                     iconType = 'Wallet';
                 }
 
