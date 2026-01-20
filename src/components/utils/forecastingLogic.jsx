@@ -170,23 +170,36 @@ export const processAndForecast = (csvText) => {
             lastRowDebit = allTransactions[0].debit;
         }
 
-        // Find the most recent month in the data and calculate totals
+        // 1. Calculate All-Time Totals (for Forecasting)
+        let allTimeCredit = 0;
+        let allTimeDebit = 0;
+        allTransactions.forEach(tx => {
+            allTimeCredit += tx.credit;
+            allTimeDebit += tx.debit;
+        });
+
+        // 2. Calculate Last Month Totals (for Dashboard Display)
         let uniqueDaysInTargetMonth = new Set();
+        // Reset totals for the "Display" variables to ensure they only contain the target month
+        totalCredit = 0; 
+        totalDebit = 0;
+
         if (allTransactions.length > 0) {
-            allTransactions.sort((a, b) => b.date - a.date);
             const mostRecentDate = allTransactions[0].date;
             const targetMonth = mostRecentDate.getMonth();
             const targetYear = mostRecentDate.getFullYear();
 
-            // Sum only transactions from the most recent month
-            for (const tx of allTransactions) {
-                if (tx.date.getMonth() === targetMonth && tx.date.getFullYear() === targetYear) {
-                    totalDebit += tx.debit;
-                    totalCredit += tx.credit;
-                    // Track unique days in the target month
-                    const dayKey = `${tx.date.getFullYear()}-${tx.date.getMonth()}-${tx.date.getDate()}`;
-                    uniqueDaysInTargetMonth.add(dayKey);
-                }
+            // Filter for strictly the last month
+            const monthTransactions = allTransactions.filter(tx => 
+                tx.date.getMonth() === targetMonth && 
+                tx.date.getFullYear() === targetYear
+            );
+
+            for (const tx of monthTransactions) {
+                totalDebit += tx.debit;
+                totalCredit += tx.credit;
+                const dayKey = `${tx.date.getFullYear()}-${tx.date.getMonth()}-${tx.date.getDate()}`;
+                uniqueDaysInTargetMonth.add(dayKey);
             }
         }
 
@@ -197,8 +210,9 @@ export const processAndForecast = (csvText) => {
         // 2. HYBRID ALGORITHM
         const totalDays = uniqueDates.size;
 
-        // Average Daily Net = (TotalCredit - TotalDebit) / TotalDays
-        const avgDailyNet = (totalCredit - totalDebit) / totalDays;
+        // Average Daily Net = (AllTimeCredit - AllTimeDebit) / TotalDays
+        // We use All-Time data for the forecast trend to be more accurate and stable
+        const avgDailyNet = (allTimeCredit - allTimeDebit) / totalDays;
 
         // Recent Trend = LastRow Credit - LastRow Debit
         const recentTrend = lastRowCredit - lastRowDebit;
