@@ -1,9 +1,22 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lightbulb, CreditCard, Wallet, AlertTriangle, Phone, Shield, Tv, ChevronDown, ChevronUp } from 'lucide-react';
 
 const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const checkScreen = () => {
+      const desktop = window.innerWidth >= 768;
+      setIsDesktop(desktop);
+      if (desktop) setIsOpen(true);
+    };
+    
+    checkScreen();
+    window.addEventListener('resize', checkScreen);
+    return () => window.removeEventListener('resize', checkScreen);
+  }, []);
 
   // חישוב המלצות ספציפיות לפי המצב הפיננסי
   const recommendations = useMemo(() => {
@@ -121,8 +134,8 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
     <div className="w-full bg-slate-800/40 rounded-xl border border-slate-700/40 overflow-hidden" dir="rtl">
       {/* Collapsible Header */}
       <div 
-        className="px-5 py-4 border-b border-slate-700/40 cursor-pointer hover:bg-slate-800/50 transition-colors"
-        onClick={() => setIsOpen(!isOpen)}
+        className={`px-5 py-4 border-b border-slate-700/40 transition-colors ${!isDesktop ? 'cursor-pointer hover:bg-slate-800/50' : ''}`}
+        onClick={() => !isDesktop && setIsOpen(!isOpen)}
       >
         <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -131,12 +144,12 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
                     <h2 className="text-white text-sm font-medium uppercase tracking-wide leading-none">המלצות חיסכון</h2>
                 </div>
             </div>
-            {isOpen ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
+            {!isDesktop && (isOpen ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />)}
         </div>
       </div>
 
       <AnimatePresence>
-        {isOpen && (
+        {(isOpen || isDesktop) && (
             <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}

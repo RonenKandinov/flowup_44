@@ -14,12 +14,22 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
   const [isActive, setIsActive] = useState(false);
   const [activeTab, setActiveTab] = useState('expense');
   const [isOpen, setIsOpen] = useState(false); 
+  const [isDesktop, setIsDesktop] = useState(false);
 
-  // Expand by default on mobile
+  // Initial State Logic
   React.useEffect(() => {
-    if (window.innerWidth < 768) {
-      setIsOpen(true);
-    }
+    const checkScreen = () => {
+      const desktop = window.innerWidth >= 768;
+      setIsDesktop(desktop);
+      // Open by default on mobile AND desktop as requested
+      if (desktop || window.innerWidth < 768) {
+        setIsOpen(true);
+      }
+    };
+    
+    checkScreen();
+    window.addEventListener('resize', checkScreen);
+    return () => window.removeEventListener('resize', checkScreen);
   }, []);
 
   const handleExpenseSimulate = () => {
@@ -60,8 +70,8 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
     >
       {/* Collapsible Header */}
       <div 
-        className="flex items-center justify-between mb-0 cursor-pointer"
-        onClick={() => setIsOpen(!isOpen)}
+        className={`flex items-center justify-between mb-0 ${!isDesktop ? 'cursor-pointer' : ''}`}
+        onClick={() => !isDesktop && setIsOpen(!isOpen)}
       >
         <h3 className="text-white text-sm font-medium flex items-center gap-2 uppercase tracking-wide">
           <Calculator size={16} className="text-cyan-400" />
@@ -81,12 +91,12 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
               אפס
             </Button>
           )}
-          {isOpen ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+          {!isDesktop && (isOpen ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />)}
         </div>
       </div>
 
       <AnimatePresence>
-        {isOpen && (
+        {(isOpen || isDesktop) && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
