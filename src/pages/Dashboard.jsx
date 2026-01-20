@@ -380,7 +380,18 @@ export default function Dashboard() {
                   className="relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-full min-h-[240px] md:min-h-[400px]"
                 >
                   <SpeedometerGauge
-                    projectedBalance={snapshot.projected_eom_balance || 0}
+                    projectedBalance={
+                      currentEngineData?.whatIfApplied 
+                        ? currentEngineData.projectedEOM 
+                        : (currentEngineData?.milestoneData 
+                            ? currentEngineData.milestoneData.projection 
+                            : (snapshot.projected_eom_balance || 0))
+                    }
+                    label={
+                      !currentEngineData?.whatIfApplied && currentEngineData?.milestoneData 
+                        ? currentEngineData.milestoneData.text 
+                        : "יתרה צפויה לסוף החודש"
+                    }
                     riskLevel={currentEngineData?.riskStatus || snapshot.risk_level || 'green'}
                     riskDay={currentEngineData?.riskDay || snapshot.risk_day}
                     whatIfAmount={whatIfAmount}
