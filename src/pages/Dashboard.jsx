@@ -70,16 +70,56 @@ export default function Dashboard() {
   const forecastData = localData?.forecastData || generateForecastFromTransactions(transactions);
   const currentEngineData = localData?.engineData || engineData;
 
+  // Calculate real-time monthly stats to ensure we display only the latest month
+  const currentMonthStats = React.useMemo(() => {
+    const txns = localData?.transactions || transactions;
+    if (!txns || txns.length === 0) return null;
+
+    // Normalize and Sort
+    const sortedTxns = [...txns]
+      .map(t => ({...t, date: new Date(t.date)}))
+      .filter(t => !isNaN(t.date.getTime()))
+      .sort((a, b) => b.date - a.date);
+
+    if (sortedTxns.length === 0) return null;
+
+    // Determine the "Current Month" based on the very last transaction
+    const latestDate = sortedTxns[0].date;
+    const targetMonth = latestDate.getMonth();
+    const targetYear = latestDate.getFullYear();
+
+    let income = 0;
+    let expenses = 0;
+
+    for (const t of sortedTxns) {
+      // Only sum transactions from the target month
+      if (t.date.getMonth() === targetMonth && t.date.getFullYear() === targetYear) {
+        if (t.credit !== undefined || t.debit !== undefined) {
+          // CSV Format (credit/debit fields)
+          income += (t.credit || 0);
+          expenses += (t.debit || 0);
+        } else if (t.amount !== undefined) {
+          // DB Format (signed amount)
+          if (t.amount > 0) income += t.amount;
+          else expenses += Math.abs(t.amount);
+        }
+      }
+    }
+
+    return { income, expenses };
+  }, [localData, transactions]);
+
   // Generate forecast data from transactions
   function generateForecastFromTransactions(txns) {
     if (!txns || txns.length === 0) return [];
     
+    // Fallback logic for when we don't have engineData
     const avgDaily = Math.abs(
-      txns.filter(t => t.amount < 0).reduce((sum, t) => sum + t.amount, 0) / 30
+      txns.filter(t => (t.amount || (t.debit * -1)) < 0).reduce((sum, t) => sum + (t.amount || (t.debit * -1)), 0) / 30
     );
     
     const latestBalance = txns[0]?.balance || 
-      txns.reduce((sum, t) => sum + t.amount, 0);
+      txns.reduce((sum, t) => sum + (t.amount || 0), 0);
     
     const today = new Date();
     const daysRemaining = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate() - today.getDate();
@@ -317,14 +357,14 @@ export default function Dashboard() {
                 />
                 <StatCard
                   title="סך הכנסות"
-                  value={`₪${snapshot.total_income?.toLocaleString('he-IL') || '0'}`}
+                  value={`₪${(currentMonthStats?.income ?? snapshot.total_income)?.toLocaleString('he-IL') || '0'}`}
                   icon={TrendingUp}
                   color="green"
                   delay={0.1}
                 />
                 <StatCard
                   title="סך הוצאות"
-                  value={`₪${snapshot.total_expenses?.toLocaleString('he-IL') || '0'}`}
+                  value={`₪${(currentMonthStats?.expenses ?? snapshot.total_expenses)?.toLocaleString('he-IL') || '0'}`}
                   icon={TrendingDown}
                   color="red"
                   delay={0.2}
