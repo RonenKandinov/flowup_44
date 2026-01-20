@@ -15,9 +15,80 @@ const toNum = (v) => parseFloat(v?.toString().replace(/[^\d.-]/g, '')) || 0;
 /**
  * Advanced AI Analysis Module (Local-First)
  */
-const analyzeSmartInsights = (transactions) => {
+const analyzeSmartInsights = (transactions, projectedBalanceOn10th) => {
     const insights = [];
     if (!transactions || transactions.length < 5) return insights;
+
+    // --- SPOTLIGHT LOGIC (Category Deviation) ---
+    // 0. Prepare Monthly Category Data
+    const categoryMonthly = {}; // { "Category": { "YYYY-MM": sum, "YYYY-MM": sum } }
+    const allMonths = new Set();
+    
+    transactions.forEach(t => {
+        if (t.debit > 0) {
+            const cat = t.description.replace(/[0-9\/\-\.]/g, '').trim().substring(0, 20); // Simulating category by normalized name
+            const mKey = `${t.date.getFullYear()}-${t.date.getMonth()}`;
+            allMonths.add(mKey);
+            
+            if (!categoryMonthly[cat]) categoryMonthly[cat] = {};
+            categoryMonthly[cat][mKey] = (categoryMonthly[cat][mKey] || 0) + t.debit;
+        }
+    });
+
+    // Need at least 2 months of data to compare
+    if (allMonths.size >= 2) {
+        // Sort months to find "Current" (Latest)
+        const sortedMonths = Array.from(allMonths).sort((a, b) => {
+            const [y1, m1] = a.split('-').map(Number);
+            const [y2, m2] = b.split('-').map(Number);
+            return (y1 * 12 + m1) - (y2 * 12 + m2); // Ascending
+        });
+        const currentMonthKey = sortedMonths[sortedMonths.length - 1];
+        
+        let maxDeviation = 0;
+        let spotlightCandidate = null;
+
+        Object.entries(categoryMonthly).forEach(([cat, monthsData]) => {
+            const currentVal = monthsData[currentMonthKey] || 0;
+            
+            // Calculate Routine (Avg of ALL other available months for this category)
+            // Note: If category didn't exist in a month, should we count it as 0? 
+            // For "Routine", let's average only active months to be fair, or all history?
+            // "Routine" implies what usually happens. Let's avg over non-current months where it appeared?
+            // Or better: Avg over the last N months excluding current.
+            // Let's take specific previous values.
+            const otherValues = Object.entries(monthsData)
+                .filter(([m]) => m !== currentMonthKey)
+                .map(([, val]) => val);
+            
+            if (otherValues.length > 0) {
+                const avg = otherValues.reduce((a, b) => a + b, 0) / otherValues.length;
+                const deviation = currentVal - avg;
+                
+                // We look for significant positive deviation (> 20% and > 200 NIS)
+                if (deviation > 200 && currentVal > avg * 1.2) {
+                    if (deviation > maxDeviation) {
+                        maxDeviation = deviation;
+                        spotlightCandidate = { cat, currentVal, avg, deviation };
+                    }
+                }
+            }
+        });
+
+        if (spotlightCandidate) {
+             const { cat, currentVal, avg, deviation } = spotlightCandidate;
+             const potentialBalance = (projectedBalanceOn10th || 0) + deviation;
+             
+             insights.push({
+                 type: 'spotlight',
+                 title: `הוצאה חריגה: ${cat}`, // Fallback title
+                 // Structured 3-part message as requested
+                 description: `1. כדאי לשים לב:\nהחודש הוצאת ב-${cat} קצת יותר מהרגיל. בזמן שהשגרה שלך היא ₪${Math.round(avg).toLocaleString()}, החודש הגענו ל-₪${Math.round(currentVal).toLocaleString()}.\n\n2. מה זה אומר על ה-10 לחודש?\nהחריגה הזו מקטינה לך את היתרה הפנויה שתישאר לך אחרי האשראי ב-₪${Math.round(deviation).toLocaleString()}.\n\n3. ההזדמנות שלך:\nאם נחזור לשגרה בקטגוריה הזו בשבועיים הקרובים, היתרה הצפויה שלך ב-10 לחודש תקפוץ חזרה ל-₪${Math.round(potentialBalance).toLocaleString()}. זה כסף נקי בכיס שיכול ללכת ישר לחיסכון או להשקעה.`,
+                 icon: 'TrendingUp',
+                 impact: deviation
+             });
+        }
+    }
 
     // 1. Group by description for recurring payments
     const groups = {};
@@ -294,7 +365,8 @@ export const processAndForecast = (csvText) => {
         };
 
         // 7. Generate AI Insights
-        const smartInsights = analyzeSmartInsights(allTransactions);
+        // Pass projected balance on 10th (milestoneData.projection) to analysis
+        const smartInsights = analyzeSmartInsights(allTransactions, milestoneData ? milestoneData.projection : projectedEOM);
 
         // 8. Generate forecast graph points
         const graphPoints = [];
