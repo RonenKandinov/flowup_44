@@ -245,10 +245,77 @@ export const processAndForecast = (csvText) => {
             riskStatus = "yellow";
         }
 
-        // 6. Generate AI Insights
+        // 6. Milestone-Only Forecasting Logic
+        const MILESTONE_DAYS = [1, 10, 15];
+        const LARGE_EXPENSE_THRESHOLD = 1000;
+        const SMALL_EXPENSE_LIMIT = 1000;
+
+        const today = new Date();
+        let closestMilestone = null;
+        let minDaysToMilestone = Infinity;
+
+        // Helper: Get next occurrence
+        const getNextOccurrence = (day) => {
+            const d = new Date();
+            // If we are past the day in current month, move to next month
+            // Example: today 20th, target 1st -> Next month 1st
+            // Example: today 20th, target 25th -> This month 25th
+            if (d.getDate() >= day) {
+                d.setMonth(d.getMonth() + 1);
+            }
+            d.setDate(day);
+            return d;
+        };
+
+        for (const day of MILESTONE_DAYS) {
+            // Filter debits on this day (all history)
+            const dayTxns = allTransactions.filter(t => t.debit > 0 && t.date.getDate() === day);
+
+            // Group by Month to get Average "Hit"
+            const monthlySums = {};
+            dayTxns.forEach(t => {
+                const key = `${t.date.getFullYear()}-${t.date.getMonth()}`;
+                monthlySums[key] = (monthlySums[key] || 0) + t.debit;
+            });
+
+            const values = Object.values(monthlySums);
+            if (values.length > 0) {
+                const avg = values.reduce((a, b) => a + b, 0) / values.length;
+
+                if (avg > LARGE_EXPENSE_THRESHOLD) {
+                    const nextDate = getNextOccurrence(day);
+                    const diffTime = nextDate - today;
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                    if (diffDays >= 0 && diffDays < minDaysToMilestone) {
+                        minDaysToMilestone = diffDays;
+                        closestMilestone = { day, avg };
+                    }
+                }
+            }
+        }
+
+        let milestoneData = null;
+        if (closestMilestone) {
+            // Burn Rate: Avg of small daily expenses
+            const smallTxns = allTransactions.filter(t => t.debit > 0 && t.debit < SMALL_EXPENSE_LIMIT);
+            const totalSmallDebit = smallTxns.reduce((sum, t) => sum + t.debit, 0);
+            const burnRate = totalDays > 0 ? totalSmallDebit / totalDays : 0;
+
+            const days = minDaysToMilestone;
+            const hit = closestMilestone.avg;
+
+            const projection = currentBalance - hit - (burnRate * days);
+            milestoneData = {
+                projection: Math.round(projection),
+                text: `יתרה צפויה לאחר מועד החיוב הקרוב (ה-${closestMilestone.day} לחודש)`
+            };
+        }
+
+        // 7. Generate AI Insights
         const smartInsights = analyzeSmartInsights(allTransactions);
 
-        // 7. Generate forecast graph points
+        // 8. Generate forecast graph points
         const graphPoints = [];
         let runningBalance = currentBalance;
         
@@ -275,9 +342,10 @@ export const processAndForecast = (csvText) => {
             avgDailySpending: Math.round(avgDailySpending),
             graphPoints,
             smartInsights, // Return AI insights
+            milestoneData, // Return Milestone-Only forecast
             transactionCount: allTransactions.length,
             confidence: totalDays >= 30 ? "high" : totalDays >= 10 ? "medium" : "low"
-        };
+            };
 
     } catch (error) {
         console.error('Forecasting error:', error);

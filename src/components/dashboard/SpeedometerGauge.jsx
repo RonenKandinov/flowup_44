@@ -8,7 +8,8 @@ export default function SpeedometerGauge({
   riskLevel = 'green',
   riskDay,
   whatIfAmount = 0,
-  engineData
+  engineData,
+  label
 }) {
   // Use projected balance as-is (already calculated by forecasting logic)
   const adjustedBalance = projectedBalance;
@@ -163,7 +164,7 @@ export default function SpeedometerGauge({
       
       {/* Balance Display */}
       <div className="text-center mt-2 md:mt-4 w-full relative z-10">
-        <p className="text-[10px] md:text-xs text-slate-400 mb-1 md:mb-2 uppercase tracking-wide">יתרה צפויה לסוף החודש</p>
+        <p className="text-[10px] md:text-xs text-slate-400 mb-1 md:mb-2 uppercase tracking-wide">{label || "יתרה צפויה לסוף החודש"}</p>
         <motion.p 
           key={adjustedBalance}
           initial={{ scale: 0.9, opacity: 0 }}
