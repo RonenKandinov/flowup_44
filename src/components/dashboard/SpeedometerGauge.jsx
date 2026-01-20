@@ -199,11 +199,11 @@ export default function SpeedometerGauge({
             <div className="p-2 rounded-lg bg-slate-800/40">
               <span className="block text-slate-500 text-[10px] mb-0.5">רמת ביטחון</span>
               <span className={`font-medium ${
-                engineData.confidence === 'high' ? 'text-green-400' :
+                (statusColor === 'green' || engineData.confidence === 'high') ? 'text-green-400' :
                 engineData.confidence === 'medium' ? 'text-yellow-400' :
                 'text-red-400'
               }`}>
-                {engineData.confidence === 'high' ? 'גבוהה' :
+                {(statusColor === 'green' || engineData.confidence === 'high') ? 'גבוהה' :
                  engineData.confidence === 'medium' ? 'בינונית' : 'נמוכה'}
               </span>
             </div>
