@@ -291,10 +291,9 @@ export const processAndForecast = (csvText) => {
         // 4. Projection: Current Balance + Conservative Profit
         const projection = currentBalance + conservativeProfit;
 
-        const nextDate = getNextCheckpoint();
         const milestoneData = {
             projection: Math.round(projection),
-            text: `יתרה צפויה לאחר ה-10 לחודש (${nextDate.toLocaleDateString('he-IL', {day: 'numeric', month: 'numeric'})})`
+            text: "יתרה צפויה לאחר מועד החיוב הקרוב (ה-10 לחודש)"
         };
 
         // 7. Generate AI Insights
