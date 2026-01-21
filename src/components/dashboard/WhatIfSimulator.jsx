@@ -32,29 +32,38 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
     return () => window.removeEventListener('resize', checkScreen);
   }, []);
 
-  const handleExpenseSimulate = () => {
-    const amount = parseFloat(expenseAmount) || 0;
-    if (amount > 0) {
-      onSimulate({ type: 'expense', amount, name: expenseName });
-      setIsActive(true);
-    }
-  };
+  // Reactive Simulation Logic (Debounced)
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      const isExpense = activeTab === 'expense';
+      const amount = parseFloat(isExpense ? expenseAmount : incomeAmount);
+      const name = isExpense ? expenseName : incomeName;
 
-  const handleIncomeSimulate = () => {
-    const amount = parseFloat(incomeAmount) || 0;
-    if (amount > 0) {
-      onSimulate({ type: 'income', amount, name: incomeName });
-      setIsActive(true);
-    }
-  };
+      if (amount && amount > 0) {
+        onSimulate({ 
+          type: isExpense ? 'expense' : 'income', 
+          amount, 
+          name 
+        });
+        setIsActive(true);
+      } else {
+        // If cleared, reset
+        if (isActive) {
+           onSimulate({ type: 'reset' });
+           setIsActive(false);
+        }
+      }
+    }, 150); // Fast debounce for smooth feel
+
+    return () => clearTimeout(timer);
+  }, [expenseAmount, expenseName, incomeAmount, incomeName, activeTab]);
 
   const handleReset = () => {
     setExpenseAmount('');
     setExpenseName('');
     setIncomeAmount('');
     setIncomeName('');
-    onSimulate({ type: 'reset' });
-    setIsActive(false);
+    // Effect will handle the reset call
   };
 
   const quickAmounts = [500, 1000, 2500, 5000];
@@ -132,12 +141,11 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
               dir="ltr"
             />
           </div>
-          <Button
-            onClick={handleExpenseSimulate}
-            className="w-full bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white"
-          >
-            חשב השפעת הוצאה
-          </Button>
+          {/* Auto-calculating... */}
+          <div className="text-[10px] text-slate-500 text-center pt-1 flex items-center justify-center gap-1">
+             <div className="w-1.5 h-1.5 rounded-full bg-cyan-500/50 animate-pulse" />
+             מתעדכן אוטומטית בזמן אמת
+          </div>
         </TabsContent>
 
         {/* Income Scenario */}
@@ -162,12 +170,11 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
               dir="ltr"
             />
           </div>
-          <Button
-            onClick={handleIncomeSimulate}
-            className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white"
-          >
-            חשב השפעת הכנסה
-          </Button>
+          {/* Auto-calculating... */}
+          <div className="text-[10px] text-slate-500 text-center pt-1 flex items-center justify-center gap-1">
+             <div className="w-1.5 h-1.5 rounded-full bg-green-500/50 animate-pulse" />
+             מתעדכן אוטומטית בזמן אמת
+          </div>
         </TabsContent>
       </Tabs>
             </div>
