@@ -359,7 +359,7 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
     // Calculate adjusted balance based on scenario
     let simulatedIncome = 0;
     let simulatedExpense = 0;
-    
+
     switch (scenario.type) {
         case 'expense':
             simulatedExpense = scenario.amount || 0;
@@ -368,28 +368,33 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
             simulatedIncome = scenario.amount || 0;
             break;
     }
-    
-    // Calculate adjusted balance BEFORE safety buffer for risk day calculation
-    const adjustedBalance = currentBalance + simulatedIncome - simulatedExpense;
-    
-    // Unified Formula: (CurrentBalance + Income - Expense) * 0.88
-    const newSafeBalance = adjustedBalance * 0.88;
-    
-    // Dynamic Risk Day Calculation
+
+    // 1. Calculate adjusted CURRENT balance (Immediate Liquidity)
+    const adjustedCurrentBalance = currentBalance + simulatedIncome - simulatedExpense;
+
+    // 2. Calculate adjusted PROJECTED balance (End of Month Forecast)
+    // We start from the raw forecast (Current + Trend) to ensure we don't lose the predictive trend
+    const originalRawForecast = baselineForecast.rawScore || (baselineForecast.projectedEOM / 0.88);
+    const adjustedRawForecast = originalRawForecast + simulatedIncome - simulatedExpense;
+
+    // Apply Safety Buffer (0.88) to the new total
+    const newSafeBalance = adjustedRawForecast * 0.88;
+
+    // Dynamic Risk Day Calculation (Based on immediate liquidity)
     let newRiskDay = null;
     let daysUntilRisk = null;
     let trend = null;
     
     if (avgDailySpending > 0) {
         // Calculate days until balance reaches zero (can be negative if already in deficit)
-        daysUntilRisk = Math.floor(adjustedBalance / avgDailySpending);
+        daysUntilRisk = Math.floor(adjustedCurrentBalance / avgDailySpending);
         const riskDate = new Date();
         riskDate.setDate(riskDate.getDate() + daysUntilRisk);
         newRiskDay = riskDate.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' });
-        
+
         // Calculate trend (original risk day vs new risk day)
         const originalDays = currentBalance > 0 ? Math.floor(currentBalance / avgDailySpending) : 0;
-        
+
         if (daysUntilRisk < originalDays) {
             trend = 'negative'; // Date moved closer (bad)
         } else if (daysUntilRisk > originalDays) {
@@ -404,15 +409,15 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
             newRiskDay = today.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' });
         }
     }
-    
-    // Determine risk status based on SAFE balance (after 0.83)
+
+    // Determine risk status based on SAFE balance (after 0.88)
     let newRiskStatus = "green";
     if (newSafeBalance < 0) {
         newRiskStatus = "red";
     } else if (newSafeBalance < 1500) {
         newRiskStatus = "yellow";
     }
-    
+
     // Update graph points proportionally
     const adjustedGraphPoints = baselineForecast.graphPoints.map(point => ({
         ...point,
@@ -421,7 +426,7 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
 
     return {
         ...baselineForecast,
-        currentBalance: Math.round(adjustedBalance),
+        currentBalance: Math.round(adjustedCurrentBalance),
         projectedEOM: Math.round(newSafeBalance),
         riskStatus: newRiskStatus,
         riskDay: newRiskDay,
