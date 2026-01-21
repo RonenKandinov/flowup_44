@@ -373,13 +373,12 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
     const adjustedCurrentBalance = currentBalance + simulatedIncome - simulatedExpense;
 
     // 2. Calculate adjusted PROJECTED balance (End of Month Forecast)
-    // CONSERVATIVE APPROACH: Apply the expense DIRECTLY to the already-buffered projection.
-    // If the user projects 1600 (safe) and spends 500, they should have 1100.
-    // We do NOT re-apply the buffer to the expense itself, nor do we start from raw.
-    // This ensures linear predictability for the user.
+    // We start from the raw forecast (Current + Trend) to ensure we don't lose the predictive trend
+    const originalRawForecast = baselineForecast.rawScore || (baselineForecast.projectedEOM / 0.88);
+    const adjustedRawForecast = originalRawForecast + simulatedIncome - simulatedExpense;
 
-    const baselineProjection = baselineForecast.projectedEOM;
-    const newSafeBalance = baselineProjection + simulatedIncome - simulatedExpense;
+    // Apply Safety Buffer (0.88) to the new total
+    const newSafeBalance = adjustedRawForecast * 0.88;
 
     // Dynamic Risk Day Calculation (Based on immediate liquidity)
     let newRiskDay = null;

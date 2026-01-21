@@ -166,8 +166,9 @@ export default function SpeedometerGauge({
       <div className="text-center mt-2 md:mt-4 w-full relative z-10">
         <p className="text-[10px] md:text-xs text-slate-400 mb-1 md:mb-2 uppercase tracking-wide">{label || "יתרה צפויה לסוף החודש"}</p>
         <motion.p 
-          initial={{ scale: 0.9 }}
-          animate={{ scale: 1 }}
+          key={adjustedBalance}
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
           className="text-3xl md:text-4xl font-bold text-white tracking-tight"
         >
           ₪{adjustedBalance.toLocaleString('he-IL')}
