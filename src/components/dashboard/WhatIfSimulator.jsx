@@ -147,12 +147,7 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
               dir="ltr"
             />
           </div>
-          <Button
-            onClick={() => {}} // No-op, updates are real-time
-            className="w-full bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white cursor-default active:scale-100"
-          >
-            חשב השפעת הוצאה
-          </Button>
+          {/* Auto-calculates in real-time */}
         </TabsContent>
 
         {/* Income Scenario */}
@@ -177,12 +172,7 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
               dir="ltr"
             />
           </div>
-          <Button
-            onClick={() => {}} // No-op, updates are real-time
-            className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white cursor-default active:scale-100"
-          >
-            חשב השפעת הכנסה
-          </Button>
+          {/* Auto-calculates in real-time */}
         </TabsContent>
       </Tabs>
             </div>
