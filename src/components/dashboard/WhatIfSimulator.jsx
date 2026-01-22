@@ -146,8 +146,14 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
               className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
               dir="ltr"
             />
+            <div className="flex items-center gap-2 mt-3 justify-end opacity-80">
+                <span className="text-[10px] text-cyan-400">מתעדכן בזמן אמת</span>
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-cyan-500"></span>
+                </span>
+            </div>
           </div>
-          {/* Auto-calculates in real-time */}
         </TabsContent>
 
         {/* Income Scenario */}
@@ -171,8 +177,14 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
               className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
               dir="ltr"
             />
+             <div className="flex items-center gap-2 mt-3 justify-end opacity-80">
+                <span className="text-[10px] text-cyan-400">מתעדכן בזמן אמת</span>
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-cyan-500"></span>
+                </span>
+            </div>
           </div>
-          {/* Auto-calculates in real-time */}
         </TabsContent>
       </Tabs>
             </div>
