@@ -128,14 +128,15 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
               placeholder="₪0.00"
               value={expenseAmount}
               onChange={(e) => setExpenseAmount(e.target.value)}
-              className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
+              className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-red-500 transition-colors"
               dir="ltr"
             />
           </div>
           <Button
             onClick={handleExpenseSimulate}
-            className="w-full bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white"
+            className="w-full bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white shadow-lg shadow-red-900/20"
           >
+            <TrendingDown className="w-4 h-4 ml-2" />
             חשב השפעת הוצאה
           </Button>
         </TabsContent>
@@ -158,14 +159,15 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
               placeholder="₪0.00"
               value={incomeAmount}
               onChange={(e) => setIncomeAmount(e.target.value)}
-              className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
+              className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-green-500 transition-colors"
               dir="ltr"
             />
           </div>
           <Button
             onClick={handleIncomeSimulate}
-            className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white"
+            className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white shadow-lg shadow-green-900/20"
           >
+            <DollarSign className="w-4 h-4 ml-2" />
             חשב השפעת הכנסה
           </Button>
         </TabsContent>
