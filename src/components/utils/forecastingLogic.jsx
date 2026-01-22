@@ -424,10 +424,20 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
         balance: Math.round(point.balance + simulatedIncome - simulatedExpense)
     }));
 
+    // Adjust Milestone Data if exists (ensure consistency with display)
+    let newMilestoneData = null;
+    if (baselineForecast.milestoneData) {
+        newMilestoneData = {
+            ...baselineForecast.milestoneData,
+            projection: Math.round(baselineForecast.milestoneData.projection + simulatedIncome - simulatedExpense)
+        };
+    }
+
     return {
         ...baselineForecast,
         currentBalance: Math.round(adjustedCurrentBalance),
         projectedEOM: Math.round(newSafeBalance),
+        milestoneData: newMilestoneData || baselineForecast.milestoneData,
         riskStatus: newRiskStatus,
         riskDay: newRiskDay,
         riskDaysCount: daysUntilRisk,

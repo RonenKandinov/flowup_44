@@ -381,14 +381,14 @@ export default function Dashboard() {
                 >
                   <SpeedometerGauge
                     projectedBalance={
-                      currentEngineData?.whatIfApplied 
-                        ? currentEngineData.projectedEOM 
-                        : (currentEngineData?.milestoneData 
-                            ? currentEngineData.milestoneData.projection 
+                      currentEngineData?.milestoneData 
+                        ? currentEngineData.milestoneData.projection 
+                        : (currentEngineData?.whatIfApplied 
+                            ? currentEngineData.projectedEOM 
                             : (snapshot.projected_eom_balance || 0))
                     }
                     label={
-                      !currentEngineData?.whatIfApplied && currentEngineData?.milestoneData 
+                      currentEngineData?.milestoneData 
                         ? currentEngineData.milestoneData.text 
                         : "יתרה צפויה לסוף החודש"
                     }
