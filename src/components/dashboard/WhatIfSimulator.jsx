@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HelpCircle, Calculator, DollarSign, TrendingDown, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { debounce } from 'lodash';
 
 export default function WhatIfSimulator({ onSimulate, currentBalance }) {
   const [expenseAmount, setExpenseAmount] = useState('');
@@ -17,11 +18,10 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
   const [isDesktop, setIsDesktop] = useState(false);
 
   // Initial State Logic
-  React.useEffect(() => {
+  useEffect(() => {
     const checkScreen = () => {
       const desktop = window.innerWidth >= 768;
       setIsDesktop(desktop);
-      // Open by default on mobile AND desktop as requested
       if (desktop || window.innerWidth < 768) {
         setIsOpen(true);
       }
@@ -32,32 +32,47 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
     return () => window.removeEventListener('resize', checkScreen);
   }, []);
 
-  const handleExpenseSimulate = () => {
-    const amount = parseFloat(expenseAmount) || 0;
-    if (amount > 0) {
-      onSimulate({ type: 'expense', amount, name: expenseName });
-      setIsActive(true);
-    }
-  };
+  // Stable debounce logic
+  const onSimulateRef = useRef(onSimulate);
+  useEffect(() => { onSimulateRef.current = onSimulate; }, [onSimulate]);
 
-  const handleIncomeSimulate = () => {
-    const amount = parseFloat(incomeAmount) || 0;
-    if (amount > 0) {
-      onSimulate({ type: 'income', amount, name: incomeName });
-      setIsActive(true);
+  const debouncedSimulate = useMemo(
+    () => debounce((data) => {
+        onSimulateRef.current(data);
+    }, 100), // Fast debounce for responsiveness
+    []
+  );
+
+  // Real-time update effect
+  useEffect(() => {
+    const isExpense = activeTab === 'expense';
+    const amount = parseFloat(isExpense ? expenseAmount : incomeAmount);
+    const name = isExpense ? expenseName : incomeName;
+
+    if (!isNaN(amount) && amount > 0) {
+        debouncedSimulate({ type: activeTab, amount, name });
+        setIsActive(true);
+    } else {
+        // Only reset if we were active to avoid initial reset loop
+        if (isActive || amount === 0) {
+            debouncedSimulate({ type: 'reset' });
+            setIsActive(false);
+        }
     }
-  };
+  }, [expenseAmount, expenseName, incomeAmount, incomeName, activeTab]);
+
+  // Cleanup
+  useEffect(() => {
+    return () => debouncedSimulate.cancel();
+  }, [debouncedSimulate]);
 
   const handleReset = () => {
     setExpenseAmount('');
     setExpenseName('');
     setIncomeAmount('');
     setIncomeName('');
-    onSimulate({ type: 'reset' });
-    setIsActive(false);
+    // onSimulate will be triggered by the effect when amounts clear
   };
-
-  const quickAmounts = [500, 1000, 2500, 5000];
 
   return (
     <motion.div
@@ -133,8 +148,8 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
             />
           </div>
           <Button
-            onClick={handleExpenseSimulate}
-            className="w-full bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white"
+            onClick={() => {}} // No-op, updates are real-time
+            className="w-full bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white cursor-default active:scale-100"
           >
             חשב השפעת הוצאה
           </Button>
@@ -163,8 +178,8 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
             />
           </div>
           <Button
-            onClick={handleIncomeSimulate}
-            className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white"
+            onClick={() => {}} // No-op, updates are real-time
+            className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white cursor-default active:scale-100"
           >
             חשב השפעת הכנסה
           </Button>
