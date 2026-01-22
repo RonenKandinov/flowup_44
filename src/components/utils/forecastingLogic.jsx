@@ -373,12 +373,12 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
     const adjustedCurrentBalance = currentBalance + simulatedIncome - simulatedExpense;
 
     // 2. Calculate adjusted PROJECTED balance (End of Month Forecast)
-    // CTO DECISION: The Safety Buffer (12%) accounts for UNCERTAINTY in the forecast trend.
-    // A What-If simulation is a CERTAIN event (user explicitly adds it).
-    // Therefore, we apply the buffer ONLY to the original trend, and subtract the simulation 1:1.
+    // We start from the raw forecast (Current + Trend) to ensure we don't lose the predictive trend
     const originalRawForecast = baselineForecast.rawScore || (baselineForecast.projectedEOM / 0.88);
-    const baseSafeForecast = originalRawForecast * 0.88; // Buffer the trend
-    const newSafeBalance = baseSafeForecast + simulatedIncome - simulatedExpense; // Apply precise simulation
+    const adjustedRawForecast = originalRawForecast + simulatedIncome - simulatedExpense;
+
+    // Apply Safety Buffer (0.88) to the new total
+    const newSafeBalance = adjustedRawForecast * 0.88;
 
     // Dynamic Risk Day Calculation (Based on immediate liquidity)
     let newRiskDay = null;
