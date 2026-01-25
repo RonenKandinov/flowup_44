@@ -183,10 +183,10 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
                         
                         {/* Header / Main Info */}
                         <div className="flex flex-col md:flex-row md:items-center md:flex-1 md:gap-6 min-w-0">
-                            <div className="flex justify-between items-start mb-2 md:mb-0 md:justify-start md:gap-3 md:w-[35%] md:shrink-0">
+                            <div className="flex justify-between items-start mb-2 md:mb-0 md:justify-start md:gap-3 md:w-[30%] md:shrink-0">
                                 <div className="flex items-start gap-2 max-w-[85%] md:max-w-full md:items-center min-w-0">
                                     <span className="opacity-90 mt-0.5 md:mt-0 shrink-0">{rec.icon}</span>
-                                    <span className={`font-bold text-xs md:text-sm leading-tight truncate ${rec.color === 'dark' ? 'text-red-100' : 'text-slate-200'}`}>
+                                    <span className={`font-bold text-xs md:text-sm leading-tight ${rec.color === 'dark' ? 'text-red-100' : 'text-slate-200'}`}>
                                         {rec.title}
                                     </span>
                                 </div>
@@ -195,7 +195,7 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
                             </div>
                             
                             {/* Description */}
-                            <p className="text-[11px] md:text-xs text-slate-400 leading-snug mb-2 md:mb-0 opacity-90 line-clamp-2 md:flex-1 min-w-0">
+                            <p className="text-[11px] md:text-xs text-slate-400 leading-snug mb-2 md:mb-0 opacity-90 md:flex-1 min-w-0">
                                 {rec.description}
                             </p>
                         </div>
@@ -213,13 +213,6 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
                                     <span className="text-[10px] text-slate-500 uppercase tracking-wider">חיסכון שנתי</span>
                                     <span className="font-bold text-emerald-400 text-xs md:text-sm">₪{rec.impact.toLocaleString('he-IL')}</span>
                                 </div>
-                                
-                                {rec.safeToSpend > 0 && (
-                                    <div className="flex flex-col items-start md:items-end border-r border-slate-700 pr-4 md:pr-0 md:border-r-0 md:border-l md:pl-4">
-                                        <span className="text-[10px] text-slate-500 uppercase tracking-wider">Safe to Spend</span>
-                                        <span className="font-bold text-indigo-400 text-xs md:text-sm">+₪{rec.safeToSpend} / יום</span>
-                                    </div>
-                                )}
                             </div>
                         </div>
 
