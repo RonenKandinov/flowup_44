@@ -133,8 +133,7 @@ const analyzeSmartInsights = (transactions) => {
     const groups = {};
     transactions.forEach(t => {
         if (t.debit > 0) {
-            // Fix: Replace with space instead of empty string to avoid "Word1-Word2" becoming "Word1Word2"
-            const key = t.description.replace(/[0-9\/\-\.]/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 25);
+            const key = t.description.replace(/[0-9\/\-\.]/g, '').trim().substring(0, 25);
             if (!groups[key]) groups[key] = [];
             groups[key].push(t);
         }
