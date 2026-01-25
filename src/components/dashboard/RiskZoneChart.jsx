@@ -175,60 +175,54 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
                 <div className="grid grid-cols-2 gap-3 px-4 py-4 md:grid-cols-1 md:gap-3">
                     {recommendations.map((rec, index) => {
                     return (
-                        <div key={index} className={`p-4 rounded-xl border transition-all flex flex-col gap-4 ${
+                        <div key={index} className={`p-3 rounded-xl border transition-all flex flex-col justify-between h-auto min-h-[120px] md:flex-row md:items-center md:gap-4 ${
                             rec.color === 'dark' 
-                                ? 'bg-slate-900/80 border-red-500/20 shadow-lg shadow-red-900/10' 
-                                : 'bg-slate-800/40 border-slate-700/40 hover:border-slate-600'
+                                ? 'bg-slate-900 border-red-900/30 shadow-sm shadow-red-900/10' 
+                                : 'bg-slate-800/60 border-slate-700/60 hover:border-slate-500 hover:bg-slate-800'
                         }`}>
                         
-                        {/* 1. Header Row: Icon + Title + Monthly Savings (Top Right) */}
-                        <div className="flex items-start justify-between gap-3">
-                            <div className="flex items-start gap-3 flex-1 min-w-0">
-                                <div className={`p-2 rounded-lg shrink-0 ${rec.color === 'dark' ? 'bg-red-500/10' : 'bg-slate-700/50'}`}>
-                                    {rec.icon}
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                    <h4 className={`font-bold text-sm md:text-base leading-tight truncate mb-1 ${rec.color === 'dark' ? 'text-red-50' : 'text-slate-100'}`}>
+                        {/* Header / Main Info */}
+                        <div className="flex flex-col md:flex-row md:items-center md:flex-1 md:gap-4">
+                            <div className="flex justify-between items-start mb-2 md:mb-0 md:justify-start md:gap-3 md:w-1/3">
+                                <div className="flex items-start gap-2 max-w-[85%] md:max-w-none md:items-center">
+                                    <span className="opacity-90 mt-0.5 md:mt-0 shrink-0">{rec.icon}</span>
+                                    <span className={`font-bold text-xs md:text-sm leading-tight line-clamp-2 ${rec.color === 'dark' ? 'text-red-100' : 'text-slate-200'}`}>
                                         {rec.title}
-                                    </h4>
-                                    <p className="text-xs text-slate-400 leading-relaxed line-clamp-2">
-                                        {rec.description}
-                                    </p>
+                                    </span>
                                 </div>
+                                {/* Price on Mobile Top Right */}
+                                <span className="md:hidden text-cyan-400 font-mono text-[10px] font-bold bg-cyan-950/30 px-1.5 py-0.5 rounded whitespace-nowrap">₪{rec.amount}</span>
                             </div>
-
-                            {/* Monthly Savings Badge */}
-                            <div className="text-right shrink-0">
-                                <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">חיסכון חודשי</div>
-                                <div className="font-mono text-sm md:text-base font-bold text-cyan-400 bg-cyan-950/30 px-2 py-1 rounded border border-cyan-500/20 inline-block">
-                                    ₪{rec.amount}
-                                </div>
-                            </div>
+                            
+                            {/* Description */}
+                            <p className="text-[11px] md:text-xs text-slate-400 leading-snug mb-2 md:mb-0 opacity-90 line-clamp-2 md:line-clamp-none md:flex-1">
+                                {rec.description}
+                            </p>
                         </div>
+                        
+                        {/* Footer / Stats */}
+                        <div className={`flex items-center justify-between border-t border-slate-700/50 pt-2 mt-auto md:border-t-0 md:pt-0 md:mt-0 md:w-auto md:gap-4 md:justify-end ${rec.color === 'dark' ? 'border-red-900/30' : ''}`}>
+                            {/* Price on Desktop (In flow) */}
+                            <div className="hidden md:flex flex-col items-end">
+                                <span className="text-[10px] text-slate-500 uppercase tracking-wider">חיסכון חודשי</span>
+                                <span className="text-cyan-400 font-mono text-xs font-bold">₪{rec.amount}</span>
+                            </div>
 
-                        {/* 2. Stats Divider */}
-                        <div className={`h-px w-full ${rec.color === 'dark' ? 'bg-red-500/10' : 'bg-slate-700/50'}`} />
-
-                        {/* 3. Bottom Stats Row */}
-                        <div className="flex items-center justify-between gap-4">
-                            {/* Annual Savings */}
-                            <div className="flex items-center gap-3">
-                                <div className="flex flex-col">
+                            <div className="flex items-center gap-4 md:gap-4">
+                                <div className="flex flex-col items-start md:items-end">
                                     <span className="text-[10px] text-slate-500 uppercase tracking-wider">חיסכון שנתי</span>
-                                    <span className="font-bold text-emerald-400 text-sm md:text-base">₪{rec.impact.toLocaleString('he-IL')}</span>
+                                    <span className="font-bold text-emerald-400 text-xs md:text-sm">₪{rec.impact.toLocaleString('he-IL')}</span>
                                 </div>
-                            </div>
-
-                            {/* Safe to Spend Impact */}
-                            {rec.safeToSpend > 0 && (
-                                <div className="flex items-center gap-2 pl-2 border-l border-slate-700/50">
-                                    <div className="flex flex-col items-end">
-                                        <span className="text-[10px] text-indigo-300 uppercase tracking-wider">Safe to Spend</span>
-                                        <span className="font-bold text-indigo-400 text-sm md:text-base dir-ltr">+₪{rec.safeToSpend} / day</span>
+                                
+                                {rec.safeToSpend > 0 && (
+                                    <div className="flex flex-col items-start md:items-end border-r border-slate-700 pr-4 md:pr-0 md:border-r-0 md:border-l md:pl-4">
+                                        <span className="text-[10px] text-slate-500 uppercase tracking-wider">Safe to Spend</span>
+                                        <span className="font-bold text-indigo-400 text-xs md:text-sm">+₪{rec.safeToSpend} / יום</span>
                                     </div>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
+
                         </div>
                     );
                     })}
