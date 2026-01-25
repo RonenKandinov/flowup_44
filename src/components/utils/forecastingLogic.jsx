@@ -19,83 +19,155 @@ const analyzeSmartInsights = (transactions) => {
     const insights = [];
     if (!transactions || transactions.length < 5) return insights;
 
+    const now = new Date();
+    // Use last 45 days to capture monthly cycles reliably
+    const recentTransactions = transactions.filter(t => (now - t.date) / (1000 * 60 * 60 * 24) <= 45);
+
+    // --- LIQUIDITY ANALYSIS AGENT LOGIC ---
+
+    // 1. Detect Duplicate Services (Conflicting Subscriptions)
+    const serviceCategories = {
+        'streaming_music': {
+            label: 'שירותי מוזיקה',
+            keywords: ['spotify', 'apple music', 'youtube music', 'deezer', 'tidal', 'applemusic']
+        },
+        'streaming_video': {
+            label: 'שירותי סטרימינג',
+            keywords: ['netflix', 'disney', 'amazon prime', 'amazon video', 'hbo', 'apple tv', 'partner tv', 'yes+', 'cellcom tv']
+        },
+        'cloud_storage': {
+            label: 'שירותי ענן',
+            keywords: ['google storage', 'icloud', 'dropbox', 'onedrive', 'google drive']
+        }
+    };
+
+    Object.entries(serviceCategories).forEach(([key, category]) => {
+        const foundServices = new Map();
+        
+        recentTransactions.forEach(t => {
+            if (t.debit > 0) {
+                const desc = t.description.toLowerCase();
+                const matched = category.keywords.find(k => desc.includes(k));
+                if (matched) {
+                    // Use matched keyword as key to group variations of same service
+                    if (!foundServices.has(matched)) {
+                        foundServices.set(matched, { total: 0, name: matched });
+                    }
+                    foundServices.get(matched).total += t.debit;
+                }
+            }
+        });
+
+        if (foundServices.size > 1) {
+            // Found duplicates!
+            const services = Array.from(foundServices.values());
+            const servicesNames = services.map(s => s.name).join(' + ');
+            const totalMonthly = services.reduce((sum, s) => sum + s.total, 0);
+            const potentialSavings = Math.round(totalMonthly * 0.5); // Assume 50% savings
+
+            insights.push({
+                type: 'money_leak',
+                title: `⚠️ כפילות ב${category.label}`,
+                description: `מצאנו חיובים ל-${servicesNames}. בחר אחד וחסוך כסף.`,
+                monthlySavings: potentialSavings,
+                annualImpact: potentialSavings * 12,
+                safeToSpendImpact: Math.round(potentialSavings / 30),
+                icon: 'Copy'
+            });
+        }
+    });
+
+    // 2. Detect Double Charges (Same Amount, Same Business, Same Month)
+    // Group by (Amount + Description First Word)
+    const doubleChargeCandidates = {};
+    
+    recentTransactions.forEach(t => {
+        if (t.debit > 0) {
+            // Key: First word of description + amount
+            const firstWord = t.description.trim().split(' ')[0];
+            const key = `${firstWord}_${t.debit}`;
+            
+            if (!doubleChargeCandidates[key]) doubleChargeCandidates[key] = [];
+            doubleChargeCandidates[key].push(t);
+        }
+    });
+
+    Object.values(doubleChargeCandidates).forEach(group => {
+        if (group.length > 1) {
+            // Check if they are in the same month
+            const byMonth = {};
+            group.forEach(t => {
+                const monthKey = `${t.date.getMonth()}-${t.date.getFullYear()}`;
+                if (!byMonth[monthKey]) byMonth[monthKey] = [];
+                byMonth[monthKey].push(t);
+            });
+
+            Object.entries(byMonth).forEach(([mKey, monthGroup]) => {
+                if (monthGroup.length > 1) {
+                    // Start checking strict description similarity
+                    const desc1 = monthGroup[0].description;
+                    const allSimilar = monthGroup.every(t => Math.abs(t.description.length - desc1.length) < 5); // Simple length check heuristic
+                    
+                    if (allSimilar) {
+                        const amount = monthGroup[0].debit;
+                        const waste = amount * (monthGroup.length - 1);
+                        insights.push({
+                            type: 'money_leak',
+                            title: '⚠️ חיוב כפול חשוד',
+                            description: `חיוב של ₪${amount} הופיע ${monthGroup.length} פעמים החודש ב-'${desc1}'.`,
+                            monthlySavings: waste,
+                            annualImpact: waste * 12,
+                            safeToSpendImpact: Math.round(waste / 30),
+                            icon: 'AlertOctagon'
+                        });
+                    }
+                }
+            });
+        }
+    });
+
+    // --- END AGENT LOGIC ---
+
+    // Keep existing logic for other insights (Anomaly Detection)
     // 1. Group by description for recurring payments
     const groups = {};
     transactions.forEach(t => {
         if (t.debit > 0) {
-            // Normalize description (remove dates, numbers at end)
             const key = t.description.replace(/[0-9\/\-\.]/g, '').trim().substring(0, 25);
             if (!groups[key]) groups[key] = [];
             groups[key].push(t);
         }
     });
 
-    // 2. Identify Anomalies & Recurring Bills
     const FIXED_KEYWORDS = ['מכבי', 'כללית', 'חברת חשמל', 'חשמל', 'ארנונה', 'מים', 'משכנתא', 'שכר דירה', 'גז', 'ועד בית'];
     
     Object.entries(groups).forEach(([name, items]) => {
-        // Check if this is a "Fixed/Hard" expense
         const isFixed = FIXED_KEYWORDS.some(kw => name.includes(kw));
-        
-        // If it's a fixed expense, we use it to stabilize the forecast (it's already part of the average)
-        // BUT we do NOT generate savings insights/alerts for it as requested.
         if (isFixed) return;
 
         if (items.length >= 2) {
             const amounts = items.map(i => i.debit);
             const avg = amounts.reduce((a, b) => a + b, 0) / amounts.length;
-            const lastAmount = amounts[0]; // Assuming sorted desc by date
+            const lastAmount = amounts[0]; 
 
-            // Alert: Bill increased by > 20%
             if (lastAmount > avg * 1.2 && lastAmount > 100) {
                 const percent = Math.round(((lastAmount/avg)-1)*100);
+                const diff = lastAmount - avg;
                 insights.push({
                     type: 'alert',
                     title: name,
-                    description: `חריגה של ${percent}% בחיוב האחרון (₪${lastAmount}). כדאי לבדוק את החשבונית.`,
-                    icon: 'TrendingUp',
-                    impact: lastAmount - avg
-                });
-            }
-
-            // Insight: Recurring Subscription Detected - Categorize for Actionable Advice
-            if (items.length >= 3 && amounts.every(a => Math.abs(a - avg) < 5)) {
-                let actionTitle = name;
-                let actionDesc = `חיוב קבוע של ₪${Math.round(avg)}. האם הוא הכרחי? שקול לבטל.`;
-                let iconType = 'CreditCard';
-
-                // Categorize for Specific Advice
-                const telecom = ['פרטנר', 'סלקום', 'פלאפון', 'הוט', 'בזק', 'גולן', '019', 'we4g'];
-                const insurance = ['הראל', 'מגדל', 'מנורה', 'הפניקס', 'כלל', 'איידי', 'ביטוח ישיר', 'AIG'];
-                const media = ['נטפליקס', 'ספוטיפיי', 'יוטיוב', 'דיסני', 'אפל', 'APPLE', 'NETFLIX', 'SPOTIFY'];
-                const bank = ['עמלה', 'דמי כרטיס', 'דמי ניהול'];
-
-                if (telecom.some(t => name.includes(t))) {
-                    actionDesc = `ניתן להוזיל עלויות. לקוחות משלמים בממוצע 30% פחות על חבילות תקשורת.`;
-                    iconType = 'Phone';
-                } else if (insurance.some(i => name.includes(i))) {
-                    actionDesc = `מומלץ לבדוק באתר 'הר הביטוח' אם קיים כפל ביטוחים מיותר.`;
-                    iconType = 'Shield';
-                } else if (media.some(m => name.toUpperCase().includes(m))) {
-                    actionDesc = `האם המנוי בשימוש יומיומי? שקול מעבר לחבילה משפחתית או ביטול.`;
-                    iconType = 'Tv';
-                } else if (bank.some(b => name.includes(b))) {
-                    actionDesc = `עמלה מיותרת. מומלץ להתקשר לבנק ולבקש פטור מלא.`;
-                    iconType = 'Wallet';
-                }
-
-                insights.push({
-                    type: 'info',
-                    title: actionTitle,
-                    description: actionDesc,
-                    icon: iconType,
-                    impact: avg * 12 // Annual cost
+                    description: `חריגה של ${percent}% בחיוב האחרון (₪${lastAmount}).`,
+                    monthlySavings: diff,
+                    annualImpact: diff * 12,
+                    safeToSpendImpact: Math.round(diff / 30),
+                    icon: 'TrendingUp'
                 });
             }
         }
     });
 
-    return insights.slice(0, 5); // Return top 5 insights
+    // Prioritize Money Leaks
+    return insights.sort((a, b) => (b.type === 'money_leak' ? 1 : -1)).slice(0, 5); 
 };
 
 export const processAndForecast = (csvText) => {

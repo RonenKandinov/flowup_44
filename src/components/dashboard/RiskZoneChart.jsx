@@ -25,12 +25,27 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
     // 1. Add AI Smart Insights first
     if (insights && insights.length > 0) {
       insights.forEach(insight => {
-        if (insight.type === 'alert') {
+        // --- Money Leak Agent Cards ---
+        if (insight.type === 'money_leak') {
+            recs.push({
+                title: insight.title,
+                amount: Math.round(insight.monthlySavings),
+                description: insight.description,
+                impact: Math.round(insight.annualImpact),
+                safeToSpend: insight.safeToSpendImpact,
+                icon: <AlertTriangle className="w-5 h-5 text-red-500" />,
+                color: 'dark', // Special dark card style
+                isAI: true,
+                isAgent: true
+            });
+        } 
+        else if (insight.type === 'alert') {
           recs.push({
             title: insight.title,
-            amount: Math.round(insight.impact),
+            amount: Math.round(insight.monthlySavings || insight.impact),
             description: insight.description,
-            impact: Math.round(insight.impact * 12),
+            impact: Math.round(insight.annualImpact || insight.impact * 12),
+            safeToSpend: insight.safeToSpendImpact,
             icon: <AlertTriangle className="w-5 h-5 text-red-400" />,
             color: 'red',
             isAI: true
@@ -45,9 +60,9 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
 
           recs.push({
             title: insight.title,
-            amount: Math.round(insight.impact / 12),
+            amount: Math.round((insight.impact && !insight.monthlySavings) ? insight.impact / 12 : insight.monthlySavings),
             description: insight.description,
-            impact: Math.round(insight.impact),
+            impact: Math.round(insight.annualImpact || insight.impact),
             icon: <IconComp className="w-5 h-5 text-purple-400" />,
             color: 'purple',
             isAI: true
@@ -160,33 +175,51 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
                 <div className="grid grid-cols-2 gap-3 px-4 py-4 md:grid-cols-1 md:gap-3">
                     {recommendations.map((rec, index) => {
                     return (
-                        <div key={index} className="p-3 bg-slate-800/60 rounded-xl border border-slate-700/60 hover:border-slate-500 hover:bg-slate-800 transition-all flex flex-col justify-between h-32 md:h-auto md:min-h-[100px] md:flex-row md:items-center md:gap-4">
+                        <div key={index} className={`p-3 rounded-xl border transition-all flex flex-col justify-between h-auto min-h-[120px] md:flex-row md:items-center md:gap-4 ${
+                            rec.color === 'dark' 
+                                ? 'bg-slate-900 border-red-900/30 shadow-sm shadow-red-900/10' 
+                                : 'bg-slate-800/60 border-slate-700/60 hover:border-slate-500 hover:bg-slate-800'
+                        }`}>
                         
                         {/* Header / Main Info */}
                         <div className="flex flex-col md:flex-row md:items-center md:flex-1 md:gap-4">
-                            <div className="flex justify-between items-start mb-1 md:mb-0 md:justify-start md:gap-3 md:w-1/3">
+                            <div className="flex justify-between items-start mb-2 md:mb-0 md:justify-start md:gap-3 md:w-1/3">
                                 <div className="flex items-start gap-2 max-w-[85%] md:max-w-none md:items-center">
                                     <span className="opacity-90 mt-0.5 md:mt-0 shrink-0">{rec.icon}</span>
-                                    <span className="font-bold text-slate-200 text-xs md:text-sm leading-tight line-clamp-2">{rec.title}</span>
+                                    <span className={`font-bold text-xs md:text-sm leading-tight line-clamp-2 ${rec.color === 'dark' ? 'text-red-100' : 'text-slate-200'}`}>
+                                        {rec.title}
+                                    </span>
                                 </div>
                                 {/* Price on Mobile Top Right */}
                                 <span className="md:hidden text-cyan-400 font-mono text-[10px] font-bold bg-cyan-950/30 px-1.5 py-0.5 rounded whitespace-nowrap">₪{rec.amount}</span>
                             </div>
                             
                             {/* Description */}
-                            <p className="text-[11px] md:text-xs text-slate-400 leading-snug mb-1 md:mb-0 opacity-90 line-clamp-2 md:line-clamp-none md:flex-1">
+                            <p className="text-[11px] md:text-xs text-slate-400 leading-snug mb-2 md:mb-0 opacity-90 line-clamp-2 md:line-clamp-none md:flex-1">
                                 {rec.description}
                             </p>
                         </div>
                         
                         {/* Footer / Stats */}
-                        <div className="flex items-center justify-between border-t border-slate-700/50 pt-1.5 mt-auto md:border-t-0 md:pt-0 md:mt-0 md:w-auto md:gap-6 md:justify-end">
+                        <div className={`flex items-center justify-between border-t border-slate-700/50 pt-2 mt-auto md:border-t-0 md:pt-0 md:mt-0 md:w-auto md:gap-4 md:justify-end ${rec.color === 'dark' ? 'border-red-900/30' : ''}`}>
                             {/* Price on Desktop (In flow) */}
-                            <span className="hidden md:block text-cyan-400 font-mono text-xs font-bold bg-cyan-950/30 px-2 py-1 rounded whitespace-nowrap">₪{rec.amount}</span>
+                            <div className="hidden md:flex flex-col items-end">
+                                <span className="text-[10px] text-slate-500 uppercase tracking-wider">חיסכון חודשי</span>
+                                <span className="text-cyan-400 font-mono text-xs font-bold">₪{rec.amount}</span>
+                            </div>
 
-                            <div className="flex items-center gap-1.5 md:flex-col md:items-end md:gap-0">
-                                <span className="text-[10px] text-slate-500 md:text-[10px] md:uppercase md:tracking-wider">חיסכון שנתי</span>
-                                <span className="font-bold text-emerald-400 text-xs md:text-sm">₪{rec.impact.toLocaleString('he-IL')}</span>
+                            <div className="flex items-center gap-4 md:gap-4">
+                                <div className="flex flex-col items-start md:items-end">
+                                    <span className="text-[10px] text-slate-500 uppercase tracking-wider">חיסכון שנתי</span>
+                                    <span className="font-bold text-emerald-400 text-xs md:text-sm">₪{rec.impact.toLocaleString('he-IL')}</span>
+                                </div>
+                                
+                                {rec.safeToSpend > 0 && (
+                                    <div className="flex flex-col items-start md:items-end border-r border-slate-700 pr-4 md:pr-0 md:border-r-0 md:border-l md:pl-4">
+                                        <span className="text-[10px] text-slate-500 uppercase tracking-wider">Safe to Spend</span>
+                                        <span className="font-bold text-indigo-400 text-xs md:text-sm">+₪{rec.safeToSpend} / יום</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
