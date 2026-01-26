@@ -412,6 +412,7 @@ export default function Dashboard() {
                         <FutureCake 
                             fixedExpenses={currentEngineData?.expenseAnalysis?.fixed || 0}
                             flexExpenses={currentEngineData?.expenseAnalysis?.flex || 0}
+                            taxRefundPotential={currentEngineData?.expenseAnalysis?.taxPotential || 0}
                         />
                     </motion.div>
                 </div>

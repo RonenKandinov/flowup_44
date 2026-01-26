@@ -540,7 +540,11 @@ export const processAndForecast = (csvText) => {
             graphPoints,
             smartInsights, // Return AI insights
             milestoneData, // Return Milestone-Only forecast
-            expenseAnalysis: { fixed: Math.round(fixedExpenses), flex: Math.round(flexExpenses) }, // Future Cake Data
+            expenseAnalysis: { 
+                fixed: Math.round(fixedExpenses), 
+                flex: Math.round(flexExpenses),
+                taxPotential: Math.round(smartInsights.filter(i => i.type === 'tax_refund').reduce((sum, i) => sum + (i.monthlySavings || 0), 0))
+            }, // Future Cake Data
             transactionCount: allTransactions.length,
             confidence: totalDays >= 30 ? "high" : totalDays >= 10 ? "medium" : "low"
             };
