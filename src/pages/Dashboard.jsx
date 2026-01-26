@@ -168,7 +168,13 @@ export default function Dashboard() {
           const BATCH_SIZE = 3;
           for (let i = 0; i < items.length; i += BATCH_SIZE) {
               await Promise.all(
-                  items.slice(i, i + BATCH_SIZE).map(item => entity.delete(item.id))
+                  items.slice(i, i + BATCH_SIZE).map(async (item) => {
+                      try {
+                          await entity.delete(item.id);
+                      } catch (error) {
+                          console.warn(`Failed to delete item ${item.id}`, error);
+                      }
+                  })
               );
           }
       };
@@ -200,7 +206,13 @@ export default function Dashboard() {
     const batchProcess = async (items, batchSize, processFn) => {
         for (let i = 0; i < items.length; i += batchSize) {
             const batch = items.slice(i, i + batchSize);
-            await Promise.all(batch.map(processFn));
+            await Promise.all(batch.map(async (item) => {
+                try {
+                    await processFn(item);
+                } catch (error) {
+                    console.warn('Batch process error', error);
+                }
+            }));
         }
     };
 
