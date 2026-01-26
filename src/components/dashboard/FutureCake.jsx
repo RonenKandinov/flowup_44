@@ -9,6 +9,10 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
   // 1. Preview Mode Logic (Empty State)
   const isPreviewMode = fixedExpenses === 0 && flexExpenses === 0;
 
+  const flexPercentage = !isPreviewMode && (fixedExpenses + flexExpenses > 0) 
+      ? Math.round((flexExpenses / (fixedExpenses + flexExpenses)) * 100) 
+      : 40;
+
   const chartData = isPreviewMode 
     ? [
         { name: 'עוגנים (קשיח)', value: 6000, color: '#FF85A1', icon: <Anchor className="w-4 h-4" />, type: 'fixed' },
@@ -135,8 +139,10 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
                              </>
                         ) : (
                             <>
-                                <span className="text-slate-500 text-[10px] uppercase">צפי חודשי</span>
-                                <span className="text-xl font-bold text-slate-200 font-mono">{currency}{totalExpenses.toLocaleString()}</span>
+                                <span className="text-slate-500 text-[10px] uppercase">תובנת AI</span>
+                                <span className="text-xs font-medium text-slate-300 px-2 leading-tight">
+                                    {flexPercentage > 40 ? "יש לך מרחב תמרון גדול החודש" : flexPercentage < 15 ? "זהירות: רוב התקציב נעול" : "תמהיל הוצאות מאוזן"}
+                                </span>
                             </>
                         )}
                     </motion.div>
