@@ -88,6 +88,7 @@ export default function Dashboard() {
     const latestDate = sortedTxns[0].date;
     const targetMonth = latestDate.getMonth();
     const targetYear = latestDate.getFullYear();
+    const monthName = latestDate.toLocaleDateString('he-IL', { month: 'long' });
 
     let income = 0;
     let expenses = 0;
@@ -107,7 +108,7 @@ export default function Dashboard() {
       }
     }
 
-    return { income, expenses };
+    return { income, expenses, monthName };
   }, [localData, transactions]);
 
   // Generate forecast data from transactions
@@ -183,13 +184,31 @@ export default function Dashboard() {
     // Save locally (encrypted)
     await Storage.save(data);
 
+    // Clear previous DB data to prevent duplication
+    const allSnapshots = await base44.entities.FinancialSnapshot.list();
+    const allTransactions = await base44.entities.Transaction.list();
+    await Promise.all([
+        ...allSnapshots.map(s => base44.entities.FinancialSnapshot.delete(s.id)),
+        ...allTransactions.map(t => base44.entities.Transaction.delete(t.id))
+    ]);
+
     // Save to database
     await saveSnapshotMutation.mutateAsync(data.snapshot);
     
-    // Save first 100 transactions
+    // Save first 100 transactions with correct 'amount' field
     if (data.transactions.length > 0) {
-      await saveTransactionsMutation.mutateAsync(data.transactions.slice(0, 100));
+      const dbTransactions = data.transactions.slice(0, 100).map(t => ({
+          date: t.date,
+          description: t.description,
+          amount: (t.credit || 0) - (t.debit || 0), // Convert to signed amount
+          category: (t.credit > 0) ? 'income' : 'expense'
+      }));
+      await saveTransactionsMutation.mutateAsync(dbTransactions);
     }
+    
+    // Invalidate queries to refresh view
+    queryClient.invalidateQueries(['financial-snapshots']);
+    queryClient.invalidateQueries(['transactions']);
   };
 
   const handleWhatIfSimulate = (scenario) => {
@@ -357,14 +376,14 @@ export default function Dashboard() {
                   delay={0}
                 />
                 <StatCard
-                  title="סך הכנסות"
+                  title={`סך הכנסות (${currentMonthStats?.monthName || 'חודשי'})`}
                   value={`₪${(currentMonthStats?.income ?? snapshot.total_income)?.toLocaleString('he-IL') || '0'}`}
                   icon={TrendingUp}
                   color="green"
                   delay={0.1}
                 />
                 <StatCard
-                  title="סך הוצאות"
+                  title={`סך הוצאות (${currentMonthStats?.monthName || 'חודשי'})`}
                   value={`₪${(currentMonthStats?.expenses ?? snapshot.total_expenses)?.toLocaleString('he-IL') || '0'}`}
                   icon={TrendingDown}
                   color="red"
