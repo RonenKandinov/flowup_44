@@ -218,10 +218,10 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
                                     </span>
                                 </div>
                                 {/* Price on Mobile Top Right */}
-                                <span className="md:hidden text-cyan-400 font-mono text-[10px] font-bold bg-cyan-950/30 px-1.5 py-0.5 rounded whitespace-nowrap">₪{rec.amount}</span>
-                            </div>
-                            
-                            {/* Description */}
+                                <span className={`md:hidden font-mono text-[10px] font-bold bg-cyan-950/30 px-1.5 py-0.5 rounded whitespace-nowrap ${rec.isTax ? 'text-[#FAFF00]' : 'text-cyan-400'}`}>₪{rec.amount}</span>
+                                </div>
+
+                                {/* Description */}
                             <p className="text-[11px] md:text-xs text-slate-400 leading-snug mb-2 md:mb-0 opacity-90 md:flex-1 min-w-0">
                                 {rec.description}
                             </p>
@@ -238,7 +238,7 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
                             <div className="flex items-center gap-4 md:gap-4">
                                 <div className="flex flex-col items-start md:items-end">
                                     <span className="text-[10px] text-slate-500 uppercase tracking-wider">חיסכון שנתי</span>
-                                    <span className="font-bold text-emerald-400 text-xs md:text-sm">₪{rec.impact.toLocaleString('he-IL')}</span>
+                                    <span className={`font-bold text-xs md:text-sm ${rec.isTax ? 'text-[#FAFF00]' : 'text-emerald-400'}`}>₪{rec.impact.toLocaleString('he-IL')}</span>
                                 </div>
                             </div>
                         </div>
