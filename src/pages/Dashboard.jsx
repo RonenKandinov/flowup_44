@@ -184,13 +184,19 @@ export default function Dashboard() {
     // Save locally (encrypted)
     await Storage.save(data);
 
-    // Clear previous DB data to prevent duplication
+    // Clear previous DB data to prevent duplication (Batched to avoid rate limits)
     const allSnapshots = await base44.entities.FinancialSnapshot.list();
     const allTransactions = await base44.entities.Transaction.list();
-    await Promise.all([
-        ...allSnapshots.map(s => base44.entities.FinancialSnapshot.delete(s.id)),
-        ...allTransactions.map(t => base44.entities.Transaction.delete(t.id))
-    ]);
+
+    const batchProcess = async (items, batchSize, processFn) => {
+        for (let i = 0; i < items.length; i += batchSize) {
+            const batch = items.slice(i, i + batchSize);
+            await Promise.all(batch.map(processFn));
+        }
+    };
+
+    await batchProcess(allSnapshots, 3, s => base44.entities.FinancialSnapshot.delete(s.id));
+    await batchProcess(allTransactions, 3, t => base44.entities.Transaction.delete(t.id));
 
     // Save to database
     await saveSnapshotMutation.mutateAsync(data.snapshot);
