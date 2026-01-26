@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Lightbulb, CreditCard, Wallet, AlertTriangle, Phone, Shield, Tv, ChevronDown, ChevronUp } from 'lucide-react';
+import { Lightbulb, CreditCard, Wallet, AlertTriangle, Phone, Shield, Tv, ChevronDown, ChevronUp, Copy, AlertOctagon, Landmark, Heart, GraduationCap } from 'lucide-react';
 
 const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -26,19 +26,41 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
     if (insights && insights.length > 0) {
       insights.forEach(insight => {
         // --- Money Leak Agent Cards ---
+        // --- Agent Cards (Money Leaks & Tax Compliance) ---
         if (insight.type === 'money_leak') {
+            // Map icon string to component
+            let IconComp = AlertTriangle;
+            if (insight.icon === 'Copy') IconComp = Copy;
+            if (insight.icon === 'AlertOctagon') IconComp = AlertOctagon;
+
             recs.push({
                 title: insight.title,
                 amount: Math.round(insight.monthlySavings),
                 description: insight.description,
                 impact: Math.round(insight.annualImpact),
-                safeToSpend: insight.safeToSpendImpact,
-                icon: <AlertTriangle className="w-5 h-5 text-red-500" />,
+                icon: <IconComp className="w-5 h-5 text-red-500" />,
                 color: 'dark', // Special dark card style
                 isAI: true,
                 isAgent: true
             });
-        } 
+        }
+        else if (insight.type === 'tax_refund') {
+            let IconComp = Landmark;
+            if (insight.icon === 'Heart') IconComp = Heart;
+            if (insight.icon === 'GraduationCap') IconComp = GraduationCap;
+
+            recs.push({
+                title: insight.title,
+                amount: Math.round(insight.monthlySavings),
+                description: insight.description,
+                impact: Math.round(insight.annualImpact),
+                icon: <IconComp className="w-5 h-5 text-amber-400" />, // Gold color for money found
+                color: 'dark', // Consistent Agent Style
+                isAI: true,
+                isAgent: true,
+                isTax: true // Flag for styling adjustments if needed
+            });
+        }
         else if (insight.type === 'alert') {
           recs.push({
             title: insight.title,
@@ -186,7 +208,7 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
                             <div className="flex justify-between items-start mb-2 md:mb-0 md:justify-start md:gap-3 md:w-[30%] md:shrink-0">
                                 <div className="flex items-start gap-2 max-w-[85%] md:max-w-full md:items-center min-w-0">
                                     <span className="opacity-90 mt-0.5 md:mt-0 shrink-0">{rec.icon}</span>
-                                    <span className={`font-bold text-xs md:text-sm leading-tight ${rec.color === 'dark' ? 'text-red-100' : 'text-slate-200'}`}>
+                                    <span className={`font-bold text-xs md:text-sm leading-tight ${rec.isTax ? 'text-amber-100' : rec.color === 'dark' ? 'text-red-100' : 'text-slate-200'}`}>
                                         {rec.title}
                                     </span>
                                 </div>

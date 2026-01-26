@@ -126,6 +126,78 @@ const analyzeSmartInsights = (transactions) => {
         }
     });
 
+    // 3. Compliance & Tax Agent (Hidden Money)
+    const taxPotential = {
+        pension: { total: 0, count: 0, keywords: ['פנסיה', 'הראל', 'מנורה', 'גמל', 'השתלמות', 'מיטב דש', 'אלטשולר', 'פניקס', 'מגדל'] },
+        donations: { total: 0, count: 0, keywords: ['תרומה', 'עמותה', 'אגודה', 'לתת', 'לב אחד', 'איחוד הצלה', 'עיגול לטובה', 'cancer', 'donation'] },
+        academic: { found: false, keywords: ['אוניברסיטה', 'מכללה', 'טכניון', 'שכר לימוד', 'בן גוריון', 'תל אביב', 'בר אילן', 'הפתוחה'] }
+    };
+
+    recentTransactions.forEach(t => {
+        if (t.debit > 0) {
+            const desc = t.description.toLowerCase();
+            
+            // Check Pension (Independent deposits often have tax benefits)
+            if (taxPotential.pension.keywords.some(k => desc.includes(k))) {
+                taxPotential.pension.total += t.debit;
+                taxPotential.pension.count++;
+            }
+            // Check Donations (Section 46)
+            if (taxPotential.donations.keywords.some(k => desc.includes(k))) {
+                taxPotential.donations.total += t.debit;
+                taxPotential.donations.count++;
+            }
+            // Check Academic
+            if (!taxPotential.academic.found && taxPotential.academic.keywords.some(k => desc.includes(k))) {
+                taxPotential.academic.found = true;
+            }
+        }
+    });
+
+    // Generate Pension Insight (35% Tax Credit estimation)
+    if (taxPotential.pension.total > 0) {
+        // Average monthly if multiple found in 45 days, otherwise take total as representative
+        const estimatedMonthly = taxPotential.pension.total / (taxPotential.pension.count > 1 ? 1.5 : 1); 
+        const taxCreditMonthly = estimatedMonthly * 0.35;
+        
+        insights.push({
+            type: 'tax_refund',
+            title: '💰 החזרי מס על פנסיה/גמל',
+            description: 'זיהיתי הפקדות המקנות זיכוי מס של 35%. בדוק זכאותך להחזר.',
+            monthlySavings: taxCreditMonthly,
+            annualImpact: taxCreditMonthly * 12,
+            icon: 'Landmark'
+        });
+    }
+
+    // Generate Donation Insight (35% Tax Refund)
+    if (taxPotential.donations.total > 0) {
+        const estimatedMonthly = taxPotential.donations.total;
+        const refundMonthly = estimatedMonthly * 0.35;
+
+        insights.push({
+            type: 'tax_refund',
+            title: '🤝 החזר מס על תרומות',
+            description: 'תרומות למוסדות מוכרים (סעיף 46) מזכות בהחזר של 35%.',
+            monthlySavings: refundMonthly,
+            annualImpact: refundMonthly * 12,
+            icon: 'Heart'
+        });
+    }
+
+    // Generate Academic Insight (Tax Points)
+    if (taxPotential.academic.found) {
+        const creditPointValueYear = 2904; // Approx value of 1 point
+        insights.push({
+            type: 'tax_refund',
+            title: '🎓 זיכוי מס אקדמי',
+            description: 'סטודנטים/בוגרים זכאים לנקודות זיכוי במס. אל תשכח לדרוש אותן.',
+            monthlySavings: creditPointValueYear / 12,
+            annualImpact: creditPointValueYear,
+            icon: 'GraduationCap'
+        });
+    }
+
     // --- END AGENT LOGIC ---
 
     // Keep existing logic for other insights (Anomaly Detection)
