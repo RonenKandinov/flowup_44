@@ -203,7 +203,7 @@
  * FlowUp v1.0.0
  * - Client-Side MVP
  * - Hybrid SES + Seasonal Average Engine
- * - 17% Standard Deviation Safety Buffer
+ * - 12% Standard Deviation Safety Buffer
  * - Multi-Bank Support (5 major Israeli banks)
  */
 
