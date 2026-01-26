@@ -391,14 +391,14 @@ export default function Dashboard() {
                   delay={0}
                 />
                 <StatCard
-                  title={`סך הכנסות (${currentMonthStats?.monthName || 'חודשי'})`}
+                  title="סך הכנסות"
                   value={`₪${(currentMonthStats?.income ?? snapshot.total_income)?.toLocaleString('he-IL') || '0'}`}
                   icon={TrendingUp}
                   color="green"
                   delay={0.1}
                 />
                 <StatCard
-                  title={`סך הוצאות (${currentMonthStats?.monthName || 'חודשי'})`}
+                  title="סך הוצאות"
                   value={`₪${(currentMonthStats?.expenses ?? snapshot.total_expenses)?.toLocaleString('he-IL') || '0'}`}
                   icon={TrendingDown}
                   color="red"
