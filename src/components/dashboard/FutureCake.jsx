@@ -8,15 +8,15 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
 
   // 1. Preview Mode Logic (Empty State)
   const isPreviewMode = fixedExpenses === 0 && flexExpenses === 0;
-  
+
   const chartData = isPreviewMode 
     ? [
-        { name: 'עוגנים (קבוע)', value: 6000, color: '#FF85A1', icon: <Anchor className="w-4 h-4" />, type: 'fixed' },
-        { name: 'פלקס (משתנה)', value: 4000, color: '#2DD4BF', icon: <Zap className="w-4 h-4" />, type: 'flex' }
+        { name: 'עוגנים (קשיח)', value: 6000, color: '#FF85A1', icon: <Anchor className="w-4 h-4" />, type: 'fixed' },
+        { name: 'פלקס (גמיש)', value: 4000, color: '#2DD4BF', icon: <Zap className="w-4 h-4" />, type: 'flex' }
       ]
     : [
-        { name: 'עוגנים (קבוע)', value: fixedExpenses, color: '#FF85A1', icon: <Anchor className="w-4 h-4" />, type: 'fixed' },
-        { name: 'פלקס (משתנה)', value: flexExpenses, color: '#2DD4BF', icon: <Zap className="w-4 h-4" />, type: 'flex' },
+        { name: 'עוגנים (קשיח)', value: fixedExpenses, color: '#FF85A1', icon: <Anchor className="w-4 h-4" />, type: 'fixed' },
+        { name: 'פלקס (גמיש)', value: flexExpenses, color: '#2DD4BF', icon: <Zap className="w-4 h-4" />, type: 'flex' },
       ];
 
   // 2. Add Tax Segment if exists (The Saderan Layer)
@@ -55,7 +55,10 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
     <div className="w-full bg-slate-800/40 rounded-xl border border-slate-700/40 p-5 relative overflow-hidden flex flex-col items-center justify-center min-h-[300px]" dir="rtl">
       
       <div className="absolute top-4 right-4 flex items-center gap-2">
-        <h3 className="text-white text-lg font-bold uppercase tracking-tight font-sans">Future Cake</h3>
+        <div className="flex flex-col items-end">
+          <h3 className="text-white text-lg font-bold uppercase tracking-tight font-sans">Future Cake</h3>
+          <span className="text-xs text-slate-400">תחזית הוצאות לחודש הבא</span>
+        </div>
         {isPreviewMode && <span className="text-[10px] bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full">Preview Mode</span>}
       </div>
 
@@ -132,7 +135,7 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
                              </>
                         ) : (
                             <>
-                                <span className="text-slate-500 text-[10px] uppercase">סה"כ הוצאות</span>
+                                <span className="text-slate-500 text-[10px] uppercase">צפי חודשי</span>
                                 <span className="text-xl font-bold text-slate-200 font-mono">{currency}{totalExpenses.toLocaleString()}</span>
                             </>
                         )}

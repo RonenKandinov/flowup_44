@@ -388,7 +388,19 @@ export const processAndForecast = (csvText) => {
                 tx.date.getFullYear() === targetYear
             );
 
-            const FIXED_KEYWORDS_LIST = ['מכבי', 'כללית', 'חברת חשמל', 'חשמל', 'ארנונה', 'מים', 'משכנתא', 'שכר דירה', 'גז', 'ועד בית', 'סלקום', 'פרטנר', 'פלאפון', 'הוט', 'בזק', 'נטפליקס', 'ספוטיפיי', 'YES', 'HOT'];
+            // Expanded list of Fixed Expenses (Anchors)
+            const FIXED_KEYWORDS_LIST = [
+                // Housing & Utilities
+                'משכנתא', 'שכר דירה', 'ועד בית', 'ארנונה', 'חשמל', 'חברת חשמל', 'מים', 'גז', 
+                // Telecom & Internet
+                'סלקום', 'פרטנר', 'פלאפון', 'הוט', 'בזק', '019', 'we4g', 'גולן', 'yes', 'fiber', 'תשתית', 'ספק',
+                // Insurance & Health
+                'מכבי', 'כללית', 'מאוחדת', 'לאומית', 'הראל', 'מגדל', 'מנורה', 'פניקס', 'כלל', 'ביטוח',
+                // Education
+                'גן', 'צהרון', 'מעון', 'בית ספר', 'שכר לימוד', 'חוג', 
+                // Subscriptions
+                'נטפליקס', 'ספוטיפיי', 'youtube', 'apple', 'google', 'icloud', 'microsoft'
+            ];
 
             for (const tx of monthTransactions) {
                 totalDebit += tx.debit;
@@ -396,10 +408,10 @@ export const processAndForecast = (csvText) => {
                 const dayKey = `${tx.date.getFullYear()}-${tx.date.getMonth()}-${tx.date.getDate()}`;
                 uniqueDaysInTargetMonth.add(dayKey);
 
-                // Calculate Fixed vs Flex
+                // Calculate Fixed (Anchors) vs Flex (Variable)
                 if (tx.debit > 0) {
-                    const desc = tx.description || '';
-                    const isFixed = FIXED_KEYWORDS_LIST.some(kw => desc.includes(kw));
+                    const desc = (tx.description || '').toLowerCase();
+                    const isFixed = FIXED_KEYWORDS_LIST.some(kw => desc.includes(kw.toLowerCase()));
                     if (isFixed) {
                         fixedExpenses += tx.debit;
                     } else {
