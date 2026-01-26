@@ -14,21 +14,21 @@ const toNum = (v) => parseFloat(v?.toString().replace(/[^\d.-]/g, '')) || 0;
 
 /**
  * Machine Learning Layer: Dynamic Anchor Detection
- * Identifies recurring "Fixed" expenses based on pattern recognition (Frequency + Consistency)
- * rather than just hardcoded keywords.
+ * Identifies recurring "Fixed" expenses based on strict pattern recognition:
+ * 1. Frequency: At least 3 occurrences
+ * 2. Date Consistency: Same day of month (+/- 2 days)
+ * 3. Amount Consistency: Exact same amount (+/- 1%)
  */
 const detectDynamicAnchors = (transactions) => {
     const dynamicAnchors = new Set();
-    // Need enough data to detect patterns
-    if (!transactions || transactions.length < 10) return dynamicAnchors;
+    if (!transactions || transactions.length < 3) return dynamicAnchors;
 
     const groups = {};
     
-    // 1. Group by normalized description (Merchant Name clustering)
+    // 1. Group by normalized description
     transactions.forEach(t => {
         if (t.debit <= 0) return;
         // Clean: remove dates, numbers, special chars to isolate the Merchant/Service Name
-        // e.g. "HOT MOBILE 054-123 10/01" -> "hot mobile"
         const cleanName = t.description.toLowerCase().replace(/[0-9\/\-\.\,:\*#]/g, ' ').trim().replace(/\s+/g, ' ');
         if (cleanName.length < 2) return;
 
@@ -36,21 +36,27 @@ const detectDynamicAnchors = (transactions) => {
         groups[cleanName].push(t);
     });
 
-    // 2. Feature Extraction & Classification
+    // 2. Strict Classification Rules
     Object.entries(groups).forEach(([name, txs]) => {
-        const uniqueMonths = new Set(txs.map(t => `${t.date.getFullYear()}-${t.date.getMonth()}`));
-        const monthSpan = uniqueMonths.size;
+        // Rule 1: Frequency >= 3
+        if (txs.length < 3) return;
+
+        // Rule 2: Amount Consistency (+/- 1%)
+        const amounts = txs.map(t => t.debit);
+        const avgAmount = amounts.reduce((a, b) => a + b, 0) / amounts.length;
+        const isAmountConsistent = amounts.every(a => Math.abs(a - avgAmount) <= (avgAmount * 0.01));
+
+        if (!isAmountConsistent) return;
+
+        // Rule 3: Date Consistency (+/- 2 days)
+        const days = txs.map(t => t.date.getDate());
+        const avgDay = days.reduce((a, b) => a + b, 0) / days.length;
         
-        // Criterion A: Persistence (Must appear in at least 2 different months)
-        if (monthSpan >= 2) {
-            const avgPerMonth = txs.length / monthSpan;
-            
-            // Criterion B: Frequency (Low frequency = Bill/Sub, High frequency = Lifestyle/Flex)
-            // If it appears ~1 time/month (avg <= 1.5), it's likely an Anchor (Rent, Insurance, Netflix).
-            // If it appears > 2 times/month, it's likely Flex (Groceries, Wolt, Cafe).
-            if (avgPerMonth <= 1.5) {
-                dynamicAnchors.add(name);
-            }
+        // Check deviation from average (handled as linear distance for simplicity)
+        const isDateConsistent = days.every(d => Math.abs(d - avgDay) <= 2);
+        
+        if (isDateConsistent) {
+            dynamicAnchors.add(name);
         }
     });
 
