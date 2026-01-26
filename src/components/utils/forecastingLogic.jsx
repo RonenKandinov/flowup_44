@@ -13,6 +13,51 @@ import { detectBankFromHeader, parseCSVRow } from './bankParsers';
 const toNum = (v) => parseFloat(v?.toString().replace(/[^\d.-]/g, '')) || 0;
 
 /**
+ * Machine Learning Layer: Dynamic Anchor Detection
+ * Identifies recurring "Fixed" expenses based on pattern recognition (Frequency + Consistency)
+ * rather than just hardcoded keywords.
+ */
+const detectDynamicAnchors = (transactions) => {
+    const dynamicAnchors = new Set();
+    // Need enough data to detect patterns
+    if (!transactions || transactions.length < 10) return dynamicAnchors;
+
+    const groups = {};
+    
+    // 1. Group by normalized description (Merchant Name clustering)
+    transactions.forEach(t => {
+        if (t.debit <= 0) return;
+        // Clean: remove dates, numbers, special chars to isolate the Merchant/Service Name
+        // e.g. "HOT MOBILE 054-123 10/01" -> "hot mobile"
+        const cleanName = t.description.toLowerCase().replace(/[0-9\/\-\.\,:\*#]/g, ' ').trim().replace(/\s+/g, ' ');
+        if (cleanName.length < 2) return;
+
+        if (!groups[cleanName]) groups[cleanName] = [];
+        groups[cleanName].push(t);
+    });
+
+    // 2. Feature Extraction & Classification
+    Object.entries(groups).forEach(([name, txs]) => {
+        const uniqueMonths = new Set(txs.map(t => `${t.date.getFullYear()}-${t.date.getMonth()}`));
+        const monthSpan = uniqueMonths.size;
+        
+        // Criterion A: Persistence (Must appear in at least 2 different months)
+        if (monthSpan >= 2) {
+            const avgPerMonth = txs.length / monthSpan;
+            
+            // Criterion B: Frequency (Low frequency = Bill/Sub, High frequency = Lifestyle/Flex)
+            // If it appears ~1 time/month (avg <= 1.5), it's likely an Anchor (Rent, Insurance, Netflix).
+            // If it appears > 2 times/month, it's likely Flex (Groceries, Wolt, Cafe).
+            if (avgPerMonth <= 1.5) {
+                dynamicAnchors.add(name);
+            }
+        }
+    });
+
+    return dynamicAnchors;
+};
+
+/**
  * Advanced AI Analysis Module (Local-First)
  */
 const analyzeSmartInsights = (transactions) => {
@@ -377,6 +422,9 @@ export const processAndForecast = (csvText) => {
         let fixedExpenses = 0;
         let flexExpenses = 0;
 
+        // [ML] Run Dynamic Anchor Detection on full history
+        const dynamicAnchors = detectDynamicAnchors(allTransactions);
+
         if (allTransactions.length > 0) {
             const mostRecentDate = allTransactions[0].date;
             const targetMonth = mostRecentDate.getMonth();
@@ -409,7 +457,13 @@ export const processAndForecast = (csvText) => {
                 // Calculate Fixed (Anchors) vs Flex (Variable)
                 if (tx.debit > 0) {
                     const desc = (tx.description || '').toLowerCase();
-                    const isFixed = FIXED_KEYWORDS_LIST.some(kw => desc.includes(kw.toLowerCase()));
+
+                    // Normalize description for ML lookup
+                    const cleanDesc = desc.replace(/[0-9\/\-\.\,:\*#]/g, ' ').trim().replace(/\s+/g, ' ');
+
+                    // Hybrid Check: Hardcoded Dictionary OR Dynamic ML Pattern
+                    const isFixed = FIXED_KEYWORDS_LIST.some(kw => desc.includes(kw.toLowerCase())) || dynamicAnchors.has(cleanDesc);
+
                     if (isFixed) {
                         fixedExpenses += tx.debit;
                     } else {
