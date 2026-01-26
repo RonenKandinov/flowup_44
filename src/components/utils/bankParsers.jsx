@@ -66,6 +66,7 @@ const findColumn = (headers, possibleNames) => {
 export const parsePoalimRow = (row, headers) => {
     const dateIdx = findColumn(headers, ['תאריך']);
     const descIdx = findColumn(headers, ['תיאור']);
+    const detailsIdx = findColumn(headers, ['פרטים']);
     const debitIdx = findColumn(headers, ['חובה', 'חיוב']);
     const creditIdx = findColumn(headers, ['זכות', 'זיכוי']);
     const balanceIdx = findColumn(headers, ['יתרה']);
@@ -75,6 +76,7 @@ export const parsePoalimRow = (row, headers) => {
     return {
         date: row[dateIdx]?.trim() || '',
         description: row[descIdx]?.trim() || row[descIdx + 1]?.trim() || 'תנועה',
+        details: detailsIdx !== -1 ? row[detailsIdx]?.trim() : '',
         debit: debitIdx !== -1 ? toNum(row[debitIdx]) : 0,
         credit: creditIdx !== -1 ? toNum(row[creditIdx]) : 0,
         balance: toNum(row[balanceIdx])

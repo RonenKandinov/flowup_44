@@ -192,7 +192,8 @@ const analyzeSmartInsights = (transactions) => {
 
     recentTransactions.forEach(t => {
         if (t.debit > 0) {
-            const desc = t.description.toLowerCase();
+            // Scan both Description and Details
+            const desc = (t.description + ' ' + (t.details || '')).toLowerCase();
             
             // Check Donations (Section 46)
             if (taxPotential.donations.keywords.some(k => desc.includes(k))) {
@@ -399,6 +400,7 @@ export const processAndForecast = (csvText) => {
                     allTransactions.push({
                         date: transactionDate,
                         description: parsed.description || 'תנועה',
+                        details: parsed.details || '', // Capture details from parser
                         debit: parsed.debit || 0,
                         credit: parsed.credit || 0,
                         balance: parsed.balance
