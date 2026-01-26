@@ -80,18 +80,26 @@ export default function SpeedometerGauge({
         {/* Background arc segments */}
         <defs>
           <linearGradient id="greenGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#22c55e" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#22c55e" stopOpacity="0.8" />
+            <stop offset="0%" stopColor="#00FF9C" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="#00FF9C" stopOpacity="1" />
           </linearGradient>
           <linearGradient id="yellowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#eab308" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#eab308" stopOpacity="0.8" />
+            <stop offset="0%" stopColor="#FAFF00" stopOpacity="0.6" />
+            <stop offset="50%" stopColor="#FAFF00" stopOpacity="1" />
+            <stop offset="100%" stopColor="#FAFF00" stopOpacity="0.6" />
           </linearGradient>
           <linearGradient id="redGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#ef4444" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#ef4444" stopOpacity="0.8" />
+            <stop offset="0%" stopColor="#FF1E1E" stopOpacity="1" />
+            <stop offset="100%" stopColor="#FF1E1E" stopOpacity="0.6" />
           </linearGradient>
-          <filter id="glow">
+          <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+            <feMerge>
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+          <filter id="needleGlow">
             <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
             <feMerge>
               <feMergeNode in="coloredBlur"/>
@@ -107,6 +115,7 @@ export default function SpeedometerGauge({
           stroke="url(#greenGrad)"
           strokeWidth="12"
           strokeLinecap="round"
+          filter="url(#glow)"
         />
         
         {/* Yellow segment */}
@@ -116,6 +125,7 @@ export default function SpeedometerGauge({
           stroke="url(#yellowGrad)"
           strokeWidth="12"
           strokeLinecap="round"
+          filter="url(#glow)"
         />
         
         {/* Red segment */}
@@ -125,6 +135,7 @@ export default function SpeedometerGauge({
           stroke="url(#redGrad)"
           strokeWidth="12"
           strokeLinecap="round"
+          filter="url(#glow)"
         />
         
         {/* Needle - Straight Classic Speedometer Style */}
@@ -144,6 +155,7 @@ export default function SpeedometerGauge({
               stroke="white"
               strokeWidth="3"
               strokeLinecap="round"
+              filter="url(#needleGlow)"
             />
             {/* Invisible Counterbalance (Downwards) - Forces center of rotation to be exactly 0,0 */}
             <line
