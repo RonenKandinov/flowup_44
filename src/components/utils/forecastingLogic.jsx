@@ -390,18 +390,14 @@ export const processAndForecast = (csvText) => {
 
             // Expanded list of Fixed Expenses (Anchors)
             const FIXED_KEYWORDS_LIST = [
-                // Housing & Utilities
-                'משכנתא', 'שכר דירה', 'ועד בית', 'ארנונה', 'חשמל', 'חברת חשמל', 'מים', 'גז', 'עירייה', 'מועצה',
-                // Government & Taxes
-                'ביטוח לאומי', 'מס הכנסה', 'דו"ח', 'משטרה', 'קנס', 'כביש 6', 'מנהרות הכרמל',
-                // Telecom & Internet
-                'סלקום', 'פרטנר', 'פלאפון', 'הוט', 'בזק', '019', 'we4g', 'גולן', 'yes', 'fiber', 'תשתית', 'ספק', 'internet', 'mobile',
-                // Insurance & Finance
-                'מכבי', 'כללית', 'מאוחדת', 'לאומית', 'הראל', 'מגדל', 'מנורה', 'פניקס', 'כלל', 'ביטוח', 'aig', 'עמלה', 'הלוואה', 'ריבית',
-                // Education
-                'גן', 'צהרון', 'מעון', 'בית ספר', 'שכר לימוד', 'חוג', 'אוניברסיטה', 'מכללה', 'טכניון',
-                // Subscriptions & Software
-                'נטפליקס', 'netflix', 'ספוטיפיי', 'spotify', 'youtube', 'apple', 'google', 'icloud', 'microsoft', 'adobe', 'zoom'
+                // Housing/Utilities
+                'שכר דירה', 'משכנתא', 'ארנונה', 'חשמל', 'מים', 'גז', 'ועד בית',
+                // Government/Fixed Bills
+                'ביטוח לאומי', 'מס הכנסה', 'דו"ח', 'כביש 6',
+                // Subscriptions
+                'נפליקס', 'netflix', 'ספוטיפיי', 'spotify', 'אינטרנט', 'סלולר', 'הוט', 'yes',
+                // Insurance/Finance
+                'ביטוח', 'הראל', 'הפניקס', 'מנורה', 'כלל', 'עמלת'
             ];
 
             for (const tx of monthTransactions) {

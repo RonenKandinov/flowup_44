@@ -141,7 +141,7 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
                             <>
                                 <span className="text-slate-500 text-[10px] uppercase">תובנת AI</span>
                                 <span className="text-xs font-medium text-slate-300 px-2 leading-tight">
-                                    {flexPercentage > 40 ? "יש לך מרחב תמרון גדול החודש" : flexPercentage < 15 ? "זהירות: רוב התקציב נעול" : "תמהיל הוצאות מאוזן"}
+                                    {flexPercentage > 40 ? "יש לך מרחב תמרון גדול החודש" : flexPercentage < 15 ? "זהירות: רוב התקציב נעול על הוצאות קבועות" : "תמהיל הוצאות מאוזן"}
                                 </span>
                             </>
                         )}
