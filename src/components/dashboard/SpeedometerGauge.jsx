@@ -32,24 +32,24 @@ export default function SpeedometerGauge({
       // 2000 -> -40, 4000 -> -60
       const ratio = Math.min((adjustedBalance - 2000) / 2000, 1);
       calculatedAngle = -40 + (ratio * -20);
-      calculatedColor = '#22c55e';
-      calculatedGlow = 'rgba(34, 197, 94, 0.5)';
+      calculatedColor = '#00FF9C';
+      calculatedGlow = 'rgba(0, 255, 156, 0.6)';
       statusColor = 'green';
     } else if (adjustedBalance >= 1500) {
       // Safe Entry (Start of Green to Middle)
       // 1500 -> -20, 2000 -> -40
       const ratio = (adjustedBalance - 1500) / 500;
       calculatedAngle = -20 + (ratio * -20);
-      calculatedColor = '#22c55e';
-      calculatedGlow = 'rgba(34, 197, 94, 0.5)';
+      calculatedColor = '#00FF9C';
+      calculatedGlow = 'rgba(0, 255, 156, 0.6)';
       statusColor = 'green';
     } else if (adjustedBalance >= 0) {
       // Caution (Yellow)
       // 0 -> +20, 1500 -> -20
       const ratio = adjustedBalance / 1500;
       calculatedAngle = 20 - (ratio * 40);
-      calculatedColor = '#eab308';
-      calculatedGlow = 'rgba(234, 179, 8, 0.5)';
+      calculatedColor = '#FAFF00';
+      calculatedGlow = 'rgba(250, 255, 0, 0.6)';
       statusColor = 'yellow';
     } else {
       // Danger (Red)
@@ -57,8 +57,8 @@ export default function SpeedometerGauge({
       const negativeVal = Math.abs(adjustedBalance);
       const ratio = Math.min(negativeVal / 2000, 1);
       calculatedAngle = 20 + (ratio * 40);
-      calculatedColor = '#ef4444';
-      calculatedGlow = 'rgba(239, 68, 68, 0.5)';
+      calculatedColor = '#FF1E1E';
+      calculatedGlow = 'rgba(255, 30, 30, 0.6)';
       statusColor = 'red';
     }
     
@@ -80,17 +80,17 @@ export default function SpeedometerGauge({
         {/* Background arc segments */}
         <defs>
           <linearGradient id="greenGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#00FF9C" stopOpacity="0.6" />
+            <stop offset="0%" stopColor="#00FF9C" stopOpacity="0.2" />
             <stop offset="100%" stopColor="#00FF9C" stopOpacity="1" />
           </linearGradient>
           <linearGradient id="yellowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#FAFF00" stopOpacity="0.6" />
+            <stop offset="0%" stopColor="#FAFF00" stopOpacity="0.2" />
             <stop offset="50%" stopColor="#FAFF00" stopOpacity="1" />
-            <stop offset="100%" stopColor="#FAFF00" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="#FAFF00" stopOpacity="0.2" />
           </linearGradient>
           <linearGradient id="redGrad" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor="#FF1E1E" stopOpacity="1" />
-            <stop offset="100%" stopColor="#FF1E1E" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="#FF1E1E" stopOpacity="0.2" />
           </linearGradient>
           <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
             <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
@@ -100,7 +100,7 @@ export default function SpeedometerGauge({
             </feMerge>
           </filter>
           <filter id="needleGlow">
-            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+            <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
             <feMerge>
               <feMergeNode in="coloredBlur"/>
               <feMergeNode in="SourceGraphic"/>
