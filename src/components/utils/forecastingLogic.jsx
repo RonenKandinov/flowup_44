@@ -374,6 +374,8 @@ export const processAndForecast = (csvText) => {
         // Reset totals for the "Display" variables to ensure they only contain the target month
         totalCredit = 0; 
         totalDebit = 0;
+        let fixedExpenses = 0;
+        let flexExpenses = 0;
 
         if (allTransactions.length > 0) {
             const mostRecentDate = allTransactions[0].date;
@@ -386,11 +388,24 @@ export const processAndForecast = (csvText) => {
                 tx.date.getFullYear() === targetYear
             );
 
+            const FIXED_KEYWORDS_LIST = ['מכבי', 'כללית', 'חברת חשמל', 'חשמל', 'ארנונה', 'מים', 'משכנתא', 'שכר דירה', 'גז', 'ועד בית', 'סלקום', 'פרטנר', 'פלאפון', 'הוט', 'בזק', 'נטפליקס', 'ספוטיפיי', 'YES', 'HOT'];
+
             for (const tx of monthTransactions) {
                 totalDebit += tx.debit;
                 totalCredit += tx.credit;
                 const dayKey = `${tx.date.getFullYear()}-${tx.date.getMonth()}-${tx.date.getDate()}`;
                 uniqueDaysInTargetMonth.add(dayKey);
+
+                // Calculate Fixed vs Flex
+                if (tx.debit > 0) {
+                    const desc = tx.description || '';
+                    const isFixed = FIXED_KEYWORDS_LIST.some(kw => desc.includes(kw));
+                    if (isFixed) {
+                        fixedExpenses += tx.debit;
+                    } else {
+                        flexExpenses += tx.debit;
+                    }
+                }
             }
         }
 
@@ -525,6 +540,7 @@ export const processAndForecast = (csvText) => {
             graphPoints,
             smartInsights, // Return AI insights
             milestoneData, // Return Milestone-Only forecast
+            expenseAnalysis: { fixed: Math.round(fixedExpenses), flex: Math.round(flexExpenses) }, // Future Cake Data
             transactionCount: allTransactions.length,
             confidence: totalDays >= 30 ? "high" : totalDays >= 10 ? "medium" : "low"
             };
