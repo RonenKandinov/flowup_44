@@ -11,6 +11,7 @@ import SpeedometerGauge from '../components/dashboard/SpeedometerGauge';
 import StatCard from '../components/dashboard/StatCard';
 import RiskZoneChart from '../components/dashboard/RiskZoneChart';
 import WhatIfSimulator from '../components/dashboard/WhatIfSimulator';
+import FutureCake from '../components/dashboard/FutureCake';
 import CSVUploader from '../components/upload/CSVUploader';
 import EmptyState from '../components/dashboard/EmptyState';
 import Disclaimer from '../components/dashboard/Disclaimer';
@@ -372,48 +373,66 @@ export default function Dashboard() {
               </div>
 
               {/* Main Dashboard Grid */}
-              <div className="grid md:grid-cols-2 gap-6">
-                {/* Speedometer - Optimized height for mobile */}
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-full min-h-[240px] md:min-h-[400px]"
-                >
-                  <SpeedometerGauge
-                    projectedBalance={
-                      currentEngineData?.milestoneData 
-                        ? currentEngineData.milestoneData.projection 
-                        : (currentEngineData?.whatIfApplied 
-                            ? currentEngineData.projectedEOM 
-                            : (snapshot.projected_eom_balance || 0))
-                    }
-                    label={
-                      currentEngineData?.milestoneData 
-                        ? currentEngineData.milestoneData.text 
-                        : "יתרה צפויה לסוף החודש"
-                    }
-                    riskLevel={currentEngineData?.riskStatus || snapshot.risk_level || 'green'}
-                    riskDay={currentEngineData?.riskDay || snapshot.risk_day}
-                    whatIfAmount={whatIfAmount}
-                    engineData={currentEngineData}
-                  />
-                </motion.div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Top Row: Visualizations */}
+                <div className="col-span-1 lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Speedometer */}
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-full min-h-[240px]"
+                    >
+                      <SpeedometerGauge
+                        projectedBalance={
+                          currentEngineData?.milestoneData 
+                            ? currentEngineData.milestoneData.projection 
+                            : (currentEngineData?.whatIfApplied 
+                                ? currentEngineData.projectedEOM 
+                                : (snapshot.projected_eom_balance || 0))
+                        }
+                        label={
+                          currentEngineData?.milestoneData 
+                            ? currentEngineData.milestoneData.text 
+                            : "יתרה צפויה לסוף החודש"
+                        }
+                        riskLevel={currentEngineData?.riskStatus || snapshot.risk_level || 'green'}
+                        riskDay={currentEngineData?.riskDay || snapshot.risk_day}
+                        whatIfAmount={whatIfAmount}
+                        engineData={currentEngineData}
+                      />
+                    </motion.div>
 
-                {/* Right Column */}
-                <div className="space-y-6">
-                  <RiskZoneChart
-                    data={forecastData}
-                    riskThreshold={0}
-                    criticalDate={snapshot.risk_day}
-                    projectedBalance={snapshot.projected_eom_balance}
-                    currentBalance={snapshot.current_balance}
-                    insights={currentEngineData?.smartInsights}
-                  />
-                  
-                  <WhatIfSimulator
-                    onSimulate={handleWhatIfSimulate}
-                    currentBalance={snapshot.current_balance}
-                  />
+                    {/* Future Cake */}
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: 0.1 }}
+                        className="relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-full min-h-[240px]"
+                    >
+                        <FutureCake 
+                            fixedExpenses={currentEngineData?.expenseAnalysis?.fixed || 0}
+                            flexExpenses={currentEngineData?.expenseAnalysis?.flex || 0}
+                        />
+                    </motion.div>
+                </div>
+
+                {/* Bottom Row: Insights & Simulation */}
+                <div className="col-span-1 lg:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <RiskZoneChart
+                        data={forecastData}
+                        riskThreshold={0}
+                        criticalDate={snapshot.risk_day}
+                        projectedBalance={snapshot.projected_eom_balance}
+                        currentBalance={snapshot.current_balance}
+                        insights={currentEngineData?.smartInsights}
+                    />
+                    
+                    <div className="h-full">
+                        <WhatIfSimulator
+                            onSimulate={handleWhatIfSimulate}
+                            currentBalance={snapshot.current_balance}
+                        />
+                    </div>
                 </div>
               </div>
 
