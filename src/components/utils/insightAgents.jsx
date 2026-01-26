@@ -277,30 +277,27 @@ export const runAgents = (transactions) => {
     if (!transactions || transactions.length < 5) return [];
 
     const now = new Date();
-    // Filter context (e.g. last 45 days) or pass full history?
-    // Agents might need different contexts. Fiscal needs history? 
-    // Usually Fiscal works on recent transactions to give immediate value, 
-    // but tax refunds are relevant even if from 2 months ago if not claimed.
-    // For now, let's stick to the 45-day window for consistency with previous logic,
-    // OR allow fiscal to look at everything? 
-    // The previous logic used `recentTransactions` (45 days) for everything.
-    // I'll keep it consistent for now.
     
-    const recentTransactions = transactions.filter(t => (now - t.date) / (1000 * 60 * 60 * 24) <= 45);
+    // תיקון 1: המרה בטוחה לתאריכים (מונע את ה-NaN)
+    const processedTransactions = transactions.map(t => ({
+        ...t,
+        date: t.date instanceof Date ? t.date : new Date(t.date)
+    }));
 
-    const fiscalInsights = runFiscalAgent(recentTransactions);
+    // תיקון 2: הסוכן הפיסקלי מקבל את כל ההיסטוריה (כי מס זה שנתי!)
+    const fiscalInsights = runFiscalAgent(processedTransactions);
+
+    // שאר הסוכנים (כפילויות וכו') ימשיכו להסתכל רק על 45 יום
+    const recentTransactions = processedTransactions.filter(t => 
+        (now - t.date) / (1000 * 60 * 60 * 24) <= 45
+    );
+
     const liquidityInsights = runLiquidityAgent(recentTransactions);
-    const subInsights = runSubscriptionAgent(transactions); // Subscription agent handles its own filtering inside
+    const subInsights = runSubscriptionAgent(processedTransactions);
 
-    // Combine and Sort
-    // Priority: Tax Refunds > Money Leaks > Alerts > Info
     const allInsights = [...fiscalInsights, ...liquidityInsights, ...subInsights];
 
-    return allInsights.sort((a, b) => {
-        const scoreA = getPriorityScore(a);
-        const scoreB = getPriorityScore(b);
-        return scoreB - scoreA;
-    }).slice(0, 5);
+    return allInsights.sort((a, b) => getPriorityScore(b) - getPriorityScore(a)).slice(0, 5);
 };
 
 const getPriorityScore = (insight) => {
