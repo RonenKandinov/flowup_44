@@ -159,13 +159,22 @@ export default function Dashboard() {
       // Clear local storage
       await Storage.clear();
 
-      const allSnapshots = await base44.entities.FinancialSnapshot.list();
-      const allTransactions = await base44.entities.Transaction.list();
-      
-      await Promise.all([
-        ...allSnapshots.map(s => base44.entities.FinancialSnapshot.delete(s.id)),
-        ...allTransactions.map(t => base44.entities.Transaction.delete(t.id))
-      ]);
+      // Fetch all data (up to reasonable limits) to delete
+      const allSnapshots = await base44.entities.FinancialSnapshot.list(null, 100);
+      const allTransactions = await base44.entities.Transaction.list(null, 500);
+
+      // Helper for batching deletions
+      const batchDelete = async (items, entity) => {
+          const BATCH_SIZE = 3;
+          for (let i = 0; i < items.length; i += BATCH_SIZE) {
+              await Promise.all(
+                  items.slice(i, i + BATCH_SIZE).map(item => entity.delete(item.id))
+              );
+          }
+      };
+
+      await batchDelete(allSnapshots, base44.entities.FinancialSnapshot);
+      await batchDelete(allTransactions, base44.entities.Transaction);
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['financial-snapshots']);
