@@ -59,11 +59,11 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
                 amount: Math.round(insight.monthlySavings),
                 description: insight.description,
                 impact: Math.round(insight.annualImpact),
-                icon: <IconComp className="w-5 h-5 text-amber-400" />, // Gold color for money found
-                color: 'dark', // Consistent Agent Style
+                icon: <IconComp className="w-5 h-5 text-[#FAFF00]" />, // Neon Yellow for Found Money
+                color: 'dark',
                 isAI: true,
                 isAgent: true,
-                isTax: true // Flag for styling adjustments if needed
+                isTax: true
             });
         }
         else if (insight.type === 'alert') {
@@ -213,7 +213,7 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
                             <div className="flex justify-between items-start mb-2 md:mb-0 md:justify-start md:gap-3 md:w-[30%] md:shrink-0">
                                 <div className="flex items-start gap-2 max-w-[85%] md:max-w-full md:items-center min-w-0">
                                     <span className="opacity-90 mt-0.5 md:mt-0 shrink-0">{rec.icon}</span>
-                                    <span className={`font-bold text-xs md:text-sm leading-tight ${rec.isTax ? 'text-amber-100' : rec.color === 'dark' ? 'text-red-100' : 'text-slate-200'}`}>
+                                    <span className={`font-bold text-xs md:text-sm leading-tight ${rec.isTax ? 'text-[#FAFF00]' : rec.color === 'dark' ? 'text-red-100' : 'text-slate-200'}`}>
                                         {rec.title}
                                     </span>
                                 </div>

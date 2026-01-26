@@ -177,27 +177,38 @@ const analyzeSmartInsights = (transactions) => {
         }
     });
 
-    // 3. Compliance & Tax Agent (Hidden Money)
+    // 3. Compliance & Tax Agent (Hidden Money) - Updated Logic
     const taxPotential = {
-        pension: { total: 0, count: 0, keywords: ['פנסיה', 'הראל', 'מנורה', 'גמל', 'השתלמות', 'מיטב דש', 'אלטשולר', 'פניקס', 'מגדל'] },
-        donations: { total: 0, count: 0, keywords: ['תרומה', 'עמותה', 'אגודה', 'לתת', 'לב אחד', 'איחוד הצלה', 'עיגול לטובה', 'cancer', 'donation'] },
+        // Updated Donations Keywords
+        donations: { total: 0, count: 0, keywords: ['עמותת', 'תרומה', 'סעיף 46', 'donation'] },
+        // New Insurance Logic
+        insurance: { total: 0, count: 0, providers: ['הראל', 'כלל', 'מגדל', 'מנורה', 'איילון', 'הפניקס'], terms: ['בטוח', 'פרמיה'] },
+        // Keeping Academic/Pension for completeness but prioritizing the requested logic
         academic: { found: false, keywords: ['אוניברסיטה', 'מכללה', 'טכניון', 'שכר לימוד', 'בן גוריון', 'תל אביב', 'בר אילן', 'הפתוחה'] }
     };
+
+    let totalAnnualRefund = 0;
+    let mainDescription = '';
 
     recentTransactions.forEach(t => {
         if (t.debit > 0) {
             const desc = t.description.toLowerCase();
             
-            // Check Pension (Independent deposits often have tax benefits)
-            if (taxPotential.pension.keywords.some(k => desc.includes(k))) {
-                taxPotential.pension.total += t.debit;
-                taxPotential.pension.count++;
-            }
             // Check Donations (Section 46)
             if (taxPotential.donations.keywords.some(k => desc.includes(k))) {
                 taxPotential.donations.total += t.debit;
                 taxPotential.donations.count++;
             }
+
+            // Check Insurance (Provider + Term)
+            const hasProvider = taxPotential.insurance.providers.some(p => desc.includes(p));
+            const hasTerm = taxPotential.insurance.terms.some(term => desc.includes(term));
+            
+            if (hasProvider && hasTerm) {
+                taxPotential.insurance.total += t.debit;
+                taxPotential.insurance.count++;
+            }
+
             // Check Academic
             if (!taxPotential.academic.found && taxPotential.academic.keywords.some(k => desc.includes(k))) {
                 taxPotential.academic.found = true;
@@ -205,47 +216,45 @@ const analyzeSmartInsights = (transactions) => {
         }
     });
 
-    // Generate Pension Insight (35% Tax Credit estimation)
-    if (taxPotential.pension.total > 0) {
-        // Average monthly if multiple found in 45 days, otherwise take total as representative
-        const estimatedMonthly = taxPotential.pension.total / (taxPotential.pension.count > 1 ? 1.5 : 1); 
-        const taxCreditMonthly = estimatedMonthly * 0.35;
-        
-        insights.push({
-            type: 'tax_refund',
-            title: '💰 החזרי מס על פנסיה/גמל',
-            description: 'זיהיתי הפקדות המקנות זיכוי מס של 35%. בדוק זכאותך להחזר.',
-            monthlySavings: taxCreditMonthly,
-            annualImpact: taxCreditMonthly * 12,
-            icon: 'Landmark'
-        });
-    }
+    // --- Calculate Refunds ---
 
-    // Generate Donation Insight (35% Tax Refund)
+    // 1. Donations: 35% of transaction amount
     if (taxPotential.donations.total > 0) {
-        const estimatedMonthly = taxPotential.donations.total;
-        const refundMonthly = estimatedMonthly * 0.35;
-
-        insights.push({
-            type: 'tax_refund',
-            title: '🤝 החזר מס על תרומות',
-            description: 'תרומות למוסדות מוכרים (סעיף 46) מזכות בהחזר של 35%.',
-            monthlySavings: refundMonthly,
-            annualImpact: refundMonthly * 12,
-            icon: 'Heart'
-        });
+        const donationRefund = taxPotential.donations.total * 0.35;
+        totalAnnualRefund += donationRefund;
+        
+        // Specific Insight Message for Donation
+        mainDescription = `זיהיתי תרומה בסך ${Math.round(taxPotential.donations.total)} ₪. שמירה על הקבלה תזכה אותך ב-${Math.round(donationRefund)} ₪ החזר מס מהמדינה.`;
     }
 
-    // Generate Academic Insight (Tax Points)
+    // 2. Insurance: 25% of annual premium (Monthly * 12 * 0.25)
+    if (taxPotential.insurance.total > 0) {
+        const monthlyPremium = taxPotential.insurance.total;
+        const annualPremium = monthlyPremium * 12;
+        const insuranceCredit = annualPremium * 0.25;
+        totalAnnualRefund += insuranceCredit;
+
+        if (!mainDescription) {
+            mainDescription = `זיהיתי תשלומי ביטוח המזכים ב-25% החזר מס (שווי שנתי משוער: ${Math.round(insuranceCredit)} ₪).`;
+        }
+    }
+
+    // 3. Academic (Add to total if found)
     if (taxPotential.academic.found) {
-        const creditPointValueYear = 2904; // Approx value of 1 point
+        const creditPointValueYear = 2904;
+        totalAnnualRefund += creditPointValueYear;
+        if (!mainDescription) mainDescription = 'סטודנטים/בוגרים זכאים לנקודות זיכוי במס.';
+    }
+
+    // Generate Single Aggregated Insight
+    if (totalAnnualRefund > 0) {
         insights.push({
             type: 'tax_refund',
-            title: '🎓 זיכוי מס אקדמי',
-            description: 'סטודנטים/בוגרים זכאים לנקודות זיכוי במס. אל תשכח לדרוש אותן.',
-            monthlySavings: creditPointValueYear / 12,
-            annualImpact: creditPointValueYear,
-            icon: 'GraduationCap'
+            title: '💰 החזרי מס והטבות',
+            description: mainDescription,
+            monthlySavings: totalAnnualRefund / 12,
+            annualImpact: totalAnnualRefund,
+            icon: 'Landmark'
         });
     }
 
