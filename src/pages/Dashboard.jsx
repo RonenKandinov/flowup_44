@@ -407,52 +407,49 @@ export default function Dashboard() {
               </div>
 
               {/* Main Dashboard Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Top Row: Visualizations */}
-                <div className="col-span-1 lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Speedometer */}
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-full min-h-[240px]"
-                    >
-                      <SpeedometerGauge
-                        projectedBalance={
-                          currentEngineData?.milestoneData 
-                            ? currentEngineData.milestoneData.projection 
-                            : (currentEngineData?.whatIfApplied 
-                                ? currentEngineData.projectedEOM 
-                                : (snapshot.projected_eom_balance || 0))
-                        }
-                        label={
-                          currentEngineData?.milestoneData 
-                            ? currentEngineData.milestoneData.text 
-                            : "יתרה צפויה לסוף החודש"
-                        }
-                        riskLevel={currentEngineData?.riskStatus || snapshot.risk_level || 'green'}
-                        riskDay={currentEngineData?.riskDay || snapshot.risk_day}
-                        whatIfAmount={whatIfAmount}
-                        engineData={currentEngineData}
-                      />
-                    </motion.div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+                {/* Speedometer: Mobile 1, Desktop 1 (Top Left) */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="order-1 lg:order-1 relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-auto min-h-[240px]"
+                >
+                  <SpeedometerGauge
+                    projectedBalance={
+                      currentEngineData?.milestoneData 
+                        ? currentEngineData.milestoneData.projection 
+                        : (currentEngineData?.whatIfApplied 
+                            ? currentEngineData.projectedEOM 
+                            : (snapshot.projected_eom_balance || 0))
+                    }
+                    label={
+                      currentEngineData?.milestoneData 
+                        ? currentEngineData.milestoneData.text 
+                        : "יתרה צפויה לסוף החודש"
+                    }
+                    riskLevel={currentEngineData?.riskStatus || snapshot.risk_level || 'green'}
+                    riskDay={currentEngineData?.riskDay || snapshot.risk_day}
+                    whatIfAmount={whatIfAmount}
+                    engineData={currentEngineData}
+                  />
+                </motion.div>
 
-                    {/* Future Cake */}
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 0.1 }}
-                        className="relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-full min-h-[240px]"
-                    >
-                        <FutureCake 
-                            fixedExpenses={currentEngineData?.expenseAnalysis?.fixed || 0}
-                            flexExpenses={currentEngineData?.expenseAnalysis?.flex || 0}
-                            taxRefundPotential={currentEngineData?.expenseAnalysis?.taxPotential || 0}
-                        />
-                    </motion.div>
-                </div>
+                {/* Future Cake: Mobile 4 (Last), Desktop 2 (Top Right) */}
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.1 }}
+                    className="order-4 lg:order-2 relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-auto"
+                >
+                    <FutureCake 
+                        fixedExpenses={currentEngineData?.expenseAnalysis?.fixed || 0}
+                        flexExpenses={currentEngineData?.expenseAnalysis?.flex || 0}
+                        taxRefundPotential={currentEngineData?.expenseAnalysis?.taxPotential || 0}
+                    />
+                </motion.div>
 
-                {/* Bottom Row: Insights & Simulation */}
-                <div className="col-span-1 lg:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* RiskZoneChart (Recommendations): Mobile 2, Desktop 3 (Bottom Left) */}
+                <div className="order-2 lg:order-3">
                     <RiskZoneChart
                         data={forecastData}
                         riskThreshold={0}
@@ -461,13 +458,14 @@ export default function Dashboard() {
                         currentBalance={snapshot.current_balance}
                         insights={currentEngineData?.smartInsights}
                     />
-                    
-                    <div className="h-full">
-                        <WhatIfSimulator
-                            onSimulate={handleWhatIfSimulate}
-                            currentBalance={snapshot.current_balance}
-                        />
-                    </div>
+                </div>
+                
+                {/* WhatIfSimulator: Mobile 3, Desktop 4 (Bottom Right) */}
+                <div className="order-3 lg:order-4 h-auto">
+                    <WhatIfSimulator
+                        onSimulate={handleWhatIfSimulate}
+                        currentBalance={snapshot.current_balance}
+                    />
                 </div>
               </div>
 
