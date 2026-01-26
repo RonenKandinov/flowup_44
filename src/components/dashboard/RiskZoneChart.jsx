@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Lightbulb, CreditCard, Wallet, AlertTriangle, Phone, Shield, Tv, ChevronDown, ChevronUp, Copy, AlertOctagon, Landmark, Heart, GraduationCap } from 'lucide-react';
+import { Lightbulb, CreditCard, Wallet, AlertTriangle, Phone, Shield, Tv, ChevronDown, ChevronUp, Copy, AlertOctagon, Landmark, Heart, GraduationCap, Dumbbell } from 'lucide-react';
 
 const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -32,6 +32,11 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
             let IconComp = AlertTriangle;
             if (insight.icon === 'Copy') IconComp = Copy;
             if (insight.icon === 'AlertOctagon') IconComp = AlertOctagon;
+            if (insight.icon === 'Phone') IconComp = Phone;
+            if (insight.icon === 'Shield') IconComp = Shield;
+            if (insight.icon === 'Tv') IconComp = Tv;
+            if (insight.icon === 'Wallet') IconComp = Wallet;
+            if (insight.icon === 'Dumbbell') IconComp = Dumbbell;
 
             recs.push({
                 title: insight.title,

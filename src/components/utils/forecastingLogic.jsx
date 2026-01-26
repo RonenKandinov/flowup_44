@@ -200,10 +200,10 @@ const analyzeSmartInsights = (transactions) => {
 
     // --- END AGENT LOGIC ---
 
-    // Keep existing logic for other insights (Anomaly Detection)
-    // 1. Group by description for recurring payments
+    // 4. Subscription Scanner Agent (Recurring Bills & Usage Check)
+    // Group by description for recurring payments
     const groups = {};
-    transactions.forEach(t => {
+    recentTransactions.forEach(t => { // Use recentTransactions (45 days) for relevance
         if (t.debit > 0) {
             const key = t.description.replace(/[0-9\/\-\.]/g, '').trim().substring(0, 25);
             if (!groups[key]) groups[key] = [];
@@ -217,23 +217,73 @@ const analyzeSmartInsights = (transactions) => {
         const isFixed = FIXED_KEYWORDS.some(kw => name.includes(kw));
         if (isFixed) return;
 
-        if (items.length >= 2) {
+        if (items.length >= 2) { // At least 2 occurrences to be "recurring"
             const amounts = items.map(i => i.debit);
             const avg = amounts.reduce((a, b) => a + b, 0) / amounts.length;
             const lastAmount = amounts[0]; 
 
+            // Sub-Agent: Anomaly Detector (Bill Jump)
             if (lastAmount > avg * 1.2 && lastAmount > 100) {
                 const percent = Math.round(((lastAmount/avg)-1)*100);
                 const diff = lastAmount - avg;
                 insights.push({
                     type: 'alert',
-                    title: name,
+                    title: `📈 קפיצה בחיוב: ${name}`,
                     description: `חריגה של ${percent}% בחיוב האחרון (₪${lastAmount}).`,
                     monthlySavings: diff,
                     annualImpact: diff * 12,
                     safeToSpendImpact: Math.round(diff / 30),
                     icon: 'TrendingUp'
                 });
+            }
+
+            // Sub-Agent: Subscription Optimizer
+            // Check for subscriptions that might be unused or optimizable
+            if (items.length >= 1 && amounts.every(a => Math.abs(a - avg) < 5)) {
+                let isSubscription = false;
+                let actionDesc = '';
+                let iconType = 'CreditCard';
+
+                // Categorize
+                const telecom = ['פרטנר', 'סלקום', 'פלאפון', 'הוט', 'בזק', 'גולן', '019', 'we4g'];
+                const insurance = ['הראל', 'מגדל', 'מנורה', 'הפניקס', 'כלל', 'איידי', 'ביטוח ישיר', 'AIG'];
+                const media = ['נטפליקס', 'ספוטיפיי', 'יוטיוב', 'דיסני', 'אפל', 'APPLE', 'NETFLIX', 'SPOTIFY', 'DISNEY', 'YOUTUBE'];
+                const bank = ['עמלה', 'דמי כרטיס', 'דמי ניהול'];
+                const gym = ['הולמס', 'ספייס', 'פרופיט', 'גו אקטיב', 'חדר כושר', 'סטודיו'];
+
+                if (telecom.some(t => name.includes(t))) {
+                    isSubscription = true;
+                    actionDesc = 'לקוחות משלמים בממוצע 30% פחות. שווה להתקשר למיקוח.';
+                    iconType = 'Phone';
+                } else if (insurance.some(i => name.includes(i))) {
+                    isSubscription = true;
+                    actionDesc = 'מומלץ לבדוק כפל ביטוחים באתר "הר הביטוח".';
+                    iconType = 'Shield';
+                } else if (media.some(m => name.toUpperCase().includes(m))) {
+                    isSubscription = true;
+                    actionDesc = 'האם המנוי בשימוש? שקול חבילה משפחתית או ביטול.';
+                    iconType = 'Tv';
+                } else if (bank.some(b => name.includes(b))) {
+                    isSubscription = true;
+                    actionDesc = 'עמלה שניתן לבטל בשיחת טלפון אחת לבנק.';
+                    iconType = 'Wallet';
+                } else if (gym.some(g => name.includes(g))) {
+                    isSubscription = true;
+                    actionDesc = 'האם אתם מתמידים? אם לא, חבל על התשלום הקבוע.';
+                    iconType = 'Dumbbell';
+                }
+
+                if (isSubscription) {
+                    insights.push({
+                        type: 'money_leak', // Upgrade to Agent Card (Dark)
+                        title: `🔔 מנוי חודשי: ${name}`,
+                        description: actionDesc,
+                        monthlySavings: avg,
+                        annualImpact: avg * 12,
+                        safeToSpendImpact: Math.round(avg / 30),
+                        icon: iconType
+                    });
+                }
             }
         }
     });
