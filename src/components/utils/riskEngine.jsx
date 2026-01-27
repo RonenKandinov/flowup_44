@@ -30,7 +30,6 @@ export const runMonteCarlo = (currentBalance, transactions, dynamicAnchors) => {
 
 function buildFinancialModel(transactions, dynamicAnchors) {
     if (!transactions || transactions.length < 10) {
-        // Fallback for insufficient data
         return {
             fixedSchedule: Array(32).fill(0),
             variableStats: { mean: -100, stdDev: 50 },
@@ -38,20 +37,28 @@ function buildFinancialModel(transactions, dynamicAnchors) {
         };
     }
 
+    // Robust Set conversion (Handle Array from JSON/Storage)
+    const anchorSet = dynamicAnchors instanceof Set ? dynamicAnchors : new Set(dynamicAnchors || []);
+
     const fixedEvents = {}; // Day -> [amounts]
     const txByDateStr = {};
     
     // 1. Classify Transactions & Populate Fixed/Variable Buckets
     transactions.forEach(t => {
-        const day = t.date.getDate();
-        const desc = t.description.toLowerCase();
+        // Robust Date handling
+        const dateObj = t.date instanceof Date ? t.date : new Date(t.date);
+        if (isNaN(dateObj.getTime())) return;
+
+        const day = dateObj.getDate();
+        const desc = (t.description || '').toLowerCase();
+        
         // Check Credit/Debit directly (DB format) or calculated amount
         const isIncome = (t.amount > 0) || (t.credit > 0);
-        const amount = t.amount !== undefined ? t.amount : (t.credit - t.debit);
+        let amount = t.amount !== undefined ? t.amount : ((t.credit || 0) - (t.debit || 0));
         
         // Identify Fixed (Income OR Expense)
         const cleanDesc = desc.replace(/[0-9\/\-\.\,:\*#]/g, ' ').trim().replace(/\s+/g, ' ');
-        const isAnchor = dynamicAnchors && dynamicAnchors.has(cleanDesc);
+        const isAnchor = anchorSet.has(cleanDesc);
         const isFixedKeyword = FIXED_KEYWORDS.some(k => desc.includes(k));
         
         // Fixed logic: Must be an anchor OR a known fixed keyword. 
