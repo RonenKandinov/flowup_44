@@ -397,21 +397,21 @@ export default function Dashboard() {
               <div className="grid grid-cols-3 gap-2 md:grid-cols-3 md:gap-4 mb-4 md:mb-6">
                 <StatCard
                   title="יתרה"
-                  value={`₪${snapshot.current_balance?.toLocaleString('he-IL')}`}
+                  value={`₪${Math.round(snapshot.current_balance || 0).toLocaleString('he-IL')}`}
                   icon={snapshot.current_balance < 0 ? TrendingDown : CheckCircle}
                   color={snapshot.current_balance < 0 ? 'red' : 'green'}
                   delay={0}
                 />
                 <StatCard
                   title="סך הכנסות"
-                  value={`₪${(currentMonthStats?.income ?? snapshot.total_income)?.toLocaleString('he-IL') || '0'}`}
+                  value={`₪${Math.round(currentMonthStats?.income ?? snapshot.total_income ?? 0).toLocaleString('he-IL')}`}
                   icon={TrendingUp}
                   color="green"
                   delay={0.1}
                 />
                 <StatCard
                   title="סך הוצאות"
-                  value={`₪${(currentMonthStats?.expenses ?? snapshot.total_expenses)?.toLocaleString('he-IL') || '0'}`}
+                  value={`₪${Math.round(currentMonthStats?.expenses ?? snapshot.total_expenses ?? 0).toLocaleString('he-IL')}`}
                   icon={TrendingDown}
                   color="red"
                   delay={0.2}
