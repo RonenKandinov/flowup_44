@@ -414,30 +414,36 @@ export const calculateWhatIf = (baselineForecast, scenario) => {
         };
     });
 
-    // Smart Risk Day Calculation
-    let newRiskDay = null;
-    let daysUntilRisk = null;
-
-    if (detectedRiskDate) {
-        newRiskDay = detectedRiskDate.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' });
-        const today = new Date();
-        const diffTime = Math.abs(detectedRiskDate - today);
-        daysUntilRisk = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-    }
-
-    // Determine risk status based on SAFE balance (after 0.88) AND actual curve
+    // Recalculate Risk using Monte Carlo (The Authority)
     let newRiskStatus = "green";
-    if (newSafeBalance < 0 || detectedRiskDate) {
-        newRiskStatus = "red";
-    } else if (newSafeBalance < 1500) {
-        newRiskStatus = "yellow";
+    let newRiskDay = null;
+    let newConfidence = baselineForecast.confidence;
+    let newReasoning = baselineForecast.riskReasoning;
+
+    // Use Monte Carlo if data is available (Robust Check)
+    if (baselineForecast.allTransactions) {
+        const riskAssessment = runMonteCarlo(
+            adjustedCurrentBalance, 
+            baselineForecast.allTransactions, 
+            baselineForecast.dynamicAnchors
+        );
+        newRiskStatus = riskAssessment.riskStatus;
+        newRiskDay = riskAssessment.riskDay;
+        newConfidence = riskAssessment.confidence;
+        newReasoning = riskAssessment.reasoning;
+    } else {
+        // Fallback: Graph-based detection (Legacy/Safe Mode)
+        if (newSafeBalance < 0 || detectedRiskDate) {
+            newRiskStatus = "red";
+            if (detectedRiskDate) {
+                 newRiskDay = detectedRiskDate.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
+            }
+        } else if (newSafeBalance < 1500) {
+            newRiskStatus = "yellow";
+        }
     }
 
-    let trend = null;
-    if (daysUntilRisk !== null && baselineForecast.riskDay) {
-         // Only calculate trend if both have risk days
-         // Simplified for now since primary goal is accuracy of the day itself
-    }
+    let trend = null; // Deprecated trend logic
 
     // Adjust Milestone Data if exists (ensure consistency with display)
     let newMilestoneData = null;
