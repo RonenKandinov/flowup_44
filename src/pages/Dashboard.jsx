@@ -398,8 +398,8 @@ export default function Dashboard() {
                 <StatCard
                   title="יתרה"
                   value={`₪${snapshot.current_balance?.toLocaleString('he-IL')}`}
-                  icon={snapshot.risk_level === 'green' ? CheckCircle : snapshot.risk_level === 'yellow' ? Wallet : TrendingDown}
-                  color={snapshot.risk_level === 'green' ? 'green' : snapshot.risk_level === 'yellow' ? 'yellow' : 'red'}
+                  icon={snapshot.current_balance < 0 ? TrendingDown : CheckCircle}
+                  color={snapshot.current_balance < 0 ? 'red' : 'green'}
                   delay={0}
                 />
                 <StatCard
