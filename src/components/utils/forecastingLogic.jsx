@@ -338,7 +338,9 @@ export const processAndForecast = (csvText) => {
             }, // Future Cake Data
             transactionCount: allTransactions.length,
             confidence: confidence || (totalDays >= 30 ? "high" : totalDays >= 10 ? "medium" : "low"),
-            riskReasoning: reasoning
+            riskReasoning: reasoning,
+            allTransactions: allTransactions, // For What-If Simulator
+            dynamicAnchors: Array.from(dynamicAnchors) // Convert Set to Array for Storage
             };
 
     } catch (error) {
