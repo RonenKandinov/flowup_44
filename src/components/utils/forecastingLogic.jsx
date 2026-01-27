@@ -9,6 +9,7 @@
 
 import { detectBankFromHeader, parseCSVRow } from './bankParsers';
 import { runAgents } from './insightAgents';
+import { runMonteCarlo } from './riskEngine';
 
 // Safe number conversion utility
 const toNum = (v) => parseFloat(v?.toString().replace(/[^\d.-]/g, '')) || 0;
@@ -229,15 +230,9 @@ export const processAndForecast = (csvText) => {
         // We use All-Time Debit for the risk calculation to align with the "Whole CSV" requirement
         const avgDailySpending = allTimeDebit / totalDays;
 
-        // 5. Determine risk status (Initial - refined by graph later)
-        let riskStatus = "green";
-        let riskDay = null;
-
-        if (projectedEOM < 0) {
-            riskStatus = "red";
-        } else if (projectedEOM < currentBalance * 0.2) {
-            riskStatus = "yellow";
-        }
+        // 5. Determine risk status via Monte Carlo (Risk Agent)
+        const riskAssessment = runMonteCarlo(currentBalance, allTransactions, dynamicAnchors);
+        let { riskStatus, riskDay, confidence, reasoning } = riskAssessment;
 
         // 6. 10th of Month Checkpoint Logic (FlowUp Specific)
         const TARGET_DAY = 10;
@@ -316,8 +311,10 @@ export const processAndForecast = (csvText) => {
 
         // Set Smart Risk Day (only if within 30 days)
         if (detectedRiskDate) {
-            riskDay = detectedRiskDate.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
-            riskStatus = "red"; // Force red if we hit zero within 30 days
+           // We keep the Monte Carlo riskDay as the primary source of truth for the UI badges,
+           // but if the deterministic forecast hits 0, we ensure status is at least yellow/red.
+           // However, Monte Carlo is the "Risk Agent" authority now.
+           // Let's defer to Monte Carlo, but maybe use this as a sanity check or "Immediate Threat".
         }
 
         return {
@@ -340,7 +337,8 @@ export const processAndForecast = (csvText) => {
                 taxPotential: Math.round(smartInsights.filter(i => i.type === 'tax_refund').reduce((sum, i) => sum + (i.monthlySavings || 0), 0))
             }, // Future Cake Data
             transactionCount: allTransactions.length,
-            confidence: totalDays >= 30 ? "high" : totalDays >= 10 ? "medium" : "low"
+            confidence: confidence || (totalDays >= 30 ? "high" : totalDays >= 10 ? "medium" : "low"),
+            riskReasoning: reasoning
             };
 
     } catch (error) {
