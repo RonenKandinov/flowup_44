@@ -5,7 +5,7 @@
  * Executes 100 independent future scenarios to determine probabilistic risk.
  */
 
-const SIMULATIONS = 100;
+const SIMULATIONS = 500; // High-precision mode
 const HORIZON = 45;
 const CONFIDENCE_THRESHOLD = 0.35; // 35% failure rate triggers Risk
 
@@ -191,14 +191,29 @@ function interpretResults(failures, currentBalance, avgMonthlySpend) {
         failures.sort((a,b) => a-b);
         const medianOffset = failures[Math.floor(failures.length / 2)];
         
-        const date = new Date();
-        date.setDate(date.getDate() + medianOffset);
-        riskDay = date.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
-        
-        reasoning = `זוהה סיכון ב-${Math.round(failureRate * 100)}% מהתרחישים (יום ${medianOffset})`;
+        // Grace Period: Suppress Risk Day if within 48h unless certainty is high (>90%)
+        // We assume >90% implies a deterministic/fixed constraint (like a pending bill)
+        if (medianOffset <= 2 && failureRate < 0.9) {
+            riskDay = null;
+            status = 'yellow'; // Downgrade to Monitor
+            reasoning = "תנודתיות גבוהה בטווח המיידי - במעקב";
+        } else {
+            const date = new Date();
+            date.setDate(date.getDate() + medianOffset);
+            riskDay = date.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
+            
+            // Reasoning logic
+            if (medianOffset < 10) {
+                 reasoning = "עומס חיובים צפוי בימים הקרובים";
+            } else if (medianOffset > 25) {
+                 reasoning = "תזרים שלילי לקראת סוף החודש";
+            } else {
+                 reasoning = "התחייבויות קבועות גבוהות לפני מועד המשכורת";
+            }
+        }
     } else if (failureRate > 0.1) {
         status = 'yellow'; // Monitor
-        reasoning = `סיכון נמוך (${Math.round(failureRate * 100)}%)`;
+        reasoning = "רמת הוצאות גבולית - נדרש מעקב";
     }
     
     return { riskStatus: status, confidence, riskDay, reasoning };
