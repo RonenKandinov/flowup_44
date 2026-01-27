@@ -59,8 +59,8 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
                 amount: Math.round(insight.monthlySavings),
                 description: insight.description,
                 impact: Math.round(insight.annualImpact),
-                icon: <IconComp className="w-5 h-5 text-[#FAFF00]" />, // Neon Yellow for Found Money
-                color: 'dark',
+                icon: <IconComp className="w-5 h-5 text-cyan-400" />, // Futuristic Cyan for Found Money
+                color: 'neon',
                 isAI: true,
                 isAgent: true,
                 isTax: true
@@ -205,7 +205,9 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
                         <div key={index} className={`p-3 rounded-xl border transition-all flex flex-col justify-between h-auto min-h-[120px] md:flex-row md:items-center md:gap-4 ${
                             rec.color === 'dark' 
                                 ? 'bg-slate-900 border-red-900/30 shadow-sm shadow-red-900/10' 
-                                : 'bg-slate-800/60 border-slate-700/60 hover:border-slate-500 hover:bg-slate-800'
+                                : rec.color === 'neon'
+                                    ? 'bg-slate-900 border-cyan-500/30 shadow-sm shadow-cyan-500/10'
+                                    : 'bg-slate-800/60 border-slate-700/60 hover:border-slate-500 hover:bg-slate-800'
                         }`}>
                         
                         {/* Header / Main Info */}
@@ -213,12 +215,12 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
                             <div className="flex justify-between items-start mb-2 md:mb-0 md:justify-start md:gap-3 md:w-[30%] md:shrink-0">
                                 <div className="flex items-start gap-2 max-w-[85%] md:max-w-full md:items-center min-w-0">
                                     <span className="opacity-90 mt-0.5 md:mt-0 shrink-0">{rec.icon}</span>
-                                    <span className={`font-bold text-xs md:text-sm leading-tight ${rec.isTax ? 'text-[#FAFF00]' : rec.color === 'dark' ? 'text-red-100' : 'text-slate-200'}`}>
+                                    <span className={`font-bold text-xs md:text-sm leading-tight ${rec.isTax ? 'text-cyan-400' : rec.color === 'dark' ? 'text-red-100' : 'text-slate-200'}`}>
                                         {rec.title}
                                     </span>
                                 </div>
                                 {/* Price on Mobile Top Right */}
-                                <span className={`md:hidden font-mono text-[10px] font-bold bg-cyan-950/30 px-1.5 py-0.5 rounded whitespace-nowrap ${rec.isTax ? 'text-[#FAFF00]' : 'text-cyan-400'}`}>₪{rec.amount}</span>
+                                <span className="md:hidden font-mono text-[10px] font-bold bg-cyan-950/30 px-1.5 py-0.5 rounded whitespace-nowrap text-cyan-400">₪{rec.amount}</span>
                                 </div>
 
                                 {/* Description */}
@@ -228,7 +230,7 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
                         </div>
                         
                         {/* Footer / Stats */}
-                        <div className={`flex items-center justify-between border-t border-slate-700/50 pt-2 mt-auto md:border-t-0 md:pt-0 md:mt-0 md:w-auto md:gap-4 md:justify-end ${rec.color === 'dark' ? 'border-red-900/30' : ''}`}>
+                        <div className={`flex items-center justify-between border-t border-slate-700/50 pt-2 mt-auto md:border-t-0 md:pt-0 md:mt-0 md:w-auto md:gap-4 md:justify-end ${rec.color === 'dark' ? 'border-red-900/30' : rec.color === 'neon' ? 'border-cyan-900/30' : ''}`}>
                             {/* Price on Desktop (In flow) */}
                             <div className="hidden md:flex flex-col items-end">
                                 <span className="text-[10px] text-slate-500 uppercase tracking-wider">חיסכון חודשי</span>
@@ -238,7 +240,7 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
                             <div className="flex items-center gap-4 md:gap-4">
                                 <div className="flex flex-col items-start md:items-end">
                                     <span className="text-[10px] text-slate-500 uppercase tracking-wider">חיסכון שנתי</span>
-                                    <span className={`font-bold text-xs md:text-sm ${rec.isTax ? 'text-[#FAFF00]' : 'text-emerald-400'}`}>₪{rec.impact.toLocaleString('he-IL')}</span>
+                                    <span className="font-bold text-xs md:text-sm text-emerald-400">₪{rec.impact.toLocaleString('he-IL')}</span>
                                 </div>
                             </div>
                         </div>
