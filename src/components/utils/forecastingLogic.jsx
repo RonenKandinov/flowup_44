@@ -74,29 +74,9 @@ export const processAndForecast = (csvText) => {
             return { error: "קובץ ריק או לא תקין" };
         }
 
-        // --- FlexParser Logic: Header Detector ---
-        let headerIndex = 0;
-        let bankType = 'unknown';
-        let headerLine = '';
-
-        // Scan first 20 lines to find a valid bank header (Skip metadata/junk lines)
-        for (let i = 0; i < Math.min(lines.length, 20); i++) {
-            const type = detectBankFromHeader(lines[i]);
-            if (type !== 'unknown') {
-                bankType = type;
-                headerLine = lines[i];
-                headerIndex = i;
-                break;
-            }
-        }
-
-        // Fallback: If no known bank header found, assume line 0 (Legacy support)
-        if (bankType === 'unknown') {
-            headerLine = lines[0];
-            headerIndex = 0;
-            bankType = detectBankFromHeader(headerLine);
-        }
-
+        // Improved Parsing using dedicated Bank Parsers
+        const headerLine = lines[0];
+        const bankType = detectBankFromHeader(headerLine);
         const delimiter = headerLine.includes(';') ? ';' : ',';
         const headers = headerLine.split(delimiter).map(h => h.trim().replace(/"/g, ''));
 
@@ -108,25 +88,12 @@ export const processAndForecast = (csvText) => {
         const uniqueDates = new Set();
         const allTransactions = [];
 
-        // Parse using robust parser (Start after header)
-        for (let i = headerIndex + 1; i < lines.length; i++) {
+        // Parse using robust parser
+        for (let i = 1; i < lines.length; i++) {
             const line = lines[i].trim();
             if (!line) continue;
             
-            // "Silent Skipper": Skip lines that don't start with a valid date-like character
-            // (Filters out footers, extra metadata, or bad rows)
-            const firstChar = line.charAt(0);
-            if (!/[\d"']/.test(firstChar)) continue; 
-
             const row = line.split(delimiter).map(v => v.trim().replace(/"/g, ''));
-
-            // Double check: Does the first column look like a date? (DD/MM/YYYY or YYYY-MM-DD)
-            // This allows us to skip junk lines even if they start with a number
-            const dateCol = row[0]; // Assuming date is usually first or near first. 
-            // Actually, we should rely on the parser to validate date, but the requirement is to skip *before* parsing errors occur.
-            // Let's check if the row has enough columns roughly?
-            if (row.length < 2) continue;
-
             const parsed = parseCSVRow(row, headers, bankType);
             
             if (parsed) {
