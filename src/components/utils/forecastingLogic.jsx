@@ -164,36 +164,15 @@ export const processAndForecast = (csvText) => {
             const parsed = parseCSVRow(row, headers, bankType);
             
             if (parsed) {
-                // Parse date (Enhanced for US/IL formats)
+                // Parse date
                 let transactionDate = null;
                 const dateStr = parsed.date;
-
                 if (dateStr.includes('/')) {
                     const parts = dateStr.split('/');
-                    let day = parseInt(parts[0]);
-                    let month = parseInt(parts[1]);
-                    const yearStr = parts[2];
-                    const year = yearStr.length === 4 ? parseInt(yearStr) : 2000 + parseInt(yearStr);
-
-                    // Heuristic: If Month > 12, assume MDY format (US) and swap
-                    if (month > 12 && day <= 12) {
-                         const temp = day;
-                         day = month;
-                         month = temp;
-                    }
-                    // Heuristic: If parsing from Excel often yields M/D/Y (e.g. 1/27/2026)
-                    // In the user's image, row 9 is 1/27/2026. 
-                    // If we blindly take 1 as day and 27 as month -> Error.
-                    // So if the "month" part is > 12, we treat it as day.
-                    if (month > 12) {
-                        // This case is impossible for a valid date unless it's actually the day
-                        // So we assume parts[1] is Day, and parts[0] is Month
-                         const temp = day;
-                         day = month;
-                         month = temp;
-                    }
-
-                    transactionDate = new Date(year, month - 1, day);
+                    const day = parseInt(parts[0]);
+                    const month = parseInt(parts[1]) - 1;
+                    const year = parts[2].length === 4 ? parseInt(parts[2]) : 2000 + parseInt(parts[2]);
+                    transactionDate = new Date(year, month, day);
                 } else {
                     transactionDate = new Date(dateStr);
                 }

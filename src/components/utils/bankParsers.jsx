@@ -5,14 +5,19 @@
  * Each bank has a dedicated parser due to different CSV structures
  */
 
-// פונקציית העזר שהופכת לכלוך למספרים
+// Safe number conversion utility
 const toNum = (v) => {
-  if (!v) return 0;
-  // מסיר הכל חוץ ממספרים, נקודה עשרונית ומינוס
-  let str = v.toString().replace(/[^\d.-]/g, '').trim();
-  // אם המינוס בסוף (נפוץ בבנקים), מעביר אותו להתחלה
-  if (str.endsWith('-')) str = '-' + str.slice(0, -1);
-  return parseFloat(str) || 0;
+    if (!v) return 0;
+    // שלב 1: הופך למחרוזת ומנקה רווחים ותווי מטבע
+    let str = v.toString().replace(/[^\d.-]/g, '').trim();
+    
+    // שלב 2: אם המינוס בסוף (קורה בייצוא בנקים מסוימים), תעביר אותו להתחלה
+    if (str.endsWith('-')) {
+        str = '-' + str.slice(0, -1);
+    }
+    
+    const num = parseFloat(str);
+    return isNaN(num) ? 0 : num;
 };
 
 /**
@@ -48,10 +53,6 @@ export const detectBankFromHeader = (headerRow) => {
     }
     
     // Generic/Universal Check (for "xlsx-CSV" or unknown formats)
-    if (header.includes('זכות/חובה')) {
-        return 'israeli_general';
-    }
-
     if ((header.includes('date') || header.includes('תאריך')) && 
         (header.includes('balance') || header.includes('יתרה') || header.includes('amount') || header.includes('סכום') || header.includes('חובה'))) {
         return 'universal';
@@ -74,20 +75,27 @@ const findColumn = (headers, possibleNames) => {
 };
 
 /**
- * פרסר פועלים (ארתור והקובץ שלך)
+ * Parse Bank Hapoalim CSV
+ * Format: תאריך, תיאור הפעולה, פרטים, חשבון, אסמכתא, תאריך ערך, חובה, זכות, יתרה
  */
 export const parsePoalimRow = (row, headers) => {
-  const dateRegex = /^\d{4}-\d{2}-\d{2}/;
-  if (!row[0] || !dateRegex.test(row[0].trim())) return null;
-
-  // בפועלים העמודות קבועות בדרך כלל: חובה (4), זכות (5), יתרה (6)
-  return {
-    date: row[0].trim(),
-    description: row[1]?.trim() || 'תנועה',
-    debit: toNum(row[4]),
-    credit: toNum(row[5]),
-    balance: toNum(row[6])
-  };
+    const dateIdx = findColumn(headers, ['תאריך']);
+    const descIdx = findColumn(headers, ['תיאור']);
+    const detailsIdx = findColumn(headers, ['פרטים']);
+    const debitIdx = findColumn(headers, ['חובה', 'חיוב']);
+    const creditIdx = findColumn(headers, ['זכות', 'זיכוי']);
+    const balanceIdx = findColumn(headers, ['יתרה']);
+    
+    if (dateIdx === -1 || balanceIdx === -1) return null;
+    
+    return {
+        date: row[dateIdx]?.trim() || '',
+        description: row[descIdx]?.trim() || row[descIdx + 1]?.trim() || 'תנועה',
+        details: detailsIdx !== -1 ? row[detailsIdx]?.trim() : '',
+        debit: debitIdx !== -1 ? toNum(row[debitIdx]) : 0,
+        credit: creditIdx !== -1 ? toNum(row[creditIdx]) : 0,
+        balance: toNum(row[balanceIdx])
+    };
 };
 
 /**
@@ -112,24 +120,23 @@ export const parseLeumiRow = (row, headers) => {
     };
 };
 
-/**
- * פרסר דיסקונט (איזיק וז'נטה) - הפיצוח
- */
 export const parseDiscountRow = (row, headers) => {
-  const dateRegex = /^\d{4}-\d{2}-\d{2}/;
-  if (!row[0] || !dateRegex.test(row[0].trim())) return null;
+    // דילוג על שורות לא רלוונטיות
+    const dateRegex = /^\d{4}-\d{2}-\d{2}/;
+    if (!row[0] || !dateRegex.test(row[0].trim())) return null;
 
-  // בדיסקונט: עמודה 3 זה תיאור, עמודה 4 זה זכות/חובה
-  const amount = toNum(row[3]);
+    // בדיסקונט: עמודה 3 זה התיאור, עמודה 4 זה הכסף (זכות/חובה)
+    const rawAmount = row[3]; 
+    const amount = toNum(rawAmount);
 
-  return {
-    date: row[0].trim(),
-    description: row[2]?.trim() || 'תנועה',
-    // כאן התיקון: מינוס הופך ל-debit, פלוס ל-credit
-    debit: amount < 0 ? Math.abs(amount) : 0,
-    credit: amount > 0 ? amount : 0,
-    balance: toNum(row[4])
-  };
+    return {
+        date: row[0].trim(),
+        description: row[2]?.trim() || 'תנועה',
+        // כאן התיקון: אם המספר שלילי (כמו ה-1573.45- של כאל), זו הוצאה
+        debit: amount < 0 ? Math.abs(amount) : 0,
+        credit: amount > 0 ? amount : 0,
+        balance: toNum(row[4]) // יתרה בעמודה 5
+    };
 };
 
 /**
@@ -216,39 +223,6 @@ export const parseUniversalRow = (row, headers) => {
 };
 
 /**
- * Parse General Israeli Bank CSV (Yahav/Otzar/General)
- * Format: Date, Value Date, Description, Amount (Zchut/Hova), Balance
- * Columns: A=Date, B=ValueDate, C=Description, D=Amount, E=Balance
- */
-export const parseIsraeliGeneralRow = (row, headers) => {
-    // Try to find columns dynamically first
-    const dateIdx = findColumn(headers, ['תאריך']);
-    const descIdx = findColumn(headers, ['תיאור', 'פרטים']);
-    const amountIdx = findColumn(headers, ['זכות/חובה', 'סכום']);
-    const balanceIdx = findColumn(headers, ['יתרה']);
-
-    // Fallback to fixed indices if detection fails (based on user image)
-    // Image: A=Date(0), C=Desc(2), D=Amount(3), E=Balance(4)
-    const finalDateIdx = dateIdx !== -1 ? dateIdx : 0;
-    const finalDescIdx = descIdx !== -1 ? descIdx : 2;
-    const finalAmountIdx = amountIdx !== -1 ? amountIdx : 3;
-    const finalBalanceIdx = balanceIdx !== -1 ? balanceIdx : 4;
-
-    const dateStr = row[finalDateIdx]?.trim();
-    if (!dateStr || dateStr.length < 5) return null;
-
-    const amount = toNum(row[finalAmountIdx]);
-
-    return {
-        date: dateStr,
-        description: row[finalDescIdx]?.trim() || 'תנועה',
-        debit: amount < 0 ? Math.abs(amount) : 0,
-        credit: amount > 0 ? amount : 0,
-        balance: toNum(row[finalBalanceIdx])
-    };
-};
-
-/**
  * Universal CSV Parser Router
  * Detects bank and routes to appropriate parser
  */
@@ -264,11 +238,10 @@ export const parseCSVRow = (row, headers, bankType) => {
             return parseMizrahiRow(row, headers);
         case 'beinleumi':
             return parseBeinleumiRow(row, headers);
-        case 'israeli_general':
-            return parseIsraeliGeneralRow(row, headers);
         case 'universal':
             return parseUniversalRow(row, headers);
         default:
+            // Fallback to universal if unknown
             return parseUniversalRow(row, headers);
     }
 };
