@@ -16,34 +16,46 @@ const toNum = (v) => {
  * Detect bank type from CSV header row
  */
 export const detectBankFromHeader = (headerRow) => {
+    // Legacy support (mostly will fail with garbage headers)
     const header = headerRow.toLowerCase();
     
-    // Bank Hapoalim - תאריך, תיאור הפעולה, חובה, זכות, יתרה
-    if (header.includes('תיאור הפעולה') || header.includes('תאריך ערך')) {
+    if (header.includes('יתרה בש"ח') || header.includes('הפעולה') || header.includes('תיאור הפעולה') || header.includes('תאריך ערך')) {
         return 'hapoalim';
     }
-    
-    // Bank Leumi - Date, Details, Debit, Credit, Balance
+    if (header.includes('זכות/חובה') || header.includes('תיאור התנועה') || (header.includes('פרטים') && header.includes('חשבון'))) {
+        return 'discount';
+    }
+
+    // Keep existing detections as fallback
     if (header.includes('תיאור') && header.includes('חיוב') && header.includes('זיכוי')) {
         return 'leumi';
     }
-    
-    // Discount Bank - תאריך פעולה, פרטים, חובה/זכות, יתרה
-    if (header.includes('פרטים') && header.includes('חשבון')) {
-        return 'discount';
-    }
-    
-    // Mizrahi-Tefahot - תאריך, סוג פעולה, משיכה, הפקדה
     if (header.includes('סוג פעולה') || header.includes('משיכה') || header.includes('הפקדה')) {
         return 'mizrahi';
     }
-    
-    // First International Bank - Date, Description, Amount, Balance
     if (header.includes('amount') || header.includes('סכום')) {
         return 'beinleumi';
     }
     
     return 'unknown';
+};
+
+/**
+ * 3. לוגיקת הזיהוי האוטומטי (להוסיף ב-Parser Manager)
+ * Supports garbage line skipping by concatenating first few lines
+ */
+export const detectBank = (firstLine, secondLine, headers) => {
+    const combined = (firstLine + (secondLine || '') + (headers || '')).toLowerCase();
+    
+    if (combined.includes('יתרה בש"ח') || combined.includes('הפעולה')) {
+        return 'hapoalim'; // Normalized to internal key
+    }
+    if (combined.includes('זכות/חובה') || combined.includes('תיאור התנועה')) {
+        return 'discount'; // Normalized to internal key
+    }
+    
+    // Fallback to standard detection if no special match
+    return detectBankFromHeader(combined);
 };
 
 /**
@@ -64,21 +76,17 @@ const findColumn = (headers, possibleNames) => {
  * Format: תאריך, תיאור הפעולה, פרטים, חשבון, אסמכתא, תאריך ערך, חובה, זכות, יתרה
  */
 export const parsePoalimRow = (row, headers) => {
-    // בדיקה אם השורה בכלל מכילה תאריך (מונע קריסה על שורות הכותרת של הבנק)
+    // דילוג על שורות כותרת - מחפש תבנית של תאריך YYYY-MM-DD
     const dateRegex = /^\d{4}-\d{2}-\d{2}/;
-    
-    const dateStr = row[0]?.trim();
-    
-    if (!dateStr || !dateRegex.test(dateStr)) return null;
+    if (!row[0] || !dateRegex.test(row[0])) return null;
 
     return {
-        date: dateStr,
-        description: row[1]?.trim() || 'תנועה',
-        details: row[2]?.trim() || '',
-        reference: row[3]?.trim() || '',
-        debit: toNum(row[4]),
-        credit: toNum(row[5]),
-        balance: toNum(row[6])
+        date: row[0],
+        description: row[1],
+        subDescription: row[2],
+        debit: parseFloat(row[4]) || 0,  // עמודה 5 - חובה
+        credit: parseFloat(row[5]) || 0, // עמודה 6 - זכות
+        balance: parseFloat(row[6]) || 0 // עמודה 7 - יתרה
     };
 };
 
@@ -109,20 +117,20 @@ export const parseLeumiRow = (row, headers) => {
  * Format: תאריך, פרטים, חובה, זכות, יתרה
  */
 export const parseDiscountRow = (row, headers) => {
-    const dateIdx = findColumn(headers, ['תאריך', 'תאריך פעולה']);
-    const descIdx = findColumn(headers, ['פרטים', 'תיאור']);
-    const debitIdx = findColumn(headers, ['חובה']);
-    const creditIdx = findColumn(headers, ['זכות']);
-    const balanceIdx = findColumn(headers, ['יתרה']);
-    
-    if (dateIdx === -1 || balanceIdx === -1) return null;
-    
+    // דילוג על שורות כותרת - בדרך כלל מתחיל בשורה 8
+    const dateRegex = /^\d{4}-\d{2}-\d{2}/;
+    if (!row[0] || !dateRegex.test(row[0])) return null;
+
+    // בדיסקונט יש עמודה אחת לסכום (אינדקס 3) - חיובי זה זכות, שלילי זה חובה
+    const rawAmount = row[3] ? row[3].toString().replace(/[^\d.-]/g, '') : "0";
+    const amount = parseFloat(rawAmount) || 0;
+
     return {
-        date: row[dateIdx]?.trim() || '',
-        description: row[descIdx]?.trim() || 'תנועה',
-        debit: debitIdx !== -1 ? toNum(row[debitIdx]) : 0,
-        credit: creditIdx !== -1 ? toNum(row[creditIdx]) : 0,
-        balance: toNum(row[balanceIdx])
+        date: row[0],
+        description: row[2], // תיאור התנועה
+        debit: amount < 0 ? Math.abs(amount) : 0,
+        credit: amount > 0 ? amount : 0,
+        balance: parseFloat(row[4].toString().replace(/[^\d.-]/g, '')) || 0
     };
 };
 
