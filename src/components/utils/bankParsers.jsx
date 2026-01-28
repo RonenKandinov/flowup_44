@@ -53,6 +53,10 @@ export const detectBankFromHeader = (headerRow) => {
     }
     
     // Generic/Universal Check (for "xlsx-CSV" or unknown formats)
+    if (header.includes('זכות/חובה')) {
+        return 'israeli_general';
+    }
+
     if ((header.includes('date') || header.includes('תאריך')) && 
         (header.includes('balance') || header.includes('יתרה') || header.includes('amount') || header.includes('סכום') || header.includes('חובה'))) {
         return 'universal';
@@ -223,6 +227,39 @@ export const parseUniversalRow = (row, headers) => {
 };
 
 /**
+ * Parse General Israeli Bank CSV (Yahav/Otzar/General)
+ * Format: Date, Value Date, Description, Amount (Zchut/Hova), Balance
+ * Columns: A=Date, B=ValueDate, C=Description, D=Amount, E=Balance
+ */
+export const parseIsraeliGeneralRow = (row, headers) => {
+    // Try to find columns dynamically first
+    const dateIdx = findColumn(headers, ['תאריך']);
+    const descIdx = findColumn(headers, ['תיאור', 'פרטים']);
+    const amountIdx = findColumn(headers, ['זכות/חובה', 'סכום']);
+    const balanceIdx = findColumn(headers, ['יתרה']);
+
+    // Fallback to fixed indices if detection fails (based on user image)
+    // Image: A=Date(0), C=Desc(2), D=Amount(3), E=Balance(4)
+    const finalDateIdx = dateIdx !== -1 ? dateIdx : 0;
+    const finalDescIdx = descIdx !== -1 ? descIdx : 2;
+    const finalAmountIdx = amountIdx !== -1 ? amountIdx : 3;
+    const finalBalanceIdx = balanceIdx !== -1 ? balanceIdx : 4;
+
+    const dateStr = row[finalDateIdx]?.trim();
+    if (!dateStr || dateStr.length < 5) return null;
+
+    const amount = toNum(row[finalAmountIdx]);
+
+    return {
+        date: dateStr,
+        description: row[finalDescIdx]?.trim() || 'תנועה',
+        debit: amount < 0 ? Math.abs(amount) : 0,
+        credit: amount > 0 ? amount : 0,
+        balance: toNum(row[finalBalanceIdx])
+    };
+};
+
+/**
  * Universal CSV Parser Router
  * Detects bank and routes to appropriate parser
  */
@@ -238,10 +275,11 @@ export const parseCSVRow = (row, headers, bankType) => {
             return parseMizrahiRow(row, headers);
         case 'beinleumi':
             return parseBeinleumiRow(row, headers);
+        case 'israeli_general':
+            return parseIsraeliGeneralRow(row, headers);
         case 'universal':
             return parseUniversalRow(row, headers);
         default:
-            // Fallback to universal if unknown
             return parseUniversalRow(row, headers);
     }
 };
