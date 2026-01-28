@@ -5,9 +5,6 @@
  * Each bank has a dedicated parser due to different CSV structures
  */
 
-// Universal Date Regex for strict garbage filtering
-const universalDateRegex = /^(\d{4}[-/]\d{2}[-/]\d{2}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4})/;
-
 // פונקציית העזר שהופכת לכלוך למספרים
 const toNum = (v) => {
   if (!v) return 0;
@@ -78,10 +75,11 @@ const findColumn = (headers, possibleNames) => {
 };
 
 /**
- * פרסר פועלים 
+ * פרסר פועלים (ארתור והקובץ שלך)
  */
 export const parsePoalimRow = (row, headers) => {
-  if (!row[0] || !universalDateRegex.test(row[0].trim())) return null;
+  const dateRegex = /^\d{4}-\d{2}-\d{2}/;
+  if (!row[0] || !dateRegex.test(row[0].trim())) return null;
 
   // בפועלים העמודות קבועות בדרך כלל: חובה (4), זכות (5), יתרה (6)
   return {
@@ -98,8 +96,6 @@ export const parsePoalimRow = (row, headers) => {
  * Format: תאריך, תיאור, חיוב, זיכוי, יתרה זמינה
  */
 export const parseLeumiRow = (row, headers) => {
-    if (!row[0] || !universalDateRegex.test(row[0].trim())) return null;
-
     const dateIdx = findColumn(headers, ['תאריך', 'date']);
     const descIdx = findColumn(headers, ['תיאור', 'details']);
     const debitIdx = findColumn(headers, ['חיוב', 'debit']);
@@ -119,29 +115,24 @@ export const parseLeumiRow = (row, headers) => {
 
 /**
  * פרסר דיסקונט (איזיק וז'נטה) - הפיצוח
- * Calibrated against "True" totals:
- * Income: ~43,289 (Bituach Leumi)
- * Expenses: ~41,861 (Credit Cards, Maccabi, Transfers)
  */
 export const parseDiscountRow = (row, headers) => {
-  if (!row[0] || !universalDateRegex.test(row[0].trim())) return null;
-  
-  // Find columns dynamically for Discount
-  const amountIdx = findColumn(headers, ['זכות/חובה', 'סכום', 'amount']);
-  const balanceIdx = findColumn(headers, ['יתרה', 'balance']);
-  
-  // Fallback if headers fail (based on Grandparents' file structure: A=Date, C=Desc, D=Amount, E=Balance)
-  const finalAmountIdx = amountIdx !== -1 ? amountIdx : 3;
-  const finalBalanceIdx = balanceIdx !== -1 ? balanceIdx : 4;
+  // CTO Fix: Relaxed date regex to accept 1/27/2026 format (slashes) AND 2026-01-27 (dashes)
+  // Also checks length > 5 to filter out empty/garbage rows
+  const dateStr = row[0]?.trim();
+  if (!dateStr || dateStr.length < 5 || !/\d/.test(dateStr)) return null;
 
-  const amount = toNum(row[finalAmountIdx]);
+  // בדיסקונט: עמודה 3 זה תיאור (תיאור התנועה), עמודה 4 זה זכות/חובה (D)
+  // Note: indices are 0-based. A=0, B=1, C=2, D=3, E=4
+  const amount = toNum(row[3]);
 
   return {
-    date: row[0].trim(),
+    date: dateStr,
     description: row[2]?.trim() || 'תנועה',
+    // כאן התיקון: מינוס הופך ל-debit, פלוס ל-credit
     debit: amount < 0 ? Math.abs(amount) : 0,
     credit: amount > 0 ? amount : 0,
-    balance: toNum(row[finalBalanceIdx])
+    balance: toNum(row[4])
   };
 };
 
@@ -150,8 +141,6 @@ export const parseDiscountRow = (row, headers) => {
  * Format: תאריך, סוג פעולה, משיכה, הפקדה, יתרה
  */
 export const parseMizrahiRow = (row, headers) => {
-    if (!row[0] || !universalDateRegex.test(row[0].trim())) return null;
-
     const dateIdx = findColumn(headers, ['תאריך']);
     const descIdx = findColumn(headers, ['סוג פעולה', 'תיאור']);
     const debitIdx = findColumn(headers, ['משיכה', 'חיוב']);
@@ -174,8 +163,6 @@ export const parseMizrahiRow = (row, headers) => {
  * Format: Date, Description, Amount (single column with +/-), Balance
  */
 export const parseBeinleumiRow = (row, headers) => {
-    if (!row[0] || !universalDateRegex.test(row[0].trim())) return null;
-
     const dateIdx = findColumn(headers, ['תאריך', 'date']);
     const descIdx = findColumn(headers, ['תיאור', 'description']);
     const amountIdx = findColumn(headers, ['סכום', 'amount']);
@@ -199,10 +186,6 @@ export const parseBeinleumiRow = (row, headers) => {
  * Uses a superset of keywords to find columns
  */
 export const parseUniversalRow = (row, headers) => {
-    // Note: Universal might need to be more lenient if date isn't in first column, 
-    // but based on instructions we enforce row[0] check to skip garbage.
-    if (!row[0] || !universalDateRegex.test(row[0].trim())) return null;
-
     const dateIdx = findColumn(headers, ['תאריך', 'date', 'ערך']);
     const descIdx = findColumn(headers, ['תיאור', 'description', 'פרטים', 'details', 'סוג פעולה']);
     const debitIdx = findColumn(headers, ['חובה', 'חיוב', 'debit', 'משיכה']);
@@ -242,8 +225,6 @@ export const parseUniversalRow = (row, headers) => {
  * Columns: A=Date, B=ValueDate, C=Description, D=Amount, E=Balance
  */
 export const parseIsraeliGeneralRow = (row, headers) => {
-    if (!row[0] || !universalDateRegex.test(row[0].trim())) return null;
-
     // Try to find columns dynamically first
     const dateIdx = findColumn(headers, ['תאריך']);
     const descIdx = findColumn(headers, ['תיאור', 'פרטים']);
