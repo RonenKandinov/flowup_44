@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bot, Sparkles, X, ChevronRight, AlertTriangle, TrendingUp, Shield, Copy, Phone, Tv, Wallet, Heart, GraduationCap, Coffee, Dumbbell, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,19 @@ const getIcon = (iconName) => {
 export default function InsightsAgent({ insights = [] }) {
     const [isOpen, setIsOpen] = useState(true);
     const [dismissedCount, setDismissedCount] = useState(0);
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const checkMobile = () => {
+            const mobile = window.innerWidth < 768;
+            setIsMobile(mobile);
+            if (mobile) setIsOpen(false); // Default closed on mobile
+            else setIsOpen(true);
+        };
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     // If no real insights, use educational tips
     const hasRealInsights = insights.length > 0;
