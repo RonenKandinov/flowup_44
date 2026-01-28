@@ -121,41 +121,28 @@ export const parseLeumiRow = (row, headers) => {
 };
 
 /**
- * Parse Discount Bank CSV (Updated for specific format)
+ * Parse Discount Bank CSV (Final Fix)
+ * Uses fixed indices as requested: Date(0), Desc(2), Amount(3), Balance(4)
+ * Amount Logic: Negative (< 0) is Expense (Debit), Positive (> 0) is Income (Credit)
  */
 export const parseDiscountRow = (row, headers) => {
-    // 1. זיהוי עמודות לפי מילות מפתח (כולל טיפול ברווחים ובתו השקל)
-    const dateIdx = findColumn(headers, ['תאריך']);
-    const descIdx = findColumn(headers, ['תיאור התנועה', 'פרטים']);
-    const amountIdx = findColumn(headers, ['זכות/חובה', 'סכום']);
-    const balanceIdx = findColumn(headers, ['יתרה']);
-    
-    // אם לא מצאנו את העמודות הקריטיות, נסה לפי אינדקסים קבועים של דיסקונט
-    const finalAmountIdx = amountIdx !== -1 ? amountIdx : 3;
-    const finalDateIdx = dateIdx !== -1 ? dateIdx : 0;
-    const finalDescIdx = descIdx !== -1 ? descIdx : 2;
-    const finalBalanceIdx = balanceIdx !== -1 ? balanceIdx : 4;
+    // Ensure row has enough columns (at least 4 for amount)
+    if (row.length < 4) return null;
 
-    const dateStr = row[finalDateIdx]?.trim();
-    
-    // Regex matches YYYY-MM-DD or DD/MM/YYYY or DD/MM/YY
-    // User requested strict /^\d{4}-\d{2}-\d{2}/ but to be safe for diverse bank exports:
-    const dateRegex = /^\d{4}-\d{2}-\d{2}/;
-    const altDateRegex = /^\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}/;
-    
-    if (!dateStr || (!dateRegex.test(dateStr) && !altDateRegex.test(dateStr))) return null;
+    const dateStr = row[0]?.trim();
+    // Basic date check to ensure it's a data row
+    if (!dateStr || dateStr.length < 6) return null;
 
-    // 2. לוגיקת הסכום המאוחדת
-    const rawVal = row[finalAmountIdx] || "0";
-    const amount = toNum(rawVal);
+    // Fixed Index 3 for Amount (Unified Column)
+    const amount = toNum(row[3]); 
 
     return {
         date: dateStr,
-        description: row[finalDescIdx]?.trim() || 'תנועה',
-        // אם המספר שלילי -> זו הוצאה (debit). אם חיובי -> הכנסה (credit)
+        description: row[2]?.trim() || 'תנועה',
+        // Logic: Negative -> Debit (Expense), Positive -> Credit (Income)
         debit: amount < 0 ? Math.abs(amount) : 0,
         credit: amount > 0 ? amount : 0,
-        balance: toNum(row[finalBalanceIdx])
+        balance: toNum(row[4]) // Fixed Index 4 for Balance
     };
 };
 
