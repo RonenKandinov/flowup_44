@@ -5,19 +5,14 @@
  * Each bank has a dedicated parser due to different CSV structures
  */
 
-// Safe number conversion utility
+// פונקציית העזר שהופכת לכלוך למספרים
 const toNum = (v) => {
-    if (!v) return 0;
-    // שלב 1: הופך למחרוזת ומנקה רווחים ותווי מטבע
-    let str = v.toString().replace(/[^\d.-]/g, '').trim();
-    
-    // שלב 2: אם המינוס בסוף (קורה בייצוא בנקים מסוימים), תעביר אותו להתחלה
-    if (str.endsWith('-')) {
-        str = '-' + str.slice(0, -1);
-    }
-    
-    const num = parseFloat(str);
-    return isNaN(num) ? 0 : num;
+  if (!v) return 0;
+  // מסיר הכל חוץ ממספרים, נקודה עשרונית ומינוס
+  let str = v.toString().replace(/[^\d.-]/g, '').trim();
+  // אם המינוס בסוף (נפוץ בבנקים), מעביר אותו להתחלה
+  if (str.endsWith('-')) str = '-' + str.slice(0, -1);
+  return parseFloat(str) || 0;
 };
 
 /**
@@ -79,27 +74,20 @@ const findColumn = (headers, possibleNames) => {
 };
 
 /**
- * Parse Bank Hapoalim CSV
- * Format: תאריך, תיאור הפעולה, פרטים, חשבון, אסמכתא, תאריך ערך, חובה, זכות, יתרה
+ * פרסר פועלים (ארתור והקובץ שלך)
  */
 export const parsePoalimRow = (row, headers) => {
-    const dateIdx = findColumn(headers, ['תאריך']);
-    const descIdx = findColumn(headers, ['תיאור']);
-    const detailsIdx = findColumn(headers, ['פרטים']);
-    const debitIdx = findColumn(headers, ['חובה', 'חיוב']);
-    const creditIdx = findColumn(headers, ['זכות', 'זיכוי']);
-    const balanceIdx = findColumn(headers, ['יתרה']);
-    
-    if (dateIdx === -1 || balanceIdx === -1) return null;
-    
-    return {
-        date: row[dateIdx]?.trim() || '',
-        description: row[descIdx]?.trim() || row[descIdx + 1]?.trim() || 'תנועה',
-        details: detailsIdx !== -1 ? row[detailsIdx]?.trim() : '',
-        debit: debitIdx !== -1 ? toNum(row[debitIdx]) : 0,
-        credit: creditIdx !== -1 ? toNum(row[creditIdx]) : 0,
-        balance: toNum(row[balanceIdx])
-    };
+  const dateRegex = /^\d{4}-\d{2}-\d{2}/;
+  if (!row[0] || !dateRegex.test(row[0].trim())) return null;
+
+  // בפועלים העמודות קבועות בדרך כלל: חובה (4), זכות (5), יתרה (6)
+  return {
+    date: row[0].trim(),
+    description: row[1]?.trim() || 'תנועה',
+    debit: toNum(row[4]),
+    credit: toNum(row[5]),
+    balance: toNum(row[6])
+  };
 };
 
 /**
@@ -124,23 +112,24 @@ export const parseLeumiRow = (row, headers) => {
     };
 };
 
+/**
+ * פרסר דיסקונט (איזיק וז'נטה) - הפיצוח
+ */
 export const parseDiscountRow = (row, headers) => {
-    // דילוג על שורות לא רלוונטיות
-    const dateRegex = /^\d{4}-\d{2}-\d{2}/;
-    if (!row[0] || !dateRegex.test(row[0].trim())) return null;
+  const dateRegex = /^\d{4}-\d{2}-\d{2}/;
+  if (!row[0] || !dateRegex.test(row[0].trim())) return null;
 
-    // בדיסקונט: עמודה 3 זה התיאור, עמודה 4 זה הכסף (זכות/חובה)
-    const rawAmount = row[3]; 
-    const amount = toNum(rawAmount);
+  // בדיסקונט: עמודה 3 זה תיאור, עמודה 4 זה זכות/חובה
+  const amount = toNum(row[3]);
 
-    return {
-        date: row[0].trim(),
-        description: row[2]?.trim() || 'תנועה',
-        // כאן התיקון: אם המספר שלילי (כמו ה-1573.45- של כאל), זו הוצאה
-        debit: amount < 0 ? Math.abs(amount) : 0,
-        credit: amount > 0 ? amount : 0,
-        balance: toNum(row[4]) // יתרה בעמודה 5
-    };
+  return {
+    date: row[0].trim(),
+    description: row[2]?.trim() || 'תנועה',
+    // כאן התיקון: מינוס הופך ל-debit, פלוס ל-credit
+    debit: amount < 0 ? Math.abs(amount) : 0,
+    credit: amount > 0 ? amount : 0,
+    balance: toNum(row[4])
+  };
 };
 
 /**
