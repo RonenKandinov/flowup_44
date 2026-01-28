@@ -62,8 +62,8 @@ const findColumn = (headers, possibleNames) => {
  * Format: תאריך, תיאור הפעולה, פרטים, חשבון, אסמכתא, תאריך ערך, חובה, זכות, יתרה
  */
 export const parsePoalimRow = (row, headers) => {
-    // דילוג על שורות כותרת - מחפש תבנית של תאריך YYYY-MM-DD
-    const dateRegex = /^\d{4}-\d{2}-\d{2}/;
+    // Supports YYYY-MM-DD and DD/MM/YYYY
+    const dateRegex = /^(\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/;
     if (!row[0] || !dateRegex.test(row[0])) return null;
 
     return {
@@ -103,7 +103,8 @@ export const parseLeumiRow = (row, headers) => {
  * Format: תאריך, פרטים, חובה, זכות, יתרה
  */
 export const parseDiscountRow = (row, headers) => {
-    const dateRegex = /^\d{4}-\d{2}-\d{2}/;
+    // Supports YYYY-MM-DD and DD/MM/YYYY
+    const dateRegex = /^(\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/;
     if (!row[0] || !dateRegex.test(row[0])) return null;
 
     // בדיסקונט: תאריך=0, יום ערך=1, תיאור=2, סכום=3, יתרה=4

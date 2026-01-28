@@ -29,8 +29,8 @@ export default function CSVUploader({ onDataParsed, onClose }) {
     let currentBalance = 0;
 
     lines.forEach(line => {
-      // פיצול חכם שמטפל במרכאות (חשוב מאוד לקבצים של הפועלים ודיסקונט)
-      const values = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || line.split(',');
+      // Robust CSV Split: Handles commas inside quotes correctly
+      const values = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
       const cleanValues = values.map(v => v.replace(/"/g, '').trim());
 
       const parsed = parseCSVRow(cleanValues, [], bankType);
