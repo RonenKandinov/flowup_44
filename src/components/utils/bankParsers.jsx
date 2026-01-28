@@ -12,6 +12,13 @@ const toNum = (v) => {
     return parseFloat(str) || 0;
 };
 
+// Excel Date Converter (Serial to ISO)
+const convertExcelDate = (excelDate) => {
+    // Excel base date is Dec 30, 1899. 25569 is the offset to Unix Epoch (Jan 1, 1970)
+    const date = new Date(Math.round((excelDate - 25569) * 86400 * 1000));
+    return date.toISOString().split('T')[0];
+};
+
 /**
  * Detect bank type from CSV header row
  */
