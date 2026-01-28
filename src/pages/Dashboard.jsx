@@ -9,7 +9,6 @@ import { Storage } from '../components/utils/storage';
 
 import SpeedometerGauge from '../components/dashboard/SpeedometerGauge';
 import StatCard from '../components/dashboard/StatCard';
-import RiskZoneChart from '../components/dashboard/RiskZoneChart';
 import WhatIfSimulator from '../components/dashboard/WhatIfSimulator';
 import FutureCake from '../components/dashboard/FutureCake';
 import InsightsAgent from '../components/dashboard/InsightsAgent'; // New
@@ -470,14 +469,7 @@ export default function Dashboard() {
                         </div>
                      )}
 
-                    <RiskZoneChart
-                        data={forecastData}
-                        riskThreshold={0}
-                        criticalDate={snapshot.risk_day}
-                        projectedBalance={snapshot.projected_eom_balance}
-                        currentBalance={snapshot.current_balance}
-                        insights={[]} // Insights now handled by Agent Widget
-                    />
+
                 </div>
                 
                 {/* WhatIfSimulator: Mobile 3, Desktop 4 (Bottom Right) */}
