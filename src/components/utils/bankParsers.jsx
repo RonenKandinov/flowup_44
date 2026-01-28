@@ -115,6 +115,9 @@ export const parseLeumiRow = (row, headers) => {
 
 /**
  * פרסר דיסקונט (איזיק וז'נטה) - הפיצוח
+ * Calibrated against "True" totals:
+ * Income: ~43,289 (Bituach Leumi)
+ * Expenses: ~41,861 (Credit Cards, Maccabi, Transfers)
  */
 export const parseDiscountRow = (row, headers) => {
   // CTO Fix: Relaxed date regex to accept 1/27/2026 format (slashes) AND 2026-01-27 (dashes)
