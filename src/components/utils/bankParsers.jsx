@@ -5,11 +5,13 @@
  * Each bank has a dedicated parser due to different CSV structures
  */
 
-// Safe number conversion utility
+// Safe number conversion utility (Sanitizer)
 const toNum = (v) => {
     if (!v) return 0;
-    const str = v.toString().replace(/[^\d.-]/g, '');
-    return parseFloat(str) || 0;
+    // Remove quotes, commas, currency symbols, and any other non-numeric chars except dot and minus
+    const str = v.toString().replace(/["',₪]/g, '').trim();
+    const cleanStr = str.replace(/[^\d.-]/g, '');
+    return parseFloat(cleanStr) || 0;
 };
 
 /**
@@ -116,13 +118,32 @@ export const parseDiscountRow = (row, headers) => {
     const creditIdx = findColumn(headers, ['זכות']);
     const balanceIdx = findColumn(headers, ['יתרה']);
     
+    // Discount Single Column Support ("Isaac's File")
+    const amountIdx = findColumn(headers, ['זכות/חובה', 'סכום']);
+
     if (dateIdx === -1 || balanceIdx === -1) return null;
     
+    let debit = 0;
+    let credit = 0;
+
+    // Logic: If we have separate columns, use them. If not, check single column.
+    if (debitIdx !== -1 || creditIdx !== -1) {
+        debit = debitIdx !== -1 ? toNum(row[debitIdx]) : 0;
+        credit = creditIdx !== -1 ? toNum(row[creditIdx]) : 0;
+    } else if (amountIdx !== -1) {
+        const val = toNum(row[amountIdx]);
+        if (val < 0) {
+            debit = Math.abs(val);
+        } else {
+            credit = val;
+        }
+    }
+
     return {
         date: row[dateIdx]?.trim() || '',
         description: row[descIdx]?.trim() || 'תנועה',
-        debit: debitIdx !== -1 ? toNum(row[debitIdx]) : 0,
-        credit: creditIdx !== -1 ? toNum(row[creditIdx]) : 0,
+        debit,
+        credit,
         balance: toNum(row[balanceIdx])
     };
 };
