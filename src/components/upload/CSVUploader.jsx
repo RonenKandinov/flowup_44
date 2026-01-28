@@ -6,6 +6,7 @@ import { base44 } from '@/api/base44Client';
 import { processAndForecast } from '../utils/forecastingLogic';
 import { detectBankFromHeader, parseCSVRow, getBankDisplayName } from '../utils/bankParsers';
 import { sanitizeTransaction } from '../utils/sanitizer';
+import * as XLSX from 'xlsx';
 
 export default function CSVUploader({ onDataParsed, onClose }) {
   const [isDragging, setIsDragging] = useState(false);
@@ -108,13 +109,30 @@ export default function CSVUploader({ onDataParsed, onClose }) {
     setErrorMessage('');
 
     try {
-      // Read file content with ISO-8859-8 encoding for Hebrew support
-      const content = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target.result);
-        reader.onerror = () => reject(new Error('שגיאה בקריאת הקובץ'));
-        reader.readAsText(file, 'ISO-8859-8');
-      });
+      let content = '';
+
+      // Handle Excel files
+      if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+        const arrayBuffer = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.onerror = () => reject(new Error('שגיאה בקריאת קובץ האקסל'));
+          reader.readAsArrayBuffer(file);
+        });
+
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        content = XLSX.utils.sheet_to_csv(worksheet);
+      } else {
+        // Read CSV file content with ISO-8859-8 encoding for Hebrew support
+        content = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.onerror = () => reject(new Error('שגיאה בקריאת הקובץ'));
+          reader.readAsText(file, 'ISO-8859-8');
+        });
+      }
 
       setStatus('processing');
 
@@ -165,11 +183,14 @@ export default function CSVUploader({ onDataParsed, onClose }) {
     setIsDragging(false);
     
     const file = e.dataTransfer.files[0];
-    if (file && (file.name.endsWith('.csv') || file.type === 'text/csv')) {
+    const validExtensions = ['.csv', '.xlsx', '.xls'];
+    const isValid = validExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
+
+    if (file && isValid) {
       processFile(file);
     } else {
       setStatus('error');
-      setErrorMessage('נא להעלות קובץ CSV בלבד');
+      setErrorMessage('נא להעלות קובץ CSV או Excel בלבד');
     }
   }, []);
 
@@ -197,7 +218,7 @@ export default function CSVUploader({ onDataParsed, onClose }) {
         <div className="p-6">
           <h2 className="text-xl font-bold text-white mb-2">העלאת קובץ בנק</h2>
           <p className="text-slate-400 text-sm mb-6">
-            העלה את קובץ ה-CSV שהורדת מהבנק (פועלים, לאומי, דיסקונט, מזרחי, בינלאומי)
+            העלה את קובץ ה-Excel או CSV שהורדת מהבנק
             {detectedBank && <span className="block mt-1 text-cyan-400">זוהה: {detectedBank}</span>}
           </p>
 
@@ -215,7 +236,7 @@ export default function CSVUploader({ onDataParsed, onClose }) {
           >
             <input
               type="file"
-              accept=".csv"
+              accept=".csv, .xlsx, .xls"
               onChange={handleFileSelect}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               disabled={status === 'uploading' || status === 'processing'}
@@ -291,7 +312,7 @@ export default function CSVUploader({ onDataParsed, onClose }) {
               <FileText className="w-5 h-5 text-slate-500 mt-0.5" />
               <div className="text-xs text-slate-400">
                 <p className="font-medium text-slate-300 mb-1">פורמט נתמך:</p>
-                <p>קובץ CSV עם עמודות: תאריך, תיאור, סכום, יתרה</p>
+                <p>קבצי Excel (.xlsx) או CSV מכל הבנקים</p>
                 <p className="mt-1 text-slate-500">הנתונים שלך מאובטחים ונשארים בשליטתך המלאה</p>
               </div>
             </div>
