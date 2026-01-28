@@ -1,8 +1,9 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lightbulb, CreditCard, Wallet, AlertTriangle, Phone, Shield, Tv, ChevronDown, ChevronUp, Copy, AlertOctagon, Landmark, Heart, GraduationCap, Dumbbell } from 'lucide-react';
 
-const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
+const InsightsAgent = ({ projectedBalance, currentBalance, insights = [] }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
 
@@ -268,4 +269,4 @@ const LeverageCard = ({ projectedBalance, currentBalance, insights = [] }) => {
   );
 };
 
-export default LeverageCard;
+export default InsightsAgent;

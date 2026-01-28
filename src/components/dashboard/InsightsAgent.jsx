@@ -114,16 +114,10 @@ export default function InsightsAgent({ insights = [] }) {
                     <div className="mt-auto pt-4 flex gap-3">
                         <Button 
                             variant="outline" 
-                            className="flex-1 border-slate-700 hover:bg-slate-800 text-slate-300"
+                            className="w-full border-slate-700 hover:bg-slate-800 text-slate-300"
                             onClick={() => setDismissedCount(prev => Math.min(prev + 1, insights.length))}
                         >
-                            הבנתי
-                        </Button>
-                        <Button 
-                            className="flex-1 bg-cyan-600 hover:bg-cyan-700 text-white gap-2"
-                        >
-                            <Sparkles className="w-4 h-4" />
-                            טפל בזה
+                            הבנתי, תודה
                         </Button>
                     </div>
                 </div>
