@@ -75,7 +75,7 @@ const findColumn = (headers, possibleNames) => {
 };
 
 /**
- * פרסר פועלים (ארתור והקובץ שלך)
+ * פרסר פועלים 
  */
 export const parsePoalimRow = (row, headers) => {
   const dateRegex = /^\d{4}-\d{2}-\d{2}/;
