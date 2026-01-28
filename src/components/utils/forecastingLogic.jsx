@@ -74,57 +74,32 @@ export const processAndForecast = (csvText) => {
             return { error: "קובץ ריק או לא תקין" };
         }
 
-        // 1. Detect Header Row Dynamically (Scan ALL lines for best match)
+        // 1. Detect Header Row Dynamically
         let headers = [];
         let bankType = 'unknown';
         let delimiter = ',';
         let startRowIndex = 0;
-        let bestHeaderScore = 0;
-        let bestHeaderIndex = -1;
 
-        // Keywords to score a "Header Row"
-        const HEADER_KEYWORDS = ['date', 'תאריך', 'balance', 'יתרה', 'debit', 'חובה', 'credit', 'זכות', 'amount', 'סכום', 'פרטים', 'description'];
-
-        // Scan first 100 lines (or all if less) to find the best header candidate
-        for (let i = 0; i < Math.min(lines.length, 100); i++) {
-            const line = lines[i].toLowerCase();
-            let score = 0;
-            
-            // Score based on keyword presence
-            HEADER_KEYWORDS.forEach(kw => {
-                if (line.includes(kw)) score++;
-            });
-
-            // "Date" is critical for a header
-            if (line.includes('date') || line.includes('תאריך')) score += 2;
-
-            if (score > bestHeaderScore) {
-                bestHeaderScore = score;
-                bestHeaderIndex = i;
-            }
-        }
-
-        // Apply Best Header Logic
-        if (bestHeaderIndex !== -1 && bestHeaderScore >= 2) {
-            const line = lines[bestHeaderIndex];
-            delimiter = line.includes(';') ? ';' : ','; // Simple delimiter detection
-            
-            // Try specific bank detection first
+        // Scan first 20 lines for a header
+        for (let i = 0; i < Math.min(lines.length, 20); i++) {
+            const line = lines[i];
             const detectedType = detectBankFromHeader(line);
+            
             if (detectedType !== 'unknown') {
                 bankType = detectedType;
-            } else {
-                bankType = 'universal';
+                delimiter = line.includes(';') ? ';' : ',';
+                headers = line.split(delimiter).map(h => h.trim().replace(/"/g, ''));
+                startRowIndex = i + 1;
+                break;
             }
-
-            headers = line.split(delimiter).map(h => h.trim().replace(/"/g, ''));
-            startRowIndex = bestHeaderIndex + 1;
-        } else {
-             // Fallback: Assume first line is header if detection fails
+        }
+        
+        // Default if no header found (Legacy support)
+        if (bankType === 'unknown') {
              const line0 = lines[0];
              delimiter = line0.includes(';') ? ';' : ',';
              headers = line0.split(delimiter).map(h => h.trim().replace(/"/g, ''));
-             bankType = 'universal';
+             bankType = 'universal'; // Use universal fallback
         }
 
         let totalCredit = 0;

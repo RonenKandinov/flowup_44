@@ -8,16 +8,8 @@
 // Safe number conversion utility
 const toNum = (v) => {
     if (!v) return 0;
-    // שלב 1: הופך למחרוזת ומנקה רווחים ותווי מטבע
-    let str = v.toString().replace(/[^\d.-]/g, '').trim();
-    
-    // שלב 2: אם המינוס בסוף (קורה בייצוא בנקים מסוימים), תעביר אותו להתחלה
-    if (str.endsWith('-')) {
-        str = '-' + str.slice(0, -1);
-    }
-    
-    const num = parseFloat(str);
-    return isNaN(num) ? 0 : num;
+    const str = v.toString().replace(/[^\d.-]/g, '');
+    return parseFloat(str) || 0;
 };
 
 /**
@@ -37,8 +29,7 @@ export const detectBankFromHeader = (headerRow) => {
     }
     
     // Discount Bank - תאריך פעולה, פרטים, חובה/זכות, יתרה
-    // Expanded to catch formats without 'חשבון' but with 'פרטים' and 'יתרה' or 'סכום'
-    if (header.includes('פרטים') && (header.includes('חשבון') || header.includes('יתרה') || header.includes('סכום'))) {
+    if (header.includes('פרטים') && header.includes('חשבון')) {
         return 'discount';
     }
     
@@ -120,22 +111,25 @@ export const parseLeumiRow = (row, headers) => {
     };
 };
 
+/**
+ * Parse Discount Bank CSV
+ * Format: תאריך, פרטים, חובה, זכות, יתרה
+ */
 export const parseDiscountRow = (row, headers) => {
-    // דילוג על שורות לא רלוונטיות
-    const dateRegex = /^\d{4}-\d{2}-\d{2}/;
-    if (!row[0] || !dateRegex.test(row[0].trim())) return null;
-
-    // בדיסקונט: עמודה 3 זה התיאור, עמודה 4 זה הכסף (זכות/חובה)
-    const rawAmount = row[3]; 
-    const amount = toNum(rawAmount);
-
+    const dateIdx = findColumn(headers, ['תאריך', 'תאריך פעולה']);
+    const descIdx = findColumn(headers, ['פרטים', 'תיאור']);
+    const debitIdx = findColumn(headers, ['חובה']);
+    const creditIdx = findColumn(headers, ['זכות']);
+    const balanceIdx = findColumn(headers, ['יתרה']);
+    
+    if (dateIdx === -1 || balanceIdx === -1) return null;
+    
     return {
-        date: row[0].trim(),
-        description: row[2]?.trim() || 'תנועה',
-        // כאן התיקון: אם המספר שלילי (כמו ה-1573.45- של כאל), זו הוצאה
-        debit: amount < 0 ? Math.abs(amount) : 0,
-        credit: amount > 0 ? amount : 0,
-        balance: toNum(row[4]) // יתרה בעמודה 5
+        date: row[dateIdx]?.trim() || '',
+        description: row[descIdx]?.trim() || 'תנועה',
+        debit: debitIdx !== -1 ? toNum(row[debitIdx]) : 0,
+        credit: creditIdx !== -1 ? toNum(row[creditIdx]) : 0,
+        balance: toNum(row[balanceIdx])
     };
 };
 
