@@ -192,6 +192,12 @@ export const parseUniversalRow = (row, headers) => {
 
     if (dateIdx === -1) return null;
 
+    let dateVal = row[dateIdx]?.trim() || '';
+    // Handle Excel Serial Dates (e.g., 45680)
+    if (dateVal && !isNaN(dateVal) && dateVal.length >= 5) {
+        dateVal = convertExcelDate(parseFloat(dateVal));
+    }
+
     let debit = 0;
     let credit = 0;
 
@@ -208,7 +214,7 @@ export const parseUniversalRow = (row, headers) => {
     }
 
     return {
-        date: row[dateIdx]?.trim() || '',
+        date: dateVal,
         description: (descIdx !== -1 ? row[descIdx] : '')?.trim() || 'תנועה',
         debit,
         credit,
