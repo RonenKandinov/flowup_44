@@ -8,8 +8,16 @@
 // Safe number conversion utility
 const toNum = (v) => {
     if (!v) return 0;
-    const str = v.toString().replace(/[^\d.-]/g, '');
-    return parseFloat(str) || 0;
+    let str = v.toString().trim();
+    
+    // Handle trailing minus (common in Hebrew banking formats: "500-")
+    const isNegative = str.endsWith('-') || str.startsWith('-');
+    
+    // Remove everything that isn't a digit or a dot
+    str = str.replace(/[^\d.]/g, '');
+    
+    const num = parseFloat(str) || 0;
+    return isNegative ? -num : num;
 };
 
 /**
@@ -29,7 +37,8 @@ export const detectBankFromHeader = (headerRow) => {
     }
     
     // Discount Bank - תאריך פעולה, פרטים, חובה/זכות, יתרה
-    if (header.includes('פרטים') && header.includes('חשבון')) {
+    // Expanded to catch formats without 'חשבון' but with 'פרטים' and 'יתרה' or 'סכום'
+    if (header.includes('פרטים') && (header.includes('חשבון') || header.includes('יתרה') || header.includes('סכום'))) {
         return 'discount';
     }
     
@@ -113,24 +122,68 @@ export const parseLeumiRow = (row, headers) => {
 
 /**
  * Parse Discount Bank CSV
- * Format: תאריך, פרטים, חובה, זכות, יתרה
+ * Supports both split columns (Debit/Credit) and unified Amount column.
+ * Unified Amount Logic: Negative = Debit, Positive = Credit.
  */
 export const parseDiscountRow = (row, headers) => {
     const dateIdx = findColumn(headers, ['תאריך', 'תאריך פעולה']);
     const descIdx = findColumn(headers, ['פרטים', 'תיאור']);
-    const debitIdx = findColumn(headers, ['חובה']);
-    const creditIdx = findColumn(headers, ['זכות']);
     const balanceIdx = findColumn(headers, ['יתרה']);
     
-    if (dateIdx === -1 || balanceIdx === -1) return null;
+    if (dateIdx === -1) return null; // Date is mandatory
     
-    return {
-        date: row[dateIdx]?.trim() || '',
-        description: row[descIdx]?.trim() || 'תנועה',
-        debit: debitIdx !== -1 ? toNum(row[debitIdx]) : 0,
-        credit: creditIdx !== -1 ? toNum(row[creditIdx]) : 0,
-        balance: toNum(row[balanceIdx])
-    };
+    const date = row[dateIdx]?.trim() || '';
+    const description = (descIdx !== -1 ? row[descIdx] : 'תנועה')?.trim() || 'תנועה';
+    const balance = balanceIdx !== -1 ? toNum(row[balanceIdx]) : 0;
+
+    // Strategy 1: Look for explicit Debit/Credit columns
+    const debitIdx = findColumn(headers, ['חובה']);
+    const creditIdx = findColumn(headers, ['זכות']);
+
+    if (debitIdx !== -1 && creditIdx !== -1) {
+        return {
+            date,
+            description,
+            debit: toNum(row[debitIdx]),
+            credit: toNum(row[creditIdx]),
+            balance
+        };
+    }
+
+    // Strategy 2: Unified Amount Column (as requested)
+    // 1. Try finding 'amount'/'sum' column
+    let amountIdx = findColumn(headers, ['סכום', 'amount']);
+    
+    // 2. Fallback: Use Index 3 (4th column) if specific column not found and row is long enough
+    if (amountIdx === -1 && row.length > 3) {
+        amountIdx = 3;
+    }
+
+    if (amountIdx !== -1) {
+        const amount = toNum(row[amountIdx]);
+        
+        // Logic: Negative -> Debit (Expense), Positive -> Credit (Income)
+        if (amount < 0) {
+            return {
+                date,
+                description,
+                debit: Math.abs(amount),
+                credit: 0,
+                balance
+            };
+        } else {
+            return {
+                date,
+                description,
+                debit: 0,
+                credit: amount,
+                balance
+            };
+        }
+    }
+
+    // Fallback if no amount found
+    return { date, description, debit: 0, credit: 0, balance };
 };
 
 /**
