@@ -7,7 +7,7 @@ import { processAndForecast } from '../utils/forecastingLogic';
 import { detectBankFromHeader, parseCSVRow, getBankDisplayName } from '../utils/bankParsers';
 import { sanitizeTransaction } from '../utils/sanitizer';
 
-export default function CSVUploader({ onDataParsed, onClose, allowClose = true }) {
+export default function CSVUploader({ onDataParsed, onClose }) {
   const [isDragging, setIsDragging] = useState(false);
   const [status, setStatus] = useState('idle'); // idle, uploading, processing, success, error
   const [errorMessage, setErrorMessage] = useState('');
@@ -186,7 +186,7 @@ export default function CSVUploader({ onDataParsed, onClose, allowClose = true }
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-      onClick={(e) => allowClose && e.target === e.currentTarget && onClose?.()}
+      onClick={(e) => e.target === e.currentTarget && onClose?.()}
     >
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
@@ -298,17 +298,15 @@ export default function CSVUploader({ onDataParsed, onClose, allowClose = true }
           </div>
         </div>
 
-        {allowClose && (
-          <div className="px-6 py-4 bg-slate-800/50 border-t border-slate-700 flex justify-end">
-            <Button
-              variant="ghost"
-              onClick={onClose}
-              className="text-slate-400 hover:text-white"
-            >
-              ביטול
-            </Button>
-          </div>
-        )}
+        <div className="px-6 py-4 bg-slate-800/50 border-t border-slate-700 flex justify-end">
+          <Button
+            variant="ghost"
+            onClick={onClose}
+            className="text-slate-400 hover:text-white"
+          >
+            ביטול
+          </Button>
+        </div>
       </motion.div>
     </motion.div>
   );
