@@ -186,43 +186,63 @@ export const parseBeinleumiRow = (row, headers) => {
 };
 
 /**
- * Parse Universal/Generic CSV Row
- * Uses a superset of keywords to find columns
+ * Parse Universal/Generic CSV Row (Robust Mode)
+ * Implements fuzzy matching and robust error handling
  */
 export const parseUniversalRow = (row, headers) => {
+    // 1. Dynamic Column Mapping (Fuzzy Match)
     const dateIdx = findColumn(headers, ['תאריך', 'date', 'ערך']);
-    const descIdx = findColumn(headers, ['תיאור', 'description', 'פרטים', 'details', 'סוג פעולה']);
+    const descIdx = findColumn(headers, ['פרטים', 'תיאור', 'details', 'פעולה', 'description', 'סוג פעולה']);
+    
+    // Money - Two Columns Strategy
     const debitIdx = findColumn(headers, ['חובה', 'חיוב', 'debit', 'משיכה']);
     const creditIdx = findColumn(headers, ['זכות', 'זיכוי', 'credit', 'הפקדה']);
+    
+    // Money - Single Column Strategy
+    const amountIdx = findColumn(headers, ['סכום', 'amount', 'זכות/חובה']);
+    
     const balanceIdx = findColumn(headers, ['יתרה', 'balance']);
-    const amountIdx = findColumn(headers, ['סכום', 'amount']);
 
+    // 2. Noise Filtering - Skip if no date column found
     if (dateIdx === -1) return null;
 
-    let dateVal = row[dateIdx]?.trim() || '';
-    // Handle Excel Serial Dates (e.g., 45680)
-    if (dateVal && !isNaN(dateVal) && dateVal.length >= 5) {
-        dateVal = convertExcelDate(parseFloat(dateVal));
+    let dateVal = row[dateIdx];
+    
+    // Handle numeric Excel dates or string dates
+    if (typeof dateVal === 'number') {
+        dateVal = convertExcelDate(dateVal);
+    } else {
+        dateVal = dateVal?.toString().trim() || '';
+        // Check if string is actually a number (Excel serial in CSV)
+        if (dateVal && !isNaN(dateVal) && dateVal.length >= 4 && !dateVal.includes('/') && !dateVal.includes('.')) {
+            dateVal = convertExcelDate(parseFloat(dateVal));
+        }
     }
+
+    // Noise Filtering - Skip if date value is empty after conversion
+    if (!dateVal) return null;
 
     let debit = 0;
     let credit = 0;
 
-    // Strategy 1: Explicit Debit/Credit columns
+    // 3. Logic: Debit/Credit vs Single Amount
     if (debitIdx !== -1 || creditIdx !== -1) {
+        // Two columns strategy
         if (debitIdx !== -1) debit = toNum(row[debitIdx]);
         if (creditIdx !== -1) credit = toNum(row[creditIdx]);
-    } 
-    // Strategy 2: Single Amount column
-    else if (amountIdx !== -1) {
+    } else if (amountIdx !== -1) {
+        // Single column strategy
         const amount = toNum(row[amountIdx]);
-        if (amount < 0) debit = Math.abs(amount);
-        else credit = amount;
+        if (amount < 0) {
+            debit = Math.abs(amount);
+        } else {
+            credit = amount;
+        }
     }
 
     return {
         date: dateVal,
-        description: (descIdx !== -1 ? row[descIdx] : '')?.trim() || 'תנועה',
+        description: (descIdx !== -1 ? row[descIdx] : '')?.toString().trim() || 'תנועה',
         debit,
         credit,
         balance: balanceIdx !== -1 ? toNum(row[balanceIdx]) : 0
