@@ -385,16 +385,40 @@ export default function Dashboard() {
       {/* Main content */}
       <main className="relative z-10 px-4 pb-8 md:px-8">
         <div className="max-w-6xl mx-auto">
-          {isLoading ? (
-            <div className="flex items-center justify-center h-[60vh]">
-              <div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : !hasData ? (
-            <EmptyState onUploadClick={() => setShowUploader(true)} />
-          ) : (
-            <>
-              {/* Stats Row - Compact on Mobile */}
-              <div className="grid grid-cols-3 gap-2 md:grid-cols-3 md:gap-4 mb-4 md:mb-6">
+          <AnimatePresence mode="wait">
+            {isLoading ? (
+              <motion.div
+                key="loading"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex items-center justify-center h-[60vh]"
+              >
+                <div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+              </motion.div>
+            ) : !hasData ? (
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                className="flex flex-col items-center w-full"
+              >
+                <EmptyState onUploadClick={() => setShowUploader(true)} />
+                <div className="w-full max-w-2xl mt-8 opacity-80 hover:opacity-100 transition-opacity">
+                  <Disclaimer />
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="dashboard"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.5 }}
+              >
+                {/* Stats Row - Compact on Mobile */}
+                <div className="grid grid-cols-3 gap-2 md:grid-cols-3 md:gap-4 mb-4 md:mb-6">
                 <StatCard
                   title="יתרה"
                   value={`₪${Math.round(snapshot.current_balance || 0).toLocaleString('he-IL')}`}
@@ -481,9 +505,10 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <Disclaimer />
-            </>
-          )}
+                <Disclaimer />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </main>
 
