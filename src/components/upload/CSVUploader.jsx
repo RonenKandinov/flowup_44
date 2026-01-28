@@ -15,77 +15,58 @@ export default function CSVUploader({ onDataParsed, onClose }) {
   const [detectedBank, setDetectedBank] = useState('');
 
   const parseCSVForDatabase = (content) => {
-    const lines = content.split('\n').filter(line => line.trim());
-    if (lines.length < 2) {
-      throw new Error('קובץ ה-CSV חייב להכיל לפחות שורת כותרת ושורת נתונים אחת');
-    }
-
-    // Detect bank type from header
-    const headerLine = lines[0];
-    const bankType = detectBankFromHeader(headerLine);
+    const lines = content.split('\n').map(l => l.trim()).filter(l => l);
     
-    if (bankType === 'unknown') {
-      throw new Error('פורמט הקובץ אינו נתמך. אנא ייצא קובץ CSV מבנק הפועלים, לאומי, דיסקונט, מזרחי או הבינלאומי');
-    }
+    // זיהוי בנק לפי כל התוכן
+    const bankType = detectBankFromHeader(content);
+    if (bankType === 'unknown') throw new Error('פורמט בנק לא זוהה');
     
     setDetectedBank(getBankDisplayName(bankType));
-
-    // Parse headers (try both comma and semicolon)
-    const delimiter = headerLine.includes(';') ? ';' : ',';
-    const headers = headerLine.split(delimiter).map(h => h.trim().replace(/"/g, ''));
 
     const transactions = [];
     let totalIncome = 0;
     let totalExpenses = 0;
     let currentBalance = 0;
 
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
-      
-      const values = line.split(delimiter).map(v => v.trim().replace(/"/g, ''));
-      
-      // Use bank-specific parser
-      const parsed = parseCSVRow(values, headers, bankType);
-      
-      if (!parsed || !parsed.date) continue;
+    lines.forEach(line => {
+      // פיצול חכם שמטפל במרכאות (חשוב מאוד לקבצים של הפועלים ודיסקונט)
+      const values = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || line.split(',');
+      const cleanValues = values.map(v => v.replace(/"/g, '').trim());
 
-      // Parse date
-      let parsedDate;
-      if (parsed.date.includes('/')) {
-        const parts = parsed.date.split('/');
-        if (parts[2]?.length === 4) {
-          parsedDate = new Date(`${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`);
+      const parsed = parseCSVRow(cleanValues, [], bankType);
+      
+      if (parsed && parsed.date) {
+        // Parse date
+        let parsedDate;
+        if (parsed.date.includes('/')) {
+            const parts = parsed.date.split('/');
+            if (parts[2]?.length === 4) {
+            parsedDate = new Date(`${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`);
+            } else {
+            parsedDate = new Date(`20${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`);
+            }
         } else {
-          parsedDate = new Date(`20${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`);
+            parsedDate = new Date(parsed.date);
         }
-      } else {
-        parsedDate = new Date(parsed.date);
+
+        if (!isNaN(parsedDate.getTime())) {
+            const amount = parsed.credit > 0 ? parsed.credit : -parsed.debit;
+            if (parsed.balance) currentBalance = parsed.balance;
+            
+            // Accumulate totals
+            if (parsed.credit > 0) totalIncome += parsed.credit;
+            if (parsed.debit > 0) totalExpenses += parsed.debit;
+
+            transactions.push({
+            date: parsedDate.toISOString().split('T')[0],
+            description: parsed.description,
+            amount: amount,
+            balance: parsed.balance,
+            category: amount > 0 ? 'income' : 'expense'
+            });
+        }
       }
-
-      if (isNaN(parsedDate.getTime())) continue;
-
-      // Calculate amount: positive for income (credit), negative for expense (debit)
-      const amount = parsed.credit > 0 ? parsed.credit : (parsed.debit > 0 ? -parsed.debit : 0);
-      
-      if (amount === 0) continue;
-
-      // Accumulate totals
-      if (parsed.credit > 0) totalIncome += parsed.credit;
-      if (parsed.debit > 0) totalExpenses += parsed.debit;
-      if (parsed.balance > 0) currentBalance = parsed.balance;
-
-      // Sanitize description before storage
-      const rawTransaction = {
-        date: parsedDate.toISOString().split('T')[0],
-        description: parsed.description || 'תנועה',
-        amount: amount,
-        balance: parsed.balance || null,
-        category: amount > 0 ? 'income' : 'expense'
-      };
-
-      transactions.push(sanitizeTransaction(rawTransaction));
-    }
+    });
 
     if (transactions.length === 0) {
       throw new Error('לא נמצאו עסקאות תקינות בקובץ');

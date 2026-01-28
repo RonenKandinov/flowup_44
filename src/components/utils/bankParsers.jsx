@@ -15,27 +15,13 @@ const toNum = (v) => {
 /**
  * Detect bank type from CSV header row
  */
-export const detectBankFromHeader = (headerRow) => {
-    // Legacy support (mostly will fail with garbage headers)
-    const header = headerRow.toLowerCase();
+export const detectBankFromHeader = (content) => {
+    const text = content.toLowerCase();
     
-    if (header.includes('יתרה בש"ח') || header.includes('הפעולה') || header.includes('תיאור הפעולה') || header.includes('תאריך ערך')) {
-        return 'hapoalim';
-    }
-    if (header.includes('זכות/חובה') || header.includes('תיאור התנועה') || (header.includes('פרטים') && header.includes('חשבון'))) {
-        return 'discount';
-    }
-
-    // Keep existing detections as fallback
-    if (header.includes('תיאור') && header.includes('חיוב') && header.includes('זיכוי')) {
-        return 'leumi';
-    }
-    if (header.includes('סוג פעולה') || header.includes('משיכה') || header.includes('הפקדה')) {
-        return 'mizrahi';
-    }
-    if (header.includes('amount') || header.includes('סכום')) {
-        return 'beinleumi';
-    }
+    if (text.includes("יתרה בש''ח") || text.includes('תאריך ערך')) return 'hapoalim';
+    if (text.includes('זכות/חובה') || text.includes('תיאור התנועה')) return 'discount';
+    if (text.includes('תיאור') && text.includes('חיוב') && text.includes('זיכוי')) return 'leumi';
+    if (text.includes('סוג פעולה') || text.includes('משיכה')) return 'mizrahi';
     
     return 'unknown';
 };
@@ -117,20 +103,18 @@ export const parseLeumiRow = (row, headers) => {
  * Format: תאריך, פרטים, חובה, זכות, יתרה
  */
 export const parseDiscountRow = (row, headers) => {
-    // דילוג על שורות כותרת - בדרך כלל מתחיל בשורה 8
     const dateRegex = /^\d{4}-\d{2}-\d{2}/;
     if (!row[0] || !dateRegex.test(row[0])) return null;
 
-    // בדיסקונט יש עמודה אחת לסכום (אינדקס 3) - חיובי זה זכות, שלילי זה חובה
-    const rawAmount = row[3] ? row[3].toString().replace(/[^\d.-]/g, '') : "0";
-    const amount = parseFloat(rawAmount) || 0;
+    // בדיסקונט: תאריך=0, יום ערך=1, תיאור=2, סכום=3, יתרה=4
+    const amount = toNum(row[3]);
 
     return {
-        date: row[0],
-        description: row[2], // תיאור התנועה
+        date: row[0].trim(),
+        description: row[2]?.trim() || 'תנועה',
         debit: amount < 0 ? Math.abs(amount) : 0,
         credit: amount > 0 ? amount : 0,
-        balance: parseFloat(row[4].toString().replace(/[^\d.-]/g, '')) || 0
+        balance: toNum(row[4])
     };
 };
 
