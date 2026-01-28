@@ -75,22 +75,8 @@ export const processAndForecast = (csvText) => {
         }
 
         // Improved Parsing using dedicated Bank Parsers
-        // [Logic Update]: Concatenate first 3 lines to support garbage headers detection
-        const firstFewLines = lines.slice(0, 3).join(' ');
-        
-        // Try to detect bank using the more robust detectBank or fallback to detectBankFromHeader
-        // We import detectBank from bankParsers now (need to export it there first)
-        let bankType = 'unknown';
-        try {
-            // Dynamically check if detectBank exists (since we just added it)
-            // Or just use the logic directly here if imports are tricky to update in same turn
-            // But since we updated bankParsers, let's assume we can use detectBankFromHeader with more context
-            bankType = detectBankFromHeader(firstFewLines);
-        } catch (e) {
-            bankType = detectBankFromHeader(lines[0]);
-        }
-
-        const headerLine = lines[0]; // Still need a reference for delimiter
+        const headerLine = lines[0];
+        const bankType = detectBankFromHeader(headerLine);
         const delimiter = headerLine.includes(';') ? ';' : ',';
         const headers = headerLine.split(delimiter).map(h => h.trim().replace(/"/g, ''));
 

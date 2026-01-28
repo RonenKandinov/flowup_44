@@ -15,33 +15,35 @@ const toNum = (v) => {
 /**
  * Detect bank type from CSV header row
  */
-export const detectBankFromHeader = (content) => {
-    const text = content.toLowerCase();
+export const detectBankFromHeader = (headerRow) => {
+    const header = headerRow.toLowerCase();
     
-    if (text.includes("יתרה בש''ח") || text.includes('תאריך ערך')) return 'hapoalim';
-    if (text.includes('זכות/חובה') || text.includes('תיאור התנועה')) return 'discount';
-    if (text.includes('תיאור') && text.includes('חיוב') && text.includes('זיכוי')) return 'leumi';
-    if (text.includes('סוג פעולה') || text.includes('משיכה')) return 'mizrahi';
+    // Bank Hapoalim - תאריך, תיאור הפעולה, חובה, זכות, יתרה
+    if (header.includes('תיאור הפעולה') || header.includes('תאריך ערך')) {
+        return 'hapoalim';
+    }
+    
+    // Bank Leumi - Date, Details, Debit, Credit, Balance
+    if (header.includes('תיאור') && header.includes('חיוב') && header.includes('זיכוי')) {
+        return 'leumi';
+    }
+    
+    // Discount Bank - תאריך פעולה, פרטים, חובה/זכות, יתרה
+    if (header.includes('פרטים') && header.includes('חשבון')) {
+        return 'discount';
+    }
+    
+    // Mizrahi-Tefahot - תאריך, סוג פעולה, משיכה, הפקדה
+    if (header.includes('סוג פעולה') || header.includes('משיכה') || header.includes('הפקדה')) {
+        return 'mizrahi';
+    }
+    
+    // First International Bank - Date, Description, Amount, Balance
+    if (header.includes('amount') || header.includes('סכום')) {
+        return 'beinleumi';
+    }
     
     return 'unknown';
-};
-
-/**
- * 3. לוגיקת הזיהוי האוטומטי (להוסיף ב-Parser Manager)
- * Supports garbage line skipping by concatenating first few lines
- */
-export const detectBank = (firstLine, secondLine, headers) => {
-    const combined = (firstLine + (secondLine || '') + (headers || '')).toLowerCase();
-    
-    if (combined.includes('יתרה בש"ח') || combined.includes('הפעולה')) {
-        return 'hapoalim'; // Normalized to internal key
-    }
-    if (combined.includes('זכות/חובה') || combined.includes('תיאור התנועה')) {
-        return 'discount'; // Normalized to internal key
-    }
-    
-    // Fallback to standard detection if no special match
-    return detectBankFromHeader(combined);
 };
 
 /**
@@ -62,17 +64,22 @@ const findColumn = (headers, possibleNames) => {
  * Format: תאריך, תיאור הפעולה, פרטים, חשבון, אסמכתא, תאריך ערך, חובה, זכות, יתרה
  */
 export const parsePoalimRow = (row, headers) => {
-    // Supports YYYY-MM-DD and DD/MM/YYYY
-    const dateRegex = /^(\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/;
-    if (!row[0] || !dateRegex.test(row[0])) return null;
-
+    const dateIdx = findColumn(headers, ['תאריך']);
+    const descIdx = findColumn(headers, ['תיאור']);
+    const detailsIdx = findColumn(headers, ['פרטים']);
+    const debitIdx = findColumn(headers, ['חובה', 'חיוב']);
+    const creditIdx = findColumn(headers, ['זכות', 'זיכוי']);
+    const balanceIdx = findColumn(headers, ['יתרה']);
+    
+    if (dateIdx === -1 || balanceIdx === -1) return null;
+    
     return {
-        date: row[0],
-        description: row[1],
-        subDescription: row[2],
-        debit: parseFloat(row[4]) || 0,  // עמודה 5 - חובה
-        credit: parseFloat(row[5]) || 0, // עמודה 6 - זכות
-        balance: parseFloat(row[6]) || 0 // עמודה 7 - יתרה
+        date: row[dateIdx]?.trim() || '',
+        description: row[descIdx]?.trim() || row[descIdx + 1]?.trim() || 'תנועה',
+        details: detailsIdx !== -1 ? row[detailsIdx]?.trim() : '',
+        debit: debitIdx !== -1 ? toNum(row[debitIdx]) : 0,
+        credit: creditIdx !== -1 ? toNum(row[creditIdx]) : 0,
+        balance: toNum(row[balanceIdx])
     };
 };
 
@@ -103,19 +110,20 @@ export const parseLeumiRow = (row, headers) => {
  * Format: תאריך, פרטים, חובה, זכות, יתרה
  */
 export const parseDiscountRow = (row, headers) => {
-    // Supports YYYY-MM-DD and DD/MM/YYYY
-    const dateRegex = /^(\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/;
-    if (!row[0] || !dateRegex.test(row[0])) return null;
-
-    // בדיסקונט: תאריך=0, יום ערך=1, תיאור=2, סכום=3, יתרה=4
-    const amount = toNum(row[3]);
-
+    const dateIdx = findColumn(headers, ['תאריך', 'תאריך פעולה']);
+    const descIdx = findColumn(headers, ['פרטים', 'תיאור']);
+    const debitIdx = findColumn(headers, ['חובה']);
+    const creditIdx = findColumn(headers, ['זכות']);
+    const balanceIdx = findColumn(headers, ['יתרה']);
+    
+    if (dateIdx === -1 || balanceIdx === -1) return null;
+    
     return {
-        date: row[0].trim(),
-        description: row[2]?.trim() || 'תנועה',
-        debit: amount < 0 ? Math.abs(amount) : 0,
-        credit: amount > 0 ? amount : 0,
-        balance: toNum(row[4])
+        date: row[dateIdx]?.trim() || '',
+        description: row[descIdx]?.trim() || 'תנועה',
+        debit: debitIdx !== -1 ? toNum(row[debitIdx]) : 0,
+        credit: creditIdx !== -1 ? toNum(row[creditIdx]) : 0,
+        balance: toNum(row[balanceIdx])
     };
 };
 
