@@ -273,6 +273,63 @@ export const runSubscriptionAgent = (transactions) => {
 /**
  * Main Runner
  */
+/**
+ * 4. Trend Agent: Identifies Spending Spikes & Large Expenses
+ * "The Analyst"
+ */
+export const runTrendAgent = (transactions) => {
+    const insights = [];
+    if (!transactions || transactions.length < 10) return [];
+
+    // Filter expenses only
+    const expenses = transactions.filter(t => t.debit > 0);
+    
+    // 1. Large Expense Detector (> 2000 NIS) that is not Rent/Mortgage
+    const IGNORE_LARGE = ['שכר דירה', 'משכנתא', 'העברה', 'כרטיס אשראי', 'הלוואה'];
+    
+    expenses.slice(0, 10).forEach(t => { // Look at 10 most recent
+        if (t.debit > 2000) {
+            const isIgnored = IGNORE_LARGE.some(kw => t.description.includes(kw));
+            if (!isIgnored) {
+                insights.push({
+                    type: 'alert',
+                    title: 'הוצאה חריגה זוהתה',
+                    description: `הוצאה של ₪${t.debit.toLocaleString()} ב-${t.description}. האם זה היה מתוכנן?`,
+                    impact: t.debit, // One-time impact
+                    monthlySavings: 0,
+                    icon: 'AlertTriangle'
+                });
+            }
+        }
+    });
+
+    // 2. Weekend Spender (Spending on Fri/Sat)
+    const recentExpenses = expenses.slice(0, 30);
+    let weekendSpending = 0;
+    recentExpenses.forEach(t => {
+        const day = t.date.getDay(); // 5 = Fri, 6 = Sat
+        if (day === 5 || day === 6) {
+            weekendSpending += t.debit;
+        }
+    });
+
+    if (weekendSpending > 1500) {
+         insights.push({
+            type: 'info',
+            title: 'דפוס סופ"ש',
+            description: `הוצאת ₪${weekendSpending.toLocaleString()} בסופי שבוע האחרונים.`,
+            impact: weekendSpending,
+            monthlySavings: weekendSpending * 0.2, // Suggest 20% cut
+            icon: 'Coffee'
+        });
+    }
+
+    return insights;
+};
+
+/**
+ * Main Runner
+ */
 export const runAgents = (transactions) => {
     if (!transactions || transactions.length < 5) return [];
 
@@ -294,10 +351,13 @@ export const runAgents = (transactions) => {
 
     const liquidityInsights = runLiquidityAgent(recentTransactions);
     const subInsights = runSubscriptionAgent(processedTransactions);
+    const trendInsights = runTrendAgent(processedTransactions); // Run on full history/processed
 
-    const allInsights = [...fiscalInsights, ...liquidityInsights, ...subInsights];
+    const allInsights = [...fiscalInsights, ...liquidityInsights, ...subInsights, ...trendInsights];
 
-    return allInsights.sort((a, b) => getPriorityScore(b) - getPriorityScore(a)).slice(0, 5);
+    // Remove duplicates based on title/description similarity?
+    // For MVP, just sort and slice
+    return allInsights.sort((a, b) => getPriorityScore(b) - getPriorityScore(a)).slice(0, 6);
 };
 
 const getPriorityScore = (insight) => {

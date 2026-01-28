@@ -12,6 +12,7 @@ import StatCard from '../components/dashboard/StatCard';
 import RiskZoneChart from '../components/dashboard/RiskZoneChart';
 import WhatIfSimulator from '../components/dashboard/WhatIfSimulator';
 import FutureCake from '../components/dashboard/FutureCake';
+import InsightsAgent from '../components/dashboard/InsightsAgent'; // New
 import CSVUploader from '../components/upload/CSVUploader';
 import EmptyState from '../components/dashboard/EmptyState';
 import Disclaimer from '../components/dashboard/Disclaimer';
@@ -460,15 +461,22 @@ export default function Dashboard() {
                     />
                 </motion.div>
 
-                {/* RiskZoneChart (Recommendations): Mobile 2, Desktop 3 (Bottom Left) */}
-                <div className="order-2 lg:order-3">
+                {/* RiskZoneChart (Forecast): Mobile 2, Desktop 3 (Bottom Left) */}
+                <div className="order-2 lg:order-3 space-y-4">
+                     {/* Agent Widget - Prominently displayed */}
+                     {currentEngineData?.smartInsights?.length > 0 && (
+                        <div className="h-auto">
+                            <InsightsAgent insights={currentEngineData.smartInsights} />
+                        </div>
+                     )}
+
                     <RiskZoneChart
                         data={forecastData}
                         riskThreshold={0}
                         criticalDate={snapshot.risk_day}
                         projectedBalance={snapshot.projected_eom_balance}
                         currentBalance={snapshot.current_balance}
-                        insights={currentEngineData?.smartInsights}
+                        insights={[]} // Insights now handled by Agent Widget
                     />
                 </div>
                 
