@@ -15,91 +15,40 @@ export default function CSVUploader({ onDataParsed, onClose }) {
   const [fileName, setFileName] = useState('');
   const [detectedBank, setDetectedBank] = useState('');
 
-  const parseCSVForDatabase = (content) => {
-    const lines = content.split('\n').filter(line => line.trim());
-    if (lines.length < 2) {
-      throw new Error('קובץ ה-CSV חייב להכיל לפחות שורת כותרת ושורת נתונים אחת');
-    }
-
-    // Detect bank type from header
-    const headerLine = lines[0];
-    const bankType = detectBankFromHeader(headerLine);
-    
-    if (bankType === 'unknown') {
-      throw new Error('פורמט הקובץ אינו נתמך. אנא ייצא קובץ CSV מבנק הפועלים, לאומי, דיסקונט, מזרחי או הבינלאומי');
-    }
-    
-    setDetectedBank(getBankDisplayName(bankType));
-
-    // Parse headers (try both comma and semicolon)
-    const delimiter = headerLine.includes(';') ? ';' : ',';
-    const headers = headerLine.split(delimiter).map(h => h.trim().replace(/"/g, ''));
-
+  // Deprecated: Logic moved to processAndForecast in forecastingLogic.js for single source of truth
+  // We now use the engine's output directly
+  const extractDataFromEngine = (engineResult) => {
     const transactions = [];
     let totalIncome = 0;
     let totalExpenses = 0;
-    let currentBalance = 0;
+    
+    // Engine result already has totals, but let's recalculate strictly for the "Saved Data" structure if needed
+    // Actually, we can just use the engine's totals if they align.
+    // However, engine's totals are "Display Last Month", while here we might want "All Time"?
+    // The original logic returned "totalIncome" accumulating ALL rows.
+    
+    // Re-accumulate based on ALL transactions for consistency with previous behavior
+    engineResult.allTransactions.forEach(t => {
+        const amount = t.credit > 0 ? t.credit : (t.debit > 0 ? -t.debit : 0);
+        if (t.credit > 0) totalIncome += t.credit;
+        if (t.debit > 0) totalExpenses += t.debit;
 
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
-      
-      const values = line.split(delimiter).map(v => v.trim().replace(/"/g, ''));
-      
-      // Use bank-specific parser
-      const parsed = parseCSVRow(values, headers, bankType);
-      
-      if (!parsed || !parsed.date) continue;
-
-      // Parse date
-      let parsedDate;
-      if (parsed.date.includes('/')) {
-        const parts = parsed.date.split('/');
-        if (parts[2]?.length === 4) {
-          parsedDate = new Date(`${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`);
-        } else {
-          parsedDate = new Date(`20${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`);
-        }
-      } else {
-        parsedDate = new Date(parsed.date);
-      }
-
-      if (isNaN(parsedDate.getTime())) continue;
-
-      // Calculate amount: positive for income (credit), negative for expense (debit)
-      const amount = parsed.credit > 0 ? parsed.credit : (parsed.debit > 0 ? -parsed.debit : 0);
-      
-      if (amount === 0) continue;
-
-      // Accumulate totals
-      if (parsed.credit > 0) totalIncome += parsed.credit;
-      if (parsed.debit > 0) totalExpenses += parsed.debit;
-      if (parsed.balance > 0) currentBalance = parsed.balance;
-
-      // Sanitize description before storage
-      const rawTransaction = {
-        date: parsedDate.toISOString().split('T')[0],
-        description: parsed.description || 'תנועה',
-        amount: amount,
-        balance: parsed.balance || null,
-        category: amount > 0 ? 'income' : 'expense'
-      };
-
-      transactions.push(sanitizeTransaction(rawTransaction));
-    }
-
-    if (transactions.length === 0) {
-      throw new Error('לא נמצאו עסקאות תקינות בקובץ');
-    }
-
-    // Sort by date and return with totals
-    const sortedTransactions = transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
+        // Sanitize
+        const rawTransaction = {
+            date: t.date.toISOString().split('T')[0],
+            description: t.description || 'תנועה',
+            amount: amount,
+            balance: t.balance || null,
+            category: amount > 0 ? 'income' : 'expense'
+        };
+        transactions.push(sanitizeTransaction(rawTransaction));
+    });
 
     return {
-      transactions: sortedTransactions,
-      totalIncome,
-      totalExpenses,
-      currentBalance
+        transactions,
+        totalIncome,
+        totalExpenses,
+        currentBalance: engineResult.currentBalance
     };
   };
 
@@ -143,8 +92,8 @@ export default function CSVUploader({ onDataParsed, onClose }) {
         throw new Error(forecastResult.error);
       }
 
-      // Parse CSV for database storage
-      const parsedData = parseCSVForDatabase(content);
+      // Extract normalized data from engine result (Single Source of Truth)
+      const parsedData = extractDataFromEngine(forecastResult);
       
       // Secure Storage: Explicitly clear raw content reference
       // content variable will be garbage collected when function scope ends
