@@ -33,7 +33,8 @@ export const detectBankFromHeader = (headerRow) => {
     
     // Discount Bank - תאריך פעולה, פרטים, חובה/זכות, יתרה
     // Expanded to catch formats without 'חשבון' but with 'פרטים' and 'יתרה' or 'סכום'
-    if (header.includes('פרטים') && (header.includes('חשבון') || header.includes('יתרה') || header.includes('סכום'))) {
+    // Also catches "תיאור התנועה" + "זכות/חובה" (The specific Excel format you provided)
+    if ((header.includes('פרטים') || header.includes('תיאור התנועה')) && (header.includes('חשבון') || header.includes('יתרה') || header.includes('סכום') || header.includes('זכות/חובה'))) {
         return 'discount';
     }
     
@@ -116,14 +117,17 @@ export const parseLeumiRow = (row, headers) => {
  * פרסר דיסקונט (איזיק וז'נטה) - הפיצוח
  */
 export const parseDiscountRow = (row, headers) => {
-  const dateRegex = /^\d{4}-\d{2}-\d{2}/;
-  if (!row[0] || !dateRegex.test(row[0].trim())) return null;
+  // CTO Fix: Relaxed date regex to accept 1/27/2026 format (slashes) AND 2026-01-27 (dashes)
+  // Also checks length > 5 to filter out empty/garbage rows
+  const dateStr = row[0]?.trim();
+  if (!dateStr || dateStr.length < 5 || !/\d/.test(dateStr)) return null;
 
-  // בדיסקונט: עמודה 3 זה תיאור, עמודה 4 זה זכות/חובה
+  // בדיסקונט: עמודה 3 זה תיאור (תיאור התנועה), עמודה 4 זה זכות/חובה (D)
+  // Note: indices are 0-based. A=0, B=1, C=2, D=3, E=4
   const amount = toNum(row[3]);
 
   return {
-    date: row[0].trim(),
+    date: dateStr,
     description: row[2]?.trim() || 'תנועה',
     // כאן התיקון: מינוס הופך ל-debit, פלוס ל-credit
     debit: amount < 0 ? Math.abs(amount) : 0,
