@@ -43,6 +43,12 @@ export const detectBankFromHeader = (headerRow) => {
         return 'beinleumi';
     }
     
+    // Generic/Universal Check (for "xlsx-CSV" or unknown formats)
+    if ((header.includes('date') || header.includes('תאריך')) && 
+        (header.includes('balance') || header.includes('יתרה') || header.includes('amount') || header.includes('סכום') || header.includes('חובה'))) {
+        return 'universal';
+    }
+
     return 'unknown';
 };
 
@@ -173,6 +179,44 @@ export const parseBeinleumiRow = (row, headers) => {
 };
 
 /**
+ * Parse Universal/Generic CSV Row
+ * Uses a superset of keywords to find columns
+ */
+export const parseUniversalRow = (row, headers) => {
+    const dateIdx = findColumn(headers, ['תאריך', 'date', 'ערך']);
+    const descIdx = findColumn(headers, ['תיאור', 'description', 'פרטים', 'details', 'סוג פעולה']);
+    const debitIdx = findColumn(headers, ['חובה', 'חיוב', 'debit', 'משיכה']);
+    const creditIdx = findColumn(headers, ['זכות', 'זיכוי', 'credit', 'הפקדה']);
+    const balanceIdx = findColumn(headers, ['יתרה', 'balance']);
+    const amountIdx = findColumn(headers, ['סכום', 'amount']);
+
+    if (dateIdx === -1) return null;
+
+    let debit = 0;
+    let credit = 0;
+
+    // Strategy 1: Explicit Debit/Credit columns
+    if (debitIdx !== -1 || creditIdx !== -1) {
+        if (debitIdx !== -1) debit = toNum(row[debitIdx]);
+        if (creditIdx !== -1) credit = toNum(row[creditIdx]);
+    } 
+    // Strategy 2: Single Amount column
+    else if (amountIdx !== -1) {
+        const amount = toNum(row[amountIdx]);
+        if (amount < 0) debit = Math.abs(amount);
+        else credit = amount;
+    }
+
+    return {
+        date: row[dateIdx]?.trim() || '',
+        description: (descIdx !== -1 ? row[descIdx] : '')?.trim() || 'תנועה',
+        debit,
+        credit,
+        balance: balanceIdx !== -1 ? toNum(row[balanceIdx]) : 0
+    };
+};
+
+/**
  * Universal CSV Parser Router
  * Detects bank and routes to appropriate parser
  */
@@ -188,8 +232,11 @@ export const parseCSVRow = (row, headers, bankType) => {
             return parseMizrahiRow(row, headers);
         case 'beinleumi':
             return parseBeinleumiRow(row, headers);
+        case 'universal':
+            return parseUniversalRow(row, headers);
         default:
-            return null;
+            // Fallback to universal if unknown
+            return parseUniversalRow(row, headers);
     }
 };
 

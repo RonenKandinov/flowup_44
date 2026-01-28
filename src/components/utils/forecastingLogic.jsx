@@ -74,11 +74,33 @@ export const processAndForecast = (csvText) => {
             return { error: "קובץ ריק או לא תקין" };
         }
 
-        // Improved Parsing using dedicated Bank Parsers
-        const headerLine = lines[0];
-        const bankType = detectBankFromHeader(headerLine);
-        const delimiter = headerLine.includes(';') ? ';' : ',';
-        const headers = headerLine.split(delimiter).map(h => h.trim().replace(/"/g, ''));
+        // 1. Detect Header Row Dynamically
+        let headers = [];
+        let bankType = 'unknown';
+        let delimiter = ',';
+        let startRowIndex = 0;
+
+        // Scan first 20 lines for a header
+        for (let i = 0; i < Math.min(lines.length, 20); i++) {
+            const line = lines[i];
+            const detectedType = detectBankFromHeader(line);
+            
+            if (detectedType !== 'unknown') {
+                bankType = detectedType;
+                delimiter = line.includes(';') ? ';' : ',';
+                headers = line.split(delimiter).map(h => h.trim().replace(/"/g, ''));
+                startRowIndex = i + 1;
+                break;
+            }
+        }
+        
+        // Default if no header found (Legacy support)
+        if (bankType === 'unknown') {
+             const line0 = lines[0];
+             delimiter = line0.includes(';') ? ';' : ',';
+             headers = line0.split(delimiter).map(h => h.trim().replace(/"/g, ''));
+             bankType = 'universal'; // Use universal fallback
+        }
 
         let totalCredit = 0;
         let totalDebit = 0;
@@ -88,11 +110,31 @@ export const processAndForecast = (csvText) => {
         const uniqueDates = new Set();
         const allTransactions = [];
 
-        // Parse using robust parser
-        for (let i = 1; i < lines.length; i++) {
+        // 2. Parse Data with strict filtering loop
+        let foundFirstDate = false;
+
+        for (let i = startRowIndex; i < lines.length; i++) {
             const line = lines[i].trim();
             if (!line) continue;
             
+            // Check for delimiter count (< 3 commas -> skip)
+            // (Using delimiter detected from header)
+            if ((line.match(new RegExp(delimiter, "g")) || []).length < 3) {
+                 continue;
+            }
+
+            // Check for date at start of line
+            const dateRegex = /^"?(\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}|\d{1,2}[-/.]\d{1,2}[-/.]\d{1,4})/;
+            const startsWithDate = dateRegex.test(line);
+
+            if (!foundFirstDate) {
+                if (startsWithDate) {
+                    foundFirstDate = true;
+                } else {
+                    continue; // Skip lines until we find the first date
+                }
+            }
+
             const row = line.split(delimiter).map(v => v.trim().replace(/"/g, ''));
             const parsed = parseCSVRow(row, headers, bankType);
             
