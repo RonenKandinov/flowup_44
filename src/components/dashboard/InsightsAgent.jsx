@@ -87,8 +87,11 @@ export default function InsightsAgent({ insights = [] }) {
         <div className="relative h-full">
             {/* Main Card */}
             <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-cyan-500/20 rounded-xl overflow-hidden shadow-lg shadow-cyan-900/5 h-full flex flex-col">
-                {/* Header */}
-                <div className="px-4 py-3 border-b border-slate-800/60 bg-slate-900/50 flex justify-between items-center">
+                {/* Header - Clickable on Mobile */}
+                <div 
+                    className={`px-4 py-3 border-b border-slate-800/60 bg-slate-900/50 flex justify-between items-center ${isMobile ? 'cursor-pointer hover:bg-slate-800' : ''}`}
+                    onClick={() => isMobile && setIsOpen(!isOpen)}
+                >
                     <div className="flex items-center gap-2">
                         <div className="relative">
                             <div className="absolute inset-0 bg-cyan-500 blur-sm opacity-20 animate-pulse rounded-full" />
@@ -96,15 +99,29 @@ export default function InsightsAgent({ insights = [] }) {
                         </div>
                         <span className="text-sm font-semibold text-slate-200">FlowUp AI Agent</span>
                     </div>
-                    <span className="text-xs font-mono text-cyan-500 bg-cyan-950/30 px-2 py-0.5 rounded-full border border-cyan-900/30">
-                        {activeInsights.length} {hasRealInsights ? 'תובנות' : 'טיפים'}
-                    </span>
+                    
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono text-cyan-500 bg-cyan-950/30 px-2 py-0.5 rounded-full border border-cyan-900/30">
+                            {activeInsights.length} {hasRealInsights ? 'תובנות' : 'טיפים'}
+                        </span>
+                        {isMobile && (
+                            isOpen ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />
+                        )}
+                    </div>
                 </div>
 
                 {/* Content */}
-                <div className="p-5 flex-1 flex flex-col relative">
-                    <AnimatePresence mode="wait">
-                        <motion.div
+                <AnimatePresence>
+                {isOpen && (
+                    <motion.div 
+                        initial={isMobile ? { height: 0, opacity: 0 } : false}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={isMobile ? { height: 0, opacity: 0 } : false}
+                        className="overflow-hidden flex-1 flex flex-col"
+                    >
+                        <div className="p-5 flex-1 flex flex-col relative">
+                            <AnimatePresence mode="wait">
+                                <motion.div
                             key={currentInsight.title + dismissedCount}
                             initial={{ opacity: 0, x: 20 }}
                             animate={{ opacity: 1, x: 0 }}
@@ -115,6 +132,7 @@ export default function InsightsAgent({ insights = [] }) {
                                 <div className={`p-3 rounded-xl shrink-0 ${
                                     currentInsight.type === 'tax_refund' ? 'bg-emerald-500/10 text-emerald-400' :
                                     currentInsight.type === 'money_leak' ? 'bg-amber-500/10 text-amber-400' :
+                                    currentInsight.type === 'lifestyle' ? 'bg-pink-500/10 text-pink-400' :
                                     'bg-cyan-500/10 text-cyan-400'
                                 }`}>
                                     <Icon className="w-6 h-6" />
@@ -143,7 +161,8 @@ export default function InsightsAgent({ insights = [] }) {
                                         <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">סוג תובנה</p>
                                         <p className="text-slate-300 text-sm font-medium">
                                             {currentInsight.type === 'tax_refund' ? 'החזר מס' :
-                                             currentInsight.type === 'money_leak' ? 'דליפת כסף' : 'התראה'}
+                                             currentInsight.type === 'money_leak' ? 'דליפת כסף' : 
+                                             currentInsight.type === 'lifestyle' ? 'סגנון חיים' : 'התראה'}
                                         </p>
                                     </div>
                                 </div>
@@ -160,9 +179,13 @@ export default function InsightsAgent({ insights = [] }) {
                             הבנתי, תודה
                         </Button>
                     </div>
-                </div>
+                    </div>
+                </motion.div>
+                )}
+                </AnimatePresence>
 
-                {/* Progress Indicators */}
+                {/* Progress Indicators (Only show if open) */}
+                {isOpen && (
                 <div className="px-5 pb-4 flex gap-1 justify-center">
                     {insights.map((_, idx) => (
                         <div 

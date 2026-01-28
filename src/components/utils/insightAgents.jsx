@@ -356,8 +356,58 @@ export const runAgents = (transactions) => {
     const allInsights = [...fiscalInsights, ...liquidityInsights, ...subInsights, ...trendInsights];
 
     // Remove duplicates based on title/description similarity?
+    // Run Lifestyle Agent (Dining/Restaurants)
+    const lifestyleInsights = runLifestyleAgent(processedTransactions);
+
+    const allInsights = [...fiscalInsights, ...liquidityInsights, ...subInsights, ...trendInsights, ...lifestyleInsights];
+
+    // Remove duplicates based on title/description similarity?
     // For MVP, just sort and slice
     return allInsights.sort((a, b) => getPriorityScore(b) - getPriorityScore(a)).slice(0, 6);
+};
+
+/**
+ * 5. Lifestyle Agent: Analyzes Discretionary Spending (Dining, etc.)
+ */
+export const runLifestyleAgent = (transactions) => {
+    const insights = [];
+    if (!transactions || transactions.length < 5) return [];
+
+    // Filter last 30 days
+    const now = new Date();
+    const recentTxns = transactions.filter(t => 
+        (now - t.date) / (1000 * 60 * 60 * 24) <= 30 && t.debit > 0
+    );
+
+    // Dining & Restaurants
+    const diningKeywords = ['wolt', 'תן ביס', '10bis', 'סיבוס', 'cibus', 'משלוחה', 'mishloha', 'גולדה', 'rebar', 'ארומה', 'קפה', 'מסעדה', 'פיצה', 'בורגר', 'סושי', 'מקדונלד', 'דומינו', 'arcaffe', 'landwer', 'לנדוור', 'aroma', 'cafe', 'restaurant', 'bar', 'pub'];
+    
+    let diningTotal = 0;
+    let diningCount = 0;
+
+    recentTxns.forEach(t => {
+        const desc = t.description.toLowerCase();
+        if (diningKeywords.some(kw => desc.includes(kw))) {
+            diningTotal += t.debit;
+            diningCount++;
+        }
+    });
+
+    if (diningTotal > 800) {
+        // Calculate potential savings (cutting back by 30%)
+        const potentialSavings = Math.round(diningTotal * 0.3);
+        
+        insights.push({
+            type: 'lifestyle',
+            title: '🍔 הוצאות מסעדות ובילויים',
+            description: `הוצאת ₪${diningTotal.toLocaleString()} על אוכל בחוץ החודש (${diningCount} עסקאות). בישול בבית פעמיים בשבוע יחסוך לך כ-₪${potentialSavings}.`,
+            monthlySavings: potentialSavings,
+            annualImpact: potentialSavings * 12,
+            icon: 'Utensils'
+        });
+    }
+
+    return insights;
 };
 
 const getPriorityScore = (insight) => {
