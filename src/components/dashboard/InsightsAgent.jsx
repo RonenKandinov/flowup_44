@@ -112,91 +112,91 @@ export default function InsightsAgent({ insights = [] }) {
 
                 {/* Content */}
                 <AnimatePresence>
-                {isOpen && (
-                    <motion.div 
-                        initial={isMobile ? { height: 0, opacity: 0 } : false}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={isMobile ? { height: 0, opacity: 0 } : false}
-                        className="overflow-hidden flex-1 flex flex-col"
-                    >
-                        <div className="p-5 flex-1 flex flex-col relative">
-                            <AnimatePresence mode="wait">
-                                <motion.div
-                            key={currentInsight.title + dismissedCount}
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -20 }}
-                            className="flex-1"
+                    {isOpen && (
+                        <motion.div 
+                            initial={isMobile ? { height: 0, opacity: 0 } : false}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={isMobile ? { height: 0, opacity: 0 } : false}
+                            className="overflow-hidden flex-1 flex flex-col"
                         >
-                            <div className="flex items-start gap-4 mb-4">
-                                <div className={`p-3 rounded-xl shrink-0 ${
-                                    currentInsight.type === 'tax_refund' ? 'bg-emerald-500/10 text-emerald-400' :
-                                    currentInsight.type === 'money_leak' ? 'bg-amber-500/10 text-amber-400' :
-                                    currentInsight.type === 'lifestyle' ? 'bg-pink-500/10 text-pink-400' :
-                                    'bg-cyan-500/10 text-cyan-400'
-                                }`}>
-                                    <Icon className="w-6 h-6" />
-                                </div>
-                                <div>
-                                    <h3 className="text-lg font-bold text-white leading-tight mb-1">
-                                        {currentInsight.title}
-                                    </h3>
-                                    <p className="text-slate-400 text-sm leading-relaxed">
-                                        {currentInsight.description}
-                                    </p>
+                            <div className="p-5 flex-1 flex flex-col relative">
+                                <AnimatePresence mode="wait">
+                                    <motion.div
+                                        key={currentInsight.title + dismissedCount}
+                                        initial={{ opacity: 0, x: 20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: -20 }}
+                                        className="flex-1"
+                                    >
+                                        <div className="flex items-start gap-4 mb-4">
+                                            <div className={`p-3 rounded-xl shrink-0 ${
+                                                currentInsight.type === 'tax_refund' ? 'bg-emerald-500/10 text-emerald-400' :
+                                                currentInsight.type === 'money_leak' ? 'bg-amber-500/10 text-amber-400' :
+                                                currentInsight.type === 'lifestyle' ? 'bg-pink-500/10 text-pink-400' :
+                                                'bg-cyan-500/10 text-cyan-400'
+                                            }`}>
+                                                <Icon className="w-6 h-6" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-lg font-bold text-white leading-tight mb-1">
+                                                    {currentInsight.title}
+                                                </h3>
+                                                <p className="text-slate-400 text-sm leading-relaxed">
+                                                    {currentInsight.description}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Impact Stats */}
+                                        {(currentInsight.monthlySavings > 0 || currentInsight.annualImpact > 0) && (
+                                            <div className="grid grid-cols-2 gap-3 mb-4">
+                                                <div className="bg-slate-800/40 rounded-lg p-3 border border-slate-800">
+                                                    <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">פוטנציאל חיסכון</p>
+                                                    <p className="text-emerald-400 font-mono font-bold">
+                                                        ₪{Math.round(currentInsight.annualImpact || currentInsight.monthlySavings * 12).toLocaleString()}
+                                                        <span className="text-[10px] text-slate-600 font-sans mr-1">/שנה</span>
+                                                    </p>
+                                                </div>
+                                                <div className="bg-slate-800/40 rounded-lg p-3 border border-slate-800">
+                                                    <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">סוג תובנה</p>
+                                                    <p className="text-slate-300 text-sm font-medium">
+                                                        {currentInsight.type === 'tax_refund' ? 'החזר מס' :
+                                                        currentInsight.type === 'money_leak' ? 'דליפת כסף' : 
+                                                        currentInsight.type === 'lifestyle' ? 'סגנון חיים' : 'התראה'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </motion.div>
+                                </AnimatePresence>
+
+                                {/* Actions */}
+                                <div className="mt-auto pt-4 flex gap-3">
+                                    <Button 
+                                        className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/50 shadow-sm"
+                                        onClick={() => setDismissedCount(prev => prev + 1)}
+                                    >
+                                        הבנתי, תודה
+                                    </Button>
                                 </div>
                             </div>
-
-                            {/* Impact Stats */}
-                            {(currentInsight.monthlySavings > 0 || currentInsight.annualImpact > 0) && (
-                                <div className="grid grid-cols-2 gap-3 mb-4">
-                                    <div className="bg-slate-800/40 rounded-lg p-3 border border-slate-800">
-                                        <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">פוטנציאל חיסכון</p>
-                                        <p className="text-emerald-400 font-mono font-bold">
-                                            ₪{Math.round(currentInsight.annualImpact || currentInsight.monthlySavings * 12).toLocaleString()}
-                                            <span className="text-[10px] text-slate-600 font-sans mr-1">/שנה</span>
-                                        </p>
-                                    </div>
-                                    <div className="bg-slate-800/40 rounded-lg p-3 border border-slate-800">
-                                        <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">סוג תובנה</p>
-                                        <p className="text-slate-300 text-sm font-medium">
-                                            {currentInsight.type === 'tax_refund' ? 'החזר מס' :
-                                             currentInsight.type === 'money_leak' ? 'דליפת כסף' : 
-                                             currentInsight.type === 'lifestyle' ? 'סגנון חיים' : 'התראה'}
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
                         </motion.div>
-                    </AnimatePresence>
-
-                    {/* Actions */}
-                    <div className="mt-auto pt-4 flex gap-3">
-                        <Button 
-                            className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/50 shadow-sm"
-                            onClick={() => setDismissedCount(prev => prev + 1)}
-                        >
-                            הבנתי, תודה
-                        </Button>
-                    </div>
-                    </div>
-                </motion.div>
-                )}
+                    )}
                 </AnimatePresence>
 
                 {/* Progress Indicators (Only show if open) */}
                 {isOpen && (
-                <div className="px-5 pb-4 flex gap-1 justify-center">
-                    {insights.map((_, idx) => (
-                        <div 
-                            key={idx}
-                            className={`h-1 rounded-full transition-all duration-300 ${
-                                idx === dismissedCount ? 'w-6 bg-cyan-500' : 
-                                idx < dismissedCount ? 'w-2 bg-slate-700' : 'w-2 bg-slate-800'
-                            }`}
-                        />
-                    ))}
-                </div>
+                    <div className="px-5 pb-4 flex gap-1 justify-center">
+                        {insights.map((_, idx) => (
+                            <div 
+                                key={idx}
+                                className={`h-1 rounded-full transition-all duration-300 ${
+                                    idx === dismissedCount ? 'w-6 bg-cyan-500' : 
+                                    idx < dismissedCount ? 'w-2 bg-slate-700' : 'w-2 bg-slate-800'
+                                }`}
+                            />
+                        ))}
+                    </div>
                 )}
             </div>
         </div>

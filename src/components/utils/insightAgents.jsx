@@ -353,9 +353,6 @@ export const runAgents = (transactions) => {
     const subInsights = runSubscriptionAgent(processedTransactions);
     const trendInsights = runTrendAgent(processedTransactions); // Run on full history/processed
 
-    const allInsights = [...fiscalInsights, ...liquidityInsights, ...subInsights, ...trendInsights];
-
-    // Remove duplicates based on title/description similarity?
     // Run Lifestyle Agent (Dining/Restaurants)
     const lifestyleInsights = runLifestyleAgent(processedTransactions);
 
