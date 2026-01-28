@@ -197,6 +197,7 @@ export default function InsightsAgent({ insights = [] }) {
                         />
                     ))}
                 </div>
+                )}
             </div>
         </div>
     );
