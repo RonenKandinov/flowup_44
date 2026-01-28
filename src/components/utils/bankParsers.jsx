@@ -121,69 +121,42 @@ export const parseLeumiRow = (row, headers) => {
 };
 
 /**
- * Parse Discount Bank CSV
- * Supports both split columns (Debit/Credit) and unified Amount column.
- * Unified Amount Logic: Negative = Debit, Positive = Credit.
+ * Parse Discount Bank CSV (Updated for specific format)
  */
 export const parseDiscountRow = (row, headers) => {
-    const dateIdx = findColumn(headers, ['תאריך', 'תאריך פעולה']);
-    const descIdx = findColumn(headers, ['פרטים', 'תיאור']);
+    // 1. זיהוי עמודות לפי מילות מפתח (כולל טיפול ברווחים ובתו השקל)
+    const dateIdx = findColumn(headers, ['תאריך']);
+    const descIdx = findColumn(headers, ['תיאור התנועה', 'פרטים']);
+    const amountIdx = findColumn(headers, ['זכות/חובה', 'סכום']);
     const balanceIdx = findColumn(headers, ['יתרה']);
     
-    if (dateIdx === -1) return null; // Date is mandatory
+    // אם לא מצאנו את העמודות הקריטיות, נסה לפי אינדקסים קבועים של דיסקונט
+    const finalAmountIdx = amountIdx !== -1 ? amountIdx : 3;
+    const finalDateIdx = dateIdx !== -1 ? dateIdx : 0;
+    const finalDescIdx = descIdx !== -1 ? descIdx : 2;
+    const finalBalanceIdx = balanceIdx !== -1 ? balanceIdx : 4;
+
+    const dateStr = row[finalDateIdx]?.trim();
     
-    const date = row[dateIdx]?.trim() || '';
-    const description = (descIdx !== -1 ? row[descIdx] : 'תנועה')?.trim() || 'תנועה';
-    const balance = balanceIdx !== -1 ? toNum(row[balanceIdx]) : 0;
-
-    // Strategy 1: Look for explicit Debit/Credit columns
-    const debitIdx = findColumn(headers, ['חובה']);
-    const creditIdx = findColumn(headers, ['זכות']);
-
-    if (debitIdx !== -1 && creditIdx !== -1) {
-        return {
-            date,
-            description,
-            debit: toNum(row[debitIdx]),
-            credit: toNum(row[creditIdx]),
-            balance
-        };
-    }
-
-    // Strategy 2: Unified Amount Column (as requested)
-    // 1. Try finding 'amount'/'sum' column
-    let amountIdx = findColumn(headers, ['סכום', 'amount']);
+    // Regex matches YYYY-MM-DD or DD/MM/YYYY or DD/MM/YY
+    // User requested strict /^\d{4}-\d{2}-\d{2}/ but to be safe for diverse bank exports:
+    const dateRegex = /^\d{4}-\d{2}-\d{2}/;
+    const altDateRegex = /^\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}/;
     
-    // 2. Fallback: Use Index 3 (4th column) if specific column not found and row is long enough
-    if (amountIdx === -1 && row.length > 3) {
-        amountIdx = 3;
-    }
+    if (!dateStr || (!dateRegex.test(dateStr) && !altDateRegex.test(dateStr))) return null;
 
-    if (amountIdx !== -1) {
-        const amount = toNum(row[amountIdx]);
-        
-        // Logic: Negative -> Debit (Expense), Positive -> Credit (Income)
-        if (amount < 0) {
-            return {
-                date,
-                description,
-                debit: Math.abs(amount),
-                credit: 0,
-                balance
-            };
-        } else {
-            return {
-                date,
-                description,
-                debit: 0,
-                credit: amount,
-                balance
-            };
-        }
-    }
+    // 2. לוגיקת הסכום המאוחדת
+    const rawVal = row[finalAmountIdx] || "0";
+    const amount = toNum(rawVal);
 
-    // Fallback if no amount found
-    return { date, description, debit: 0, credit: 0, balance };
+    return {
+        date: dateStr,
+        description: row[finalDescIdx]?.trim() || 'תנועה',
+        // אם המספר שלילי -> זו הוצאה (debit). אם חיובי -> הכנסה (credit)
+        debit: amount < 0 ? Math.abs(amount) : 0,
+        credit: amount > 0 ? amount : 0,
+        balance: toNum(row[finalBalanceIdx])
+    };
 };
 
 /**
