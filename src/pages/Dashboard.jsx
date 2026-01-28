@@ -390,14 +390,23 @@ export default function Dashboard() {
               <div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : !hasData ? (
-            <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5 }}
+            >
               <EmptyState onUploadClick={() => setShowUploader(true)} />
               <div className="mt-8">
                 <Disclaimer />
               </div>
-            </>
+            </motion.div>
           ) : (
-            <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5 }}
+            >
               {/* Stats Row - Compact on Mobile */}
               <div className="grid grid-cols-3 gap-2 md:grid-cols-3 md:gap-4 mb-4 md:mb-6">
                 <StatCard
@@ -487,7 +496,7 @@ export default function Dashboard() {
               </div>
 
               <Disclaimer />
-            </>
+            </motion.div>
           )}
         </div>
       </main>
