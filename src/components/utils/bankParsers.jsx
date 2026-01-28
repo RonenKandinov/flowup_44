@@ -8,16 +8,16 @@
 // Safe number conversion utility
 const toNum = (v) => {
     if (!v) return 0;
-    let str = v.toString().trim();
+    // שלב 1: הופך למחרוזת ומנקה רווחים ותווי מטבע
+    let str = v.toString().replace(/[^\d.-]/g, '').trim();
     
-    // Handle trailing minus (common in Hebrew banking formats: "500-")
-    const isNegative = str.endsWith('-') || str.startsWith('-');
+    // שלב 2: אם המינוס בסוף (קורה בייצוא בנקים מסוימים), תעביר אותו להתחלה
+    if (str.endsWith('-')) {
+        str = '-' + str.slice(0, -1);
+    }
     
-    // Remove everything that isn't a digit or a dot
-    str = str.replace(/[^\d.]/g, '');
-    
-    const num = parseFloat(str) || 0;
-    return isNegative ? -num : num;
+    const num = parseFloat(str);
+    return isNaN(num) ? 0 : num;
 };
 
 /**
@@ -120,29 +120,22 @@ export const parseLeumiRow = (row, headers) => {
     };
 };
 
-/**
- * Parse Discount Bank CSV (Final Fix)
- * Uses fixed indices as requested: Date(0), Desc(2), Amount(3), Balance(4)
- * Amount Logic: Negative (< 0) is Expense (Debit), Positive (> 0) is Income (Credit)
- */
 export const parseDiscountRow = (row, headers) => {
-    // Ensure row has enough columns (at least 4 for amount)
-    if (row.length < 4) return null;
+    // דילוג על שורות לא רלוונטיות
+    const dateRegex = /^\d{4}-\d{2}-\d{2}/;
+    if (!row[0] || !dateRegex.test(row[0].trim())) return null;
 
-    const dateStr = row[0]?.trim();
-    // Basic date check to ensure it's a data row
-    if (!dateStr || dateStr.length < 6) return null;
-
-    // Fixed Index 3 for Amount (Unified Column)
-    const amount = toNum(row[3]); 
+    // בדיסקונט: עמודה 3 זה התיאור, עמודה 4 זה הכסף (זכות/חובה)
+    const rawAmount = row[3]; 
+    const amount = toNum(rawAmount);
 
     return {
-        date: dateStr,
+        date: row[0].trim(),
         description: row[2]?.trim() || 'תנועה',
-        // Logic: Negative -> Debit (Expense), Positive -> Credit (Income)
+        // כאן התיקון: אם המספר שלילי (כמו ה-1573.45- של כאל), זו הוצאה
         debit: amount < 0 ? Math.abs(amount) : 0,
         credit: amount > 0 ? amount : 0,
-        balance: toNum(row[4]) // Fixed Index 4 for Balance
+        balance: toNum(row[4]) // יתרה בעמודה 5
     };
 };
 
