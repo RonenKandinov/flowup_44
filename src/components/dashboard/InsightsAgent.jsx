@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, Sparkles, X, ChevronRight, AlertTriangle, TrendingUp, Shield, Copy, Phone, Tv, Wallet, Heart, GraduationCap, Coffee, Dumbbell } from 'lucide-react';
+import { Bot, Sparkles, X, ChevronRight, AlertTriangle, TrendingUp, Shield, Copy, Phone, Tv, Wallet, Heart, GraduationCap, Coffee, Dumbbell, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 // Icon Mapper
@@ -25,7 +25,38 @@ export default function InsightsAgent({ insights = [] }) {
     const [isOpen, setIsOpen] = useState(true);
     const [dismissedCount, setDismissedCount] = useState(0);
 
-    const activeInsights = insights.slice(dismissedCount);
+    // If no real insights, use educational tips
+    const hasRealInsights = insights.length > 0;
+    const educationalTips = [
+        {
+            type: 'info',
+            title: 'טיפ לחיסכון: כלל ה-50/30/20',
+            description: 'נסה לחלק את ההכנסה: 50% להוצאות קבועות, 30% לרצונות אישיים, ו-20% לחיסכון והשקעה.',
+            icon: 'Wallet',
+            monthlySavings: 0,
+            annualImpact: 0
+        },
+        {
+            type: 'info',
+            title: 'טיפ להשקעה: ריבית דריבית',
+            description: 'התחלה מוקדמת של חיסכון, אפילו בסכומים קטנים, מאפשרת לאפקט הריבית דריבית להגדיל את ההון משמעותית לאורך זמן.',
+            icon: 'TrendingUp',
+            monthlySavings: 0,
+            annualImpact: 0
+        },
+        {
+            type: 'info',
+            title: 'בדיקת ביטוחים שנתית',
+            description: 'מומלץ לבדוק פעם בשנה את תיק הביטוחים ב"הר הביטוח" כדי למנוע כפל ביטוחים ותשלומים מיותרים.',
+            icon: 'Shield',
+            monthlySavings: 0,
+            annualImpact: 0
+        }
+    ];
+
+    // Use tips if no insights, otherwise use insights
+    const displayInsights = hasRealInsights ? insights : educationalTips;
+    const activeInsights = displayInsights.slice(dismissedCount);
 
     if (activeInsights.length === 0) {
         return (
@@ -33,8 +64,18 @@ export default function InsightsAgent({ insights = [] }) {
                 <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center mb-3">
                     <CheckCircle className="w-6 h-6 text-emerald-500" />
                 </div>
-                <h3 className="text-white font-medium">המצב נראה מצוין!</h3>
-                <p className="text-slate-500 text-sm mt-1">אין תובנות חדשות כרגע. הסוכן ממשיך לעקוב.</p>
+                <h3 className="text-white font-medium">עברנו על הכל!</h3>
+                <p className="text-slate-500 text-sm mt-1 mb-4">הסוכן ממשיך לעקוב ויעדכן כשיהיה משהו חדש.</p>
+                
+                <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-950/30"
+                    onClick={() => setDismissedCount(0)}
+                >
+                    <RefreshCw className="w-4 h-4 ml-2" />
+                    צפה בתובנות שוב
+                </Button>
             </div>
         );
     }
@@ -56,7 +97,7 @@ export default function InsightsAgent({ insights = [] }) {
                         <span className="text-sm font-semibold text-slate-200">FlowUp AI Agent</span>
                     </div>
                     <span className="text-xs font-mono text-cyan-500 bg-cyan-950/30 px-2 py-0.5 rounded-full border border-cyan-900/30">
-                        {activeInsights.length} תובנות
+                        {activeInsights.length} {hasRealInsights ? 'תובנות' : 'טיפים'}
                     </span>
                 </div>
 
@@ -113,9 +154,8 @@ export default function InsightsAgent({ insights = [] }) {
                     {/* Actions */}
                     <div className="mt-auto pt-4 flex gap-3">
                         <Button 
-                            variant="outline" 
-                            className="w-full border-slate-700 hover:bg-slate-800 text-slate-300"
-                            onClick={() => setDismissedCount(prev => Math.min(prev + 1, insights.length))}
+                            className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/50 shadow-sm"
+                            onClick={() => setDismissedCount(prev => prev + 1)}
                         >
                             הבנתי, תודה
                         </Button>
