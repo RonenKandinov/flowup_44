@@ -390,7 +390,12 @@ export default function Dashboard() {
               <div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : !hasData ? (
-            <EmptyState onUploadClick={() => setShowUploader(true)} />
+            <>
+              <EmptyState onUploadClick={() => setShowUploader(true)} />
+              <div className="mt-8">
+                <Disclaimer />
+              </div>
+            </>
           ) : (
             <>
               {/* Stats Row - Compact on Mobile */}
