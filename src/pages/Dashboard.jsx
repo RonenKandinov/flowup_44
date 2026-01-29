@@ -7,14 +7,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { calculateWhatIf, SystemInfo } from '../components/utils/forecastingLogic';
 import { Storage } from '../components/utils/storage';
 
-import SpeedometerGauge from '../components/dashboard/SpeedometerGauge';
-import StatCard from '../components/dashboard/StatCard';
-import WhatIfSimulator from '../components/dashboard/WhatIfSimulator';
-import FutureCake from '../components/dashboard/FutureCake';
-import InsightsAgent from '../components/dashboard/InsightsAgent'; // New
-import CSVUploader from '../components/upload/CSVUploader';
-import EmptyState from '../components/dashboard/EmptyState';
-import Disclaimer from '../components/dashboard/Disclaimer';
+import SpeedometerGauge from '../components/SpeedometerGauge';
+import StatCard from '../components/StatCard';
+import WhatIfSimulator from '../components/WhatIfSimulator';
+import FutureCake from '../components/FutureCake';
+import InsightsAgent from '../components/InsightsAgent';
+import CSVUploader from '../components/CSVUploader';
+import EmptyState from '../components/EmptyState';
+import Disclaimer from '../components/Disclaimer';
 import { createPageUrl } from '@/utils';
 import { Link } from 'react-router-dom';
 import { BookOpen } from 'lucide-react';

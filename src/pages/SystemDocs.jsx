@@ -187,15 +187,15 @@ export default function SystemDocs() {
                                     </h3>
                                     <ul className="space-y-2 border-r-2 border-slate-800 pr-4">
                                         <li className="text-slate-300">
-                                            <code className="text-blue-400">dashboard/SpeedometerGauge.jsx</code>
+                                            <code className="text-blue-400">SpeedometerGauge.jsx</code>
                                             <span className="block text-sm text-slate-500">הוויזואליזציה המרכזית - מד מהירות שמראה את מצב החשבון.</span>
                                         </li>
                                         <li className="text-slate-300">
-                                            <code className="text-blue-400">dashboard/InsightsAgent.jsx</code>
+                                            <code className="text-blue-400">InsightsAgent.jsx</code>
                                             <span className="block text-sm text-slate-500">סוכן ה-AI שמציג תובנות והמלצות חכמות.</span>
                                         </li>
                                         <li className="text-slate-300">
-                                            <code className="text-blue-400">upload/CSVUploader.jsx</code>
+                                            <code className="text-blue-400">CSVUploader.jsx</code>
                                             <span className="block text-sm text-slate-500">רכיב העלאת הקבצים וניהול תהליך הפרסור.</span>
                                         </li>
                                     </ul>

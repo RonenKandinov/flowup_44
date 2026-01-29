@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, Sparkles, X, ChevronRight, ChevronDown, ChevronUp, AlertTriangle, TrendingUp, Shield, Copy, Phone, Tv, Wallet, Heart, GraduationCap, Coffee, Dumbbell, RefreshCw } from 'lucide-react';
+import { Bot, Sparkles, X, ChevronRight, ChevronDown, ChevronUp, AlertTriangle, TrendingUp, Shield, Copy, Phone, Tv, Wallet, Heart, GraduationCap, Coffee, Dumbbell, RefreshCw, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 // Icon Mapper
@@ -215,5 +215,3 @@ export default function InsightsAgent({ insights = [] }) {
         </div>
     );
 }
-
-import { CheckCircle } from 'lucide-react';
