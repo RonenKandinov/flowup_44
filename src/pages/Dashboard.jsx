@@ -15,9 +15,6 @@ import InsightsAgent from '../components/dashboard/InsightsAgent'; // New
 import CSVUploader from '../components/upload/CSVUploader';
 import EmptyState from '../components/dashboard/EmptyState';
 import Disclaimer from '../components/dashboard/Disclaimer';
-import { createPageUrl } from '@/utils';
-import { Link } from 'react-router-dom';
-import { BookOpen } from 'lucide-react';
 
 export default function Dashboard() {
   const [showUploader, setShowUploader] = useState(false);
@@ -372,16 +369,6 @@ export default function Dashboard() {
                 <RefreshCw className="w-3 h-3 ml-1.5" />
                 <span className="text-[11px] font-medium">עדכן נתונים</span>
               </Button>
-              <Link to={createPageUrl('SystemDocs')}>
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    className="bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:bg-slate-800 hover:text-white transition-all h-7 px-3 rounded-md"
-                >
-                    <BookOpen className="w-3 h-3 ml-1.5" />
-                    <span className="text-[11px] font-medium">תיעוד</span>
-                </Button>
-              </Link>
               <Button
                 onClick={() => deleteDataMutation.mutate()}
                 variant="ghost"
