@@ -463,11 +463,9 @@ export default function Dashboard() {
                 {/* RiskZoneChart (Forecast): Mobile 2, Desktop 3 (Bottom Left) */}
                 <div className="order-2 lg:order-3 space-y-4">
                      {/* Agent Widget - Prominently displayed */}
-                     {currentEngineData?.smartInsights?.length > 0 && (
-                        <div className="h-auto">
-                            <InsightsAgent insights={currentEngineData.smartInsights} />
-                        </div>
-                     )}
+                     <div className="h-auto">
+                        <InsightsAgent insights={currentEngineData?.smartInsights || []} />
+                     </div>
 
 
                 </div>
