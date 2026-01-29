@@ -77,10 +77,7 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
         onClick={() => !isDesktop && setIsOpen(!isOpen)}
       >
         <div className="flex items-center gap-2.5">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21.21 15.89A10 10 0 1 1 8 2.83" className="text-teal-500" stroke="currentColor" />
-              <path d="M22 12A10 10 0 0 0 12 2v10z" className="text-pink-500" stroke="currentColor" />
-            </svg>
+            <PieChartIcon className="w-5 h-5 text-cyan-400 drop-shadow-[0_0_6px_rgba(34,211,238,0.8)]" />
             <div className="flex flex-col items-start">
                 <h3 className="text-white text-sm font-medium uppercase tracking-wide leading-none">Future Cake</h3>
                 <span className="text-xs text-slate-400 mt-0.5">תחזית הוצאות לחודש הבא</span>
