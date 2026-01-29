@@ -3,9 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, FileText, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
-import { processAndForecast } from './utils/forecastingLogic';
-import { detectBankFromHeader, parseCSVRow, getBankDisplayName } from './utils/bankParsers';
-import { sanitizeTransaction } from './utils/sanitizer';
+import { processAndForecast } from '../utils/forecastingLogic';
+import { detectBankFromHeader, parseCSVRow, getBankDisplayName } from '../utils/bankParsers';
+import { sanitizeTransaction } from '../utils/sanitizer';
 import * as XLSX from 'xlsx';
 
 export default function CSVUploader({ onDataParsed, onClose }) {
