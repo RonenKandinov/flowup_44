@@ -30,11 +30,11 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
   const chartData = isPreviewMode 
     ? [
         { name: 'הוצאות קשיחות', value: 6000, color: '#ec4899', icon: <Anchor className="w-5 h-5" />, type: 'fixed' },
-        { name: 'הוצאות משתנות', value: 4000, color: '#0d9488', icon: <Zap className="w-5 h-5" />, type: 'flex' }
+        { name: 'הוצאות משתנות', value: 4000, color: '#14b8a6', icon: <Zap className="w-5 h-5" />, type: 'flex' }
       ]
     : [
         { name: 'הוצאות קשיחות', value: fixedExpenses, color: '#ec4899', icon: <Anchor className="w-5 h-5" />, type: 'fixed' },
-        { name: 'הוצאות משתנות', value: flexExpenses, color: '#0d9488', icon: <Zap className="w-5 h-5" />, type: 'flex' },
+        { name: 'הוצאות משתנות', value: flexExpenses, color: '#14b8a6', icon: <Zap className="w-5 h-5" />, type: 'flex' },
       ];
 
   // 2. Add Tax Segment if exists (The Saderan Layer)
@@ -77,7 +77,10 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
         onClick={() => !isDesktop && setIsOpen(!isOpen)}
       >
         <div className="flex items-center gap-2.5">
-            <PieChartIcon className="w-5 h-5 text-purple-400" />
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21.21 15.89A10 10 0 1 1 8 2.83" className="text-teal-500" stroke="currentColor" />
+              <path d="M22 12A10 10 0 0 0 12 2v10z" className="text-pink-500" stroke="currentColor" />
+            </svg>
             <div className="flex flex-col items-start">
                 <h3 className="text-white text-sm font-medium uppercase tracking-wide leading-none">Future Cake</h3>
                 <span className="text-xs text-slate-400 mt-0.5">תחזית הוצאות לחודש הבא</span>
