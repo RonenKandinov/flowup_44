@@ -29,12 +29,12 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
 
   const chartData = isPreviewMode 
     ? [
-        { name: 'עוגנים (קשיח)', value: 6000, color: '#FF85A1', icon: <Anchor className="w-4 h-4" />, type: 'fixed' },
-        { name: 'פלקס (גמיש)', value: 4000, color: '#2DD4BF', icon: <Zap className="w-4 h-4" />, type: 'flex' }
+        { name: 'הוצאות קשיחות', value: 6000, color: '#FF85A1', icon: <Anchor className="w-4 h-4" />, type: 'fixed' },
+        { name: 'הוצאות משתנות', value: 4000, color: '#2DD4BF', icon: <Zap className="w-4 h-4" />, type: 'flex' }
       ]
     : [
-        { name: 'עוגנים (קשיח)', value: fixedExpenses, color: '#FF85A1', icon: <Anchor className="w-4 h-4" />, type: 'fixed' },
-        { name: 'פלקס (גמיש)', value: flexExpenses, color: '#2DD4BF', icon: <Zap className="w-4 h-4" />, type: 'flex' },
+        { name: 'הוצאות קשיחות', value: fixedExpenses, color: '#FF85A1', icon: <Anchor className="w-4 h-4" />, type: 'fixed' },
+        { name: 'הוצאות משתנות', value: flexExpenses, color: '#2DD4BF', icon: <Zap className="w-4 h-4" />, type: 'flex' },
       ];
 
   // 2. Add Tax Segment if exists (The Saderan Layer)
