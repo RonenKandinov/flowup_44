@@ -71,7 +71,7 @@ function buildFinancialModel(transactions, dynamicAnchors) {
             fixedEvents[day].push(amount);
         } else if (amount < 0) {
             // Variable Expense (Only consider negatives for variable volatility)
-            const dateStr = t.date.toDateString();
+            const dateStr = dateObj.toDateString();
             if (!txByDateStr[dateStr]) txByDateStr[dateStr] = 0;
             txByDateStr[dateStr] += amount; // accumulating negative values
         }
