@@ -149,7 +149,7 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
                                     </>
                                 ) : (
                                     <>
-                                        <span className="text-slate-400 text-[10px] uppercase tracking-wider mb-1">{activeItem.name.split(' ')[0]}</span>
+                                        <span className="text-slate-400 text-[10px] uppercase tracking-wider mb-1">{activeItem.name}</span>
                                         <span className="text-2xl font-bold text-white font-mono">{currency}{activeItem.value.toLocaleString()}</span>
                                     </>
                                 )}
