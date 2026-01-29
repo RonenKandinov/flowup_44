@@ -29,12 +29,12 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
 
   const chartData = isPreviewMode 
     ? [
-        { name: 'הוצאות קשיחות', value: 6000, color: '#FF85A1', icon: <Anchor className="w-4 h-4" />, type: 'fixed' },
-        { name: 'הוצאות משתנות', value: 4000, color: '#2DD4BF', icon: <Zap className="w-4 h-4" />, type: 'flex' }
+        { name: 'הוצאות קשיחות', value: 6000, color: '#FF007F', icon: <Anchor className="w-5 h-5" />, type: 'fixed' },
+        { name: 'הוצאות משתנות', value: 4000, color: '#00E5FF', icon: <Zap className="w-5 h-5" />, type: 'flex' }
       ]
     : [
-        { name: 'הוצאות קשיחות', value: fixedExpenses, color: '#FF85A1', icon: <Anchor className="w-4 h-4" />, type: 'fixed' },
-        { name: 'הוצאות משתנות', value: flexExpenses, color: '#2DD4BF', icon: <Zap className="w-4 h-4" />, type: 'flex' },
+        { name: 'הוצאות קשיחות', value: fixedExpenses, color: '#FF007F', icon: <Anchor className="w-5 h-5" />, type: 'fixed' },
+        { name: 'הוצאות משתנות', value: flexExpenses, color: '#00E5FF', icon: <Zap className="w-5 h-5" />, type: 'flex' },
       ];
 
   // 2. Add Tax Segment if exists (The Saderan Layer)
@@ -173,21 +173,26 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
               </div>
 
               {/* Legend / Key */}
-              <div className="grid grid-cols-2 gap-3 w-full mt-6 px-2">
+              <div className="grid grid-cols-2 gap-4 w-full mt-6 px-2">
                  {chartData.map((item, i) => (
                      <div 
                         key={i} 
-                        className={`p-2 rounded-lg border flex items-center gap-2 cursor-pointer transition-colors ${activeIndex === i ? 'bg-slate-700/50 border-slate-600' : 'bg-transparent border-transparent hover:bg-slate-800/50'} ${item.type === 'tax' ? 'col-span-2 justify-center border-amber-900/30 bg-amber-900/10' : ''}`}
+                        className={`p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition-all ${activeIndex === i ? 'bg-slate-800 border-slate-700 shadow-lg scale-[1.02]' : 'bg-slate-800/30 border-slate-700/50 hover:bg-slate-800/50'} ${item.type === 'tax' ? 'col-span-2 justify-center border-amber-900/30 bg-amber-900/10' : ''}`}
                         onMouseEnter={() => setActiveIndex(i)}
                         onMouseLeave={() => setActiveIndex(null)}
                      >
-                         <div className={`w-2 h-2 rounded-full ${item.isGlowing ? 'animate-pulse' : ''}`} style={{ backgroundColor: item.color, boxShadow: item.isGlowing ? `0 0 8px ${item.color}` : 'none' }}></div>
+                         <div 
+                           className={`p-2 rounded-lg flex items-center justify-center ${item.type === 'tax' ? 'bg-amber-500/10' : 'bg-slate-900/50'}`}
+                           style={{ color: item.color, boxShadow: item.isGlowing ? `0 0 15px ${item.color}40` : `0 0 10px ${item.color}10` }}
+                         >
+                           {item.icon}
+                         </div>
+
                          <div className="flex flex-col">
-                             <span className={`text-[10px] flex items-center gap-1 ${item.type === 'tax' ? 'text-amber-200 font-bold' : 'text-slate-400'}`}>
-                                 {item.icon}
+                             <span className={`text-[11px] font-medium tracking-wide ${item.type === 'tax' ? 'text-amber-200' : 'text-slate-400'}`}>
                                  {item.name}
                              </span>
-                             <span className={`text-xs font-bold font-mono ${item.type === 'tax' ? 'text-amber-400' : 'text-slate-200'}`}>
+                             <span className={`text-sm font-bold font-mono leading-none mt-1 ${item.type === 'tax' ? 'text-amber-400' : 'text-white'}`}>
                                  {currency}{item.value.toLocaleString()}
                                  {item.type === 'tax' && <span className="text-[9px] text-amber-500/80 mr-1 font-sans font-normal">(שנתי)</span>}
                              </span>
