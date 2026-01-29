@@ -59,7 +59,7 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
       return (
         <div className="bg-slate-900 border border-slate-700 p-2 rounded-lg shadow-xl text-xs text-white z-50">
           <p className="font-bold mb-1">{item.name}</p>
-          <p className={item.type === 'tax' ? "text-amber-400 font-mono" : "text-cyan-400 font-mono"}>
+          <p className={item.type === 'tax' ? "text-amber-400 font-mono" : "text-teal-400 font-mono"}>
              {currency}{item.value.toLocaleString()} 
              {item.type !== 'tax' && ` (${Math.round((item.value / totalExpenses) * 100)}%)`}
           </p>
