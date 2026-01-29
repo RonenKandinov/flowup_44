@@ -177,20 +177,35 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
                  {chartData.map((item, i) => (
                      <div 
                         key={i} 
-                        className={`p-2 rounded-lg border flex items-center gap-2 cursor-pointer transition-colors ${activeIndex === i ? 'bg-slate-700/50 border-slate-600' : 'bg-transparent border-transparent hover:bg-slate-800/50'} ${item.type === 'tax' ? 'col-span-2 justify-center border-amber-900/30 bg-amber-900/10' : ''}`}
+                        className={`p-2 rounded-lg border flex items-center gap-2 cursor-pointer transition-colors ${
+                            activeIndex === i ? 'bg-slate-700/50 border-slate-600' : 'bg-transparent border-transparent hover:bg-slate-800/50'
+                        } ${
+                            item.type === 'tax' ? 'col-span-2 justify-center border-amber-900/30 bg-amber-900/10' : 
+                            item.type === 'fixed' ? 'border-pink-500/20 bg-pink-500/10' : ''
+                        }`}
                         onMouseEnter={() => setActiveIndex(i)}
                         onMouseLeave={() => setActiveIndex(null)}
-                     >
-                         <div className={`w-2 h-2 rounded-full ${item.isGlowing ? 'animate-pulse' : ''}`} style={{ backgroundColor: item.color, boxShadow: item.isGlowing ? `0 0 8px ${item.color}` : 'none' }}></div>
-                         <div className="flex flex-col">
-                             <span className={`text-[10px] flex items-center gap-1 ${item.type === 'tax' ? 'text-amber-200 font-bold' : 'text-slate-400'}`}>
-                                 {item.icon}
-                                 {item.name}
-                             </span>
-                             <span className={`text-xs font-bold font-mono ${item.type === 'tax' ? 'text-amber-400' : 'text-slate-200'}`}>
-                                 {currency}{item.value.toLocaleString()}
-                                 {item.type === 'tax' && <span className="text-[9px] text-amber-500/80 mr-1 font-sans font-normal">(שנתי)</span>}
-                             </span>
+                        >
+                        {/* Hide dot for styled items to avoid clutter, or keep it? Agent has icon in box. Let's keep dot for consistency with Flex, or remove if we want "Vibe". 
+                            The user said "same icon". Let's keep the dot for Flex but maybe hide/change for Anchors?
+                            Actually, let's keep the dot, it's the chart legend.
+                        */}
+                        <div className={`w-2 h-2 rounded-full ${item.isGlowing ? 'animate-pulse' : ''}`} style={{ backgroundColor: item.color, boxShadow: item.isGlowing ? `0 0 8px ${item.color}` : 'none' }}></div>
+                        <div className="flex flex-col">
+                            <span className={`text-[10px] flex items-center gap-1 ${
+                                item.type === 'tax' ? 'text-amber-200 font-bold' : 
+                                item.type === 'fixed' ? 'text-[#FF85A1] font-bold' : 'text-slate-400'
+                            }`}>
+                                {item.icon}
+                                {item.name}
+                            </span>
+                            <span className={`text-xs font-bold font-mono ${
+                                item.type === 'tax' ? 'text-amber-400' : 
+                                item.type === 'fixed' ? 'text-[#FF85A1]' : 'text-slate-200'
+                            }`}>
+                                {currency}{item.value.toLocaleString()}
+                                {item.type === 'tax' && <span className="text-[9px] text-amber-500/80 mr-1 font-sans font-normal">(שנתי)</span>}
+                            </span>
                          </div>
                      </div>
                  ))}
