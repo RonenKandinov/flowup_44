@@ -77,7 +77,7 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
         onClick={() => !isDesktop && setIsOpen(!isOpen)}
       >
         <div className="flex items-center gap-2.5">
-            <PieChartIcon className="w-5 h-5 text-cyan-400 drop-shadow-[0_0_6px_rgba(34,211,238,0.8)]" />
+            <PieChartIcon className="w-5 h-5 text-cyan-400" />
             <div className="flex flex-col items-start">
                 <h3 className="text-white text-sm font-medium uppercase tracking-wide leading-none">Future Cake</h3>
                 <span className="text-xs text-slate-400 mt-0.5">תחזית הוצאות לחודש הבא</span>
