@@ -36,10 +36,15 @@ export default function Dashboard() {
           if (data.transactions) {
             data.transactions.forEach(t => t.date = new Date(t.date));
           }
+          // Rehydrate engineData transactions as well (critical for Monte Carlo)
+          if (data.engineData && data.engineData.allTransactions) {
+              data.engineData.allTransactions.forEach(t => t.date = new Date(t.date));
+          }
+
           if (data.forecastData) {
             // Usually strings for graph points, but just in case
           }
-          
+
           setLocalData(data);
           setEngineData(data.engineData);
         }
