@@ -29,11 +29,11 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
 
   const chartData = isPreviewMode 
     ? [
-        { name: 'הוצאות קשיחות', value: 6000, color: '#db2777', icon: <Anchor className="w-5 h-5" />, type: 'fixed' },
+        { name: 'הוצאות קשיחות', value: 6000, color: '#ec4899', icon: <Anchor className="w-5 h-5" />, type: 'fixed' },
         { name: 'הוצאות משתנות', value: 4000, color: '#0d9488', icon: <Zap className="w-5 h-5" />, type: 'flex' }
       ]
     : [
-        { name: 'הוצאות קשיחות', value: fixedExpenses, color: '#db2777', icon: <Anchor className="w-5 h-5" />, type: 'fixed' },
+        { name: 'הוצאות קשיחות', value: fixedExpenses, color: '#ec4899', icon: <Anchor className="w-5 h-5" />, type: 'fixed' },
         { name: 'הוצאות משתנות', value: flexExpenses, color: '#0d9488', icon: <Zap className="w-5 h-5" />, type: 'flex' },
       ];
 
@@ -103,7 +103,7 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
                       data={chartData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={74}
+                      innerRadius={70}
                       outerRadius={86}
                       paddingAngle={5}
                       dataKey="value"
