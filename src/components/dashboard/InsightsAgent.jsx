@@ -200,7 +200,7 @@ export default function InsightsAgent({ insights = [] }) {
                 {/* Progress Indicators (Only show if open) */}
                 {isOpen && (
                     <div className="px-5 pb-4 flex gap-1 justify-center">
-                        {insights.map((_, idx) => (
+                        {displayInsights.map((_, idx) => (
                             <div 
                                 key={idx}
                                 className={`h-1 rounded-full transition-all duration-300 ${
