@@ -58,8 +58,8 @@ export default function StatCard({
         )}
       </div>
       
-      <div className="flex items-baseline">
-        <p className={`text-sm sm:text-base md:text-2xl font-bold ${styles.text} tracking-tight truncate`}>
+      <div className="flex items-baseline w-full">
+        <p className={`text-xl md:text-2xl font-bold ${styles.text} tracking-tight truncate`}>
           {value}
         </p>
       </div>
