@@ -205,6 +205,18 @@
  * - Hybrid SES + Seasonal Average Engine
  * - 12% Standard Deviation Safety Buffer
  * - Multi-Bank Support (5 major Israeli banks)
+ * 
+ * ---
+ * 
+ * ## Roadmap / Future Architecture
+ * 
+ * ### Hybrid Enrichment Layer (Planned)
+ * מטרה: שיפור סיווג עסקאות באמצעות NLP מבלי לפגוע בפרטיות.
+ * ארכיטקטורה:
+ * 1. זיהוי שמות בתי עסק לא מוכרים (Unknown Merchants) בצד הלקוח.
+ * 2. שליחת *רשימת שמות בלבד* (ללא סכומים/תאריכים/פרטים מזהים) לשרת LLM.
+ * 3. קבלת קטגוריות מנורמלות ושמירתן ב-Local Cache בדפדפן.
+ * 4. שימוש ב-Cache לסיווגים עתידיים (Zero Latency).
  */
 
 // This file serves as documentation only
