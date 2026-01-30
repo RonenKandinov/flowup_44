@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, Sparkles, X, ChevronRight, ChevronDown, ChevronUp, AlertTriangle, TrendingUp, Shield, Copy, Phone, Tv, Wallet, Heart, GraduationCap, Coffee, Dumbbell, RefreshCw } from 'lucide-react';
+import { Bot, Sparkles, X, ChevronRight, ChevronDown, ChevronUp, AlertTriangle, TrendingUp, Shield, Copy, Phone, Tv, Wallet, Heart, GraduationCap, Coffee, Dumbbell, RefreshCw, BrainCircuit, Utensils } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 // Icon Mapper
@@ -16,10 +16,12 @@ const getIcon = (iconName) => {
         'Heart': Heart,
         'GraduationCap': GraduationCap,
         'Coffee': Coffee,
-        'Dumbbell': Dumbbell
-    };
-    return icons[iconName] || Bot;
-};
+        'Dumbbell': Dumbbell,
+        'BrainCircuit': BrainCircuit,
+        'Utensils': Utensils
+        };
+        return icons[iconName] || Bot;
+        };
 
 export default function InsightsAgent({ insights = [] }) {
     const [isOpen, setIsOpen] = useState(true);
@@ -141,24 +143,53 @@ export default function InsightsAgent({ insights = [] }) {
                                         exit={{ opacity: 0, x: -20 }}
                                         className="flex-1"
                                     >
-                                        <div className="flex items-start gap-4 mb-4">
-                                            <div className={`p-3 rounded-xl shrink-0 ${
-                                                currentInsight.type === 'tax_refund' ? 'bg-emerald-500/10 text-emerald-400' :
-                                                currentInsight.type === 'money_leak' ? 'bg-amber-500/10 text-amber-400' :
-                                                currentInsight.type === 'lifestyle' ? 'bg-pink-500/10 text-pink-400' :
-                                                'bg-cyan-500/10 text-cyan-400'
-                                            }`}>
-                                                <Icon className="w-6 h-6" />
+                                        {currentInsight.type === 'strategic_brain' ? (
+                                            // Special UI for Strategic Brain
+                                            <div className="mb-4">
+                                                <div className="flex items-center gap-3 mb-3">
+                                                    <div className="p-2 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                                                        <BrainCircuit className="w-5 h-5" />
+                                                    </div>
+                                                    <h3 className="text-lg font-bold text-indigo-100 leading-tight">
+                                                        {currentInsight.title}
+                                                    </h3>
+                                                </div>
+                                                <div className="bg-indigo-950/30 rounded-xl p-4 border border-indigo-500/20 relative overflow-hidden">
+                                                    <div className="absolute top-0 right-0 w-20 h-20 bg-indigo-500/10 blur-2xl rounded-full pointer-events-none" />
+                                                    <p className="text-slate-300 text-sm leading-relaxed relative z-10">
+                                                        {currentInsight.description}
+                                                    </p>
+                                                    {currentInsight.actionItem && (
+                                                        <div className="mt-3 flex items-start gap-2 relative z-10">
+                                                            <div className="mt-1 w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
+                                                            <p className="text-indigo-300 text-sm font-medium">
+                                                                {currentInsight.actionItem}
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
-                                            <div>
-                                                <h3 className="text-lg font-bold text-white leading-tight mb-1">
-                                                    {currentInsight.title}
-                                                </h3>
-                                                <p className="text-slate-400 text-sm leading-relaxed">
-                                                    {currentInsight.description}
-                                                </p>
+                                        ) : (
+                                            // Standard UI for other insights
+                                            <div className="flex items-start gap-4 mb-4">
+                                                <div className={`p-3 rounded-xl shrink-0 ${
+                                                    currentInsight.type === 'tax_refund' ? 'bg-emerald-500/10 text-emerald-400' :
+                                                    currentInsight.type === 'money_leak' ? 'bg-amber-500/10 text-amber-400' :
+                                                    currentInsight.type === 'lifestyle' ? 'bg-pink-500/10 text-pink-400' :
+                                                    'bg-cyan-500/10 text-cyan-400'
+                                                }`}>
+                                                    <Icon className="w-6 h-6" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-lg font-bold text-white leading-tight mb-1">
+                                                        {currentInsight.title}
+                                                    </h3>
+                                                    <p className="text-slate-400 text-sm leading-relaxed">
+                                                        {currentInsight.description}
+                                                    </p>
+                                                </div>
                                             </div>
-                                        </div>
+                                        )}
 
                                         {/* Impact Stats */}
                                         {(currentInsight.monthlySavings > 0 || currentInsight.annualImpact > 0) && (

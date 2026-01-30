@@ -358,9 +358,17 @@ export const runAgents = (transactions) => {
 
     const allInsights = [...fiscalInsights, ...liquidityInsights, ...subInsights, ...trendInsights, ...lifestyleInsights];
 
-    // Remove duplicates based on title/description similarity?
-    // For MVP, just sort and slice
-    return allInsights.sort((a, b) => getPriorityScore(b) - getPriorityScore(a)).slice(0, 6);
+    // 6. Run Strategic Brain (CEO) on the results
+    const brainInsight = runStrategicBrainAgent(allInsights);
+    
+    // Combine: Brain First, then the rest sorted by priority
+    const sortedInsights = allInsights.sort((a, b) => getPriorityScore(b) - getPriorityScore(a));
+    
+    if (brainInsight) {
+        return [brainInsight, ...sortedInsights].slice(0, 7); // Allow 7 to include brain + 6 others
+    }
+
+    return sortedInsights.slice(0, 6);
 };
 
 /**
