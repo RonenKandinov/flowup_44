@@ -409,14 +409,14 @@ export default function Dashboard() {
                 />
                 <StatCard
                   title="סך הכנסות"
-                  value={`₪${Math.round(currentMonthStats?.income ?? snapshot.total_income ?? 0).toLocaleString('he-IL')}`}
+                  value={`₪${Math.round(currentEngineData?.totalIncome ?? currentMonthStats?.income ?? snapshot.total_income ?? 0).toLocaleString('he-IL')}`}
                   icon={TrendingUp}
                   color="green"
                   delay={0.1}
                 />
                 <StatCard
                   title="סך הוצאות"
-                  value={`₪${Math.round(currentMonthStats?.expenses ?? snapshot.total_expenses ?? 0).toLocaleString('he-IL')}`}
+                  value={`₪${Math.round(currentEngineData?.totalExpenses ?? currentMonthStats?.expenses ?? snapshot.total_expenses ?? 0).toLocaleString('he-IL')}`}
                   icon={TrendingDown}
                   color="red"
                   delay={0.2}
