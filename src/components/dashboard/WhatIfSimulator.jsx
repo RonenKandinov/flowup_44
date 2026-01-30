@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Slider } from '@/components/ui/slider';
 import { debounce } from 'lodash';
 
 export default function WhatIfSimulator({ onSimulate, currentBalance }) {
@@ -31,6 +32,25 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
     window.addEventListener('resize', checkScreen);
     return () => window.removeEventListener('resize', checkScreen);
   }, []);
+
+  // Haptic Feedback Helper
+  const handleSliderChange = (vals, type) => {
+    const val = vals[0];
+    if (type === 'expense') setExpenseAmount(val.toString());
+    else setIncomeAmount(val.toString());
+
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        const projected = type === 'expense' 
+            ? (currentBalance || 0) - val 
+            : (currentBalance || 0) + val;
+
+        if (projected < 0) {
+            navigator.vibrate([50, 30, 50]); // Red Zone Warning
+        } else {
+            navigator.vibrate(5); // Tactile Click
+        }
+    }
+  };
 
   // Stable debounce logic
   const onSimulateRef = useRef(onSimulate);
