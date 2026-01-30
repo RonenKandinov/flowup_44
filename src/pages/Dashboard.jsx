@@ -398,25 +398,27 @@ export default function Dashboard() {
             <EmptyState onUploadClick={() => setShowUploader(true)} />
           ) : (
             <>
-              {/* Stats Row - Compact on Mobile */}
-              <div className="grid grid-cols-3 gap-2 md:grid-cols-3 md:gap-4 mb-4 md:mb-6">
-                <StatCard
-                  title="יתרה"
-                  value={`₪${Math.round(snapshot.current_balance || 0).toLocaleString('he-IL')}`}
-                  icon={snapshot.current_balance < 0 ? TrendingDown : CheckCircle}
-                  color={snapshot.current_balance < 0 ? 'red' : 'green'}
-                  delay={0}
-                />
+              {/* Stats Row - Improved Mobile Layout */}
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 mb-6">
+                <div className="col-span-2 md:col-span-1 h-full">
+                  <StatCard
+                    title="יתרה"
+                    value={`₪${Math.round(snapshot.current_balance || 0).toLocaleString('he-IL')}`}
+                    icon={snapshot.current_balance < 0 ? TrendingDown : CheckCircle}
+                    color={snapshot.current_balance < 0 ? 'red' : 'green'}
+                    delay={0}
+                  />
+                </div>
                 <StatCard
                   title="סך הכנסות"
-                  value={`₪${Math.round(currentMonthStats?.income ?? snapshot.total_income ?? 0).toLocaleString('he-IL')}`}
+                  value={`₪${Math.round(currentMonthStats?.income || snapshot.total_income || 0).toLocaleString('he-IL')}`}
                   icon={TrendingUp}
                   color="green"
                   delay={0.1}
                 />
                 <StatCard
                   title="סך הוצאות"
-                  value={`₪${Math.round(currentMonthStats?.expenses ?? snapshot.total_expenses ?? 0).toLocaleString('he-IL')}`}
+                  value={`₪${Math.round(currentMonthStats?.expenses || snapshot.total_expenses || 0).toLocaleString('he-IL')}`}
                   icon={TrendingDown}
                   color="red"
                   delay={0.2}
