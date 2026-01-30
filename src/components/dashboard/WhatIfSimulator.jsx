@@ -166,6 +166,15 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
               className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
               dir="ltr"
             />
+            <div className="mt-4 px-1 mb-2">
+                <Slider
+                    value={[Number(expenseAmount) || 0]}
+                    max={15000}
+                    step={50}
+                    onValueChange={(vals) => handleSliderChange(vals, 'expense')}
+                    className="cursor-pointer"
+                />
+            </div>
             <div className="flex items-center gap-2 mt-3 justify-end opacity-80">
                 <span className="text-[10px] text-cyan-400">מתעדכן בזמן אמת</span>
                 <span className="relative flex h-1.5 w-1.5">
@@ -197,6 +206,15 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
               className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
               dir="ltr"
             />
+            <div className="mt-4 px-1 mb-2">
+                <Slider
+                    value={[Number(incomeAmount) || 0]}
+                    max={15000}
+                    step={50}
+                    onValueChange={(vals) => handleSliderChange(vals, 'income')}
+                    className="cursor-pointer"
+                />
+            </div>
              <div className="flex items-center gap-2 mt-3 justify-end opacity-80">
                 <span className="text-[10px] text-cyan-400">מתעדכן בזמן אמת</span>
                 <span className="relative flex h-1.5 w-1.5">
