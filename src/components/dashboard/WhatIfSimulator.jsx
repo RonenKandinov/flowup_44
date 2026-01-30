@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Slider } from '@/components/ui/slider';
 import { debounce } from 'lodash';
 
 export default function WhatIfSimulator({ onSimulate, currentBalance }) {
@@ -32,25 +31,6 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
     window.addEventListener('resize', checkScreen);
     return () => window.removeEventListener('resize', checkScreen);
   }, []);
-
-  // Haptic Feedback Helper
-  const handleSliderChange = (vals, type) => {
-    const val = vals[0];
-    if (type === 'expense') setExpenseAmount(val.toString());
-    else setIncomeAmount(val.toString());
-
-    if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        const projected = type === 'expense' 
-            ? (currentBalance || 0) - val 
-            : (currentBalance || 0) + val;
-
-        if (projected < 0) {
-            navigator.vibrate([50, 30, 50]); // Red Zone Warning
-        } else {
-            navigator.vibrate(5); // Tactile Click
-        }
-    }
-  };
 
   // Stable debounce logic
   const onSimulateRef = useRef(onSimulate);
@@ -166,15 +146,6 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
               className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
               dir="ltr"
             />
-            <div className="mt-4 px-1 mb-2">
-                <Slider
-                    value={[Number(expenseAmount) || 0]}
-                    max={15000}
-                    step={50}
-                    onValueChange={(vals) => handleSliderChange(vals, 'expense')}
-                    className="cursor-pointer"
-                />
-            </div>
             <div className="flex items-center gap-2 mt-3 justify-end opacity-80">
                 <span className="text-[10px] text-cyan-400">מתעדכן בזמן אמת</span>
                 <span className="relative flex h-1.5 w-1.5">
@@ -206,15 +177,6 @@ export default function WhatIfSimulator({ onSimulate, currentBalance }) {
               className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500"
               dir="ltr"
             />
-            <div className="mt-4 px-1 mb-2">
-                <Slider
-                    value={[Number(incomeAmount) || 0]}
-                    max={15000}
-                    step={50}
-                    onValueChange={(vals) => handleSliderChange(vals, 'income')}
-                    className="cursor-pointer"
-                />
-            </div>
              <div className="flex items-center gap-2 mt-3 justify-end opacity-80">
                 <span className="text-[10px] text-cyan-400">מתעדכן בזמן אמת</span>
                 <span className="relative flex h-1.5 w-1.5">
