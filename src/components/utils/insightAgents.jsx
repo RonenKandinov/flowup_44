@@ -1,3 +1,5 @@
+import { runStrategicBrainAgent } from './strategicBrainAgent';
+
 /**
  * FlowUp Insight Agents System
  * The "Brain" that interprets financial data and generates actionable insights
