@@ -60,10 +60,14 @@ export default function CSVUploader({ onDataParsed, onClose }) {
     for (let i = headerLineIdx + 1; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line) continue;
-      
+
       // Skip lines that don't have enough delimiters (noise/empty rows)
       const delimiterCount = (line.match(new RegExp(delimiter === ',' ? ',' : ';', 'g')) || []).length;
       if (delimiterCount < 3) continue;
+
+      // Skip lines that are mostly #### symbols (Excel display errors)
+      const hashCount = (line.match(/####/g) || []).length;
+      if (hashCount > 3) continue;
       
       const values = line.split(delimiter).map(v => v.trim().replace(/"/g, ''));
       

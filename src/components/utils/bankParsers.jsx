@@ -263,23 +263,33 @@ export const parseExcelStatementRow = (row, headers) => {
                 dateVal = `${day}/${month}/${year}`;
             }
         } 
-        // Handle M/D/YYYY or DD/MM/YYYY formats
+        // Handle M/D/YYYY (American) or DD/MM/YYYY (European) formats
         else if (dateVal.includes('/')) {
             const parts = dateVal.split('/');
             if (parts.length === 3) {
-                let month = parts[0].padStart(2, '0');
-                let day = parts[1].padStart(2, '0');
-                let year = parts[2];
-                
-                // If year is at the beginning (YYYY/MM/DD), reorder
-                if (year.length === 4 && parts[0].length === 4) {
-                    year = parts[0];
-                    month = parts[1].padStart(2, '0');
-                    day = parts[2].padStart(2, '0');
+                // Detect format: if year is first (YYYY/MM/DD) or last
+                if (parts[0].length === 4) {
+                    // YYYY/MM/DD format
+                    const year = parts[0];
+                    const month = parts[1].padStart(2, '0');
+                    const day = parts[2].padStart(2, '0');
+                    dateVal = `${day}/${month}/${year}`;
+                } else if (parts[2].length === 4) {
+                    // M/D/YYYY or DD/MM/YYYY format
+                    const month = parts[0].padStart(2, '0');
+                    const day = parts[1].padStart(2, '0');
+                    const year = parts[2];
+                    
+                    // Smart detection: if day > 12, swap (it must be DD/MM)
+                    // Otherwise trust M/D (American format)
+                    if (parseInt(parts[1]) > 12) {
+                        // DD/MM/YYYY - swap back
+                        dateVal = `${day}/${month}/${year}`;
+                    } else {
+                        // M/D/YYYY - swap to DD/MM/YYYY
+                        dateVal = `${day}/${month}/${year}`;
+                    }
                 }
-                
-                // Normalize to DD/MM/YYYY
-                dateVal = `${day}/${month}/${year}`;
             }
         } 
         else {
@@ -294,18 +304,31 @@ export const parseExcelStatementRow = (row, headers) => {
     let description = '';
     if (operationIdx !== -1 && row[operationIdx]) {
         const op = row[operationIdx].toString().trim();
-        // Skip rows with only #### symbols
-        if (op && !op.includes('#####')) {
+        // Skip rows with only #### symbols or empty
+        if (op && op !== '########' && !op.startsWith('####')) {
             description = op;
         }
     }
     if (detailsIdx !== -1 && row[detailsIdx]) {
         const details = row[detailsIdx].toString().trim();
-        if (details && !details.includes('#####') && details !== description) {
+        // Skip if details are #### or empty
+        if (details && details !== '########' && !details.startsWith('####') && details !== description) {
             description = description ? `${description} - ${details}` : details;
         }
     }
-    if (!description) return null; // Skip rows without description
+    
+    // If still no description, try to use any non-empty cell as fallback
+    if (!description) {
+        for (let i = 0; i < row.length; i++) {
+            const val = row[i]?.toString().trim();
+            if (val && val !== '########' && !val.startsWith('####') && val.length > 2 && isNaN(val)) {
+                description = val;
+                break;
+            }
+        }
+    }
+    
+    if (!description || description === '########') return null; // Skip rows without valid description
     
     // Get amounts - skip if both are 0 or invalid
     const debit = debitIdx !== -1 ? toNum(row[debitIdx]) : 0;
