@@ -33,6 +33,10 @@ export default function CSVUploader({ onDataParsed, onClose }) {
       
       if (testType === 'needs_next_line') {
         continue; // Skip this line
+      } else if (typeof testType === 'object' && testType.type === 'error') {
+        // Detailed error with missing columns
+        const errorMsg = `${testType.message}\n\n❌ עמודות חסרות: ${testType.missingColumns.join(', ')}\n\n✓ עמודות שנמצאו בקובץ:\n${testType.foundColumns.slice(0, 6).join('\n')}${testType.foundColumns.length > 6 ? `\n... ועוד ${testType.foundColumns.length - 6}` : ''}`;
+        throw new Error(errorMsg);
       } else if (testType !== 'unknown') {
         bankType = testType;
         headerLine = testLine;
