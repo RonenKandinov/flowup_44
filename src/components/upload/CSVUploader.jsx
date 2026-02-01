@@ -21,22 +21,37 @@ export default function CSVUploader({ onDataParsed, onClose }) {
       throw new Error('קובץ ה-CSV חייב להכיל לפחות שורת כותרת ושורת נתונים אחת');
     }
 
+    // DIAGNOSIS MODE: Track parsing attempts
+    const diagnostics = {
+      totalLines: lines.length,
+      headerAttempts: [],
+      skippedLines: [],
+      parsedRows: [],
+      failedRows: []
+    };
+
     // Detect bank type from header - may need to skip title rows
     let headerLineIdx = 0;
     let bankType = 'unknown';
     let headerLine = lines[0];
     
     // Try to find the actual header row (skip title rows)
-    for (let i = 0; i < Math.min(5, lines.length); i++) {
+    for (let i = 0; i < Math.min(10, lines.length); i++) {
       const testLine = lines[i];
       const testType = detectBankFromHeader(testLine);
+      
+      diagnostics.headerAttempts.push({
+        lineNum: i,
+        preview: testLine.substring(0, 100),
+        detected: typeof testType === 'string' ? testType : testType.type
+      });
       
       if (testType === 'needs_next_line') {
         continue; // Skip this line
       } else if (typeof testType === 'object' && testType.type === 'error') {
-        // Detailed error with missing columns
-        const errorMsg = `${testType.message}\n\n❌ עמודות חסרות: ${testType.missingColumns.join(', ')}\n\n✓ עמודות שנמצאו בקובץ:\n${testType.foundColumns.slice(0, 6).join('\n')}${testType.foundColumns.length > 6 ? `\n... ועוד ${testType.foundColumns.length - 6}` : ''}`;
-        throw new Error(errorMsg);
+        // Store error but continue searching
+        diagnostics.lastError = testType;
+        continue;
       } else if (testType !== 'unknown') {
         bankType = testType;
         headerLine = testLine;
@@ -45,8 +60,14 @@ export default function CSVUploader({ onDataParsed, onClose }) {
       }
     }
     
+    if (bankType === 'unknown' && diagnostics.lastError) {
+      // Use the detailed error from detection
+      const errorMsg = `${diagnostics.lastError.message}\n\n❌ עמודות חסרות: ${diagnostics.lastError.missingColumns.join(', ')}\n\n✓ עמודות שנמצאו בקובץ:\n${diagnostics.lastError.foundColumns.slice(0, 6).join('\n')}${diagnostics.lastError.foundColumns.length > 6 ? `\n... ועוד ${diagnostics.lastError.foundColumns.length - 6}` : ''}`;
+      throw new Error(errorMsg);
+    }
+    
     if (bankType === 'unknown') {
-      throw new Error('פורמט הקובץ אינו נתמך. נא לייצא קובץ Excel או CSV מהבנק עם עמודות: תאריך, תיאור/הפעולה, חובה, זכות, יתרה');
+      throw new Error(`פורמט הקובץ אינו נתמך.\n\n🔍 ניתוח: בדקתי ${diagnostics.headerAttempts.length} שורות ולא מצאתי כותרת תקינה.\n\nשורות שנבדקו:\n${diagnostics.headerAttempts.map(a => `שורה ${a.lineNum}: ${a.preview.substring(0, 50)}...`).join('\n')}`);
     }
     
     setDetectedBank(getBankDisplayName(bankType));
@@ -63,22 +84,47 @@ export default function CSVUploader({ onDataParsed, onClose }) {
     // Start from the line after the header
     for (let i = headerLineIdx + 1; i < lines.length; i++) {
       const line = lines[i].trim();
-      if (!line) continue;
+      if (!line) {
+        diagnostics.skippedLines.push({ lineNum: i, reason: 'empty' });
+        continue;
+      }
 
       // Skip lines that don't have enough delimiters (noise/empty rows)
       const delimiterCount = (line.match(new RegExp(delimiter === ',' ? ',' : ';', 'g')) || []).length;
-      if (delimiterCount < 3) continue;
+      if (delimiterCount < 3) {
+        diagnostics.skippedLines.push({ lineNum: i, reason: 'not_enough_delimiters', count: delimiterCount });
+        continue;
+      }
 
       // Skip lines that are mostly #### symbols (Excel display errors)
       const hashCount = (line.match(/####/g) || []).length;
-      if (hashCount > 3) continue;
+      if (hashCount > 3) {
+        diagnostics.skippedLines.push({ lineNum: i, reason: 'excel_display_error' });
+        continue;
+      }
       
       const values = line.split(delimiter).map(v => v.trim().replace(/"/g, ''));
       
       // Use bank-specific parser
       const parsed = parseCSVRow(values, headers, bankType);
       
-      if (!parsed || !parsed.date) continue;
+      if (!parsed) {
+        diagnostics.failedRows.push({ 
+          lineNum: i, 
+          reason: 'parser_returned_null',
+          preview: line.substring(0, 100)
+        });
+        continue;
+      }
+      
+      if (!parsed.date) {
+        diagnostics.failedRows.push({ 
+          lineNum: i, 
+          reason: 'no_date',
+          parsed: JSON.stringify(parsed).substring(0, 100)
+        });
+        continue;
+      }
 
       // Parse date
       let parsedDate;
@@ -89,16 +135,39 @@ export default function CSVUploader({ onDataParsed, onClose }) {
         } else {
           parsedDate = new Date(`20${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`);
         }
-      } else {
+      } else if (parsed.date.includes('-')) {
         parsedDate = new Date(parsed.date);
+      } else {
+        diagnostics.failedRows.push({ 
+          lineNum: i, 
+          reason: 'invalid_date_format',
+          date: parsed.date
+        });
+        continue;
       }
 
-      if (isNaN(parsedDate.getTime())) continue;
+      if (isNaN(parsedDate.getTime())) {
+        diagnostics.failedRows.push({ 
+          lineNum: i, 
+          reason: 'date_parse_failed',
+          date: parsed.date,
+          parsedDate: parsedDate
+        });
+        continue;
+      }
 
       // Calculate amount: positive for income (credit), negative for expense (debit)
       const amount = parsed.credit > 0 ? parsed.credit : (parsed.debit > 0 ? -parsed.debit : 0);
       
-      if (amount === 0) continue;
+      if (amount === 0) {
+        diagnostics.failedRows.push({ 
+          lineNum: i, 
+          reason: 'zero_amount',
+          debit: parsed.debit,
+          credit: parsed.credit
+        });
+        continue;
+      }
 
       // Accumulate totals
       if (parsed.credit > 0) totalIncome += parsed.credit;
@@ -115,14 +184,46 @@ export default function CSVUploader({ onDataParsed, onClose }) {
       };
 
       transactions.push(sanitizeTransaction(rawTransaction));
+      diagnostics.parsedRows.push({ lineNum: i, date: parsed.date, amount });
     }
 
     if (transactions.length === 0) {
-      throw new Error('לא נמצאו עסקאות תקינות בקובץ');
+      // Build comprehensive error report
+      const errorReport = `
+🔍 ניתוח מפורט של הקובץ:
+
+📊 סטטיסטיקה:
+- סה"כ שורות: ${diagnostics.totalLines}
+- שורת כותרת: שורה ${headerLineIdx} (${bankType})
+- שורות שנדלגו: ${diagnostics.skippedLines.length}
+- שורות שנכשלו בפרסור: ${diagnostics.failedRows.length}
+
+❌ סיבות כשל עיקריות:
+${Object.entries(
+  diagnostics.failedRows.reduce((acc, row) => {
+    acc[row.reason] = (acc[row.reason] || 0) + 1;
+    return acc;
+  }, {})
+).map(([reason, count]) => `- ${reason}: ${count} שורות`).join('\n')}
+
+🔬 דוגמאות לשורות שנכשלו:
+${diagnostics.failedRows.slice(0, 3).map(row => 
+  `שורה ${row.lineNum}: ${row.reason}\n  ${row.preview || JSON.stringify(row).substring(0, 80)}`
+).join('\n\n')}
+
+💡 הצעות לפתרון:
+${diagnostics.failedRows.some(r => r.reason === 'zero_amount') ? '- הקובץ מכיל רק שורות עם סכום 0 - ייתכן שיש בעיה בעמודות החובה/זכות\n' : ''}
+${diagnostics.failedRows.some(r => r.reason.includes('date')) ? '- בעיה בזיהוי תאריכים - בדוק את פורמט התאריך בקובץ\n' : ''}
+${diagnostics.skippedLines.length > diagnostics.failedRows.length ? '- רוב השורות נדלגו - ייתכן שיש בעיה במבנה הקובץ\n' : ''}
+      `.trim();
+      
+      throw new Error(errorReport);
     }
 
     // Sort by date and return with totals
     const sortedTransactions = transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    console.log(`✅ הצלחה! פרסרתי ${transactions.length} עסקאות מתוך ${diagnostics.totalLines} שורות`);
 
     return {
       transactions: sortedTransactions,
