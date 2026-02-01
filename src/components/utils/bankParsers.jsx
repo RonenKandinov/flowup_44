@@ -21,9 +21,15 @@ const convertExcelDate = (excelDate) => {
 
 /**
  * Detect bank type from CSV header row
+ * Now scans multiple lines if needed to find the actual header
  */
 export const detectBankFromHeader = (headerRow) => {
     const header = headerRow.toLowerCase();
+    
+    // Skip title rows like "תנועות בחשבון"
+    if (header.includes('תנועות בחשבון') || header.includes('מספר חשבון')) {
+        return 'needs_next_line';
+    }
     
     // Bank Hapoalim - תאריך, תיאור הפעולה / הפעולה, חובה, זכות, יתרה
     if (header.includes('תיאור הפעולה') || header.includes('תאריך ערך') || 
@@ -53,7 +59,7 @@ export const detectBankFromHeader = (headerRow) => {
     
     // Excel Statement Format - Wide format with multiple possible columns
     // Detected by: "הפעולה" (operation) + "אסמכתא" (reference) + "חובה" or "זכות"
-    if (header.includes('הפעולה') && (header.includes('אסמכתא') || header.includes('פרטים'))) {
+    if (header.includes('הפעולה') && header.includes('אסמכתא')) {
         return 'excel_statement';
     }
     
@@ -230,7 +236,7 @@ export const parseExcelStatementRow = (row, headers) => {
     const detailsIdx = findColumn(headers, ['פרטים']);
     const debitIdx = findColumn(headers, ['חובה']);
     const creditIdx = findColumn(headers, ['זכות']);
-    const balanceIdx = findColumn(headers, ['יתרה', 'יתרה בש"ח']);
+    const balanceIdx = findColumn(headers, ['יתרה', 'יתרה בש"ח', 'יתרה לאחר']);
     
     // Must have at least date column
     if (dateIdx === -1) return null;
@@ -241,16 +247,25 @@ export const parseExcelStatementRow = (row, headers) => {
         dateVal = convertExcelDate(dateVal);
     } else {
         dateVal = dateVal?.toString().trim() || '';
+        
+        // Skip rows with #### or empty dates
+        if (!dateVal || dateVal.includes('#')) return null;
+        
         // Handle DD.MM.YYYY or DD/MM/YYYY formats
-        if (dateVal && dateVal.includes('.')) {
+        if (dateVal.includes('.')) {
             const parts = dateVal.split('.');
             if (parts.length === 3) {
                 const day = parts[0].padStart(2, '0');
                 const month = parts[1].padStart(2, '0');
                 let year = parts[2];
                 if (year.length === 2) year = '20' + year;
-                dateVal = `${year}-${month}-${day}`;
+                dateVal = `${day}/${month}/${year}`;
             }
+        } else if (dateVal.includes('/')) {
+            // Already in DD/MM/YYYY format - keep it
+        } else {
+            // Not a valid date format
+            return null;
         }
     }
     
@@ -259,19 +274,26 @@ export const parseExcelStatementRow = (row, headers) => {
     // Build description from operation + details
     let description = '';
     if (operationIdx !== -1 && row[operationIdx]) {
-        description = row[operationIdx].toString().trim();
+        const op = row[operationIdx].toString().trim();
+        // Skip rows with only #### symbols
+        if (op && !op.includes('#####')) {
+            description = op;
+        }
     }
     if (detailsIdx !== -1 && row[detailsIdx]) {
         const details = row[detailsIdx].toString().trim();
-        if (details && details !== description) {
+        if (details && !details.includes('#####') && details !== description) {
             description = description ? `${description} - ${details}` : details;
         }
     }
-    if (!description) description = 'תנועה';
+    if (!description) return null; // Skip rows without description
     
-    // Get amounts
+    // Get amounts - skip if both are 0 or invalid
     const debit = debitIdx !== -1 ? toNum(row[debitIdx]) : 0;
     const credit = creditIdx !== -1 ? toNum(row[creditIdx]) : 0;
+    
+    if (debit === 0 && credit === 0) return null;
+    
     const balance = balanceIdx !== -1 ? toNum(row[balanceIdx]) : 0;
     
     return {

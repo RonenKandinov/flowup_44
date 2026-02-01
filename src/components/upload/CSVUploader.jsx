@@ -21,9 +21,25 @@ export default function CSVUploader({ onDataParsed, onClose }) {
       throw new Error('קובץ ה-CSV חייב להכיל לפחות שורת כותרת ושורת נתונים אחת');
     }
 
-    // Detect bank type from header
-    const headerLine = lines[0];
-    const bankType = detectBankFromHeader(headerLine);
+    // Detect bank type from header - may need to skip title rows
+    let headerLineIdx = 0;
+    let bankType = 'unknown';
+    let headerLine = lines[0];
+    
+    // Try to find the actual header row (skip title rows)
+    for (let i = 0; i < Math.min(5, lines.length); i++) {
+      const testLine = lines[i];
+      const testType = detectBankFromHeader(testLine);
+      
+      if (testType === 'needs_next_line') {
+        continue; // Skip this line
+      } else if (testType !== 'unknown') {
+        bankType = testType;
+        headerLine = testLine;
+        headerLineIdx = i;
+        break;
+      }
+    }
     
     if (bankType === 'unknown') {
       throw new Error('פורמט הקובץ אינו נתמך. נא לייצא קובץ Excel או CSV מהבנק עם עמודות: תאריך, תיאור/הפעולה, חובה, זכות, יתרה');
@@ -40,9 +56,14 @@ export default function CSVUploader({ onDataParsed, onClose }) {
     let totalExpenses = 0;
     let currentBalance = 0;
 
-    for (let i = 1; i < lines.length; i++) {
+    // Start from the line after the header
+    for (let i = headerLineIdx + 1; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line) continue;
+      
+      // Skip lines that don't have enough delimiters (noise/empty rows)
+      const delimiterCount = (line.match(new RegExp(delimiter === ',' ? ',' : ';', 'g')) || []).length;
+      if (delimiterCount < 3) continue;
       
       const values = line.split(delimiter).map(v => v.trim().replace(/"/g, ''));
       
