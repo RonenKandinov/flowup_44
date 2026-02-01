@@ -40,7 +40,9 @@ export default function CSVUploader({ onDataParsed, onClose }) {
     // Try to find the actual header row (skip title rows)
     for (let i = 0; i < Math.min(10, lines.length); i++) {
       const testLine = lines[i];
+      console.log(`🔍 [Line ${i}] Testing:`, testLine.substring(0, 150));
       const testType = detectBankFromHeader(testLine);
+      console.log(`   → Detected:`, testType);
       
       diagnostics.headerAttempts.push({
         lineNum: i,
@@ -85,6 +87,9 @@ export default function CSVUploader({ onDataParsed, onClose }) {
     else if (maxCount === semicolonCount && semicolonCount > 2) delimiter = ';';
     
     const headers = headerLine.split(delimiter).map(h => h.trim().replace(/"/g, ''));
+    
+    console.log(`✅ Header found at line ${headerLineIdx}, Bank: ${bankType}, Delimiter: "${delimiter}"`);
+    console.log(`📋 Headers (${headers.length}):`, headers);
 
     const transactions = [];
     let totalIncome = 0;
@@ -115,8 +120,17 @@ export default function CSVUploader({ onDataParsed, onClose }) {
       
       const values = line.split(delimiter).map(v => v.trim().replace(/"/g, ''));
       
+      // Debug first 3 data rows
+      if (i <= headerLineIdx + 3) {
+        console.log(`\n🔬 [Row ${i}] Values (${values.length}):`, values.slice(0, 8));
+      }
+      
       // Use bank-specific parser
       const parsed = parseCSVRow(values, headers, bankType);
+      
+      if (i <= headerLineIdx + 3) {
+        console.log(`   → Parsed:`, parsed);
+      }
       
       if (!parsed) {
         diagnostics.failedRows.push({ 

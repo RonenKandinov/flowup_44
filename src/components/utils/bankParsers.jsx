@@ -283,6 +283,11 @@ export const parseExcelStatementRow = (row, headers) => {
     const creditIdx = findColumn(headers, ['זכות']);
     const balanceIdx = findColumn(headers, ['יתרה', 'יתרה בש"ח', 'יתרה לאחר']);
     
+    // Debug column mapping (only for first row)
+    if (row.length > 0 && typeof row[0] === 'string' && row[0].length > 0) {
+        console.log(`   [Parser] Column indices - date:${dateIdx}, op:${operationIdx}, debit:${debitIdx}, credit:${creditIdx}, balance:${balanceIdx}`);
+    }
+    
     // Must have at least date column
     if (dateIdx === -1) return null;
     
@@ -377,6 +382,11 @@ export const parseExcelStatementRow = (row, headers) => {
     // Get amounts - skip if both are 0 or invalid
     const debit = debitIdx !== -1 ? toNum(row[debitIdx]) : 0;
     const credit = creditIdx !== -1 ? toNum(row[creditIdx]) : 0;
+    
+    // Debug amounts for first rows
+    if (row.length > 0 && (debit > 0 || credit > 0)) {
+        console.log(`   [Parser] Amounts - debit:${debit}, credit:${credit}`);
+    }
     
     if (debit === 0 && credit === 0) return null;
     
