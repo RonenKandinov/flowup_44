@@ -16,7 +16,9 @@ export default function CSVUploader({ onDataParsed, onClose }) {
   const [detectedBank, setDetectedBank] = useState('');
 
   const parseCSVForDatabase = (content) => {
-    const lines = content.split('\n').filter(line => line.trim());
+    // Clean BOM and normalize line endings
+    const cleanedContent = content.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const lines = cleanedContent.split('\n').filter(line => line.trim());
     if (lines.length < 2) {
       throw new Error('קובץ ה-CSV חייב להכיל לפחות שורת כותרת ושורת נתונים אחת');
     }
@@ -72,8 +74,16 @@ export default function CSVUploader({ onDataParsed, onClose }) {
     
     setDetectedBank(getBankDisplayName(bankType));
 
-    // Parse headers (try both comma and semicolon)
-    const delimiter = headerLine.includes(';') ? ';' : ',';
+    // Auto-detect delimiter (comma, semicolon, or tab)
+    const commaCount = (headerLine.match(/,/g) || []).length;
+    const semicolonCount = (headerLine.match(/;/g) || []).length;
+    const tabCount = (headerLine.match(/\t/g) || []).length;
+    
+    let delimiter = ',';
+    const maxCount = Math.max(commaCount, semicolonCount, tabCount);
+    if (maxCount === tabCount && tabCount > 2) delimiter = '\t';
+    else if (maxCount === semicolonCount && semicolonCount > 2) delimiter = ';';
+    
     const headers = headerLine.split(delimiter).map(h => h.trim().replace(/"/g, ''));
 
     const transactions = [];

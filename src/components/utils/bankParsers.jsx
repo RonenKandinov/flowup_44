@@ -12,6 +12,27 @@ const toNum = (v) => {
     return parseFloat(str) || 0;
 };
 
+// Clean header row from BOM and invisible characters
+const cleanHeaderRow = (row) => {
+    return row
+        .replace(/^\uFEFF/, '') // Remove BOM
+        .replace(/[\u200B-\u200D\uFEFF]/g, '') // Remove zero-width chars
+        .replace(/\s+/g, ' ') // Normalize whitespace
+        .trim();
+};
+
+// Auto-detect delimiter in row
+const detectDelimiter = (row) => {
+    const commas = (row.match(/,/g) || []).length;
+    const semicolons = (row.match(/;/g) || []).length;
+    const tabs = (row.match(/\t/g) || []).length;
+    
+    const max = Math.max(commas, semicolons, tabs);
+    if (max === tabs && tabs > 2) return '\t';
+    if (max === semicolons && semicolons > 2) return ';';
+    return ',';
+};
+
 // Excel Date Converter (Serial to ISO)
 const convertExcelDate = (excelDate) => {
     // Excel base date is Dec 30, 1899. 25569 is the offset to Unix Epoch (Jan 1, 1970)
@@ -25,7 +46,9 @@ const convertExcelDate = (excelDate) => {
  * Returns bank type or error object with missing columns
  */
 export const detectBankFromHeader = (headerRow) => {
-    const header = headerRow.toLowerCase();
+    // Clean the header first
+    const cleanedRow = cleanHeaderRow(headerRow);
+    const header = cleanedRow.toLowerCase();
     
     // Skip title rows like "תנועות בחשבון"
     if (header.includes('תנועות בחשבון') || header.includes('מספר חשבון')) {
@@ -83,11 +106,14 @@ export const detectBankFromHeader = (headerRow) => {
     if (!hasDate) missing.push('תאריך (Date)');
     if (!hasMoney) missing.push('סכום/חובה/זכות (Amount/Debit/Credit)');
     
+    // Auto-detect delimiter for error reporting
+    const delimiter = detectDelimiter(headerRow);
+    
     return {
         type: 'error',
         message: 'הקובץ לא מזוהה כקובץ בנק תקין',
         missingColumns: missing,
-        foundColumns: headerRow.split(',').map(col => col.trim()).filter(col => col.length > 0)
+        foundColumns: headerRow.split(delimiter).map(col => col.trim()).filter(col => col.length > 0)
     };
 };
 
