@@ -118,12 +118,21 @@ export const detectBankFromHeader = (headerRow) => {
 };
 
 /**
- * Find column index by possible Hebrew names
+ * Find column index by possible Hebrew/English names (Flexible Fuzzy Match)
  */
 const findColumn = (headers, possibleNames) => {
     for (let i = 0; i < headers.length; i++) {
-        const header = headers[i].toLowerCase().trim();
-        if (possibleNames.some(name => header.includes(name))) {
+        if (!headers[i]) continue;
+        
+        const header = headers[i].toLowerCase().trim()
+            .replace(/[״׳]/g, '') // Remove Hebrew quotes
+            .replace(/\s+/g, ' '); // Normalize spaces
+        
+        if (possibleNames.some(name => {
+            const normalized = name.toLowerCase().trim();
+            // Exact match or contains
+            return header === normalized || header.includes(normalized) || normalized.includes(header);
+        })) {
             return i;
         }
     }

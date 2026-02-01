@@ -281,12 +281,33 @@ ${diagnostics.skippedLines.length > diagnostics.failedRows.length ? '- רוב ה
         const worksheet = workbook.Sheets[firstSheetName];
         content = XLSX.utils.sheet_to_csv(worksheet);
       } else {
-        // Read CSV file content with ISO-8859-8 encoding for Hebrew support
+        // Read CSV with smart encoding detection (UTF-8 → Windows-1255 fallback)
         content = await new Promise((resolve, reject) => {
           const reader = new FileReader();
-          reader.onload = (e) => resolve(e.target.result);
+          reader.onload = (e) => {
+            let result = e.target.result;
+            console.log("📖 First read attempt (UTF-8):", result.substring(0, 200));
+
+            // Check for gibberish (Unicode replacement chars or missing Hebrew)
+            const hasGibberish = result.includes('�') || 
+                                 result.includes('�') || 
+                                 (result.includes('Date') && !result.match(/[א-ת]/));
+
+            if (hasGibberish) {
+              console.log("🔄 Detected encoding issue, retrying with Windows-1255...");
+              const reader2 = new FileReader();
+              reader2.onload = (e2) => {
+                console.log("✅ Second read (Windows-1255):", e2.target.result.substring(0, 200));
+                resolve(e2.target.result);
+              };
+              reader2.onerror = () => reject(new Error('שגיאה בקריאת הקובץ'));
+              reader2.readAsText(file, 'windows-1255');
+            } else {
+              resolve(result);
+            }
+          };
           reader.onerror = () => reject(new Error('שגיאה בקריאת הקובץ'));
-          reader.readAsText(file, 'ISO-8859-8');
+          reader.readAsText(file, 'UTF-8');
         });
       }
 
