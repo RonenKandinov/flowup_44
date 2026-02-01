@@ -31,9 +31,16 @@ export const detectBankFromHeader = (headerRow) => {
         return 'needs_next_line';
     }
     
-    // Bank Hapoalim - תאריך, תיאור הפעולה / הפעולה, חובה, זכות, יתרה
-    if (header.includes('תיאור הפעולה') || header.includes('תאריך ערך') || 
-        (header.includes('הפעולה') && (header.includes('חובה') || header.includes('זכות')))) {
+    // Excel Statement Format - MUST BE FIRST (most specific)
+    // Wide format with: הפעולה + אסמכתא + חובה + זכות + יתרה בש"ח
+    if (header.includes('הפעולה') && header.includes('אסמכתא') && 
+        header.includes('חובה') && header.includes('זכות')) {
+        return 'excel_statement';
+    }
+    
+    // Bank Hapoalim - תאריך, תיאור הפעולה (without אסמכתא)
+    if (header.includes('תיאור הפעולה') || 
+        (header.includes('תאריך ערך') && !header.includes('אסמכתא'))) {
         return 'hapoalim';
     }
     
@@ -43,7 +50,7 @@ export const detectBankFromHeader = (headerRow) => {
     }
     
     // Discount Bank - תאריך פעולה, פרטים, חובה/זכות, יתרה
-    if (header.includes('פרטים') && header.includes('חשבון')) {
+    if (header.includes('פרטים') && header.includes('חשבון') && !header.includes('אסמכתא')) {
         return 'discount';
     }
     
@@ -55,13 +62,6 @@ export const detectBankFromHeader = (headerRow) => {
     // First International Bank - Date, Description, Amount, Balance
     if (header.includes('amount') || header.includes('סכום')) {
         return 'beinleumi';
-    }
-    
-    // Excel Statement Format - Wide format with multiple possible columns
-    // Detected by: "הפעולה" (operation) + multiple money columns
-    if (header.includes('הפעולה') && 
-        (header.includes('אסמכתא') || (header.includes('חובה') && header.includes('זכות') && header.includes('יתרה')))) {
-        return 'excel_statement';
     }
     
     // Generic/Universal Check (for "xlsx-CSV" or unknown formats)
