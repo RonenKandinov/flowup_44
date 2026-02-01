@@ -58,8 +58,9 @@ export const detectBankFromHeader = (headerRow) => {
     }
     
     // Excel Statement Format - Wide format with multiple possible columns
-    // Detected by: "הפעולה" (operation) + "אסמכתא" (reference) + "חובה" or "זכות"
-    if (header.includes('הפעולה') && header.includes('אסמכתא')) {
+    // Detected by: "הפעולה" (operation) + multiple money columns
+    if (header.includes('הפעולה') && 
+        (header.includes('אסמכתא') || (header.includes('חובה') && header.includes('זכות') && header.includes('יתרה')))) {
         return 'excel_statement';
     }
     
@@ -251,7 +252,7 @@ export const parseExcelStatementRow = (row, headers) => {
         // Skip rows with #### or empty dates
         if (!dateVal || dateVal.includes('#')) return null;
         
-        // Handle DD.MM.YYYY or DD/MM/YYYY formats
+        // Handle DD.MM.YYYY format
         if (dateVal.includes('.')) {
             const parts = dateVal.split('.');
             if (parts.length === 3) {
@@ -261,9 +262,27 @@ export const parseExcelStatementRow = (row, headers) => {
                 if (year.length === 2) year = '20' + year;
                 dateVal = `${day}/${month}/${year}`;
             }
-        } else if (dateVal.includes('/')) {
-            // Already in DD/MM/YYYY format - keep it
-        } else {
+        } 
+        // Handle M/D/YYYY or DD/MM/YYYY formats
+        else if (dateVal.includes('/')) {
+            const parts = dateVal.split('/');
+            if (parts.length === 3) {
+                let month = parts[0].padStart(2, '0');
+                let day = parts[1].padStart(2, '0');
+                let year = parts[2];
+                
+                // If year is at the beginning (YYYY/MM/DD), reorder
+                if (year.length === 4 && parts[0].length === 4) {
+                    year = parts[0];
+                    month = parts[1].padStart(2, '0');
+                    day = parts[2].padStart(2, '0');
+                }
+                
+                // Normalize to DD/MM/YYYY
+                dateVal = `${day}/${month}/${year}`;
+            }
+        } 
+        else {
             // Not a valid date format
             return null;
         }
