@@ -26,7 +26,7 @@ export default function CSVUploader({ onDataParsed, onClose }) {
     const bankType = detectBankFromHeader(headerLine);
     
     if (bankType === 'unknown') {
-      throw new Error('פורמט הקובץ אינו נתמך. אנא ייצא קובץ CSV מבנק הפועלים, לאומי, דיסקונט, מזרחי או הבינלאומי');
+      throw new Error('פורמט הקובץ אינו נתמך. נא לייצא קובץ Excel או CSV מהבנק עם עמודות: תאריך, תיאור/הפעולה, חובה, זכות, יתרה');
     }
     
     setDetectedBank(getBankDisplayName(bankType));

@@ -25,8 +25,9 @@ const convertExcelDate = (excelDate) => {
 export const detectBankFromHeader = (headerRow) => {
     const header = headerRow.toLowerCase();
     
-    // Bank Hapoalim - תאריך, תיאור הפעולה, חובה, זכות, יתרה
-    if (header.includes('תיאור הפעולה') || header.includes('תאריך ערך')) {
+    // Bank Hapoalim - תאריך, תיאור הפעולה / הפעולה, חובה, זכות, יתרה
+    if (header.includes('תיאור הפעולה') || header.includes('תאריך ערך') || 
+        (header.includes('הפעולה') && (header.includes('חובה') || header.includes('זכות')))) {
         return 'hapoalim';
     }
     
@@ -84,7 +85,7 @@ const findColumn = (headers, possibleNames) => {
  */
 export const parsePoalimRow = (row, headers) => {
     const dateIdx = findColumn(headers, ['תאריך']);
-    const descIdx = findColumn(headers, ['תיאור']);
+    const descIdx = findColumn(headers, ['תיאור', 'הפעולה']);
     const detailsIdx = findColumn(headers, ['פרטים']);
     const debitIdx = findColumn(headers, ['חובה', 'חיוב']);
     const creditIdx = findColumn(headers, ['זכות', 'זיכוי']);
@@ -92,10 +93,36 @@ export const parsePoalimRow = (row, headers) => {
     
     if (dateIdx === -1 || balanceIdx === -1) return null;
     
+    // Handle date format (DD.MM.YYYY or DD/MM/YYYY)
+    let dateVal = row[dateIdx]?.toString().trim() || '';
+    if (dateVal.includes('.')) {
+        const parts = dateVal.split('.');
+        if (parts.length === 3) {
+            const day = parts[0].padStart(2, '0');
+            const month = parts[1].padStart(2, '0');
+            let year = parts[2];
+            if (year.length === 2) year = '20' + year;
+            dateVal = `${day}/${month}/${year}`;
+        }
+    }
+    
+    // Build description from operation + details if available
+    let description = '';
+    if (descIdx !== -1 && row[descIdx]) {
+        description = row[descIdx].toString().trim();
+    }
+    if (detailsIdx !== -1 && row[detailsIdx]) {
+        const details = row[detailsIdx].toString().trim();
+        if (details && details !== description) {
+            description = description ? `${description} - ${details}` : details;
+        }
+    }
+    if (!description) description = 'תנועה';
+    
     return {
-        date: row[dateIdx]?.trim() || '',
-        description: row[descIdx]?.trim() || row[descIdx + 1]?.trim() || 'תנועה',
-        details: detailsIdx !== -1 ? row[detailsIdx]?.trim() : '',
+        date: dateVal,
+        description,
+        details: detailsIdx !== -1 ? row[detailsIdx]?.toString().trim() : '',
         debit: debitIdx !== -1 ? toNum(row[debitIdx]) : 0,
         credit: creditIdx !== -1 ? toNum(row[creditIdx]) : 0,
         balance: toNum(row[balanceIdx])
