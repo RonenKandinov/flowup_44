@@ -22,6 +22,7 @@ const convertExcelDate = (excelDate) => {
 /**
  * Detect bank type from CSV header row
  * Now scans multiple lines if needed to find the actual header
+ * Returns bank type or error object with missing columns
  */
 export const detectBankFromHeader = (headerRow) => {
     const header = headerRow.toLowerCase();
@@ -64,13 +65,30 @@ export const detectBankFromHeader = (headerRow) => {
         return 'excel_statement';
     }
     
-    // Generic/Universal Check (for "xlsx-CSV" or unknown formats)
-    if ((header.includes('date') || header.includes('תאריך')) && 
-        (header.includes('balance') || header.includes('יתרה') || header.includes('amount') || header.includes('סכום') || header.includes('חובה'))) {
+    // Universal Detection - Check for essential columns
+    const hasDate = header.includes('date') || header.includes('תאריך');
+    const hasMoney = header.includes('חובה') || header.includes('זכות') || 
+                     header.includes('debit') || header.includes('credit') ||
+                     header.includes('amount') || header.includes('סכום') ||
+                     header.includes('משיכה') || header.includes('הפקדה');
+    const hasBalance = header.includes('balance') || header.includes('יתרה');
+    
+    // If we have all essential columns, use universal parser
+    if (hasDate && hasMoney) {
         return 'universal';
     }
-
-    return 'unknown';
+    
+    // Build detailed error message
+    const missing = [];
+    if (!hasDate) missing.push('תאריך (Date)');
+    if (!hasMoney) missing.push('סכום/חובה/זכות (Amount/Debit/Credit)');
+    
+    return {
+        type: 'error',
+        message: 'הקובץ לא מזוהה כקובץ בנק תקין',
+        missingColumns: missing,
+        foundColumns: headerRow.split(',').map(col => col.trim()).filter(col => col.length > 0)
+    };
 };
 
 /**
