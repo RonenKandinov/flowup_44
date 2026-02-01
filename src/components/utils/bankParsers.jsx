@@ -50,6 +50,12 @@ export const detectBankFromHeader = (headerRow) => {
         return 'beinleumi';
     }
     
+    // Excel Statement Format - Wide format with multiple possible columns
+    // Detected by: "הפעולה" (operation) + "אסמכתא" (reference) + "חובה" or "זכות"
+    if (header.includes('הפעולה') && (header.includes('אסמכתא') || header.includes('פרטים'))) {
+        return 'excel_statement';
+    }
+    
     // Generic/Universal Check (for "xlsx-CSV" or unknown formats)
     if ((header.includes('date') || header.includes('תאריך')) && 
         (header.includes('balance') || header.includes('יתרה') || header.includes('amount') || header.includes('סכום') || header.includes('חובה'))) {
@@ -186,6 +192,72 @@ export const parseBeinleumiRow = (row, headers) => {
 };
 
 /**
+ * Parse Excel Statement Format (Wide Bank Statement)
+ * Format: תאריך | הפעולה | פרטים | אסמכתא | חובה | זכות | יתרה בש"ח | תאריך ערך | (more cols)
+ * This handles the multi-column Excel export format common in Israeli banks
+ */
+export const parseExcelStatementRow = (row, headers) => {
+    // Find columns - Excel statements have a predictable structure
+    const dateIdx = findColumn(headers, ['תאריך']);
+    const operationIdx = findColumn(headers, ['הפעולה']);
+    const detailsIdx = findColumn(headers, ['פרטים']);
+    const debitIdx = findColumn(headers, ['חובה']);
+    const creditIdx = findColumn(headers, ['זכות']);
+    const balanceIdx = findColumn(headers, ['יתרה', 'יתרה בש"ח']);
+    
+    // Must have at least date column
+    if (dateIdx === -1) return null;
+    
+    // Get date value and handle potential Excel numeric dates
+    let dateVal = row[dateIdx];
+    if (typeof dateVal === 'number') {
+        dateVal = convertExcelDate(dateVal);
+    } else {
+        dateVal = dateVal?.toString().trim() || '';
+        // Handle DD.MM.YYYY or DD/MM/YYYY formats
+        if (dateVal && dateVal.includes('.')) {
+            const parts = dateVal.split('.');
+            if (parts.length === 3) {
+                const day = parts[0].padStart(2, '0');
+                const month = parts[1].padStart(2, '0');
+                let year = parts[2];
+                if (year.length === 2) year = '20' + year;
+                dateVal = `${year}-${month}-${day}`;
+            }
+        }
+    }
+    
+    if (!dateVal) return null;
+    
+    // Build description from operation + details
+    let description = '';
+    if (operationIdx !== -1 && row[operationIdx]) {
+        description = row[operationIdx].toString().trim();
+    }
+    if (detailsIdx !== -1 && row[detailsIdx]) {
+        const details = row[detailsIdx].toString().trim();
+        if (details && details !== description) {
+            description = description ? `${description} - ${details}` : details;
+        }
+    }
+    if (!description) description = 'תנועה';
+    
+    // Get amounts
+    const debit = debitIdx !== -1 ? toNum(row[debitIdx]) : 0;
+    const credit = creditIdx !== -1 ? toNum(row[creditIdx]) : 0;
+    const balance = balanceIdx !== -1 ? toNum(row[balanceIdx]) : 0;
+    
+    return {
+        date: dateVal,
+        description,
+        details: detailsIdx !== -1 ? row[detailsIdx]?.toString().trim() : '',
+        debit,
+        credit,
+        balance
+    };
+};
+
+/**
  * Parse Universal/Generic CSV Row (Robust Mode)
  * Implements fuzzy matching and robust error handling
  */
@@ -265,6 +337,8 @@ export const parseCSVRow = (row, headers, bankType) => {
             return parseMizrahiRow(row, headers);
         case 'beinleumi':
             return parseBeinleumiRow(row, headers);
+        case 'excel_statement':
+            return parseExcelStatementRow(row, headers);
         case 'universal':
             return parseUniversalRow(row, headers);
         default:
@@ -283,6 +357,7 @@ export const getBankDisplayName = (bankType) => {
         discount: 'בנק דיסקונט',
         mizrahi: 'מזרחי-טפחות',
         beinleumi: 'הבינלאומי',
+        excel_statement: 'דוח אקסל',
         unknown: 'לא מזוהה'
     };
     return names[bankType] || 'לא מזוהה';
