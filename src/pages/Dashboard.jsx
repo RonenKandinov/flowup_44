@@ -465,8 +465,8 @@ export default function Dashboard() {
                     />
                 </motion.div>
 
-                {/* RiskZoneChart (Forecast): Mobile 2, Desktop 3 (Bottom Left) */}
-                <div className="order-2 lg:order-3 space-y-4">
+                {/* InsightsAgent: Mobile 3, Desktop 3 (Bottom Left) */}
+                <div className="order-3 lg:order-3 space-y-4">
                      {/* Agent Widget - Prominently displayed */}
                      <div className="h-auto">
                         <InsightsAgent insights={currentEngineData?.smartInsights || []} />
@@ -475,8 +475,8 @@ export default function Dashboard() {
 
                 </div>
                 
-                {/* WhatIfSimulator: Mobile 3, Desktop 4 (Bottom Right) */}
-                <div className="order-3 lg:order-4 h-auto">
+                {/* WhatIfSimulator: Mobile 2, Desktop 4 (Bottom Right) */}
+                <div className="order-2 lg:order-4 h-auto">
                     <WhatIfSimulator
                         onSimulate={handleWhatIfSimulate}
                         currentBalance={snapshot.current_balance}
