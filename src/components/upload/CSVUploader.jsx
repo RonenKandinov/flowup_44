@@ -42,13 +42,9 @@ export default function CSVUploader({ onDataParsed, onClose }) {
     }
     
     if (bankType === 'unknown') {
-      // Debug: show what we found in the header
-      console.log('Header line:', headerLine);
-      console.log('Headers array:', headers);
-      throw new Error('פורמט הקובץ אינו נתמך. נא לייצא קובץ CSV או Excel מהבנק עם עמודות: תיאור/הפעולה, חובה, זכות, יתרה');
+      throw new Error('פורמט הקובץ אינו נתמך. נא לייצא קובץ Excel או CSV מהבנק עם עמודות: תאריך, תיאור/הפעולה, חובה, זכות, יתרה');
     }
     
-    console.log('Detected bank type:', bankType);
     setDetectedBank(getBankDisplayName(bankType));
 
     // Parse headers (try both comma and semicolon)
