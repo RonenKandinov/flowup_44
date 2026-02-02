@@ -9,6 +9,7 @@
 import { CATEGORY_MAPPING } from '../config/mappingTable';
 import { KeyChain } from './keyChain';
 import { ShadowMapper } from './shadowMapper';
+import { SealOfOrichalcos } from './sealOfOrichalcos';
 
 export const FiscalAgent = {
     /**
@@ -16,7 +17,7 @@ export const FiscalAgent = {
      * Does NOT alter the visual data for the user, but attaches shadow metadata.
      * 
      * @param {Object} transaction - Standard transaction object
-     * @returns {Object} Transaction enriched with hidden _shadow_metadata
+     * @returns {Object} Transaction enriched with hidden _shadow_metadata and ready for entry
      */
     signTransaction: (transaction) => {
         const masterKey = KeyChain.ensureMasterKey();
@@ -43,7 +44,10 @@ export const FiscalAgent = {
             type: transaction.amount > 0 ? 'income' : 'expense'
         }, masterKey);
 
-        // 3. Attach Metadata (Hidden from standard UI)
+        // 3. Apply The Seal of Orichalcos (Integrity Hash)
+        const sealHash = SealOfOrichalcos.seal(shadowVector.magnitude, shadowVector.date);
+
+        // 4. Attach Metadata & Prepare Shadow Entry Structure
         return {
             ...transaction,
             _shadow_metadata: {
@@ -51,6 +55,7 @@ export const FiscalAgent = {
                 element: mapping.element,
                 shadow_type: mapping.shadowType,
                 vector_signature: shadowVector, // Encrypted Magnitude
+                integrity_hash: sealHash,
                 protocol_version: 'Millennium_1.0'
             }
         };
