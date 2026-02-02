@@ -11,41 +11,31 @@ export const CATEGORY_MAPPING = {
         id: 1000,
         name: 'income',
         displayName: 'הכנסה',
-        shadowType: 'ATK',
-        // High-energy vector seed
-        vectorBase: 0.85
+        shadowType: 'ATK'
     },
     EXPENSE: {
         id: 2000,
         name: 'expense',
         displayName: 'הוצאה',
-        shadowType: 'DEF',
-        // Grounding vector seed
-        vectorBase: 0.35
+        shadowType: 'DEF'
     },
     TRANSFER: {
         id: 3000,
         name: 'transfer',
         displayName: 'העברה',
-        shadowType: 'SPELL',
-        // Flow vector seed
-        vectorBase: 0.55
+        shadowType: 'SPELL'
     },
     RECURRING: {
         id: 4000,
         name: 'recurring',
         displayName: 'קבועה',
-        shadowType: 'TRAP',
-        // Cyclic vector seed
-        vectorBase: 0.44
+        shadowType: 'TRAP'
     },
     UNKNOWN: {
         id: 9999,
         name: 'unknown',
         displayName: 'לא מזוהה',
-        shadowType: 'NEUTRAL',
-        // Void vector seed
-        vectorBase: 0.11
+        shadowType: 'NEUTRAL'
     }
 };
 
