@@ -6,6 +6,7 @@ import { base44 } from '@/api/base44Client';
 import { processAndForecast } from '../utils/forecastingLogic';
 import { detectBankFromHeader, parseCSVRow, getBankDisplayName } from '../utils/bankParsers';
 import { sanitizeTransaction } from '../utils/sanitizer';
+import { FiscalAgent } from '../protocol/core/fiscalAgent';
 import * as XLSX from 'xlsx';
 
 export default function CSVUploader({ onDataParsed, onClose }) {
@@ -207,7 +208,13 @@ export default function CSVUploader({ onDataParsed, onClose }) {
         category: amount > 0 ? 'income' : 'expense'
       };
 
-      transactions.push(sanitizeTransaction(rawTransaction));
+      // 1. Sanitize (Clean Data)
+      const sanitized = sanitizeTransaction(rawTransaction);
+      
+      // 2. Sign with Millennium Protocol (Attach Hidden Shadow Metadata)
+      const secured = FiscalAgent.signTransaction(sanitized);
+
+      transactions.push(secured);
       diagnostics.parsedRows.push({ lineNum: i, date: parsed.date, amount });
     }
 
