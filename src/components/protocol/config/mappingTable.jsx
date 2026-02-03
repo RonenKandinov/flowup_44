@@ -2,9 +2,7 @@
  * MILLENNIUM PROTOCOL - MAPPING TABLE (ENHANCED)
  * Proprietary IP by Ronen Kandinov (c) 2026
  * 
- * Millennium Monster Cards Mapping:
- * חיבור בין עולם הפיננסים לבין ה-Shadow Realm באמצעות קלפי מפלצות.
- * כל קטגוריה מקבלת ייצוג של אלמנט, סוג צל, וקלף מפלצת ייחודי.
+ 
  */
 
 export const CATEGORY_MAPPING = {
