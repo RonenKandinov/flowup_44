@@ -265,7 +265,6 @@ ${diagnostics.skippedLines.length > diagnostics.failedRows.length ? '- רוב ה
   };
 
   const processFile = async (file) => {
-    alert("התחלתי לקרוא את הקובץ!");
     console.log("🚀 Starting file processing:", file.name, "Size:", file.size, "Type:", file.type);
     setStatus('uploading');
     setFileName(file.name);
