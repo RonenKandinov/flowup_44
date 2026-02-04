@@ -80,11 +80,17 @@ export const FiscalAgent = {
         // 3. Restore Sign
         const signedAmount = shadowEntry.shadow_type === 'ATK' ? -recoveredData.amount : recoveredData.amount;
 
+        // Find display name from mapping (Reverse lookup)
+        const categoryMatch = Object.values(CATEGORY_MAPPING).find(
+            c => c.monster === shadowEntry.monster_card_name
+        );
+        const displayDescription = categoryMatch ? categoryMatch.displayName : "תנועה כללית";
+
         return {
             date: recoveredData.date,
             amount: signedAmount,
-            // Restore description from Shadow Archetype (since raw description is deleted)
-            description: shadowEntry.description === "Sealed Content" ? shadowEntry.monster_card_name : shadowEntry.description,
+            // Restore description from Category Name (User Friendly) instead of Monster Name
+            description: shadowEntry.description === "Sealed Content" ? displayDescription : shadowEntry.description,
             category: shadowEntry.shadow_type === 'DEF' ? 'income' : 'expense',
             _metadata: {
                 monster: shadowEntry.monster_card_name,
