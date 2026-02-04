@@ -6,7 +6,7 @@ import { base44 } from '@/api/base44Client';
 import { processAndForecast } from '../utils/forecastingLogic';
 import { detectBankFromHeader, parseCSVRow, getBankDisplayName } from '../utils/bankParsers';
 import { sanitizeTransaction } from '../utils/sanitizer';
-import { FiscalAgent } from '../protocol/core/fiscalAgent';
+// import { FiscalAgent } from '../protocol/core/fiscalAgent'; // Protocol moved to Dashboard level
 import * as XLSX from 'xlsx';
 
 export default function CSVUploader({ onDataParsed, onClose, inline = false }) {
