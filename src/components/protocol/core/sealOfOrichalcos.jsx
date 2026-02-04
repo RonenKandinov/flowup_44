@@ -13,13 +13,13 @@ export class SealOfOrichalcos {
      * @param {string} timestamp - The transaction date string
      * @returns {string} The calculated hex hash
      */
-    static seal(magnitude, timestamp) {
-        if (magnitude === undefined || !timestamp) {
+    static seal(magnitude, phantom, timestamp) {
+        if (magnitude === undefined || phantom === undefined || !timestamp) {
             throw new Error("Seal of Orichalcos: Cannot seal incomplete data.");
         }
 
-        // Salt the data with the Seal's constant
-        const payload = `${magnitude.toFixed(4)}|${timestamp}|SEAL_OF_ORICHALCOS`;
+        // Salt the data with the Seal's constant - Now including Phantom!
+        const payload = `${magnitude.toFixed(4)}|${phantom.toFixed(4)}|${timestamp}|SEAL_OF_ORICHALCOS`;
         
         // Simple DJB2-like hash for demonstration (in production, use SHA-256)
         let hash = 5381;
