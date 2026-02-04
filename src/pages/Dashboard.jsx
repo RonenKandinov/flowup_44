@@ -395,7 +395,13 @@ export default function Dashboard() {
               <div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : !hasData ? (
-            <EmptyState onUploadClick={() => setShowUploader(true)} />
+            <div className="flex flex-col items-center justify-center min-h-[60vh]">
+               <div className="text-center mb-8">
+                  <h2 className="text-2xl font-bold text-white mb-2">ברוכים הבאים ל-FlowUp</h2>
+                  <p className="text-slate-400">העלו את קובץ הבנק שלכם כדי להתחיל לראות תובנות</p>
+               </div>
+               <CSVUploader inline={true} onDataParsed={handleDataParsed} />
+            </div>
           ) : (
             <>
               {/* Stats Row - Compact on Mobile */}
