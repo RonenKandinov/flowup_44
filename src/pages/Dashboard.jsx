@@ -237,15 +237,19 @@ export default function Dashboard() {
     // Save to database
     await saveSnapshotMutation.mutateAsync(data.snapshot);
     
-    // Save first 100 transactions with correct 'amount' field
+    // Process and Seal transactions into the Shadow Realm
     if (data.transactions.length > 0) {
-      const dbTransactions = data.transactions.slice(0, 100).map(t => ({
-          date: t.date,
-          description: t.description,
-          amount: (t.credit || 0) - (t.debit || 0), // Convert to signed amount
-          category: (t.credit > 0) ? 'income' : 'expense'
-      }));
-      await saveTransactionsMutation.mutateAsync(dbTransactions);
+      const shadowEntries = data.transactions.slice(0, 100).map(t => {
+          const rawTransaction = {
+              date: t.date instanceof Date ? t.date.toISOString().split('T')[0] : t.date,
+              description: t.description,
+              amount: (t.credit || 0) - (t.debit || 0), // Signed amount
+              category: (t.credit > 0) ? 'income' : 'expense'
+          };
+          // MILLENNIUM PROTOCOL: Encrypt & Seal
+          return FiscalAgent.processTransaction(rawTransaction);
+      });
+      await saveTransactionsMutation.mutateAsync(shadowEntries);
     }
     
     // Invalidate queries to refresh view
