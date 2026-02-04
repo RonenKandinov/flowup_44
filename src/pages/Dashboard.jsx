@@ -195,11 +195,11 @@ export default function Dashboard() {
       };
 
       await batchDelete(allSnapshots, base44.entities.FinancialSnapshot);
-      await batchDelete(allTransactions, base44.entities.Transaction);
+      await batchDelete(allShadowEntries, base44.entities.ShadowRealmEntry);
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['financial-snapshots']);
-      queryClient.invalidateQueries(['transactions']);
+      queryClient.invalidateQueries(['shadow-entries']);
       setLocalData(null);
     }
   });
