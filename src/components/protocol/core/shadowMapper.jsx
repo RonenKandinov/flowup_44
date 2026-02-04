@@ -16,7 +16,8 @@ function hash(val) {
     return h.toString(16);
 }
 
-const PRECISION_SCALE = 1000000; // Normalization Scale
+const PRECISION_SCALE = 1000; // Normalization Scale (Vortex Edition)
+const ENTROPY_FACTOR = 1000000; // Entropy Multiplier
 const EPSILON = Number.EPSILON;
 
 export class ShadowMapper {
@@ -38,7 +39,8 @@ export class ShadowMapper {
         const normalizedAmount = data.amount / PRECISION_SCALE;
 
         // 2. The Theta Rotation (Secret Angle from Master Key)
-        const theta = (userKeyFactor * 1337) % (2 * Math.PI);
+        // Vortex Engine - Millennium Edition: High Entropy Factor
+        const theta = (userKeyFactor * ENTROPY_FACTOR) % (2 * Math.PI);
         
         // 3. Vector Rotation (The "Gold Vector" Rotation)
         // Rotate the scalar vector (x, 0) into the Shadow Plane (x', y')
@@ -67,7 +69,8 @@ export class ShadowMapper {
         }
 
         // 1. Regenerate Theta
-        const theta = (userKeyFactor * 1337) % (2 * Math.PI);
+        // Vortex Engine - Millennium Edition: High Entropy Factor
+        const theta = (userKeyFactor * ENTROPY_FACTOR) % (2 * Math.PI);
         
         // 2. Reverse Rotation (Mathematical Restoration)
         // normalized_amount = magnitude * cos(theta) + phantom * sin(theta)
