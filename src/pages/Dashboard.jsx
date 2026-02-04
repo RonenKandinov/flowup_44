@@ -232,7 +232,7 @@ export default function Dashboard() {
     };
 
     await batchProcess(allSnapshots, 3, s => base44.entities.FinancialSnapshot.delete(s.id));
-    await batchProcess(allTransactions, 3, t => base44.entities.Transaction.delete(t.id));
+    await batchProcess(allShadowEntries, 3, e => base44.entities.ShadowRealmEntry.delete(e.id));
 
     // Save to database
     await saveSnapshotMutation.mutateAsync(data.snapshot);
