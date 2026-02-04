@@ -17,17 +17,18 @@ export const KeyChain = {
      * @returns {number} The Master Key Factor
      */
     ensureMasterKey: () => {
-        // VORTEX EXPERIMENT MODE: Fixed Key
-        // For testing the Shadow Realm transformation in the dashboard
-        const EXPERIMENT_KEY = "1.234567";
-        
         let key = localStorage.getItem(STORAGE_KEY);
         
-        // Force the experiment key if not matching (or for this session)
-        if (key !== EXPERIMENT_KEY) {
-            key = EXPERIMENT_KEY;
+        if (!key) {
+            console.log("🗝️ Millennium Protocol: Generating new Master Key...");
+            // ייצור מפתח המבוסס על אנטרופיה וראשוניים
+            const entropy = Math.random() * 100;
+            const timeComponent = Date.now() % 1000;
+            // יצירת פקטור ייחודי (למשל: 3.1415...) שאינו 0 או 1
+            key = (entropy + (timeComponent / 1000) + Math.PI).toFixed(8);
+            
+            // שמירה באחסון המקומי
             localStorage.setItem(STORAGE_KEY, key);
-            console.log("🗝️ Millennium Protocol: Key updated to VORTEX EXPERIMENT KEY: 1.234567");
         }
         
         return parseFloat(key);
