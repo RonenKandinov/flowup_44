@@ -254,7 +254,7 @@ export default function Dashboard() {
     
     // Invalidate queries to refresh view
     queryClient.invalidateQueries(['financial-snapshots']);
-    queryClient.invalidateQueries(['transactions']);
+    queryClient.invalidateQueries(['shadow-entries']);
   };
 
   const handleWhatIfSimulate = (scenario) => {
