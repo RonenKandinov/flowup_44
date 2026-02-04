@@ -9,7 +9,7 @@ import { sanitizeTransaction } from '../utils/sanitizer';
 import { FiscalAgent } from '../protocol/core/fiscalAgent';
 import * as XLSX from 'xlsx';
 
-export default function CSVUploader({ onDataParsed, onClose }) {
+export default function CSVUploader({ onDataParsed, onClose, inline = false }) {
   const [isDragging, setIsDragging] = useState(false);
   const [status, setStatus] = useState('idle'); // idle, uploading, processing, success, error
   const [errorMessage, setErrorMessage] = useState('');
@@ -383,6 +383,116 @@ ${diagnostics.skippedLines.length > diagnostics.failedRows.length ? '- רוב ה
       processFile(file);
     }
   };
+
+  if (inline) {
+    return (
+      <div className="w-full max-w-md mx-auto bg-slate-900 rounded-2xl border border-slate-700 overflow-hidden mt-10">
+        <div className="p-6">
+          <h2 className="text-xl font-bold text-white mb-2">העלאת קובץ בנק</h2>
+          <p className="text-slate-400 text-sm mb-6">
+            העלה את קובץ ה-Excel או CSV שהורדת מהבנק
+            {detectedBank && <span className="block mt-1 text-cyan-400">זוהה: {detectedBank}</span>}
+          </p>
+
+          <div
+            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={handleDrop}
+            className={`
+              relative border-2 border-dashed rounded-xl p-8 text-center transition-all
+              ${isDragging 
+                ? 'border-cyan-500 bg-cyan-500/10' 
+                : 'border-slate-600 hover:border-slate-500'
+              }
+            `}
+          >
+            <input
+              type="file"
+              accept=".csv, .xlsx, .xls"
+              onChange={handleFileSelect}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              disabled={status === 'uploading' || status === 'processing'}
+            />
+
+            <AnimatePresence mode="wait">
+              {status === 'idle' && (
+                <motion.div
+                  key="idle"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <Upload className="w-12 h-12 mx-auto mb-4 text-slate-500" />
+                  <p className="text-slate-300 mb-1">גרור קובץ לכאן</p>
+                  <p className="text-slate-500 text-sm">או לחץ לבחירת קובץ</p>
+                </motion.div>
+              )}
+
+              {(status === 'uploading' || status === 'processing') && (
+                <motion.div
+                  key="loading"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="py-4"
+                >
+                  <Loader2 className="w-12 h-12 mx-auto mb-4 text-cyan-500 animate-spin" />
+                  <p className="text-slate-300">{fileName}</p>
+                  <p className="text-cyan-400 text-sm mt-1">
+                    {status === 'uploading' ? 'מעלה...' : 'מעבד נתונים...'}
+                  </p>
+                </motion.div>
+              )}
+
+              {status === 'success' && (
+                <motion.div
+                  key="success"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="py-4"
+                >
+                  <CheckCircle className="w-12 h-12 mx-auto mb-4 text-green-500" />
+                  <p className="text-green-400">הקובץ עובד בהצלחה!</p>
+                </motion.div>
+              )}
+
+              {status === 'error' && (
+                <motion.div
+                  key="error"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="py-4"
+                >
+                  <AlertCircle className="w-12 h-12 mx-auto mb-4 text-red-500" />
+                  <p className="text-red-400">{errorMessage}</p>
+                  <Button
+                    variant="ghost"
+                    className="mt-4 text-slate-400"
+                    onClick={() => setStatus('idle')}
+                  >
+                    נסה שוב
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <div className="mt-6 p-4 bg-slate-800/50 rounded-xl">
+            <div className="flex items-start gap-3">
+              <FileText className="w-5 h-5 text-slate-500 mt-0.5" />
+              <div className="text-xs text-slate-400">
+                <p className="font-medium text-slate-300 mb-1">פורמט נתמך:</p>
+                <p>קבצי Excel (.xlsx) או CSV מכל הבנקים</p>
+                <p className="mt-1 text-slate-500">הנתונים שלך מאובטחים ונשארים בשליטתך המלאה</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <motion.div
