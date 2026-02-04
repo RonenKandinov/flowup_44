@@ -36,9 +36,9 @@ export class SealOfOrichalcos {
      * @returns {boolean} True if valid, False if corrupted
      */
     static verify(entry) {
-        if (!entry.magnitude || !entry.transaction_date || !entry.integrity_hash) return false;
+        if (!entry.magnitude || !entry.phantom || !entry.transaction_date || !entry.integrity_hash) return false;
         
-        const calculatedHash = this.seal(entry.magnitude, entry.transaction_date);
+        const calculatedHash = this.seal(entry.magnitude, entry.phantom, entry.transaction_date);
         return calculatedHash === entry.integrity_hash;
     }
 }
