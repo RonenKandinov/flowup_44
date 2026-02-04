@@ -212,9 +212,10 @@ export default function CSVUploader({ onDataParsed, onClose, inline = false }) {
       const sanitized = sanitizeTransaction(rawTransaction);
       
       // 2. Sign with Millennium Protocol (Attach Hidden Shadow Metadata)
-      const secured = FiscalAgent.signTransaction(sanitized);
+      // Moved to Dashboard level for separation of concerns
+      // const secured = FiscalAgent.signTransaction(sanitized);
 
-      transactions.push(secured);
+      transactions.push(sanitized);
       diagnostics.parsedRows.push({ lineNum: i, date: parsed.date, amount });
     }
 
