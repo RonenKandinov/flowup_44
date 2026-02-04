@@ -216,7 +216,7 @@ export default function Dashboard() {
 
     // Clear previous DB data to prevent duplication (Batched to avoid rate limits)
     const allSnapshots = await base44.entities.FinancialSnapshot.list();
-    const allTransactions = await base44.entities.Transaction.list();
+    const allShadowEntries = await base44.entities.ShadowRealmEntry.list();
 
     const batchProcess = async (items, batchSize, processFn) => {
         for (let i = 0; i < items.length; i += batchSize) {
