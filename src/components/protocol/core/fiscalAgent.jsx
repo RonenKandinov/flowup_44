@@ -14,12 +14,11 @@ import { SealOfOrichalcos } from './sealOfOrichalcos';
 export const FiscalAgent = {
     /**
      * Signs a transaction with the Millennium Protocol signatures.
-     * Does NOT alter the visual data for the user, but attaches shadow metadata.
      * 
-     * @param {Object} transaction - Standard transaction object
-     * @returns {Object} Transaction enriched with hidden _shadow_metadata and ready for entry
+     * @param {Object} transaction - Standard transaction object {amount, date, description, category}
+     * @returns {Object} A pristine ShadowRealmEntry object ready for storage. NO RAW AMOUNT.
      */
-    signTransaction: (transaction) => {
+    processTransaction: (transaction) => {
         const masterKey = KeyChain.ensureMasterKey();
         
         // 1. Identify best semantic match (Monster Card)
@@ -45,18 +44,49 @@ export const FiscalAgent = {
         }, masterKey);
 
         // 3. Apply The Seal of Orichalcos (Integrity Hash)
-        const sealHash = SealOfOrichalcos.seal(shadowVector.magnitude, shadowVector.date);
+        const sealHash = SealOfOrichalcos.seal(shadowVector.magnitude, shadowVector.phantom, shadowVector.date);
 
-        // 4. Attach Metadata & Prepare Shadow Entry Structure
+        // 4. Construct the Shadow Realm Entry (NO RAW AMOUNT!)
         return {
-            ...transaction,
-            _shadow_metadata: {
-                monster_card: mapping.monster,
-                element: mapping.element,
-                shadow_type: mapping.shadowType,
-                vector_signature: shadowVector, // Encrypted Magnitude
-                integrity_hash: sealHash,
-                protocol_version: 'Millennium_1.0'
+            magnitude: shadowVector.magnitude,
+            phantom: shadowVector.phantom,
+            transaction_date: shadowVector.date,
+            monster_card_name: mapping.monster,
+            element: mapping.element,
+            shadow_type: shadowVector.mode, // ATK/DEF from ShadowMapper
+            integrity_hash: sealHash,
+            is_corrupted: false,
+            description: transaction.description // Can be encrypted in V2
+        };
+    },
+
+    /**
+     * Recovers a Shadow Entry back to a usable Transaction object.
+     * Uses the Master Key to reverse the projection.
+     */
+    recoverEntry: (shadowEntry) => {
+        const masterKey = KeyChain.ensureMasterKey();
+
+        // 1. Verify Integrity
+        if (!SealOfOrichalcos.verify(shadowEntry)) {
+            console.error("DATA CORRUPTION DETECTED in entry:", shadowEntry);
+            return { ...shadowEntry, is_corrupted: true, amount: 0 };
+        }
+
+        // 2. Reverse Vector Transformation
+        const recoveredData = ShadowMapper.fromShadow(shadowEntry, masterKey);
+        
+        // 3. Restore Sign
+        const signedAmount = shadowEntry.shadow_type === 'ATK' ? -recoveredData.amount : recoveredData.amount;
+
+        return {
+            date: recoveredData.date,
+            amount: signedAmount,
+            description: shadowEntry.description,
+            category: shadowEntry.shadow_type === 'DEF' ? 'income' : 'expense',
+            _metadata: {
+                monster: shadowEntry.monster_card_name,
+                element: shadowEntry.element
             }
         };
     }
