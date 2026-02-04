@@ -56,7 +56,8 @@ export const FiscalAgent = {
             shadow_type: transaction.amount > 0 ? 'DEF' : 'ATK', // ATK = Expense (Damage), DEF = Income (Defense)
             integrity_hash: sealHash,
             is_corrupted: false,
-            description: transaction.description // Can be encrypted in V2
+            // SECURITY UPDATE: Raw description is deleted. Only the Shadow Mapping remains.
+            description: "Sealed Content" 
         };
     },
 
