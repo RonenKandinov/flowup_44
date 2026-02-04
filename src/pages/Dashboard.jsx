@@ -7,7 +7,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { calculateWhatIf, SystemInfo } from '../components/utils/forecastingLogic';
 import { Storage } from '../components/utils/storage';
 import { FiscalAgent } from '../components/protocol/core/fiscalAgent';
-import { FiscalAgent } from '../components/protocol/core/fiscalAgent'; // Import Protocol
 
 import SpeedometerGauge from '../components/dashboard/SpeedometerGauge';
 import StatCard from '../components/dashboard/StatCard';
