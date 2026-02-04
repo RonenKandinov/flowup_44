@@ -83,7 +83,8 @@ export const FiscalAgent = {
         return {
             date: recoveredData.date,
             amount: signedAmount,
-            description: shadowEntry.description,
+            // Restore description from Shadow Archetype (since raw description is deleted)
+            description: shadowEntry.description === "Sealed Content" ? shadowEntry.monster_card_name : shadowEntry.description,
             category: shadowEntry.shadow_type === 'DEF' ? 'income' : 'expense',
             _metadata: {
                 monster: shadowEntry.monster_card_name,
