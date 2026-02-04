@@ -16,6 +16,9 @@ function hash(val) {
     return h.toString(16);
 }
 
+const PRECISION_SCALE = 1000000; // Normalization Scale
+const EPSILON = Number.EPSILON;
+
 export class ShadowMapper {
     /**
      * Maps raw financial data to the Shadow Realm vector space.
@@ -30,18 +33,23 @@ export class ShadowMapper {
             throw new Error("Millennium Protocol: Invalid UserKeyFactor for Shadow transformation.");
         }
 
-        // 1. Secret Angle Generation from Master Key
-        const angle = (userKeyFactor * 1337) % (2 * Math.PI);
+        // 1. Normalization (Prevent large number artifacts)
+        const normalizedAmount = data.amount; 
+
+        // 2. The Theta Rotation (Secret Angle from Master Key)
+        const theta = (userKeyFactor * 1337) % (2 * Math.PI);
         
-        // 2. Vector Transformation (Projection)
-        // Transform the scalar amount into a point in 2D space
-        const magnitudeX = data.amount * Math.cos(angle);
-        const magnitudeY = data.amount * Math.sin(angle);
+        // 3. Vector Rotation (The "Gold Vector" Rotation)
+        // Rotate the scalar vector (x, 0) into the Shadow Plane (x', y')
+        // magnitude = x * cos(theta)
+        // phantom   = x * sin(theta)
+        const magnitude = normalizedAmount * Math.cos(theta);
+        const phantom = normalizedAmount * Math.sin(theta);
         
         return {
-            magnitude: magnitudeX, // This is what gets stored in the DB (Projection)
-            phantom: magnitudeY,   // The "Noise" that completes the vector (Hidden)
-            angle_hash: hash(angle),
+            magnitude: magnitude, 
+            phantom: phantom,   
+            angle_hash: hash(theta),
             date: data.date
         };
     }
@@ -57,11 +65,22 @@ export class ShadowMapper {
             throw new Error("Millennium Protocol: Invalid UserKeyFactor for Shadow reconstruction.");
         }
 
-        const angle = (userKeyFactor * 1337) % (2 * Math.PI);
+        // 1. Regenerate Theta
+        const theta = (userKeyFactor * 1337) % (2 * Math.PI);
         
-        // Reverse the projection: amount = magnitude / cos(angle)
-        // Note: Precision loss is possible near cos(angle) = 0
-        const amount = shadowData.magnitude / Math.cos(angle);
+        // 2. Reverse Rotation (Mathematical Restoration)
+        // Amount = magnitude * cos(theta) + phantom * sin(theta)
+        // This leverages the identity: cos^2 + sin^2 = 1, avoiding division by zero errors.
+        let amount = (shadowData.magnitude * Math.cos(theta)) + (shadowData.phantom * Math.sin(theta));
+
+        // 3. Floating Point Shield
+        // Eliminate micro-fractions that occur due to IEEE 754 floating point math
+        if (Math.abs(amount) < EPSILON * 100) {
+            amount = 0;
+        } else {
+            // Round to 2 decimal places carefully
+            amount = Math.round((amount + EPSILON) * 100) / 100;
+        }
 
         return {
             amount: amount,
