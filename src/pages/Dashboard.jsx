@@ -6,6 +6,7 @@ import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { calculateWhatIf, SystemInfo } from '../components/utils/forecastingLogic';
 import { Storage } from '../components/utils/storage';
+import { FiscalAgent } from '../components/protocol/core/fiscalAgent';
 import { FiscalAgent } from '../components/protocol/core/fiscalAgent'; // Import Protocol
 
 import SpeedometerGauge from '../components/dashboard/SpeedometerGauge';
@@ -65,12 +66,20 @@ export default function Dashboard() {
     initialData: []
   });
 
-  // Fetch transactions for chart
-  const { data: transactions } = useQuery({
-    queryKey: ['transactions'],
-    queryFn: () => base44.entities.Transaction.list('-date', 90),
+  // Fetch Shadow Realm entries (Secured Data)
+  const { data: shadowEntries } = useQuery({
+    queryKey: ['shadow-entries'],
+    queryFn: () => base44.entities.ShadowRealmEntry.list('-transaction_date', 100),
     initialData: []
   });
+
+  // Reconstruct transactions from Shadow Realm on the fly
+  const transactions = React.useMemo(() => {
+    if (!shadowEntries) return [];
+    return shadowEntries.map(entry => FiscalAgent.recoverEntry(entry))
+      .filter(t => !t.is_corrupted) // Filter out corrupted data
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+  }, [shadowEntries]);
 
   // Use local data if exists, otherwise use saved data
   const snapshot = localData?.snapshot || snapshots?.[0];
@@ -154,9 +163,9 @@ export default function Dashboard() {
     onSuccess: () => queryClient.invalidateQueries(['financial-snapshots'])
   });
 
-  // Save transactions mutation
+  // Save transactions to Shadow Realm mutation
   const saveTransactionsMutation = useMutation({
-    mutationFn: (txns) => base44.entities.Transaction.bulkCreate(txns)
+    mutationFn: (shadowEntries) => base44.entities.ShadowRealmEntry.bulkCreate(shadowEntries)
   });
 
   // Delete all data mutation

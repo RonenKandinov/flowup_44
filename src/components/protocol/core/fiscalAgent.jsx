@@ -53,7 +53,7 @@ export const FiscalAgent = {
             transaction_date: shadowVector.date,
             monster_card_name: mapping.monster,
             element: mapping.element,
-            shadow_type: shadowVector.mode, // ATK/DEF from ShadowMapper
+            shadow_type: transaction.amount > 0 ? 'DEF' : 'ATK', // ATK = Expense (Damage), DEF = Income (Defense)
             integrity_hash: sealHash,
             is_corrupted: false,
             description: transaction.description // Can be encrypted in V2
