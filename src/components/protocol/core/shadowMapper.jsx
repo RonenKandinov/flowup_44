@@ -34,15 +34,16 @@ export class ShadowMapper {
         }
 
         // 1. Normalization (Prevent large number artifacts)
-        const normalizedAmount = data.amount; 
+        // Scale down to unit range (approx) to preserve floating point precision in rotation
+        const normalizedAmount = data.amount / PRECISION_SCALE;
 
         // 2. The Theta Rotation (Secret Angle from Master Key)
         const theta = (userKeyFactor * 1337) % (2 * Math.PI);
         
         // 3. Vector Rotation (The "Gold Vector" Rotation)
         // Rotate the scalar vector (x, 0) into the Shadow Plane (x', y')
-        // magnitude = x * cos(theta)
-        // phantom   = x * sin(theta)
+        // magnitude = x_norm * cos(theta)
+        // phantom   = x_norm * sin(theta)
         const magnitude = normalizedAmount * Math.cos(theta);
         const phantom = normalizedAmount * Math.sin(theta);
         
@@ -69,13 +70,16 @@ export class ShadowMapper {
         const theta = (userKeyFactor * 1337) % (2 * Math.PI);
         
         // 2. Reverse Rotation (Mathematical Restoration)
-        // Amount = magnitude * cos(theta) + phantom * sin(theta)
+        // normalized_amount = magnitude * cos(theta) + phantom * sin(theta)
         // This leverages the identity: cos^2 + sin^2 = 1, avoiding division by zero errors.
-        let amount = (shadowData.magnitude * Math.cos(theta)) + (shadowData.phantom * Math.sin(theta));
+        const normalizedAmount = (shadowData.magnitude * Math.cos(theta)) + (shadowData.phantom * Math.sin(theta));
 
-        // 3. Floating Point Shield
+        // 3. Denormalization (Restore Scale)
+        let amount = normalizedAmount * PRECISION_SCALE;
+
+        // 4. Floating Point Shield
         // Eliminate micro-fractions that occur due to IEEE 754 floating point math
-        if (Math.abs(amount) < EPSILON * 100) {
+        if (Math.abs(amount) < EPSILON * 1000) {
             amount = 0;
         } else {
             // Round to 2 decimal places carefully
