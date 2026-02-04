@@ -6,6 +6,7 @@ import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { calculateWhatIf, SystemInfo } from '../components/utils/forecastingLogic';
 import { Storage } from '../components/utils/storage';
+import { FiscalAgent } from '../components/protocol/core/fiscalAgent'; // Import Protocol
 
 import SpeedometerGauge from '../components/dashboard/SpeedometerGauge';
 import StatCard from '../components/dashboard/StatCard';
