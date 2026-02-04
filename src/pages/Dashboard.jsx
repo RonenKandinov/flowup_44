@@ -176,7 +176,7 @@ export default function Dashboard() {
 
       // Fetch all data (up to reasonable limits) to delete
       const allSnapshots = await base44.entities.FinancialSnapshot.list(null, 100);
-      const allTransactions = await base44.entities.Transaction.list(null, 500);
+      const allShadowEntries = await base44.entities.ShadowRealmEntry.list(null, 500);
 
       // Helper for batching deletions
       const batchDelete = async (items, entity) => {
