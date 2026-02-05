@@ -58,12 +58,22 @@ export default function Dashboard() {
     loadFromStorage();
   }, []);
 
+  // Fetch user data for Admin bypass
+  const { data: user, isLoading: isUserLoading } = useQuery({
+    queryKey: ['user'],
+    queryFn: () => base44.auth.me().catch(() => null),
+  });
+
+  const isAdmin = user?.role === 'admin';
+
   // Fetch saved snapshot
-  const { data: snapshots, isLoading } = useQuery({
+  const { data: snapshots, isLoading: isSnapshotsLoading } = useQuery({
     queryKey: ['financial-snapshots'],
     queryFn: () => base44.entities.FinancialSnapshot.list('-upload_date', 1),
     initialData: []
   });
+
+  const isLoading = isSnapshotsLoading || isUserLoading;
 
   // Fetch Shadow Realm entries (Secured Data)
   const { data: shadowEntries } = useQuery({
@@ -80,8 +90,16 @@ export default function Dashboard() {
       .sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [shadowEntries]);
 
-  // Use local data if exists, otherwise use saved data
-  const snapshot = localData?.snapshot || snapshots?.[0];
+  // Use local data if exists, otherwise use saved data. Admins get a blank slate bypass.
+  const emptySnapshot = {
+      current_balance: 0,
+      total_income: 0,
+      total_expenses: 0,
+      projected_eom_balance: 0,
+      risk_level: 'green',
+      risk_day: null
+  };
+  const snapshot = localData?.snapshot || snapshots?.[0] || (isAdmin ? emptySnapshot : undefined);
   const forecastData = localData?.forecastData || generateForecastFromTransactions(transactions);
   const currentEngineData = localData?.engineData || engineData;
 
