@@ -13,12 +13,14 @@ import StatCard from '../components/dashboard/StatCard';
 import WhatIfSimulator from '../components/dashboard/WhatIfSimulator';
 import FutureCake from '../components/dashboard/FutureCake';
 import InsightsAgent from '../components/dashboard/InsightsAgent'; // New
-import CSVUploader from '../components/upload/CSVUploader';
+import CSVUploader from '../components/upload/CSVUploader'; // Kept for admin fallback if needed
 import EmptyState from '../components/dashboard/EmptyState';
 import Disclaimer from '../components/dashboard/Disclaimer';
+import OpenFinanceConnect from '../components/connect/OpenFinanceConnect';
 
 export default function Dashboard() {
   const [showUploader, setShowUploader] = useState(false);
+  const [showOpenFinance, setShowOpenFinance] = useState(false);
   const [whatIfAmount, setWhatIfAmount] = useState(0);
   const [whatIfName, setWhatIfName] = useState('');
   const [localData, setLocalData] = useState(null);
@@ -397,13 +399,13 @@ export default function Dashboard() {
           {hasData && (
             <div className="flex items-center gap-2">
               <Button
-                onClick={() => setShowUploader(true)}
+                onClick={() => setShowOpenFinance(true)}
                 variant="ghost"
                 size="sm"
                 className="bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:bg-slate-800 hover:text-white transition-all h-7 px-3 rounded-md"
               >
                 <RefreshCw className="w-3 h-3 ml-1.5" />
-                <span className="text-[11px] font-medium">עדכן נתונים</span>
+                <span className="text-[11px] font-medium">סנכרון Open Finance</span>
               </Button>
               <Button
                 onClick={() => deleteDataMutation.mutate()}
@@ -426,13 +428,7 @@ export default function Dashboard() {
               <div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : !hasData ? (
-            <div className="flex flex-col items-center justify-center min-h-[60vh]">
-               <div className="text-center mb-8">
-                  <h2 className="text-2xl font-bold text-white mb-2">ברוכים הבאים ל-FlowUp</h2>
-                  <p className="text-slate-400">העלו את קובץ הבנק שלכם כדי להתחיל לראות תובנות</p>
-               </div>
-               <CSVUploader inline={true} onDataParsed={handleDataParsed} />
-            </div>
+            <EmptyState onDataParsed={handleDataParsed} />
           ) : (
             <>
               {/* Stats Row - Compact on Mobile */}
@@ -529,13 +525,30 @@ export default function Dashboard() {
 
 
 
-      {/* Upload Modal */}
+      {/* Upload/Connect Modal */}
       <AnimatePresence>
         {showUploader && (
           <CSVUploader
             onDataParsed={handleDataParsed}
             onClose={() => setShowUploader(false)}
           />
+        )}
+        {showOpenFinance && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={(e) => e.target === e.currentTarget && setShowOpenFinance(false)}
+          >
+             <OpenFinanceConnect 
+                inline={true} 
+                onConnected={(data) => {
+                    handleDataParsed(data);
+                    setShowOpenFinance(false);
+                }} 
+             />
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

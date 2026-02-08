@@ -1,13 +1,14 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Upload, Shield, Eye, Zap } from 'lucide-react';
+import { Building2, ShieldCheck, Lock, ArrowLeft, Eye, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import OpenFinanceConnect from '@/components/connect/OpenFinanceConnect';
 
-export default function EmptyState({ onUploadClick }) {
+export default function EmptyState({ onDataParsed }) {
   const features = [
-    { icon: Eye, text: 'צפה ביתרה הצפויה לסוף החודש' },
-    { icon: Zap, text: 'בדוק את ההשפעה של הוצאות עתידיות' },
-    { icon: Shield, text: 'קבל התראה על ימי סיכון' }
+    { icon: Zap, text: 'חיתום חכם מבוסס תזרים (Traffic Light)' },
+    { icon: Eye, text: 'מנוע תובנות לאיתור הון חבוי' },
+    { icon: ShieldCheck, text: 'אבטחת Zero-Knowledge' }
   ];
 
   return (
@@ -16,53 +17,22 @@ export default function EmptyState({ onUploadClick }) {
       animate={{ opacity: 1, y: 0 }}
       className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center"
     >
-      {/* Animated logo/icon */}
-      <motion.div
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        transition={{ type: "spring", delay: 0.2 }}
-        className="relative mb-6"
-      >
-        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center">
-            <Upload className="w-6 h-6 text-cyan-400" />
-          </div>
-        </div>
-        {/* Decorative rings */}
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-          className="absolute inset-0 rounded-full border border-dashed border-cyan-500/20"
-        />
-      </motion.div>
-
-      <h2 className="text-xl md:text-3xl font-bold text-white mb-2">
-        ברוכים הבאים ל-FlowUp
-      </h2>
-      <p className="text-sm text-slate-400 max-w-md mb-6 leading-relaxed">
-        העלה את דוח העסקאות מהבנק שלך וקבל תמונה ברורה של המצב הפיננסי שלך
-      </p>
-
-      <Button
-        onClick={onUploadClick}
-        className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-medium px-8 h-12 rounded-xl shadow-lg shadow-cyan-500/25 mb-8"
-      >
-        <Upload className="w-4 h-4 ml-2" />
-        העלה קובץ CSV
-      </Button>
+      <div className="mb-8 w-full max-w-md">
+        <OpenFinanceConnect onConnected={onDataParsed} />
+      </div>
 
       {/* Features */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 w-full max-w-2xl">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 w-full max-w-3xl mt-8">
         {features.map((feature, index) => (
           <motion.div
             key={index}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 + index * 0.1 }}
-            className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/30 border border-slate-700/50"
+            className="flex items-center gap-3 p-4 rounded-xl bg-slate-800/40 border border-slate-700/50 backdrop-blur-sm"
           >
-            <feature.icon className="w-4 h-4 text-cyan-400 flex-shrink-0" />
-            <span className="text-xs text-slate-300">{feature.text}</span>
+            <feature.icon className="w-5 h-5 text-blue-400 flex-shrink-0" />
+            <span className="text-sm text-slate-300 font-medium">{feature.text}</span>
           </motion.div>
         ))}
       </div>
@@ -72,10 +42,10 @@ export default function EmptyState({ onUploadClick }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.8 }}
-        className="mt-12 text-xs text-slate-500 flex items-center gap-2"
+        className="mt-8 text-xs text-slate-500 flex items-center gap-2 opacity-60"
       >
-        <Shield className="w-4 h-4" />
-        הנתונים שלך מאובטחים ונשארים בשליטתך המלאה
+        <Lock className="w-3 h-3" />
+        פועל תחת תקני אבטחה מחמירים (TLS 1.3 / ISO 27001)
       </motion.p>
     </motion.div>
   );
