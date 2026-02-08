@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle, Plus, Lock, Zap, ShieldAlert, Activity } from 'lucide-react';
+import { Upload, Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -431,39 +431,27 @@ export default function Dashboard() {
             <EmptyState onDataParsed={handleDataParsed} />
           ) : (
             <>
-              {/* Underwriting Stats Row (The Future Cake Breakdown) */}
+              {/* Stats Row - Compact on Mobile */}
               <div className="grid grid-cols-3 gap-2 md:grid-cols-3 md:gap-4 mb-4 md:mb-6">
                 <StatCard
-                  title="הוצאות קשיחות"
-                  value={`₪${Math.round(currentEngineData?.expenseAnalysis?.fixed || 0).toLocaleString('he-IL')}`}
-                  icon={Lock}
-                  color="cyan"
+                  title="יתרה"
+                  value={`₪${Math.round(snapshot.current_balance || 0).toLocaleString('he-IL')}`}
+                  icon={snapshot.current_balance < 0 ? TrendingDown : CheckCircle}
+                  color={snapshot.current_balance < 0 ? 'red' : 'green'}
                   delay={0}
                 />
                 <StatCard
-                  title="פוטנציאל גמיש"
-                  value={`₪${Math.round(currentEngineData?.expenseAnalysis?.flex || 0).toLocaleString('he-IL')}`}
-                  icon={Zap}
+                  title="סך הכנסות"
+                  value={`₪${Math.round(currentEngineData?.totalIncome ?? currentMonthStats?.income ?? snapshot.total_income ?? 0).toLocaleString('he-IL')}`}
+                  icon={TrendingUp}
                   color="green"
                   delay={0.1}
                 />
                 <StatCard
-                  title="סטטוס חיתום"
-                  value={
-                    (currentEngineData?.riskStatus === 'green' || snapshot.risk_level === 'green') ? 'אישור אוטומטי' :
-                    (currentEngineData?.riskStatus === 'orange' || snapshot.risk_level === 'orange' || currentEngineData?.riskStatus === 'yellow') ? 'התערבות אנליסט' :
-                    'לקוח בסיכון'
-                  }
-                  icon={
-                    (currentEngineData?.riskStatus === 'green' || snapshot.risk_level === 'green') ? CheckCircle :
-                    (currentEngineData?.riskStatus === 'orange' || snapshot.risk_level === 'orange' || currentEngineData?.riskStatus === 'yellow') ? Activity :
-                    ShieldAlert
-                  }
-                  color={
-                    (currentEngineData?.riskStatus === 'green' || snapshot.risk_level === 'green') ? 'green' :
-                    (currentEngineData?.riskStatus === 'orange' || snapshot.risk_level === 'orange' || currentEngineData?.riskStatus === 'yellow') ? 'yellow' :
-                    'red'
-                  }
+                  title="סך הוצאות"
+                  value={`₪${Math.round(currentEngineData?.totalExpenses ?? currentMonthStats?.expenses ?? snapshot.total_expenses ?? 0).toLocaleString('he-IL')}`}
+                  icon={TrendingDown}
+                  color="red"
                   delay={0.2}
                 />
               </div>
