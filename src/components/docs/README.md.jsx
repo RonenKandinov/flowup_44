@@ -9,7 +9,7 @@
  * FlowUp analyzes the repayment potential by distinguishing between rigid obligations
  * and flexible lifestyle habits.
  * 
- * Motto: "Almost no customer cannot pay; there is a customer who needs more time."
+ 
  * 
  * ---
  * 
