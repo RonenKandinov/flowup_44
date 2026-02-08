@@ -258,16 +258,36 @@ export default function Dashboard() {
     
     // Process and Seal transactions into the Shadow Realm
     if (data.transactions.length > 0) {
-      const shadowEntries = data.transactions.slice(0, 100).map(t => {
-          const rawTransaction = {
-              date: t.date instanceof Date ? t.date.toISOString().split('T')[0] : t.date,
-              description: t.description,
-              amount: (t.credit || 0) - (t.debit || 0), // Signed amount
-              category: (t.credit > 0) ? 'income' : 'expense'
-          };
-          // MILLENNIUM PROTOCOL: Encrypt & Seal
-          return FiscalAgent.processTransaction(rawTransaction);
-      });
+      let shadowEntries = [];
+      
+      // Check if data is already sealed (from Open Finance Server)
+      if (data.transactions[0].integrity_hash) {
+          shadowEntries = data.transactions;
+          
+          // RECOVER FOR LOCAL DISPLAY
+          // The server sent Sealed entries. We must unseal them for the UI using our Master Key.
+          const recoveredTransactions = shadowEntries.map(entry => FiscalAgent.recoverEntry(entry));
+          
+          // Update local state with readable data
+          const updatedData = { ...data, transactions: recoveredTransactions };
+          setLocalData(updatedData);
+          await Storage.save(updatedData);
+          
+      } else {
+          // CSV Upload (Raw Data) - Needs Sealing
+          shadowEntries = data.transactions.slice(0, 100).map(t => {
+              const rawTransaction = {
+                  date: t.date instanceof Date ? t.date.toISOString().split('T')[0] : t.date,
+                  description: t.description,
+                  amount: (t.credit || 0) - (t.debit || 0), // Signed amount
+                  category: (t.credit > 0) ? 'income' : 'expense'
+              };
+              // MILLENNIUM PROTOCOL: Encrypt & Seal
+              return FiscalAgent.processTransaction(rawTransaction);
+          });
+      }
+
+      // Save Shadow Entries to Database
       await saveTransactionsMutation.mutateAsync(shadowEntries);
     }
     
