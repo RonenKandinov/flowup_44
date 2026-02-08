@@ -4,6 +4,7 @@ import { Building2, ShieldCheck, Lock, ArrowRight, Loader2, CheckCircle2 } from 
 import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
+import { KeyChain } from '@/components/protocol/core/keyChain';
 
 export default function OpenFinanceConnect({ onConnected, inline = false }) {
   const [status, setStatus] = useState('idle'); // idle, connecting, analyzing, success
@@ -22,10 +23,15 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
       setProgress(40); // Connected to bank
       
       setStatus('analyzing');
+      
+      // Get the Master Key to allow server-side processing (Shadow Realm sealing)
+      const masterKey = KeyChain.ensureMasterKey();
+
       // Fetch data from our "Open Finance" provider (Backend Function)
       const { data } = await base44.functions.invoke('openFinance', { 
         provider: 'mock_provider',
-        consent_id: 'sample_consent_123' 
+        consent_id: 'sample_consent_123',
+        masterKey: masterKey 
       });
 
       if (!data || !data.transactions) {
