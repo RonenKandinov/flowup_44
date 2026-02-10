@@ -213,8 +213,9 @@ export const processAndForecast = (csvText, assets = null) => {
 
         // 6. Break-Even / Survival Analysis
         let survivalMonths = 0;
+        let totalLiquid = 0;
         if (assets) {
-            const totalLiquid = (assets.cash || 0) + (assets.etf || 0) + (assets.trainingFund || 0);
+            totalLiquid = (assets.cash || 0) + (assets.etf || 0) + (assets.trainingFund || 0);
             // Assuming a standard new loan payment or 0 if not provided
             const newLoanPayment = 2000; 
             survivalMonths = totalLiquid / (monthlyBurnRate + newLoanPayment);
@@ -225,7 +226,7 @@ export const processAndForecast = (csvText, assets = null) => {
             currentBalance, 
             allTransactions, 
             null, // Dynamic Anchors
-            { survivalMonths, growthEngine: growthData } // Pass DNA data to Risk Engine
+            { survivalMonths, growthEngine: growthData, totalLiquid } // Pass DNA data (with Liquid Assets) to Risk Engine
         );
         
         // 8. Generate Forecast Graph
