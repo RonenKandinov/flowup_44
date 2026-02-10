@@ -236,6 +236,12 @@ Deno.serve(async (req) => {
                     flex: totalExpenses - 7700,
                     taxPotential: 116
                 },
+                // Added Asset Data for Liquid Assets Card
+                assets: {
+                    cash: currentBalance,
+                    etf: 45000, // Mocked 12-month avg value
+                    trainingFund: 120000 // Mocked 12-month avg value
+                },
                 smartInsights: [
                     { type: 'optimization', title: 'זיהוי הון חבוי', message: 'אותר חיוב כפול ב"ביטוח ישיר" (550 ₪).', icon: 'Eye' },
                     { type: 'lifestyle_pivot', title: 'אופטימיזציה ללייף-סטייל', message: 'צמצום 20% מהוצאות Wolt יעביר למסלול ירוק.', icon: 'Zap' }

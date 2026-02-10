@@ -10,6 +10,7 @@ import { FiscalAgent } from '../components/protocol/core/fiscalAgent';
 
 import SpeedometerGauge from '../components/dashboard/SpeedometerGauge';
 import StatCard from '../components/dashboard/StatCard';
+import LiquidAssetsCard from '../components/dashboard/LiquidAssetsCard'; // New Component
 import WhatIfSimulator from '../components/dashboard/WhatIfSimulator';
 import FutureCake from '../components/dashboard/FutureCake';
 import InsightsAgent from '../components/dashboard/InsightsAgent'; // New
@@ -456,13 +457,12 @@ export default function Dashboard() {
           ) : (
             <>
               {/* Stats Row - Compact on Mobile */}
-              <div className="grid grid-cols-3 gap-2 md:grid-cols-3 md:gap-4 mb-4 md:mb-6">
-                <StatCard
-                  title="יתרה"
-                  value={`₪${Math.round(snapshot.current_balance || 0).toLocaleString('he-IL')}`}
-                  icon={snapshot.current_balance < 0 ? TrendingDown : CheckCircle}
-                  color={snapshot.current_balance < 0 ? 'red' : 'green'}
-                  delay={0}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-4 mb-4 md:mb-6">
+                {/* Replaced Balance StatCard with LiquidAssetsCard */}
+                <LiquidAssetsCard 
+                    cash={snapshot.current_balance || 0}
+                    etf={currentEngineData?.assets?.etf || 0}
+                    trainingFund={currentEngineData?.assets?.trainingFund || 0}
                 />
                 <StatCard
                   title="סך הכנסות"
