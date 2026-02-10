@@ -168,9 +168,29 @@ const FiscalAgent = {
                     training_fund: assets.trainingFund 
                 }
             },
+            // ANALYST SHIELD GENERATION (User-Specific Logic)
+            let headline = "";
+            let justification = "";
+            const repaymentDisplay = Math.round(proposedMonthlyRepayment).toLocaleString();
+
+            if (status === 'GREEN') {
+                headline = "עסקה במסלול ירוק - DTI תקין";
+                justification = `יחס ההחזר (${(dti*100).toFixed(1)}%) נמצא בטווח הבטוח. הכנסה פנויה מספקת לכיסוי ההלוואה החדשה.`;
+            } 
+            else if (shieldActive) {
+                // "The Fortified Orange" Profile logic
+                headline = "הכתום המבוצר - הזדמנות לאישור חריג";
+                justification = `הלקוח מוציא ${(dti*100).toFixed(1)}% מהכנסתו על חובות, אך מחזיק "כרית חמצן" של ${Math.round(totalLiquidAssets).toLocaleString()} ש"ח. בחלוקה להחזר המבוקש (${repaymentDisplay} ש"ח), יש לו ${Math.round(runwayMonths)} חודשי החזר סגורים בצד. הסיכון לפירעון אפסי.`;
+            } 
+            else {
+                // "The Fragile Red" Profile logic
+                headline = "האדום השברירי - סיכון תזרימי מיידי";
+                justification = `הלקוח נמצא באותו מצב DTI (${(dti*100).toFixed(1)}%) כמו המקרים המאושרים, אך ללא שום גיבוי. אין חסכונות נזילים. כל הוצאה בלתי צפויה (תיקון רכב, רפואי) תוביל לפיגור בתשלומים. המלצה: דחייה או דרישת ערב.`;
+            }
+
             analystShield: {
-                headline: status === 'GREEN' ? "עסקה מאושרת - יחס החזר תקין" : (shieldActive ? "אישור חריג - גיבוי נכסים (Asset Shield)" : "נדרשת בחינה - יחס החזר גבוה"),
-                justification: `DTI נוכחי: ${(dti * 100).toFixed(1)}%. ${shieldActive ? `אושר בזכות כרית נזילות של ${Math.round(runwayMonths)} חודשים (סף דרוש: 12).` : ''}`,
+                headline,
+                justification,
                 runwayMonths: Math.round(runwayMonths),
                 lifestylePivot: pivotPossible 
                     ? `צמצום ${(requiredCut / flexibleExpenses * 100).toFixed(0)}% מהוצאות פנאי יחזיר את הלקוח ל-Green Zone.`
@@ -210,34 +230,33 @@ Deno.serve(async (req) => {
             }
         }
 
-        // 2. Data Fetching (Mocked for Demo Scenario)
-        // We construct a specific financial profile to trigger the "ORANGE" logic
+        // 2. Data Fetching (Mocked for Demo Scenario - "The Fortified Orange")
         const today = new Date();
         const rawTransactions = [
-            // Income
-            { date: new Date(today.getFullYear(), today.getMonth(), 1).toISOString(), description: "משכורת נטו - הייטק", amount: 18500 },
-            // Fixed Expenses (Debt)
-            { date: new Date(today.getFullYear(), today.getMonth(), 2).toISOString(), description: "שכר דירה תל אביב", amount: -6500 },
-            { date: new Date(today.getFullYear(), today.getMonth(), 10).toISOString(), description: "הלוואה בנקאית", amount: -1200 },
+            // Income (~16,000)
+            { date: new Date(today.getFullYear(), today.getMonth(), 1).toISOString(), description: "משכורת נטו", amount: 16000 },
+            
+            // Fixed Expenses (Debt ~7,200)
+            { date: new Date(today.getFullYear(), today.getMonth(), 2).toISOString(), description: "משכנתא / שכר דירה", amount: -5000 },
+            { date: new Date(today.getFullYear(), today.getMonth(), 10).toISOString(), description: "הלוואה קיימת", amount: -2200 },
+            
             // Flexible Expenses (Lifestyle)
             { date: new Date(today.getFullYear(), today.getMonth(), 5).toISOString(), description: "Wolt - הזמנה", amount: -120 },
             { date: new Date(today.getFullYear(), today.getMonth(), 7).toISOString(), description: "Wolt - הזמנה", amount: -150 },
-            { date: new Date(today.getFullYear(), today.getMonth(), 12).toISOString(), description: "Zara Shopping", amount: -450 },
-            { date: new Date(today.getFullYear(), today.getMonth(), 15).toISOString(), description: "ביטוח ישיר - חיוב כפול", amount: -550 }, // Anomaly
-            { date: new Date(today.getFullYear(), today.getMonth(), 20).toISOString(), description: "Netflix", amount: -60 },
-            { date: new Date(today.getFullYear(), today.getMonth(), 22).toISOString(), description: "Spotify", amount: -40 },
+            { date: new Date(today.getFullYear(), today.getMonth(), 12).toISOString(), description: "קניות ופנאי", amount: -450 },
+            { date: new Date(today.getFullYear(), today.getMonth(), 15).toISOString(), description: "ביטוח ישיר - חיוב כפול", amount: -550 },
         ];
 
-        // 3. Process & Aggregate Data
+        // 3. Process & Aggregate Data (ADJUSTED FOR "FORTIFIED ORANGE" PROFILE)
+        // Profile Target: Income 16k, Fixed 7.2k, Assets 120k.
+        // We override the simple sums to ensure exact matching of the profile for the demo.
         let totalIncome = 0;
         let fixedExpenses = 0;
         let flexibleExpenses = 0;
 
-        // Seal transactions and calculate totals simultaneously
         const sealedTransactions = rawTransactions.map(tx => {
             if (tx.amount > 0) totalIncome += tx.amount;
             else {
-                // Simple heuristic for classification
                 const desc = tx.description;
                 if (desc.includes('שכר דירה') || desc.includes('הלוואה') || desc.includes('ביטוח')) {
                     fixedExpenses += Math.abs(tx.amount);
@@ -248,23 +267,31 @@ Deno.serve(async (req) => {
             return FiscalAgent.processTransaction(tx, masterKey || 1.618);
         });
 
+        // FORCE MOCK VALUES TO MATCH USER SCENARIO (Profile 1)
+        // In a real app, these come from the accumulation above.
+        totalIncome = 16000; 
+        fixedExpenses = 7200; 
+        // Flexible isn't critical for DTI but relevant for lifestyle pivot
+        flexibleExpenses = 4500; 
+
         const currentBalance = totalIncome - (fixedExpenses + flexibleExpenses);
 
-        // 4. Retrieve Assets (Mocked from Open Finance "Accounts" Endpoint)
-        // Scenario: User has significant assets to justify the risk
+        // 4. Retrieve Assets (Mocked - "The Fortified Orange")
+        // 120k Liquid Assets (Training Fund + Stocks)
         const assets = {
-            cash: currentBalance + 12000, // Current balance + some buffer
-            etf: 45000,
-            trainingFund: 120000 
+            cash: 5000, // Small checking buffer
+            etf: 20000,
+            trainingFund: 95000 
         };
 
         // 5. RUN THE UNDERWRITING ENGINE
+        // User requested 2,000 repayment capacity check -> approx 120,000 loan for 60 months
         const riskAnalysis = FiscalAgent.analyzeRisk(
             totalIncome,
             fixedExpenses,
             flexibleExpenses,
             assets,
-            loanAmount // Passed from frontend or default 50k
+            loanAmount || 120000 
         );
 
         // 6. Persistence (Shadow Realm)
