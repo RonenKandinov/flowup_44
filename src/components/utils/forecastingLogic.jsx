@@ -45,7 +45,7 @@ const detectGrowthEngines = (transactions) => {
 /**
  * DNA Layer: Weighted SES (Simple Exponential Smoothing)
  * 70% Annual Trend (Long-term DNA)
- * 30% Recent Volatility (Short-term Flux)
+ * 30% Recent Volatility (Last 14 Days - Master Prompt)
  */
 const calculateWeightedSES = (allTransactions, totalDays) => {
     if (totalDays < 30) return 0;
@@ -56,14 +56,14 @@ const calculateWeightedSES = (allTransactions, totalDays) => {
     let recentDebit = 0;
 
     const cutoffDate = new Date();
-    cutoffDate.setMonth(cutoffDate.getMonth() - 3); // 3 months ago
+    cutoffDate.setDate(cutoffDate.getDate() - 14); // Last 14 days (Master Prompt)
 
     allTransactions.forEach(tx => {
         // Annual / All Time
         allTimeCredit += tx.credit;
         allTimeDebit += tx.debit;
 
-        // Recent (Last 3 Months)
+        // Recent (Last 14 Days)
         if (tx.date >= cutoffDate) {
             recentCredit += tx.credit;
             recentDebit += tx.debit;
@@ -73,95 +73,131 @@ const calculateWeightedSES = (allTransactions, totalDays) => {
     // Annual Average Daily Net
     const annualDailyNet = (allTimeCredit - allTimeDebit) / totalDays;
 
-    // Recent Average Daily Net (approx 90 days)
-    const recentDailyNet = (recentCredit - recentDebit) / 90;
+    // Recent Average Daily Net (approx 14 days)
+    const recentDailyNet = (recentCredit - recentDebit) / 14;
 
     // Weighted Formula: 70% Annual, 30% Recent
     return (annualDailyNet * 0.7) + (recentDailyNet * 0.3);
 };
 
-export const processAndForecast = (csvText, assets = null) => {
+export const processAndForecast = (inputData, assets = null) => {
     try {
-        const lines = csvText.split('\n').filter(line => line.trim());
-        if (lines.length < 2) return { error: "קובץ ריק או לא תקין" };
-
-        // 1. Detect Header Row Dynamically
-        let headers = [];
-        let bankType = 'unknown';
-        let delimiter = ',';
-        let startRowIndex = 0;
-
-        for (let i = 0; i < Math.min(lines.length, 20); i++) {
-            const line = lines[i];
-            const detectedType = detectBankFromHeader(line);
-            
-            if (detectedType !== 'unknown') {
-                bankType = detectedType;
-                delimiter = line.includes(';') ? ';' : ',';
-                headers = line.split(delimiter).map(h => h.trim().replace(/"/g, ''));
-                startRowIndex = i + 1;
-                break;
-            }
-        }
-        
-        if (bankType === 'unknown') {
-             const line0 = lines[0];
-             delimiter = line0.includes(';') ? ';' : ',';
-             headers = line0.split(delimiter).map(h => h.trim().replace(/"/g, ''));
-             bankType = 'universal'; 
-        }
-
-        let totalCredit = 0;
-        let totalDebit = 0;
-        let currentBalance = 0;
-        const uniqueDates = new Set();
         const allTransactions = [];
-        let foundFirstDate = false;
-
-        // 2. Parse Data
-        for (let i = startRowIndex; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (!line) continue;
-            if ((line.match(new RegExp(delimiter, "g")) || []).length < 3) continue;
-
-            const dateRegex = /^"?(\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}|\d{1,2}[-/.]\d{1,2}[-/.]\d{1,4})/;
-            const startsWithDate = dateRegex.test(line);
-
-            if (!foundFirstDate) {
-                if (startsWithDate) foundFirstDate = true;
-                else continue;
-            }
-
-            const row = line.split(delimiter).map(v => v.trim().replace(/"/g, ''));
-            const parsed = parseCSVRow(row, headers, bankType);
-            
-            if (parsed) {
-                let transactionDate = null;
-                const dateStr = parsed.date;
-                if (dateStr.includes('/')) {
-                    const parts = dateStr.split('/');
-                    const day = parseInt(parts[0]);
-                    const month = parseInt(parts[1]) - 1;
-                    const year = parts[2].length === 4 ? parseInt(parts[2]) : 2000 + parseInt(parts[2]);
-                    transactionDate = new Date(year, month, day);
-                } else {
-                    transactionDate = new Date(dateStr);
+        const uniqueDates = new Set();
+        let currentBalance = 0;
+        
+        // SUPPORT JSON INPUT (Array) or CSV (String)
+        if (Array.isArray(inputData)) {
+            // Open Finance JSON Mode
+            inputData.forEach(tx => {
+                const date = new Date(tx.date || tx.transaction_date);
+                if (!isNaN(date.getTime())) {
+                     // Normalize Object Structure
+                     const amount = parseFloat(tx.amount || 0);
+                     allTransactions.push({
+                         date: date,
+                         description: tx.description || tx.merchant_name || 'Transaction',
+                         details: tx.category_id || '',
+                         // Map Open Finance signed amount to Credit/Debit
+                         debit: amount < 0 ? Math.abs(amount) : 0,
+                         credit: amount > 0 ? amount : 0,
+                         balance: parseFloat(tx.balance_after_transaction || tx.balance || 0)
+                     });
+                     uniqueDates.add(date.toDateString());
+                     if (tx.balance_after_transaction !== undefined) currentBalance = parseFloat(tx.balance_after_transaction);
+                     else if (tx.balance !== undefined) currentBalance = parseFloat(tx.balance);
                 }
+            });
+             // Sort JSON data
+             allTransactions.sort((a, b) => b.date - a.date);
+             if (allTransactions.length > 0 && !currentBalance) {
+                 // Fallback if no running balance in JSON
+                 currentBalance = 0; // Or calculate from history if start balance known
+             }
+        } else if (typeof inputData === 'string') {
+            // Legacy CSV Mode
+            const lines = inputData.split('\n').filter(line => line.trim());
+            if (lines.length < 2) return { error: "קובץ ריק או לא תקין" };
 
-                if (transactionDate && !isNaN(transactionDate.getTime())) {
-                    allTransactions.push({
-                        date: transactionDate,
-                        description: parsed.description || 'תנועה',
-                        details: parsed.details || '',
-                        debit: parsed.debit || 0,
-                        credit: parsed.credit || 0,
-                        balance: parsed.balance
-                    });
-                    uniqueDates.add(transactionDate.toDateString());
-                }
+            // 1. Detect Header Row Dynamically
+            let headers = [];
+            let bankType = 'unknown';
+            let delimiter = ',';
+            let startRowIndex = 0;
+
+            for (let i = 0; i < Math.min(lines.length, 20); i++) {
+                const line = lines[i];
+                const detectedType = detectBankFromHeader(line);
                 
-                if (parsed.balance) currentBalance = parsed.balance;
+                if (detectedType !== 'unknown') {
+                    bankType = detectedType;
+                    delimiter = line.includes(';') ? ';' : ',';
+                    headers = line.split(delimiter).map(h => h.trim().replace(/"/g, ''));
+                    startRowIndex = i + 1;
+                    break;
+                }
             }
+            
+            if (bankType === 'unknown') {
+                const line0 = lines[0];
+                delimiter = line0.includes(';') ? ';' : ',';
+                headers = line0.split(delimiter).map(h => h.trim().replace(/"/g, ''));
+                bankType = 'universal'; 
+            }
+
+            let foundFirstDate = false;
+
+            // 2. Parse Data
+            for (let i = startRowIndex; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                if ((line.match(new RegExp(delimiter, "g")) || []).length < 3) continue;
+
+                const dateRegex = /^"?(\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}|\d{1,2}[-/.]\d{1,2}[-/.]\d{1,4})/;
+                const startsWithDate = dateRegex.test(line);
+
+                if (!foundFirstDate) {
+                    if (startsWithDate) foundFirstDate = true;
+                    else continue;
+                }
+
+                const row = line.split(delimiter).map(v => v.trim().replace(/"/g, ''));
+                const parsed = parseCSVRow(row, headers, bankType);
+                
+                if (parsed) {
+                    let transactionDate = null;
+                    const dateStr = parsed.date;
+                    if (dateStr.includes('/')) {
+                        const parts = dateStr.split('/');
+                        const day = parseInt(parts[0]);
+                        const month = parseInt(parts[1]) - 1;
+                        const year = parts[2].length === 4 ? parseInt(parts[2]) : 2000 + parseInt(parts[2]);
+                        transactionDate = new Date(year, month, day);
+                    } else {
+                        transactionDate = new Date(dateStr);
+                    }
+
+                    if (transactionDate && !isNaN(transactionDate.getTime())) {
+                        allTransactions.push({
+                            date: transactionDate,
+                            description: parsed.description || 'תנועה',
+                            details: parsed.details || '',
+                            debit: parsed.debit || 0,
+                            credit: parsed.credit || 0,
+                            balance: parsed.balance
+                        });
+                        uniqueDates.add(transactionDate.toDateString());
+                    }
+                    
+                    if (parsed.balance) currentBalance = parsed.balance;
+                }
+            }
+            allTransactions.sort((a, b) => b.date - a.date);
+            if (allTransactions.length > 0) {
+                currentBalance = allTransactions[0].balance;
+            }
+        } else {
+             return { error: "Unsupported data format" };
         }
 
         allTransactions.sort((a, b) => b.date - a.date);

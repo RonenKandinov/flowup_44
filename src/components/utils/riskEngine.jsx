@@ -144,12 +144,18 @@ function buildFinancialModel(transactions, dynamicAnchors) {
     const mean = dailyVars.reduce((a,b) => a+b, 0) / dailyVars.length;
     const variance = dailyVars.reduce((a,b) => a + Math.pow(b - mean, 2), 0) / dailyVars.length;
     
+    // Inject 15% Random Volatility (Master Prompt Rule)
+    // Ensure StdDev is at least 15% of the mean variable spend
+    const calculatedStdDev = Math.sqrt(variance);
+    const minStdDev = Math.abs(mean) * 0.15;
+    const stdDev = Math.max(calculatedStdDev, minStdDev);
+
     const dailyFixed = fixedSchedule.reduce((a,b) => a+b, 0) / 30;
     const avgMonthlySpend = Math.abs((dailyFixed + mean) * 30);
     
     return {
         fixedSchedule,
-        variableStats: { mean, stdDev: Math.sqrt(variance) },
+        variableStats: { mean, stdDev },
         avgMonthlySpend,
         missingRecentSalary
     };
@@ -200,13 +206,13 @@ function interpretResults(failures, currentBalance, avgMonthlySpend, missingRece
     const confidence = Math.round((1 - failureRate) * 100);
     
     // High Balance Suppressor (Asset Shield / Wealthy Client)
-    // If balance > 3x monthly spend, force Green
-    if (avgMonthlySpend > 0 && currentBalance > (3 * avgMonthlySpend) && failureRate < 0.65) {
+    // If balance > 5x monthly spend, force Green (Master Prompt Rule)
+    if (avgMonthlySpend > 0 && currentBalance > (5 * avgMonthlySpend)) {
         return { 
             riskStatus: 'green', 
             confidence: 100, 
             riskDay: null, 
-            reasoning: 'יתרה גבוהה (x3 מהוצאה חודשית) - חוסן פיננסי' 
+            reasoning: 'יתרה גבוהה (x5 מהוצאה חודשית) - חוסן פיננסי מוחלט' 
         };
     }
     
@@ -214,7 +220,9 @@ function interpretResults(failures, currentBalance, avgMonthlySpend, missingRece
     let riskDay = null;
     let reasoning = null;
     
-    if (failureRate > CONFIDENCE_THRESHOLD) { 
+    // Risk Scoring (Master Prompt Thresholds)
+    // RED: > 30% | YELLOW: 10%-30% | GREEN: < 10%
+    if (failureRate > 0.30) { 
         status = 'red';
         failures.sort((a,b) => a-b);
         const medianOffset = failures[Math.floor(failures.length / 2)];
@@ -233,9 +241,9 @@ function interpretResults(failures, currentBalance, avgMonthlySpend, missingRece
             else if (medianOffset > 25) reasoning = "תזרים שלילי לקראת סוף החודש";
             else reasoning = "התחייבויות קבועות גבוהות לפני מועד המשכורת";
         }
-    } else if (failureRate > 0.1) {
+    } else if (failureRate > 0.10) {
         status = 'yellow';
-        reasoning = missingRecentSalary ? "הכנסה חסרה בחודש האחרון" : "רמת הוצאות גבולית - נדרש מעקב";
+        reasoning = missingRecentSalary ? "הכנסה חסרה בחודש האחרון" : "רמת סיכון בינונית (10%-30%) - נדרש מעקב";
     }
     
     return { riskStatus: status, confidence, riskDay, reasoning };
