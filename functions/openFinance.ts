@@ -115,34 +115,40 @@ const FiscalAgent = {
         const totalLiquidAssets = (assets.cash || 0) + (assets.etf || 0) + (assets.trainingFund || 0);
         const runwayMonths = totalLiquidAssets / proposedMonthlyRepayment;
 
-        // 4. Traffic Light Logic
+        // 4. Traffic Light Logic (Aggressive Underwriting)
         let status = 'RED';
         let score = 50;
+        let shieldActive = false;
 
-        if (dti <= 0.35) {
+        // GREEN: Fast Track
+        if (dti <= 0.40) {
             status = 'GREEN';
             score = 85 + (runwayMonths > 12 ? 10 : 0);
-        } else if (dti <= 0.55) {
-            status = 'ORANGE'; // The "Analyst Zone"
+        } 
+        // ORANGE: The Analyst Zone (40% - 60%)
+        else if (dti <= 0.60) {
+            status = 'ORANGE'; 
             score = 65;
             
-            // Asset Shield Bonus: If we have > 12 months runway, we defend the deal strongly
             if (runwayMonths >= 12) {
-                score += 15; // Boost score within Orange
+                score += 15; 
+                shieldActive = true;
             }
-        } else {
+        } 
+        // RED: High Risk (> 60%)
+        else {
             status = 'RED';
             score = 30;
-            // "Hail Mary" Shield: Exceptional assets can turn Red to Orange
+            // Asset Override: Force Red -> Orange if Runway >= 24 months
             if (runwayMonths >= 24) {
                 status = 'ORANGE';
-                score = 55;
+                score = 60;
+                shieldActive = true;
             }
         }
 
-        // 5. Lifestyle Pivot Simulation (How much to cut to get back to Green/Safe DTI?)
-        // Target DTI = 0.39 (Just inside safe zone or improvement)
-        const targetDTI = 0.39;
+        // 5. Lifestyle Pivot Simulation (Target DTI = 0.40)
+        const targetDTI = 0.40;
         const maxAllowedDebt = income * targetDTI;
         const requiredCut = Math.max(0, totalDebt - maxAllowedDebt);
         const pivotPossible = requiredCut < flexibleExpenses;
@@ -163,12 +169,12 @@ const FiscalAgent = {
                 }
             },
             analystShield: {
-                headline: runwayMonths >= 12 ? "עסקה לניתוח אנליסט - גיבוי נכסים אותר" : "נדרשת בחינה מעמיקה - העדר כרית ביטחון",
-                justification: `יחס החזר נוכחי ${Math.round(dti * 100)}%. ${runwayMonths >= 12 ? `נמצאו נכסים נזילים המכסים ${Math.round(runwayMonths)} חודשי החזר.` : 'לא נמצאו נכסים נזילים מספקים.'}`,
+                headline: status === 'GREEN' ? "עסקה מאושרת - יחס החזר תקין" : (shieldActive ? "אישור חריג - גיבוי נכסים (Asset Shield)" : "נדרשת בחינה - יחס החזר גבוה"),
+                justification: `DTI נוכחי: ${(dti * 100).toFixed(1)}%. ${shieldActive ? `אושר בזכות כרית נזילות של ${Math.round(runwayMonths)} חודשים (סף דרוש: 12).` : ''}`,
                 runwayMonths: Math.round(runwayMonths),
                 lifestylePivot: pivotPossible 
-                    ? `צמצום ${(requiredCut / flexibleExpenses * 100).toFixed(0)}% מהוצאות פנאי (Wolt/Shopping) יוריד את ה-DTI ל-${targetDTI * 100}%.`
-                    : "נדרש שינוי מהותי בהתחייבויות הקבועות."
+                    ? `צמצום ${(requiredCut / flexibleExpenses * 100).toFixed(0)}% מהוצאות פנאי יחזיר את הלקוח ל-Green Zone.`
+                    : "אין גמישות מספקת בהוצאות שוטפות."
             }
         };
     }
@@ -300,8 +306,14 @@ Deno.serve(async (req) => {
                     taxPotential: 116
                 },
                 smartInsights: [
-                    { type: 'optimization', title: 'זיהוי הון חבוי', message: 'אותר חיוב כפול ב"ביטוח ישיר" (550 ₪).', icon: 'Eye' },
-                    { type: 'lifestyle_pivot', title: 'המלצת אנליסט', message: riskAnalysis.analystShield.lifestylePivot, icon: 'Zap' }
+                    // Main Conclusion (The "Brain")
+                    { 
+                        type: 'strategic_brain', 
+                        title: riskAnalysis.analystShield.headline, 
+                        message: riskAnalysis.analystShield.justification + ' ' + (riskAnalysis.status === 'ORANGE' ? riskAnalysis.analystShield.lifestylePivot : ''),
+                        icon: 'ShieldCheck' 
+                    },
+                    { type: 'optimization', title: 'זיהוי הון חבוי', message: 'אותר חיוב כפול ב"ביטוח ישיר" (550 ₪).', icon: 'Eye' }
                 ]
             }
         };
