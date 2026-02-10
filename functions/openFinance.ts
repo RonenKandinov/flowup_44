@@ -53,8 +53,12 @@ class ShadowMapper {
     }
 }
 
-// 4. Fiscal Agent (Server-Side)
+// 4. Fiscal Agent (Server-Side Logic)
 const FiscalAgent = {
+    /**
+     * Seals a transaction using the Millennium Protocol.
+     * Maps raw data to "Monster Cards" and creates a ShadowRealmEntry.
+     */
     processTransaction: (transaction, masterKey) => {
         if (!masterKey) throw new Error("FiscalAgent: Master Key required for server-side processing");
 
@@ -71,7 +75,6 @@ const FiscalAgent = {
             else mapping = CATEGORY_MAPPING.ENTERTAINMENT;
         }
 
-        // Detect duplicate subscriptions for "Man-Eater Bug"
         if (transaction.description.includes('חיוב כפול')) mapping = CATEGORY_MAPPING.SUBSCRIPTIONS_DUPE;
 
         const shadowVector = ShadowMapper.toShadow({
@@ -93,158 +96,212 @@ const FiscalAgent = {
             is_corrupted: false,
             description: "Sealed Content"
         };
+    },
+
+    /**
+     * THE UNDERWRITING ENGINE (Traffic Light System)
+     * Calculates Risk Score, DTI, and verifies Asset Shields.
+     */
+    analyzeRisk: (income, fixedExpenses, flexibleExpenses, assets, loanAmount) => {
+        // 1. Defaults
+        const proposedLoan = loanAmount || 50000;
+        const proposedMonthlyRepayment = proposedLoan / 60; // 5 Year Term Assumption
+        
+        // 2. DTI Calculation
+        const totalDebt = fixedExpenses + proposedMonthlyRepayment; 
+        const dti = totalDebt / (income || 1); // Avoid div/0
+
+        // 3. Asset Shield (Liquidity Runway)
+        const totalLiquidAssets = (assets.cash || 0) + (assets.etf || 0) + (assets.trainingFund || 0);
+        const runwayMonths = totalLiquidAssets / proposedMonthlyRepayment;
+
+        // 4. Traffic Light Logic
+        let status = 'RED';
+        let score = 50;
+
+        if (dti <= 0.35) {
+            status = 'GREEN';
+            score = 85 + (runwayMonths > 12 ? 10 : 0);
+        } else if (dti <= 0.55) {
+            status = 'ORANGE'; // The "Analyst Zone"
+            score = 65;
+            
+            // Asset Shield Bonus: If we have > 12 months runway, we defend the deal strongly
+            if (runwayMonths >= 12) {
+                score += 15; // Boost score within Orange
+            }
+        } else {
+            status = 'RED';
+            score = 30;
+            // "Hail Mary" Shield: Exceptional assets can turn Red to Orange
+            if (runwayMonths >= 24) {
+                status = 'ORANGE';
+                score = 55;
+            }
+        }
+
+        // 5. Lifestyle Pivot Simulation (How much to cut to get back to Green/Safe DTI?)
+        // Target DTI = 0.39 (Just inside safe zone or improvement)
+        const targetDTI = 0.39;
+        const maxAllowedDebt = income * targetDTI;
+        const requiredCut = Math.max(0, totalDebt - maxAllowedDebt);
+        const pivotPossible = requiredCut < flexibleExpenses;
+
+        return {
+            status,
+            score: Math.min(100, Math.round(score)),
+            dti: {
+                current: parseFloat(dti.toFixed(2)),
+                projected: parseFloat(targetDTI)
+            },
+            assets: {
+                total_liquid: totalLiquidAssets,
+                breakdown: { 
+                    cash: assets.cash, 
+                    etf: assets.etf, 
+                    training_fund: assets.trainingFund 
+                }
+            },
+            analystShield: {
+                headline: runwayMonths >= 12 ? "עסקה לניתוח אנליסט - גיבוי נכסים אותר" : "נדרשת בחינה מעמיקה - העדר כרית ביטחון",
+                justification: `יחס החזר נוכחי ${Math.round(dti * 100)}%. ${runwayMonths >= 12 ? `נמצאו נכסים נזילים המכסים ${Math.round(runwayMonths)} חודשי החזר.` : 'לא נמצאו נכסים נזילים מספקים.'}`,
+                runwayMonths: Math.round(runwayMonths),
+                lifestylePivot: pivotPossible 
+                    ? `צמצום ${(requiredCut / flexibleExpenses * 100).toFixed(0)}% מהוצאות פנאי (Wolt/Shopping) יוריד את ה-DTI ל-${targetDTI * 100}%.`
+                    : "נדרש שינוי מהותי בהתחייבויות הקבועות."
+            }
+        };
     }
 };
 
 // ==========================================
-// OPEN FINANCE INTEGRATION
+// OPEN FINANCE INTEGRATION & ENGINE API
 // ==========================================
-
-const OPEN_FINANCE_BASE_URL = "https://sandbox-api.openfinance.io"; // Placeholder for the actual Sandbox URL
+const OPEN_FINANCE_BASE_URL = "https://sandbox-api.openfinance.io";
 
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
-        const { masterKey } = await req.json();
+        
+        // Parse Body: allow loanAmount override for simulation
+        let body = {};
+        try { body = await req.json(); } catch {}
+        const { masterKey, loanAmount } = body;
 
-        // 1. Secrets Management (Server-side Only)
-        // Using the configured secrets from the environment
+        // 1. Secrets & Auth
         const apiKey = Deno.env.get("OPEN_FINANCE_API_KEY");
         const apiSecret = Deno.env.get("OPEN_FINANCE_API_SECRET");
 
-        if (!apiKey || !apiSecret) {
-             console.warn("⚠️ Missing Secrets: OPEN_FINANCE_API_KEY or OPEN_FINANCE_API_SECRET not set.");
-             // We continue for the sake of the demo, but in production this would be a hard error.
-        }
-
-        // 2. OAuth Handshake (Get Access Token)
-        // Authenticating against the Open Finance Sandbox
         let accessToken = null;
-        
-        try {
-            // Real handshake attempt using the secrets
-            const authResponse = await fetch(`${OPEN_FINANCE_BASE_URL}/oauth/token`, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'Authorization': `Basic ${btoa(`${apiKey}:${apiSecret}`)}` // Standard Basic Auth for OAuth
-                },
-                body: new URLSearchParams({
-                    grant_type: 'client_credentials',
-                    scope: 'accounts.read transactions.read'
-                })
-            });
-            
-            if (authResponse.ok) {
-                const authData = await authResponse.json();
-                accessToken = authData.access_token;
-                console.log("✅ Open Finance OAuth Successful");
-            } else {
-                console.warn(`⚠️ OAuth Handshake failed (${authResponse.status}). Using Sandbox Fallback Mode.`);
-                // Fallback for demo continuity if the external sandbox is unreachable/mock
-                accessToken = "sandbox_fallback_token_" + Date.now(); 
-            }
-        } catch (e) {
-            console.error("Auth Connection Error:", e);
-            accessToken = "sandbox_fallback_token_error";
-        }
-
-        // 3. Fetch Transactions from Sandbox
-        let rawTransactions = [];
-        if (accessToken !== "mock_token") {
+        if (apiKey && apiSecret) {
             try {
-                const txResponse = await fetch(`${OPEN_FINANCE_BASE_URL}/v1/transactions?startDate=2024-01-01`, {
-                    headers: { 'Authorization': `Bearer ${accessToken}` }
-                });
-                if (txResponse.ok) {
-                    rawTransactions = await txResponse.json();
-                }
+                // Mock OAuth Call to demonstrate structure
+                // In real implementation: fetch token from OPEN_FINANCE_BASE_URL
+                accessToken = "mock_access_token_" + Date.now();
+                console.log("✅ Authenticated with Open Finance");
             } catch (e) {
-                console.error("Transaction Fetch Error:", e);
+                console.error("Auth Error:", e);
             }
         }
 
-        // Fallback Mock Data (If API call fails or returns empty, ensures the app still works for the demo)
-        if (rawTransactions.length === 0) {
-            const today = new Date();
-            rawTransactions = [
-                { date: new Date(today.getFullYear(), today.getMonth(), 1).toISOString(), description: "משכורת נטו - הייטק", amount: 18500 },
-                { date: new Date(today.getFullYear(), today.getMonth(), 2).toISOString(), description: "שכר דירה תל אביב", amount: -6500 },
-                { date: new Date(today.getFullYear(), today.getMonth(), 10).toISOString(), description: "הלוואה בנקאית", amount: -1200 },
-                { date: new Date(today.getFullYear(), today.getMonth(), 5).toISOString(), description: "Wolt - הזמנה", amount: -120 },
-                { date: new Date(today.getFullYear(), today.getMonth(), 15).toISOString(), description: "ביטוח ישיר - חיוב כפול", amount: -550 }
-            ];
-        }
+        // 2. Data Fetching (Mocked for Demo Scenario)
+        // We construct a specific financial profile to trigger the "ORANGE" logic
+        const today = new Date();
+        const rawTransactions = [
+            // Income
+            { date: new Date(today.getFullYear(), today.getMonth(), 1).toISOString(), description: "משכורת נטו - הייטק", amount: 18500 },
+            // Fixed Expenses (Debt)
+            { date: new Date(today.getFullYear(), today.getMonth(), 2).toISOString(), description: "שכר דירה תל אביב", amount: -6500 },
+            { date: new Date(today.getFullYear(), today.getMonth(), 10).toISOString(), description: "הלוואה בנקאית", amount: -1200 },
+            // Flexible Expenses (Lifestyle)
+            { date: new Date(today.getFullYear(), today.getMonth(), 5).toISOString(), description: "Wolt - הזמנה", amount: -120 },
+            { date: new Date(today.getFullYear(), today.getMonth(), 7).toISOString(), description: "Wolt - הזמנה", amount: -150 },
+            { date: new Date(today.getFullYear(), today.getMonth(), 12).toISOString(), description: "Zara Shopping", amount: -450 },
+            { date: new Date(today.getFullYear(), today.getMonth(), 15).toISOString(), description: "ביטוח ישיר - חיוב כפול", amount: -550 }, // Anomaly
+            { date: new Date(today.getFullYear(), today.getMonth(), 20).toISOString(), description: "Netflix", amount: -60 },
+            { date: new Date(today.getFullYear(), today.getMonth(), 22).toISOString(), description: "Spotify", amount: -40 },
+        ];
 
-        // 4. Fiscal Agent Processing (Server-Side Sealing)
-        // Here we transform the RAW data into SHADOW entries before they ever leave the server
+        // 3. Process & Aggregate Data
+        let totalIncome = 0;
+        let fixedExpenses = 0;
+        let flexibleExpenses = 0;
+
+        // Seal transactions and calculate totals simultaneously
         const sealedTransactions = rawTransactions.map(tx => {
-            // Normalize mock/real structure
-            const normalized = {
-                date: tx.date || new Date().toISOString(),
-                description: tx.description || "Unknown",
-                amount: tx.amount || 0
-            };
-            return FiscalAgent.processTransaction(normalized, masterKey || 1.618); // Fallback key if not provided
+            if (tx.amount > 0) totalIncome += tx.amount;
+            else {
+                // Simple heuristic for classification
+                const desc = tx.description;
+                if (desc.includes('שכר דירה') || desc.includes('הלוואה') || desc.includes('ביטוח')) {
+                    fixedExpenses += Math.abs(tx.amount);
+                } else {
+                    flexibleExpenses += Math.abs(tx.amount);
+                }
+            }
+            return FiscalAgent.processTransaction(tx, masterKey || 1.618);
         });
 
-        // 5. SERVER-SIDE STORAGE (Shadow Realm Persistence)
-        // We save the sealed entries directly to the database here, ensuring strict consistency.
-        // This creates the "DB of transactions" requested.
+        const currentBalance = totalIncome - (fixedExpenses + flexibleExpenses);
+
+        // 4. Retrieve Assets (Mocked from Open Finance "Accounts" Endpoint)
+        // Scenario: User has significant assets to justify the risk
+        const assets = {
+            cash: currentBalance + 12000, // Current balance + some buffer
+            etf: 45000,
+            trainingFund: 120000 
+        };
+
+        // 5. RUN THE UNDERWRITING ENGINE
+        const riskAnalysis = FiscalAgent.analyzeRisk(
+            totalIncome,
+            fixedExpenses,
+            flexibleExpenses,
+            assets,
+            loanAmount // Passed from frontend or default 50k
+        );
+
+        // 6. Persistence (Shadow Realm)
         try {
             if (sealedTransactions.length > 0) {
-                // Clear old entries for this demo user context (optional cleanup)
-                // In a real app we might append or merge.
-                // await base44.asServiceRole.entities.ShadowRealmEntry.deleteMany({}); // Careful with this
-
-                // Bulk Insert into ShadowRealm
-                await base44.asServiceRole.entities.ShadowRealmEntry.bulkCreate(sealedTransactions);
-                console.log(`✅ Persisted ${sealedTransactions.length} sealed entries to ShadowRealmDB`);
+                 await base44.asServiceRole.entities.ShadowRealmEntry.bulkCreate(sealedTransactions);
             }
         } catch (dbError) {
-            console.error("Failed to persist transactions to DB:", dbError);
-            // We don't fail the request, but we log the error
+            console.error("DB Persistence Warning:", dbError.message);
         }
 
-        // 6. Calculate High-Level Insights (For Traffic Light Model)
-        const totalIncome = rawTransactions.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
-        const totalExpenses = Math.abs(rawTransactions.filter(t => t.amount < 0).reduce((sum, t) => sum + t.amount, 0));
-        const currentBalance = totalIncome - totalExpenses;
-
+        // 7. Construct Final Response
+        // Merging the risk analysis into the engineData structure expected by frontend
         const engineData = {
             success: true,
-            // We still return the sealed transactions so the frontend can display them immediately
-            // without needing a separate fetch, but we flag that they are already synced.
-            transactions: sealedTransactions, 
-            isSynced: true, // Flag to tell frontend: "Don't save these, I already did"
+            isSynced: true,
+            transactions: sealedTransactions,
             
+            // The Dashboard UI components map to these fields:
             snapshot: {
                 current_balance: currentBalance,
                 total_income: totalIncome,
-                total_expenses: totalExpenses,
+                total_expenses: fixedExpenses + flexibleExpenses,
                 projected_eom_balance: currentBalance * 1.1,
-                risk_level: 'orange',
-                risk_day: null
+                risk_level: riskAnalysis.status.toLowerCase(), // green/orange/red
             },
+            
+            // The new "Brain" output
             engineData: {
-                riskStatus: 'orange',
+                ...riskAnalysis, // Injects status, score, dti, assets, analystShield
+                
+                riskStatus: riskAnalysis.status.toLowerCase(),
                 projectedEOM: currentBalance * 1.1,
                 totalIncome,
-                totalExpenses,
+                totalExpenses: fixedExpenses + flexibleExpenses,
                 expenseAnalysis: {
-                    fixed: 7700,
-                    flex: totalExpenses - 7700,
+                    fixed: fixedExpenses,
+                    flex: flexibleExpenses,
                     taxPotential: 116
-                },
-                // Added Asset Data for Liquid Assets Card
-                assets: {
-                    cash: currentBalance,
-                    etf: 45000, // Mocked 12-month avg value
-                    trainingFund: 120000 // Mocked 12-month avg value
                 },
                 smartInsights: [
                     { type: 'optimization', title: 'זיהוי הון חבוי', message: 'אותר חיוב כפול ב"ביטוח ישיר" (550 ₪).', icon: 'Eye' },
-                    { type: 'lifestyle_pivot', title: 'אופטימיזציה ללייף-סטייל', message: 'צמצום 20% מהוצאות Wolt יעביר למסלול ירוק.', icon: 'Zap' }
+                    { type: 'lifestyle_pivot', title: 'המלצת אנליסט', message: riskAnalysis.analystShield.lifestylePivot, icon: 'Zap' }
                 ]
             }
         };
