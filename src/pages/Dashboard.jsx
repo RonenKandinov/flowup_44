@@ -287,8 +287,12 @@ export default function Dashboard() {
           });
       }
 
-      // Save Shadow Entries to Database
-      await saveTransactionsMutation.mutateAsync(shadowEntries);
+      // Save Shadow Entries to Database ONLY if not already synced by backend
+      if (!data.isSynced) {
+          await saveTransactionsMutation.mutateAsync(shadowEntries);
+      } else {
+          console.log("Skipping frontend save: Data already persisted by Open Finance Backend.");
+      }
     }
     
     // Invalidate queries to refresh view
