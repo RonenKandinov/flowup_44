@@ -147,9 +147,11 @@ Deno.serve(async (req) => {
         const path = url.pathname; // e.g. /api/open-finance/init
 
         // ROUTER
-        // POST /api/open-finance/init
-        if (req.method === 'POST' && path.endsWith('/init')) {
+        
+        // Handle root POST (SDK invoke) or /init
+        if (req.method === 'POST' && (path.endsWith('/init') || path === '/' || path === '')) {
             const body = await req.json().catch(() => ({}));
+            // If called via invoke, body is the payload.
             if (!body.psuId) throw new Error("Missing psuId in body");
             
             const result = await initiateConnection(user.id, body.psuId);

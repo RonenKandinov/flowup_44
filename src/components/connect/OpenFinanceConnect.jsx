@@ -15,43 +15,24 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
     setProgress(10);
 
     try {
-      // Simulate OAuth / Open Finance Redirect flow
-      // In a real app, this would redirect to a banking provider
-      
-      // Simulate steps
-      await new Promise(r => setTimeout(r, 800));
-      setProgress(40); // Connected to bank
-      
-      setStatus('analyzing');
-      
-      // Get the Master Key to allow server-side processing (Shadow Realm sealing)
-      const masterKey = KeyChain.ensureMasterKey();
+      const user = await base44.auth.me();
+      if (!user) throw new Error("User not authenticated");
 
-      // Fetch data from our "Open Finance" provider (Backend Function)
-      const { data } = await base44.functions.invoke('openFinance', { 
-        provider: 'mock_provider',
-        consent_id: 'sample_consent_123',
-        masterKey: masterKey 
-      });
+      // Call new Open Finance Connector
+      const { data } = await base44.functions.invoke("openFinanceConnector", { psuId: user.id });
 
-      if (!data || !data.transactions) {
-        throw new Error("Failed to retrieve financial data");
+      if (data.error) throw new Error(data.error);
+
+      if (data.connectUrl) {
+          window.location.href = data.connectUrl;
+          return;
       }
-
-      setProgress(80); // Data retrieved
-      await new Promise(r => setTimeout(r, 800)); // Simulate analysis time
-
-      setProgress(100);
-      setStatus('success');
       
-      // Pass data back to parent
-      setTimeout(() => {
-        onConnected(data);
-      }, 500);
+      throw new Error("No connection URL received");
 
     } catch (error) {
       console.error("Open Finance Error:", error);
-      toast.error("חיבור נכשל: " + (error.message || "שגיאה לא ידועה"));
+      alert(error.message || "Connection failed");
       setStatus('idle');
       setProgress(0);
     }
