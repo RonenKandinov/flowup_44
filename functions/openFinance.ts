@@ -153,6 +153,26 @@ const FiscalAgent = {
         const requiredCut = Math.max(0, totalDebt - maxAllowedDebt);
         const pivotPossible = requiredCut < flexibleExpenses;
 
+        // ANALYST SHIELD GENERATION (User-Specific Logic)
+        let headline = "";
+        let justification = "";
+        const repaymentDisplay = Math.round(proposedMonthlyRepayment).toLocaleString();
+
+        if (status === 'GREEN') {
+            headline = "עסקה במסלול ירוק - DTI תקין";
+            justification = `יחס ההחזר (${(dti*100).toFixed(1)}%) נמצא בטווח הבטוח. הכנסה פנויה מספקת לכיסוי ההלוואה החדשה.`;
+        } 
+        else if (shieldActive) {
+            // "The Fortified Orange" Profile logic
+            headline = "הכתום המבוצר - הזדמנות לאישור חריג";
+            justification = `הלקוח מוציא ${(dti*100).toFixed(1)}% מהכנסתו על חובות, אך מחזיק "כרית חמצן" של ${Math.round(totalLiquidAssets).toLocaleString()} ש"ח. בחלוקה להחזר המבוקש (${repaymentDisplay} ש"ח), יש לו ${Math.round(runwayMonths)} חודשי החזר סגורים בצד. הסיכון לפירעון אפסי.`;
+        } 
+        else {
+            // "The Fragile Red" Profile logic
+            headline = "האדום השברירי - סיכון תזרימי מיידי";
+            justification = `הלקוח נמצא באותו מצב DTI (${(dti*100).toFixed(1)}%) כמו המקרים המאושרים, אך ללא שום גיבוי. אין חסכונות נזילים. כל הוצאה בלתי צפויה (תיקון רכב, רפואי) תוביל לפיגור בתשלומים. המלצה: דחייה או דרישת ערב.`;
+        }
+
         return {
             status,
             score: Math.min(100, Math.round(score)),
@@ -168,26 +188,6 @@ const FiscalAgent = {
                     training_fund: assets.trainingFund 
                 }
             },
-            // ANALYST SHIELD GENERATION (User-Specific Logic)
-            let headline = "";
-            let justification = "";
-            const repaymentDisplay = Math.round(proposedMonthlyRepayment).toLocaleString();
-
-            if (status === 'GREEN') {
-                headline = "עסקה במסלול ירוק - DTI תקין";
-                justification = `יחס ההחזר (${(dti*100).toFixed(1)}%) נמצא בטווח הבטוח. הכנסה פנויה מספקת לכיסוי ההלוואה החדשה.`;
-            } 
-            else if (shieldActive) {
-                // "The Fortified Orange" Profile logic
-                headline = "הכתום המבוצר - הזדמנות לאישור חריג";
-                justification = `הלקוח מוציא ${(dti*100).toFixed(1)}% מהכנסתו על חובות, אך מחזיק "כרית חמצן" של ${Math.round(totalLiquidAssets).toLocaleString()} ש"ח. בחלוקה להחזר המבוקש (${repaymentDisplay} ש"ח), יש לו ${Math.round(runwayMonths)} חודשי החזר סגורים בצד. הסיכון לפירעון אפסי.`;
-            } 
-            else {
-                // "The Fragile Red" Profile logic
-                headline = "האדום השברירי - סיכון תזרימי מיידי";
-                justification = `הלקוח נמצא באותו מצב DTI (${(dti*100).toFixed(1)}%) כמו המקרים המאושרים, אך ללא שום גיבוי. אין חסכונות נזילים. כל הוצאה בלתי צפויה (תיקון רכב, רפואי) תוביל לפיגור בתשלומים. המלצה: דחייה או דרישת ערב.`;
-            }
-
             analystShield: {
                 headline,
                 justification,
