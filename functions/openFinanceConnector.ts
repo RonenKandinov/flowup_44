@@ -72,65 +72,7 @@ async function initiateConnection(userId, psuId) {
     };
 }
 
-// 3) Finalize Connection
-async function finalizeConnection(userId, connectionId) {
-    const token = await getAccessToken(userId);
 
-    const response = await fetch(`${ENV.BASE_URL}/connect/open-banking-finalize?state=${connectionId}`, {
-        method: 'GET',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json'
-        }
-    });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Finalize Connection Failed: ${response.status} ${errorText}`);
-    }
-
-    return await response.json();
-}
-
-// 4) Fetch Accounts
-async function fetchAccounts(userId, connectionId) {
-    const token = await getAccessToken(userId);
-
-    const response = await fetch(`${ENV.BASE_URL}/data/accounts?connectionId=${connectionId}`, {
-        method: 'GET',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json'
-        }
-    });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Fetch Accounts Failed: ${response.status} ${errorText}`);
-    }
-
-    return await response.json();
-}
-
-// 5) Fetch Transactions
-async function fetchTransactions(userId, connectionId) {
-    const token = await getAccessToken(userId);
-
-    const response = await fetch(`${ENV.BASE_URL}/data/transactions?connectionId=${connectionId}`, {
-        method: 'GET',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json'
-        }
-    });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Fetch Transactions Failed: ${response.status} ${errorText}`);
-    }
-
-    return await response.json();
-}
 
 // --- Main Server Handler ---
 Deno.serve(async (req) => {
