@@ -43,32 +43,71 @@ async function getAccessToken(userId) {
 }
 
 // 2) Initiate Connection
-async function initiateConnection(userId, psuId) {
+async function initiateConnection(base44, userId, psuId) {
     const token = await getAccessToken(userId);
-    const connectionId = crypto.randomUUID();
 
-    const response = await fetch(`${ENV.BASE_URL}/connect/open-banking-init`, {
+    // Step 1 – Create valid connection with Open Finance
+    const connectionResponse = await fetch(`${ENV.BASE_URL}/connections`, {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            providerId: "leumi-sandbox", // Hardcoded as per requirements
-            connectionId: connectionId,
-            psuId: psuId
+            customerId: userId,
+            providerIds: ["leumi-sandbox"],
+            language: "he",
+            psuId: psuId,
+            connectionMode: "PSD2",
+            access: {
+                restrictedTo: ["CACC", "CARD"],
+                psuIdType: "NATIONAL_ID"
+            }
         })
     });
 
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Init Connection Failed: ${response.status} ${errorText}`);
+    if (!connectionResponse.ok) {
+        const errorText = await connectionResponse.text();
+        throw new Error(`Connection Creation Failed: ${connectionResponse.status} ${errorText}`);
     }
 
-    const data = await response.json();
+    const connectionData = await connectionResponse.json();
+    const connectionId = connectionData.id;
+
+    // Step 2 – Start identification flow
+    const initResponse = await fetch(`${ENV.BASE_URL}/connect/open-banking-init`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            providerId: "leumi-sandbox",
+            connectionId,
+            psuId: psuId,
+            psuIdType: "NATIONAL_ID",
+            refreshData: true,
+            restrictedTo: ["CACC", "CARD"]
+        })
+    });
+
+    if (!initResponse.ok) {
+        const errorText = await initResponse.text();
+        throw new Error(`Open Banking Init Failed: ${initResponse.status} ${errorText}`);
+    }
+
+    // DB Insert (Bonus)
+    await base44.entities.OpenFinanceConnection.create({
+        connection_id: connectionId,
+        user_id: userId,
+        provider_id: "leumi-sandbox",
+        status: "PENDING"
+    });
+
+    const initData = await initResponse.json();
     return {
-        connectUrl: data.connectUrl,
-        connectionId: connectionId
+        connectUrl: initData.connectUrl || initData.scaOAuth,
+        connectionId
     };
 }
 
@@ -94,7 +133,7 @@ Deno.serve(async (req) => {
             return Response.json({ error: "Missing psuId in body" }, { status: 400 });
         }
         
-        const result = await initiateConnection(user.id, body.psuId);
+        const result = await initiateConnection(base44, user.id, body.psuId);
         return Response.json(result);
 
     } catch (error) {
