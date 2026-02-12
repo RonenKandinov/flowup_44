@@ -35,8 +35,6 @@ async function getAccessToken(userId) {
 
     if (!response.ok) {
         const errorText = await response.text();
-        if (response.status === 429) throw new Error("OAuth: Rate Limit Exceeded. Please try again later.");
-        if (response.status >= 500) throw new Error(`OAuth: Provider Error (${response.status}).`);
         throw new Error(`OAuth Failed: ${response.status} ${errorText}`);
     }
 
@@ -64,8 +62,6 @@ async function initiateConnection(userId, psuId) {
 
     if (!response.ok) {
         const errorText = await response.text();
-        if (response.status === 429) throw new Error("Init Connection: Rate Limit Exceeded.");
-        if (response.status >= 500) throw new Error(`Init Connection: Provider Error (${response.status}).`);
         throw new Error(`Init Connection Failed: ${response.status} ${errorText}`);
     }
 
@@ -92,18 +88,21 @@ async function syncTransactions(userId, connectionId, base44) {
     });
 
     if (!response.ok) {
-        if (response.status === 429) throw new Error("Fetch Transactions: Rate Limit Exceeded.");
         throw new Error(`Fetch Transactions Failed: ${response.status}`);
     }
 
     const { transactions } = await response.json();
+    
+    // Save Raw Data to DB
+    // Simple flow: Delete old transactions for this connection -> Bulk Insert new ones
+    // Or just insert new ones. For simplicity/sandbox: Insert.
     
     if (transactions && transactions.length > 0) {
         const rawTransactions = transactions.map(tx => ({
             transaction_id: tx.id,
             account_id: tx.accountId,
             connection_id: connectionId,
-            amount: tx.amount,
+            amount: tx.amount, // Raw amount (signed)
             currency: tx.currency,
             date: new Date(tx.bookingDate || tx.date).toISOString(),
             description: tx.description || tx.remittanceInformation || 'Transaction',
@@ -111,13 +110,13 @@ async function syncTransactions(userId, connectionId, base44) {
             status: tx.status || 'booked'
         }));
 
-        try {
-            await base44.entities.OpenFinanceTransaction.bulkCreate(rawTransactions);
-            console.log(`Saved ${rawTransactions.length} raw transactions.`);
-        } catch (dbError) {
-            console.error("DB Bulk Create Error:", dbError);
-            throw new Error("Failed to save transactions to database.");
-        }
+        // Note: In real world, we should check for duplicates. 
+        // For Sandbox/Simplicity, we can just log or attempt insert.
+        // base44.entities.OpenFinanceTransaction.bulkCreate(rawTransactions);
+        // But since we are inside Deno.serve handler context usually, we need 'base44' passed in.
+        
+        await base44.entities.OpenFinanceTransaction.bulkCreate(rawTransactions);
+        console.log(`Saved ${rawTransactions.length} raw transactions.`);
     }
 
     return { count: transactions?.length || 0 };
