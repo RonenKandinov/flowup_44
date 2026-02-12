@@ -72,11 +72,16 @@ Deno.serve(async (req) => {
                 break;
 
             case 'DATA_READY':
-                // Provider signals new data is available
-                // Trigger sync logic (Simplified: just log)
                 console.log(`📥 Data ready for ${connectionId}. Triggering fetch...`);
-                // In a real microservice, we'd emit an event or call the sync function.
-                // await base44.functions.invoke('openFinance', { action: 'sync', connectionId });
+                try {
+                    await adminService.functions.invoke('openFinanceConnector', { 
+                        action: 'sync_transactions', 
+                        connectionId: connectionId,
+                        psuId: connection.psu_id 
+                    });
+                } catch (err) {
+                    console.error(`Failed to trigger sync for ${connectionId}:`, err);
+                }
                 break;
 
             case 'CONSENT_REVOKED':

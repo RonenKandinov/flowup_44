@@ -32,7 +32,9 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
 
     } catch (error) {
       console.error("Open Finance Error:", error);
-      alert(error.message || "Connection failed");
+      toast.error(error.message || "Connection initialization failed. Please try again.", {
+        description: "If the issue persists, contact support."
+      });
       setStatus('idle');
       setProgress(0);
     }
