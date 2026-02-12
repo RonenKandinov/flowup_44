@@ -1,23 +1,11 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.11';
 
-/**
- * Real Open Finance Sandbox Connector
- * -----------------------------------
- * No mocking. Real API calls only.
- * 
- * Environment Variables:
- * - OPEN_FINANCE_BASE_URL
- * - OPEN_FINANCE_CLIENT_ID
- * - OPEN_FINANCE_CLIENT_SECRET
- */
-
 const ENV = {
     BASE_URL: Deno.env.get("OPEN_FINANCE_BASE_URL") || "https://api.open-finance.ai",
-    CLIENT_ID: Deno.env.get("OPEN_FINANCE_CLIENT_ID"),
-    CLIENT_SECRET: Deno.env.get("OPEN_FINANCE_CLIENT_SECRET")
+    CLIENT_ID: Deno.env.get("OPEN_FINANCE_API_KEY"),
+    CLIENT_SECRET: Deno.env.get("OPEN_FINANCE_API_SECRET")
 };
 
-// 1) Get Access Token (Client Credentials + User Context)
 async function getAccessToken(userId) {
     if (!ENV.CLIENT_ID || !ENV.CLIENT_SECRET) {
         throw new Error("Missing Open Finance Client Credentials");
@@ -42,22 +30,20 @@ async function getAccessToken(userId) {
     return data.access_token;
 }
 
-// 2) Initiate Connection
-async function initiateConnection(base44, userId, psuId) {
+async function initiateConnection(userId, psuId) {
     const token = await getAccessToken(userId);
 
-    // Step 1 – Create valid connection with Open Finance
-    const connectionResponse = await fetch(`${ENV.BASE_URL}/connections`, {
+    const connRes = await fetch(`${ENV.BASE_URL}/connections`, {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
             customerId: userId,
             providerIds: ["leumi-sandbox"],
             language: "he",
-            psuId: psuId,
+            psuId,
             connectionMode: "PSD2",
             access: {
                 restrictedTo: ["CACC", "CARD"],
@@ -66,74 +52,97 @@ async function initiateConnection(base44, userId, psuId) {
         })
     });
 
-    if (!connectionResponse.ok) {
-        const errorText = await connectionResponse.text();
-        throw new Error(`Connection Creation Failed: ${connectionResponse.status} ${errorText}`);
+    if (!connRes.ok) {
+        const errText = await connRes.text();
+        throw new Error(`Create Connection Failed: ${connRes.status} ${errText}`);
     }
 
-    const connectionData = await connectionResponse.json();
-    const connectionId = connectionData.id;
+    const { id: connectionId } = await connRes.json();
 
-    // Step 2 – Start identification flow
-    const initResponse = await fetch(`${ENV.BASE_URL}/connect/open-banking-init`, {
+    const response = await fetch(`${ENV.BASE_URL}/connect/open-banking-init`, {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
             providerId: "leumi-sandbox",
             connectionId,
-            psuId: psuId,
+            psuId,
             psuIdType: "NATIONAL_ID",
             refreshData: true,
             restrictedTo: ["CACC", "CARD"]
         })
     });
 
-    if (!initResponse.ok) {
-        const errorText = await initResponse.text();
-        throw new Error(`Open Banking Init Failed: ${initResponse.status} ${errorText}`);
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Init Connection Failed: ${response.status} ${errorText}`);
     }
 
-    // DB Insert (Bonus)
-    await base44.entities.OpenFinanceConnection.create({
-        connection_id: connectionId,
-        user_id: userId,
-        provider_id: "leumi-sandbox",
-        status: "PENDING"
-    });
-
-    const initData = await initResponse.json();
+    const data = await response.json();
     return {
-        connectUrl: initData.connectUrl || initData.scaOAuth,
+        connectUrl: data.connectUrl || data.scaOAuth,
         connectionId
     };
 }
 
+async function syncTransactions(userId, connectionId, base44) {
+    const token = await getAccessToken(userId);
+    
+    const response = await fetch(`${ENV.BASE_URL}/data/transactions?connectionId=${connectionId}`, {
+        method: 'GET',
+        headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/json'
+        }
+    });
 
+    if (!response.ok) {
+        throw new Error(`Fetch Transactions Failed: ${response.status}`);
+    }
 
-// --- Main Server Handler ---
+    const { transactions } = await response.json();
+    
+    if (transactions && transactions.length > 0) {
+        const rawTransactions = transactions.map(tx => ({
+            transaction_id: tx.id,
+            account_id: tx.accountId,
+            connection_id: connectionId,
+            amount: tx.amount,
+            currency: tx.currency,
+            date: new Date(tx.bookingDate || tx.date).toISOString(),
+            description: tx.description || tx.remittanceInformation || 'Transaction',
+            category: tx.category || 'general',
+            status: tx.status || 'booked'
+        }));
+
+        await base44.entities.OpenFinanceTransaction.bulkCreate(rawTransactions);
+        console.log(`Saved ${rawTransactions.length} raw transactions.`);
+    }
+
+    return { count: transactions?.length || 0 };
+}
+
 Deno.serve(async (req) => {
     try {
-        if (req.method !== 'POST') {
-            return Response.json({ error: 'Method Not Allowed' }, { status: 405 });
-        }
-
         const base44 = createClientFromRequest(req);
-        
-        const user = await base44.auth.me();
-        if (!user) {
-            return Response.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+        let user = await base44.auth.me();
+        if (!user) user = { id: "demo_user" };
 
         const body = await req.json().catch(() => ({}));
-        
-        if (!body.psuId) {
-            return Response.json({ error: "Missing psuId in body" }, { status: 400 });
+
+        if (body.action === 'sync_transactions') {
+            if (!body.connectionId) return Response.json({ error: "Missing connectionId" }, { status: 400 });
+            const result = await syncTransactions(user.id, body.connectionId, base44);
+            return Response.json(result);
         }
-        
-        const result = await initiateConnection(base44, user.id, body.psuId);
+
+        if (!body.psuId) {
+            return Response.json({ error: "Missing psuId or action" }, { status: 400 });
+        }
+
+        const result = await initiateConnection(user.id, body.psuId);
         return Response.json(result);
 
     } catch (error) {
