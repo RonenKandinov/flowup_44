@@ -19,7 +19,7 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
       if (!user) throw new Error("User not authenticated");
 
       // Call new Open Finance Connector
-      const { data } = await base44.functions.invoke("openFinanceConnector", { psuId: user.id });
+      const { data } = await base44.functions.invoke("fup_live", { psuId: user.id });
 
       if (data.error) throw new Error(data.error);
 
