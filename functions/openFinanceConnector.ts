@@ -1,7 +1,6 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.11';
 
 const ENV = {
-    BASE_URL: Deno.env.get("OPEN_FINANCE_BASE_URL") || "https://api.open-finance.ai",
+    BASE_URL: Deno.env.get("OPEN_FINANCE_BASE_URL") || "https://api.open-finance.ai/connections",
     CLIENT_ID: Deno.env.get("OPEN_FINANCE_API_KEY"),
     CLIENT_SECRET: Deno.env.get("OPEN_FINANCE_API_SECRET")
 };
