@@ -2,49 +2,30 @@ Deno.serve(async (req) => {
   const API_KEY = Deno.env.get("OPEN_FINANCE_API_KEY")?.trim();
   const API_SECRET = Deno.env.get("OPEN_FINANCE_API_SECRET")?.trim();
 
-  if (req.method !== "POST") return new Response("Use POST", { status: 405 });
-
   try {
     const { psuId } = await req.json();
-    if (!psuId) throw new Error("Missing psuId");
 
-    // 1. קבלת הטוקן (זה השלב שהרגע הצלחת בפורטל!)
+    // 1. קבלת הטוקן (מה שהרגע עשית ידנית)
     const tokenRes = await fetch("https://api.open-finance.ai/oauth/token", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        userId: psuId, 
-        clientId: API_KEY, 
-        clientSecret: API_SECRET 
-      })
+      body: JSON.stringify({ userId: psuId, clientId: API_KEY, clientSecret: API_SECRET })
     });
-
     const tokenData = await tokenRes.json();
-    if (!tokenRes.ok) throw new Error(`Auth Fail: ${JSON.stringify(tokenData)}`);
-    
-    const access_token = tokenData.access_token;
+    const access_token = tokenData.accessToken || tokenData.access_token;
 
-    // 2. יצירת חיבור (Connection)
+    // 2. יצירת חיבור
     const connRes = await fetch("https://api.open-finance.ai/v2/connections", {
       method: "POST",
       headers: { 
         "Authorization": `Bearer ${access_token}`, 
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ 
-        customerId: psuId, 
-        connectionMode: "PSD2", 
-        language: "he" 
-      })
+      body: JSON.stringify({ customerId: psuId, connectionMode: "PSD2", language: "he" })
     });
-    
-    if (!connRes.ok) {
-        const errText = await connRes.text();
-        throw new Error(`Connection Failed: ${errText}`);
-    }
     const connData = await connRes.json();
 
-    // 3. קבלת הלינק הסופי לבנק לאומי סנדבוקס
+    // 3. קבלת הלינק
     const initRes = await fetch("https://api.open-finance.ai/v2/connect/open-banking-init", {
       method: "POST",
       headers: { 
@@ -58,7 +39,6 @@ Deno.serve(async (req) => {
         psuIdType: "NATIONAL_ID" 
       })
     });
-    
     const initData = await initRes.json();
 
     return Response.json({ 
@@ -67,6 +47,6 @@ Deno.serve(async (req) => {
     });
 
   } catch (err) {
-    return Response.json({ success: false, error: err.message }, { status: 500 });
+    return Response.json({ success: false, error: err.message });
   }
 });
