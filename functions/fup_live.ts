@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({ 
         connectionId: connData.id, 
-        providerId: "poalim-sandbox", // שינוי לפועלים
+        providerId: "hapoalim-sandbox", // שינוי לפועלים
         psuId: psuId, 
         psuIdType: "ID" 
       })
