@@ -8,7 +8,7 @@ Deno.serve(async (req) => {
     const { psuId } = await req.json();
     if (!psuId) throw new Error("Missing psuId in request body");
 
-    // 1. קבלת טוקן - תיקון לפורמט v2
+    // 1. קבלת טוקן - חזרה לכתובת הסטנדרטית של v2
     const tokenRes = await fetch("https://api.open-finance.ai/v2/oauth/token", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -29,16 +29,26 @@ Deno.serve(async (req) => {
     // 2. יצירת חיבור (Connection)
     const connRes = await fetch("https://api.open-finance.ai/v2/connections", {
       method: "POST",
-      headers: { "Authorization": `Bearer ${access_token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ customerId: psuId, connectionMode: "PSD2", language: "he" })
+      headers: { 
+        "Authorization": `Bearer ${access_token}`, 
+        "Content-Type": "application/json" 
+      },
+      body: JSON.stringify({ 
+        customerId: psuId, 
+        connectionMode: "PSD2", 
+        language: "he" 
+      })
     });
-    if (!connRes.ok) throw new Error(`Connection Error: ${connRes.status}`);
+    if (!connRes.ok) throw new Error(`Connection Error: ${connRes.status} - ${await connRes.text()}`);
     const connData = await connRes.json();
 
     // 3. קבלת לינק לבנק (Init)
     const initRes = await fetch("https://api.open-finance.ai/v2/connect/open-banking-init", {
       method: "POST",
-      headers: { "Authorization": `Bearer ${access_token}`, "Content-Type": "application/json" },
+      headers: { 
+        "Authorization": `Bearer ${access_token}`, 
+        "Content-Type": "application/json" 
+      },
       body: JSON.stringify({ 
         connectionId: connData.id, 
         providerId: "leumi-sandbox", 
