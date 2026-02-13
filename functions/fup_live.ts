@@ -5,47 +5,48 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Use POST", { status: 405 });
 
   try {
-    const body = await req.json();
-    const psuId = body.psuId;
-    
-    if (!psuId) throw new Error("Missing psuId in Payload");
+    const { psuId } = await req.json();
+    if (!psuId) throw new Error("Missing psuId");
 
-    // 1. קבלת טוקן - כולל ה-userId והכתובת המדויקת מהדוקומנטציה
+    // 1. קבלת הטוקן - המפתח לכל התהליך
     const tokenRes = await fetch("https://api.open-finance.ai/oauth/token", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
-        userId: psuId,        // הנה תעודת הזהות שלך נכנסת לפעולה
+        userId: psuId, 
         clientId: API_KEY, 
         clientSecret: API_SECRET 
       })
     });
 
-    if (!tokenRes.ok) {
-      const errorMsg = await tokenRes.text();
-      throw new Error(`Auth Error (${tokenRes.status}): ${errorMsg}`);
-    }
-
     const tokenData = await tokenRes.json();
+    if (!tokenRes.ok) throw new Error(`Auth Fail: ${JSON.stringify(tokenData)}`);
+    
     const access_token = tokenData.access_token;
+    console.log("Token received successfully!"); // תראה את זה ב-Logs
 
-    // 2. יצירת חיבור (Connection)
+    // 2. יצירת חיבור (Connection) - כאן ה-401 קורה בדרך כלל
     const connRes = await fetch("https://api.open-finance.ai/v2/connections", {
       method: "POST",
       headers: { 
-        "Authorization": `Bearer ${access_token}`, 
-        "Content-Type": "application/json" 
+        "Authorization": `Bearer ${access_token}`, // חשוב מאוד: Bearer עם רווח
+        "Content-Type": "application/json",
+        "Accept": "application/json"
       },
-      body: JSON.stringify({ customerId: psuId, connectionMode: "PSD2", language: "he" })
+      body: JSON.stringify({ 
+        customerId: psuId, 
+        connectionMode: "PSD2", 
+        language: "he" 
+      })
     });
     
     if (!connRes.ok) {
-        const connErr = await connRes.text();
-        throw new Error(`Connection Error: ${connRes.status} - ${connErr}`);
+        const errText = await connRes.text();
+        throw new Error(`Conn Error (${connRes.status}): ${errText}`);
     }
     const connData = await connRes.json();
 
-    // 3. יצירת לינק להתחברות לבנק לאומי (Init)
+    // 3. קבלת הלינק הסופי לבנק
     const initRes = await fetch("https://api.open-finance.ai/v2/connect/open-banking-init", {
       method: "POST",
       headers: { 
@@ -60,13 +61,8 @@ Deno.serve(async (req) => {
       })
     });
     
-    if (!initRes.ok) {
-        const initErr = await initRes.text();
-        throw new Error(`Init Error: ${initRes.status} - ${initErr}`);
-    }
     const initData = await initRes.json();
 
-    // מחזיר את הלינק הסופי!
     return Response.json({ 
       success: true, 
       url: initData.connectUrl || initData.scaOAuth || initData.url 
