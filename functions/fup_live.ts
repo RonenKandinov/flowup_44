@@ -10,11 +10,12 @@ Deno.serve(async (req) => {
     
     if (!psuId) throw new Error("Missing psuId in Payload");
 
-    // 1. קבלת טוקן - הכתובת המדויקת לפי הדוקומנטציה (בלי v2)
+    // 1. קבלת טוקן - כולל ה-userId והכתובת המדויקת מהדוקומנטציה
     const tokenRes = await fetch("https://api.open-finance.ai/oauth/token", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
+        userId: psuId,        // הנה תעודת הזהות שלך נכנסת לפעולה
         clientId: API_KEY, 
         clientSecret: API_SECRET 
       })
@@ -28,7 +29,7 @@ Deno.serve(async (req) => {
     const tokenData = await tokenRes.json();
     const access_token = tokenData.access_token;
 
-    // 2. יצירת חיבור (כאן כן צריך את ה-v2 לפי התיעוד)
+    // 2. יצירת חיבור (Connection)
     const connRes = await fetch("https://api.open-finance.ai/v2/connections", {
       method: "POST",
       headers: { 
@@ -44,7 +45,7 @@ Deno.serve(async (req) => {
     }
     const connData = await connRes.json();
 
-    // 3. קבלת לינק לבנק
+    // 3. יצירת לינק להתחברות לבנק לאומי (Init)
     const initRes = await fetch("https://api.open-finance.ai/v2/connect/open-banking-init", {
       method: "POST",
       headers: { 
@@ -65,6 +66,7 @@ Deno.serve(async (req) => {
     }
     const initData = await initRes.json();
 
+    // מחזיר את הלינק הסופי!
     return Response.json({ 
       success: true, 
       url: initData.connectUrl || initData.scaOAuth || initData.url 
