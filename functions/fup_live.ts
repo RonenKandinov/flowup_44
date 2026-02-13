@@ -6,42 +6,54 @@ Deno.serve(async (req) => {
 
   try {
     const { psuId } = await req.json();
+    if (!psuId) throw new Error("Missing psuId in request body");
 
-    // 1. Get Access Token
+    // 1. קבלת טוקן - תיקון לפורמט v2
     const tokenRes = await fetch("https://api.open-finance.ai/v2/oauth/token", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: psuId, clientId: API_KEY, clientSecret: API_SECRET })
+      body: JSON.stringify({ 
+        grant_type: "client_credentials",
+        client_id: API_KEY, 
+        client_secret: API_SECRET 
+      })
     });
+
+    if (!tokenRes.ok) {
+      const errText = await tokenRes.text();
+      throw new Error(`Auth Error: ${tokenRes.status} - ${errText}`);
+    }
     const tokenData = await tokenRes.json();
     const access_token = tokenData.access_token;
 
-    if (!access_token) throw new Error("Failed to get access token");
-
-    // 2. Create Connection
+    // 2. יצירת חיבור (Connection)
     const connRes = await fetch("https://api.open-finance.ai/v2/connections", {
       method: "POST",
       headers: { "Authorization": `Bearer ${access_token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ customerId: psuId, connectionMode: "PSD2", language: "he" })
     });
+    if (!connRes.ok) throw new Error(`Connection Error: ${connRes.status}`);
     const connData = await connRes.json();
 
-    if (!connData.id) throw new Error("Failed to create connection");
-
-    // 3. Get Bank Link
+    // 3. קבלת לינק לבנק (Init)
     const initRes = await fetch("https://api.open-finance.ai/v2/connect/open-banking-init", {
       method: "POST",
       headers: { "Authorization": `Bearer ${access_token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ connectionId: connData.id, providerId: "leumi-sandbox", psuId: psuId, psuIdType: "NATIONAL_ID" })
+      body: JSON.stringify({ 
+        connectionId: connData.id, 
+        providerId: "leumi-sandbox", 
+        psuId: psuId, 
+        psuIdType: "NATIONAL_ID" 
+      })
     });
     const initData = await initRes.json();
 
     return Response.json({ 
       success: true, 
-      url: initData.connectUrl || initData.scaOAuth 
+      url: initData.connectUrl || initData.scaOAuth || initData.url 
     });
 
   } catch (err) {
-    return Response.json({ error: err.message }, { status: 500 });
+    return Response.json({ success: false, error: err.message }, { status: 500 });
   }
 });
