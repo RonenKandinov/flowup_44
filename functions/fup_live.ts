@@ -6,18 +6,17 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const psuId = body.psuId; // דרך יותר בטוחה לשלוף בלי קווים אדומים
+    const psuId = body.psuId;
     
     if (!psuId) throw new Error("Missing psuId in Payload");
 
-    // 1. קבלת טוקן - ניסיון עם הכתובת המדויקת של v2
-    const tokenRes = await fetch("https://api.open-finance.ai/v2/oauth/token", {
+    // 1. קבלת טוקן - הכתובת המדויקת לפי הדוקומנטציה (בלי v2)
+    const tokenRes = await fetch("https://api.open-finance.ai/oauth/token", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
-        grant_type: "client_credentials",
-        client_id: API_KEY, 
-        client_secret: API_SECRET 
+        clientId: API_KEY, 
+        clientSecret: API_SECRET 
       })
     });
 
@@ -29,7 +28,7 @@ Deno.serve(async (req) => {
     const tokenData = await tokenRes.json();
     const access_token = tokenData.access_token;
 
-    // 2. יצירת חיבור
+    // 2. יצירת חיבור (כאן כן צריך את ה-v2 לפי התיעוד)
     const connRes = await fetch("https://api.open-finance.ai/v2/connections", {
       method: "POST",
       headers: { 
@@ -39,7 +38,10 @@ Deno.serve(async (req) => {
       body: JSON.stringify({ customerId: psuId, connectionMode: "PSD2", language: "he" })
     });
     
-    if (!connRes.ok) throw new Error(`Connection Error: ${connRes.status}`);
+    if (!connRes.ok) {
+        const connErr = await connRes.text();
+        throw new Error(`Connection Error: ${connRes.status} - ${connErr}`);
+    }
     const connData = await connRes.json();
 
     // 3. קבלת לינק לבנק
@@ -57,6 +59,10 @@ Deno.serve(async (req) => {
       })
     });
     
+    if (!initRes.ok) {
+        const initErr = await initRes.text();
+        throw new Error(`Init Error: ${initRes.status} - ${initErr}`);
+    }
     const initData = await initRes.json();
 
     return Response.json({ 
