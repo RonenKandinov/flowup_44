@@ -1,6 +1,4 @@
-
 Deno.serve(async (req) => {
-  // שליחת המפתחות וניקוי רווחים מיותרים אוטומטית
   const API_KEY = Deno.env.get("OPEN_FINANCE_API_KEY")?.trim();
   const API_SECRET = Deno.env.get("OPEN_FINANCE_API_SECRET")?.trim();
 
@@ -10,7 +8,7 @@ Deno.serve(async (req) => {
     const { psuId } = await req.json();
     if (!psuId) throw new Error("Missing psuId");
 
-    // 1. קבלת טוקן
+    // 1. קבלת הטוקן (זה השלב שהרגע הצלחת בפורטל!)
     const tokenRes = await fetch("https://api.open-finance.ai/oauth/token", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -26,7 +24,7 @@ Deno.serve(async (req) => {
     
     const access_token = tokenData.access_token;
 
-    // 2. יצירת חיבור
+    // 2. יצירת חיבור (Connection)
     const connRes = await fetch("https://api.open-finance.ai/v2/connections", {
       method: "POST",
       headers: { 
@@ -42,11 +40,11 @@ Deno.serve(async (req) => {
     
     if (!connRes.ok) {
         const errText = await connRes.text();
-        throw new Error(`Connection Error (401/400): ${errText}`);
+        throw new Error(`Connection Failed: ${errText}`);
     }
     const connData = await connRes.json();
 
-    // 3. קבלת לינק לבנק
+    // 3. קבלת הלינק הסופי לבנק לאומי סנדבוקס
     const initRes = await fetch("https://api.open-finance.ai/v2/connect/open-banking-init", {
       method: "POST",
       headers: { 
