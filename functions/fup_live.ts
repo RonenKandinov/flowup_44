@@ -5,10 +5,12 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Use POST", { status: 405 });
 
   try {
-    const { psuId } = await req.json();
-    if (!psuId) throw new Error("Missing psuId in request body");
+    const body = await req.json();
+    const psuId = body.psuId; // דרך יותר בטוחה לשלוף בלי קווים אדומים
+    
+    if (!psuId) throw new Error("Missing psuId in Payload");
 
-    // 1. קבלת טוקן - חזרה לכתובת הסטנדרטית של v2
+    // 1. קבלת טוקן - ניסיון עם הכתובת המדויקת של v2
     const tokenRes = await fetch("https://api.open-finance.ai/v2/oauth/token", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -20,29 +22,27 @@ Deno.serve(async (req) => {
     });
 
     if (!tokenRes.ok) {
-      const errText = await tokenRes.text();
-      throw new Error(`Auth Error: ${tokenRes.status} - ${errText}`);
+      const errorMsg = await tokenRes.text();
+      throw new Error(`Auth Error (${tokenRes.status}): ${errorMsg}`);
     }
+
     const tokenData = await tokenRes.json();
     const access_token = tokenData.access_token;
 
-    // 2. יצירת חיבור (Connection)
+    // 2. יצירת חיבור
     const connRes = await fetch("https://api.open-finance.ai/v2/connections", {
       method: "POST",
       headers: { 
         "Authorization": `Bearer ${access_token}`, 
         "Content-Type": "application/json" 
       },
-      body: JSON.stringify({ 
-        customerId: psuId, 
-        connectionMode: "PSD2", 
-        language: "he" 
-      })
+      body: JSON.stringify({ customerId: psuId, connectionMode: "PSD2", language: "he" })
     });
-    if (!connRes.ok) throw new Error(`Connection Error: ${connRes.status} - ${await connRes.text()}`);
+    
+    if (!connRes.ok) throw new Error(`Connection Error: ${connRes.status}`);
     const connData = await connRes.json();
 
-    // 3. קבלת לינק לבנק (Init)
+    // 3. קבלת לינק לבנק
     const initRes = await fetch("https://api.open-finance.ai/v2/connect/open-banking-init", {
       method: "POST",
       headers: { 
@@ -56,6 +56,7 @@ Deno.serve(async (req) => {
         psuIdType: "NATIONAL_ID" 
       })
     });
+    
     const initData = await initRes.json();
 
     return Response.json({ 
