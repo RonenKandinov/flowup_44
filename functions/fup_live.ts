@@ -6,6 +6,13 @@ Deno.serve(async (req) => {
   const API_SECRET = Deno.env.get("OPEN_FINANCE_API_SECRET");
 
   try {
+    if (!API_KEY || !API_SECRET) {
+      return Response.json({
+        success: false,
+        error: "Missing API credentials"
+      });
+    }
+
     const { userId, psuId } = await req.json();
 
     if (!userId || !psuId) {
@@ -30,6 +37,9 @@ Deno.serve(async (req) => {
 
     const tokenJson = await tokenRes.json();
 
+    console.log("TOKEN STATUS:", tokenRes.status);
+    console.log("TOKEN RESPONSE:", tokenJson);
+
     if (!tokenRes.ok) {
       return Response.json({
         success: false,
@@ -39,6 +49,39 @@ Deno.serve(async (req) => {
     }
 
     const access_token = tokenJson.access_token;
+
+    // ===============================
+    // 🔎 DECODE TOKEN
+    // ===============================
+    const payload = JSON.parse(
+      atob(access_token.split(".")[1])
+    );
+
+    console.log("DECODED TOKEN:", payload);
+
+    // ===============================
+    // 🔎 TEST GET CONNECTIONS
+    // ===============================
+    const testRes = await fetch(`${API_V2}/connections`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${access_token}`
+      }
+    });
+
+    const testJson = await testRes.json();
+
+    console.log("TEST GET STATUS:", testRes.status);
+    console.log("TEST GET RESPONSE:", testJson);
+
+    if (!testRes.ok) {
+      return Response.json({
+        success: false,
+        step: "TEST_GET_CONNECTIONS",
+        error: testJson,
+        decodedToken: payload
+      });
+    }
 
     // ===============================
     // 2️⃣ CREATE CONNECTION
@@ -58,11 +101,15 @@ Deno.serve(async (req) => {
 
     const connJson = await connRes.json();
 
+    console.log("CREATE CONNECTION STATUS:", connRes.status);
+    console.log("CREATE CONNECTION RESPONSE:", connJson);
+
     if (!connRes.ok) {
       return Response.json({
         success: false,
         step: "CREATE_CONNECTION",
-        error: connJson
+        error: connJson,
+        decodedToken: payload
       });
     }
 
@@ -87,6 +134,9 @@ Deno.serve(async (req) => {
     });
 
     const initJson = await initRes.json();
+
+    console.log("INIT STATUS:", initRes.status);
+    console.log("INIT RESPONSE:", initJson);
 
     if (!initRes.ok) {
       return Response.json({
