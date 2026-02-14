@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
     });
 
     const connJson = await connRes.json();
-console.log("INIT RESPONSE:", initJson);
+
     if (!connRes.ok) {
       return Response.json({
         success: false,
