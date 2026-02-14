@@ -6,23 +6,22 @@ Deno.serve(async (req) => {
   const API_SECRET = Deno.env.get("OPEN_FINANCE_API_SECRET");
 
   try {
-    console.log("=== FLOWUP OPEN FINANCE START ===");
-
     if (!API_KEY || !API_SECRET) {
-      throw new Error("Missing OPEN_FINANCE_API_KEY or OPEN_FINANCE_API_SECRET");
+      throw new Error("Missing API credentials");
     }
 
     const { psuId } = await req.json();
-    console.log("PSU ID:", psuId);
+
+    if (!psuId) {
+      throw new Error("psuId is required");
+    }
 
     // =========================
-    // 1️⃣ GET ACCESS TOKEN
+    // 1️⃣ TOKEN
     // =========================
     const tokenRes = await fetch(`${API_BASE}/oauth/token`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         clientId: API_KEY,
         clientSecret: API_SECRET
@@ -37,16 +36,12 @@ Deno.serve(async (req) => {
     const access_token = tokenJson.accessToken;
 
     if (!access_token) {
-      throw new Error("No accessToken returned from OAuth");
+      throw new Error("No accessToken returned");
     }
-
-    console.log("TOKEN OK");
 
     // =========================
     // 2️⃣ CREATE CONNECTION
     // =========================
-    console.log("STEP 2: Creating Connection...");
-
     const connRes = await fetch(`${API_V2}/connections`, {
       method: "POST",
       headers: {
@@ -54,27 +49,23 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        customerId: psuId,
+        userId: psuId,
         connectionMode: "PSD2",
         includeFakeProviders: true
       })
     });
 
     const connText = await connRes.text();
-    console.log("CONNECTION STATUS:", connRes.status);
-    console.log("CONNECTION RAW RESPONSE:", connText);
 
     if (!connRes.ok) {
-      throw new Error(`Connection failed: ${connText}`);
+      throw new Error(connText);
     }
 
     const connData = JSON.parse(connText);
 
     if (!connData.id) {
-      throw new Error("Connection ID missing in response");
+      throw new Error("Connection ID missing");
     }
-
-    console.log("CONNECTION CREATED:", connData.id);
 
     // =========================
     // 3️⃣ INIT FLOW
@@ -95,11 +86,9 @@ Deno.serve(async (req) => {
     });
 
     const initText = await initRes.text();
-    console.log("INIT STATUS:", initRes.status);
-    console.log("INIT RAW RESPONSE:", initText);
 
     if (!initRes.ok) {
-      throw new Error(`Init failed: ${initText}`);
+      throw new Error(initText);
     }
 
     const initData = JSON.parse(initText);
@@ -111,7 +100,9 @@ Deno.serve(async (req) => {
     });
 
   } catch (err) {
-    console.error(err);
-    return Response.json({ success: false, error: err.message }, { status: 500 });
+    return Response.json(
+      { success: false, error: err.message },
+      { status: 500 }
+    );
   }
 });
