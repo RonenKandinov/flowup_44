@@ -14,22 +14,37 @@ Deno.serve(async (req) => {
 
     const { psuId } = await req.json();
     console.log("PSU ID:", psuId);
-// 1️⃣ GET ACCESS TOKEN
-const tokenRes = await fetch(`${API_BASE}/oauth/token`, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    clientId: API_KEY,
-    clientSecret: API_SECRET
-  })
-});
 
+    // =========================
+    // 1️⃣ GET ACCESS TOKEN
+    // =========================
+    const tokenRes = await fetch(`${API_BASE}/oauth/token`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        clientId: API_KEY,
+        clientSecret: API_SECRET
+      })
+    });
 
-    // =====================================================
+    if (!tokenRes.ok) {
+      throw new Error(await tokenRes.text());
+    }
+
+    const tokenJson = await tokenRes.json();
+    const access_token = tokenJson.accessToken;
+
+    if (!access_token) {
+      throw new Error("No accessToken returned from OAuth");
+    }
+
+    console.log("TOKEN OK");
+
+    // =========================
     // 2️⃣ CREATE CONNECTION
-    // =====================================================
+    // =========================
     console.log("STEP 2: Creating Connection...");
 
     const connRes = await fetch(`${API_V2}/connections`, {
@@ -61,11 +76,9 @@ const tokenRes = await fetch(`${API_BASE}/oauth/token`, {
 
     console.log("CONNECTION CREATED:", connData.id);
 
-    // =====================================================
-    // 3️⃣ INIT OPEN BANKING FLOW
-    // =====================================================
-    console.log("STEP 3: Initializing Open Banking...");
-
+    // =========================
+    // 3️⃣ INIT FLOW
+    // =========================
     const initRes = await fetch(`${API_V2}/connect/open-banking-init`, {
       method: "POST",
       headers: {
@@ -74,7 +87,7 @@ const tokenRes = await fetch(`${API_BASE}/oauth/token`, {
       },
       body: JSON.stringify({
         connectionId: connData.id,
-        providerId: "hapoalim-sandbox", // אם ייפול נבדוק provider list
+        providerId: "hapoalim-sandbox",
         psuId: psuId,
         psuIdType: "NATIONAL_ID",
         redirectUri: "https://google.com"
@@ -91,26 +104,14 @@ const tokenRes = await fetch(`${API_BASE}/oauth/token`, {
 
     const initData = JSON.parse(initText);
 
-    console.log("=== FLOW COMPLETE SUCCESS ===");
-
     return Response.json({
       success: true,
       connectionId: connData.id,
-      connectUrl: initData.connectUrl || initData.scaOAuth || null,
-      debug: {
-        tokenStatus: tokenRes.status,
-        connectionStatus: connRes.status,
-        initStatus: initRes.status
-      }
+      connectUrl: initData.connectUrl || initData.scaOAuth || null
     });
 
   } catch (err) {
-    console.error("=== FLOW FAILED ===");
     console.error(err);
-
-    return Response.json({
-      success: false,
-      error: err.message
-    }, { status: 500 });
+    return Response.json({ success: false, error: err.message }, { status: 500 });
   }
 });
