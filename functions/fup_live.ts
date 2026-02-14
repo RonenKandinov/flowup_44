@@ -98,8 +98,7 @@ Deno.serve(async (req) => {
         connectionId,
        providerId: "mizrahi-sandbox",
         psuId,                      // ת"ז
-        psuIdType: "NATIONAL_ID",
-        redirectUri: "https://google.com"
+        psuIdType: "NATIONAL_ID"
       })
     });
 
