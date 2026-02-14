@@ -6,55 +6,50 @@ Deno.serve(async (req) => {
   try {
     const { psuId } = await req.json();
 
-    // 1. קבלת טוקן רענן
+    // 1. קבלת טוקן
     const tokenRes = await fetch(`${BASE_URL}/oauth/token`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId: psuId, clientId: API_KEY, clientSecret: API_SECRET })
     });
+    
     const tokenData = await tokenRes.json();
-    if (!tokenData.access_token) throw new Error("שגיאת טוקן: " + JSON.stringify(tokenData));
+    
+    // הדפסה ללוגים כדי שנראה מה השגיאה אם יש כזו
+    console.log("DEBUG - Token Response:", JSON.stringify(tokenData));
+
     const access_token = tokenData.access_token;
 
-    // 2. שליפת רשימת החיבורים
+    if (!access_token) {
+      return Response.json({ 
+        success: false, 
+        error: "שגיאת טוקן - המפתחות לא מזוהים ב-Settings",
+        debug: tokenData 
+      });
+    }
+
+    // 2. בדיקת חיבור קיים (מזרחי שכבר אישרת)
     const listRes = await fetch(`${BASE_URL}/connections?customerId=${psuId}`, {
       headers: { "Authorization": `Bearer ${access_token}` }
     });
     const connections = await listRes.json();
-    
-    // בדיקה שהחזיר מערך (כדי למנוע את שגיאת ה-find)
-    if (!Array.isArray(connections)) throw new Error("השרת לא החזיר רשימת חיבורים תקינה");
-
     const activeConn = connections.find(c => c.status === "CONNECTED");
-    if (!activeConn) throw new Error("לא נמצא חיבור פעיל. אנא בצע הזדהות מחדש");
 
-    // 3. שליפת החשבון הראשון
-    const accountsRes = await fetch(`${BASE_URL}/accounts`, {
-      headers: { "Authorization": `Bearer ${access_token}`, "X-Connection-Id": activeConn.id }
-    });
-    const accounts = await accountsRes.json();
-    const accountId = accounts[0]?.id;
-
-    if (!accountId) throw new Error("לא נמצאו חשבונות לחיבור זה");
-
-    // 4. שליפת העסקאות (הדובדבן שבקצפת)
-    const transRes = await fetch(`${BASE_URL}/transactions?accountId=${accountId}`, {
-      headers: { 
-        "Authorization": `Bearer ${access_token}`,
-        "X-Connection-Id": activeConn.id 
-      }
-    });
-    const transactions = await transRes.json();
+    if (!activeConn) {
+      return Response.json({ 
+        success: false, 
+        message: "הטוקן עובד! אבל לא מצאתי חיבור פעיל. וודא שאישרת בדפדפן."
+      });
+    }
 
     return Response.json({
       success: true,
-      bank: activeConn.providerId,
-      balance: accounts[0].balances?.current?.amount + " " + accounts[0].currency,
-      transactions_count: transactions.length,
-      recent_data: transactions.slice(0, 3) // מציג 3 עסקאות לדוגמה
+      token_found: true,
+      connection_id: activeConn.id,
+      bank: activeConn.providerId
     });
 
   } catch (err) {
-    return Response.json({ success: false, error: err.message }, { status: 500 });
+    return Response.json({ success: false, error: err.message });
   }
 });
