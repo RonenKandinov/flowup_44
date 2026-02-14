@@ -13,40 +13,18 @@ Deno.serve(async (req) => {
     const { psuId } = await req.json();
     console.log("PSU ID:", psuId);
 
-    // =====================================================
-    // 1️⃣ GET ACCESS TOKEN
-    // =====================================================
-    console.log("STEP 1: Requesting Access Token...");
-
-    const tokenRes = await fetch(`${BASE_URL}/oauth/token`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        grant_type: "client_credentials",
-        client_id: API_KEY,
-        client_secret: API_SECRET
-      })
-    });
-
-    const tokenText = await tokenRes.text();
-    console.log("TOKEN STATUS:", tokenRes.status);
-    console.log("TOKEN RAW RESPONSE:", tokenText);
-
-    if (!tokenRes.ok) {
-      throw new Error(`Token request failed: ${tokenText}`);
-    }
-
-    const tokenData = JSON.parse(tokenText);
-    const access_token = tokenData.access_token;
-
-    if (!access_token) {
-      throw new Error("No access_token received");
-    }
-
-    console.log("ACCESS TOKEN OK");
-
+   // 1️⃣ GET ACCESS TOKEN
+const tokenRes = await fetch(`https://api.open-finance.ai/oauth/token`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    grant_type: "client_credentials",
+    client_id: API_KEY,
+    client_secret: API_SECRET
+  })
+});
     // =====================================================
     // 2️⃣ CREATE CONNECTION
     // =====================================================
