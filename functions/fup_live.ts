@@ -112,13 +112,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    return Response.json({
-      success: true,
-      connectionId,
-      connectUrl: initJson.connectUrl || initJson.scaOAuth,
-  open: `<a href="${initJson.connectUrl}" target="_blank">"https://sbauth.sboapi.mizrahi-tefahot.co.il/oauth2/authorize</a>`
-      
-    });
+    return new Response(null, {
+  status: 302,
+  headers: {
+    Location: initJson.connectUrl
+  }
+});
 
   } catch (err) {
     return Response.json({
