@@ -115,7 +115,9 @@ Deno.serve(async (req) => {
     return Response.json({
       success: true,
       connectionId,
-      connectUrl: initJson.connectUrl || initJson.scaOAuth
+      connectUrl: initJson.connectUrl || initJson.scaOAuth,
+  open: `<a href="${initJson.connectUrl}" target="_blank">"https://sbauth.sboapi.mizrahi-tefahot.co.il/oauth2/authorize</a>`
+      
     });
 
   } catch (err) {
