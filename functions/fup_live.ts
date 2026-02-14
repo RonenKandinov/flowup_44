@@ -1,5 +1,7 @@
 Deno.serve(async (req) => {
-  const BASE_URL = "https://api.open-finance.ai/v2";
+  const API_BASE = "https://api.open-finance.ai";
+  const API_V2 = "https://api.open-finance.ai/v2";
+
   const API_KEY = Deno.env.get("OPEN_FINANCE_API_KEY");
   const API_SECRET = Deno.env.get("OPEN_FINANCE_API_SECRET");
 
@@ -7,30 +9,52 @@ Deno.serve(async (req) => {
     console.log("=== FLOWUP OPEN FINANCE START ===");
 
     if (!API_KEY || !API_SECRET) {
-      throw new Error("Missing API credentials in environment variables");
+      throw new Error("Missing OPEN_FINANCE_API_KEY or OPEN_FINANCE_API_SECRET");
     }
 
     const { psuId } = await req.json();
     console.log("PSU ID:", psuId);
 
-   // 1️⃣ GET ACCESS TOKEN
-const tokenRes = await fetch(`https://api.open-finance.ai/oauth/token`, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    grant_type: "client_credentials",
-    client_id: API_KEY,
-    client_secret: API_SECRET
-  })
-});
+    // =====================================================
+    // 1️⃣ GET ACCESS TOKEN
+    // =====================================================
+    console.log("STEP 1: Requesting Access Token...");
+
+    const tokenRes = await fetch(`${API_BASE}/oauth/token`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        grant_type: "client_credentials",
+        client_id: API_KEY,
+        client_secret: API_SECRET
+      })
+    });
+
+    const tokenText = await tokenRes.text();
+    console.log("TOKEN STATUS:", tokenRes.status);
+    console.log("TOKEN RAW RESPONSE:", tokenText);
+
+    if (!tokenRes.ok) {
+      throw new Error(`Token request failed: ${tokenText}`);
+    }
+
+    const tokenData = JSON.parse(tokenText);
+
+    if (!tokenData.accessToken) {
+      throw new Error("No accessToken received from OAuth");
+    }
+
+    const access_token = tokenData.accessToken;
+    console.log("ACCESS TOKEN RECEIVED");
+
     // =====================================================
     // 2️⃣ CREATE CONNECTION
     // =====================================================
     console.log("STEP 2: Creating Connection...");
 
-    const connRes = await fetch(`${BASE_URL}/connections`, {
+    const connRes = await fetch(`${API_V2}/connections`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${access_token}`,
@@ -64,7 +88,7 @@ const tokenRes = await fetch(`https://api.open-finance.ai/oauth/token`, {
     // =====================================================
     console.log("STEP 3: Initializing Open Banking...");
 
-    const initRes = await fetch(`${BASE_URL}/connect/open-banking-init`, {
+    const initRes = await fetch(`${API_V2}/connect/open-banking-init`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${access_token}`,
@@ -72,10 +96,10 @@ const tokenRes = await fetch(`https://api.open-finance.ai/oauth/token`, {
       },
       body: JSON.stringify({
         connectionId: connData.id,
-        providerId: "hapoalim-sandbox", // תשנה אם צריך
+        providerId: "hapoalim-sandbox", // אם ייפול נבדוק provider list
         psuId: psuId,
         psuIdType: "NATIONAL_ID",
-        redirectUri: "https://yourdomain.com/callback"
+        redirectUri: "https://google.com"
       })
     });
 
