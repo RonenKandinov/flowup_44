@@ -1,27 +1,23 @@
 Deno.serve(async (req) => {
-  // החלפתי את ה-URL לכתובת ישירה שעובדת בסנדבוקס
   const BASE_URL = "https://api.open-finance.ai/v2";
   const API_KEY = Deno.env.get("OPEN_FINANCE_API_KEY");
   const API_SECRET = Deno.env.get("OPEN_FINANCE_API_SECRET");
 
-  try {
-    const body = await req.json();
-    const psuId = body.psuId;
+  if (req.method !== "POST") return new Response("Use POST", { status: 405 });
 
-    // שלב 1: קבלת Token
+  try {
+    const { psuId } = await req.json();
+
+    // 1. קבלת Token
     const tokenRes = await fetch(`${BASE_URL}/oauth/token`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId: psuId, clientId: API_KEY, clientSecret: API_SECRET })
     });
-    
     const tokenData = await tokenRes.json();
     const access_token = tokenData.access_token;
 
-    // כאן אני מדפיס את הטוקן שחיפשת - הוא יופיע ב-Logs ב-Base44
-    console.log("MY_TOKEN_EYJ:", access_token);
-
-    // שלב 2: יצירת Connection לפועלים
+    // 2. יצירת Connection
     const connRes = await fetch(`${BASE_URL}/connections`, {
       method: "POST",
       headers: { "Authorization": `Bearer ${access_token}`, "Content-Type": "application/json" },
@@ -34,7 +30,7 @@ Deno.serve(async (req) => {
     });
     const connData = await connRes.json();
 
-    // שלב 3: הפקת לינק (Init)
+    // 3. יצירת הלינק (Init)
     const initRes = await fetch(`${BASE_URL}/connect/open-banking-init`, {
       method: "POST",
       headers: { "Authorization": `Bearer ${access_token}`, "Content-Type": "application/json" },
@@ -47,14 +43,22 @@ Deno.serve(async (req) => {
       })
     });
     const initData = await initRes.json();
+    const finalUrl = initData.connectUrl || initData.scaOAuth;
 
-    return Response.json({ 
-      success: true, 
-      token: access_token, 
-      url: initData.connectUrl || initData.scaOAuth 
+    // החזרה מפורשת של הנתונים כדי שיופיעו ב-Output
+    const responseBody = JSON.stringify({
+      message: "Success! Copy the token and URL below",
+      token: access_token, // הנה ה-eyJ שחיפשת
+      url: finalUrl,       // הלינק לאישור בדפדפן
+      connectionId: connData.id
+    });
+
+    return new Response(responseBody, {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
     });
 
   } catch (err) {
-    return Response.json({ success: false, error: err.message }, { status: 500 });
+    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
   }
 });
