@@ -24,7 +24,7 @@ console.log("RAW CONNECTION LIST:", listJson);
 const connections = Array.isArray(listJson)
   ? listJson
   : listJson.data || [];
-
+console.log("ALL CONNECTIONS FULL OBJECT:", JSON.stringify(connections, null, 2));
 const activeConn = connections.find(c => c.status === "CONNECTED");
 
 
