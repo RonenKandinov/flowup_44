@@ -47,39 +47,48 @@ const connectionId = completed?.id;
 
   
 
-  // 3️⃣ Get accounts
-  const accountsRes = await fetch(
-    `${API_V2}/connections/${connectionId}/accounts`,
-    {
-      headers: {
-        "Authorization": `Bearer ${access_token}`
-      }
+  // 3️⃣ Get accounts (flat endpoint)
+const accountsRes = await fetch(
+  `${API_V2}/accounts?connectionId=${connectionId}`,
+  {
+    headers: {
+      "Authorization": `Bearer ${access_token}`
     }
-  );
-
-  const accounts = await accountsRes.json();
-  const accountId = accounts.data?.[0]?.id;
-
-  if (!accountId) {
-    return Response.json({ error: "No accounts found", accounts });
   }
+);
 
-  // 4️⃣ Get transactions
-  const txRes = await fetch(
-    `${API_V2}/accounts/${accountId}/transactions`,
-    {
-      headers: {
-        "Authorization": `Bearer ${access_token}`
-      }
-    }
-  );
+const accounts = await accountsRes.json();
 
-  const transactions = await txRes.json();
-
+if (!accountsRes.ok) {
   return Response.json({
-    success: true,
-    connectionId,
-    accounts,
+    error: "Accounts fetch failed",
+    accounts
+  });
+}
+
+// 4️⃣ Get transactions (flat endpoint)
+const txRes = await fetch(
+  `${API_V2}/transactions?connectionId=${connectionId}`,
+  {
+    headers: {
+      "Authorization": `Bearer ${access_token}`
+    }
+  }
+);
+
+const transactions = await txRes.json();
+
+if (!txRes.ok) {
+  return Response.json({
+    error: "Transactions fetch failed",
     transactions
   });
+}
+
+return Response.json({
+  success: true,
+  connectionId,
+  accounts,
+  transactions
+});
 });
