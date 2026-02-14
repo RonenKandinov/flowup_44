@@ -112,13 +112,21 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(null, {
-  status: 302,
-  headers: {
-    Location: initJson.connectUrl
-  }
+   return new Response(`
+  <html>
+    <head>
+      <meta http-equiv="refresh" content="0; url=${initJson.connectUrl}" />
+    </head>
+    <body>
+      Redirecting to bank...
+      <script>
+        window.location.href = "${initJson.connectUrl}";
+      </script>
+    </body>
+  </html>
+`, {
+  headers: { "Content-Type": "text/html" }
 });
-
   } catch (err) {
     return Response.json({
       success: false,
