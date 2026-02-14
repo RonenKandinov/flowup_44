@@ -30,18 +30,22 @@ Deno.serve(async (req) => {
 
   const connections = await connectionsRes.json();
 
-  const authorized = connections.data?.find(
-    (c) => c.status === "AUTHORIZED"
-  );
+const list = connections.items || connections.data || connections;
 
-  if (!authorized) {
-    return Response.json({
-      error: "No AUTHORIZED connection found",
-      connections
-    });
-  }
+const completed = list.find(
+  (c) => c.status === "COMPLETED"
+);
 
-  const connectionId = authorized.id;
+if (!completed) {
+  return Response.json({
+    error: "No COMPLETED connection found",
+    connections
+  });
+}
+
+const connectionId = completed?.id;
+
+  
 
   // 3️⃣ Get accounts
   const accountsRes = await fetch(
