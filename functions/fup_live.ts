@@ -70,10 +70,10 @@ Deno.serve(async (req) => {
       const initJson = await initRes.json();
       const redirectUrl = initJson.connectUrl;
 
-      return Response.json({
-        success: true,
-        redirectUrl
-      });
+     return Response.json({
+  success: true,
+  initResponse: initJson
+});
     }
 
     // ========================================
