@@ -120,22 +120,71 @@ if (!redirectUrl) {
     initResponse: initJson
   });
 }
+// ===============================
+// 4️⃣ GET ACCOUNTS
+// ===============================
+const accountsRes = await fetch(
+  `${API_V2}/accounts?connectionId=${connectionId}`,
+  {
+    headers: {
+      "Authorization": `Bearer ${access_token}`
+    }
+  }
+);
 
-return new Response(`
-  <html>
-    <head>
-      <meta http-equiv="refresh" content="0; url=${redirectUrl}" />
-    </head>
-    <body>
-      Redirecting to bank...
-      <script>
-        window.location.href = "${redirectUrl}";
-      </script>
-    </body>
-  </html>
-`, {
-  headers: { "Content-Type": "text/html" }
+const accountsJson = await accountsRes.json();
+
+if (!accountsRes.ok) {
+  return Response.json({
+    success: false,
+    step: "GET_ACCOUNTS",
+    error: accountsJson
+  });
+}
+
+const accountId = accountsJson?.data?.[0]?.id;
+
+if (!accountId) {
+  return Response.json({
+    success: false,
+    step: "NO_ACCOUNT_FOUND",
+    accounts: accountsJson
+  });
+}
+
+// ===============================
+// 5️⃣ GET TRANSACTIONS
+// ===============================
+const txRes = await fetch(
+  `${API_V2}/transactions?accountId=${accountId}`,
+  {
+    headers: {
+      "Authorization": `Bearer ${access_token}`
+    }
+  }
+);
+
+const txJson = await txRes.json();
+
+if (!txRes.ok) {
+  return Response.json({
+    success: false,
+    step: "GET_TRANSACTIONS",
+    error: txJson
+  });
+}
+
+// ===============================
+// RETURN EVERYTHING
+// ===============================
+return Response.json({
+  success: true,
+  connectionId,
+  accounts: accountsJson,
+  transactions: txJson
 });
+
+
    
   } catch (err) {
     return Response.json({
