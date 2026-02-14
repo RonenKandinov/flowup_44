@@ -6,7 +6,7 @@ Deno.serve(async (req) => {
   try {
     const { psuId } = await req.json();
 
-    // 1. קבלת טוקן
+    // 1. קבלת טוקן (כבר ראינו שזה עובד לך)
     const tokenRes = await fetch(`${BASE_URL}/oauth/token`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -14,26 +14,32 @@ Deno.serve(async (req) => {
     });
     const { access_token } = await tokenRes.json();
 
-    // 2. איתור החיבור הפעיל שלך
+    // 2. איתור החיבור הפעיל (מזרחי טפחות שאישרת)
     const listRes = await fetch(`${BASE_URL}/connections?customerId=${psuId}`, {
       headers: { "Authorization": `Bearer ${access_token}` }
     });
     const connections = await listRes.json();
     const activeConn = connections.find(c => c.status === "CONNECTED");
 
-    if (!activeConn) throw new Error("לא נמצא חיבור פעיל");
+    if (!activeConn) {
+      return Response.json({ error: "לא נמצא חיבור פעיל. וודא שאישרת את הלינק בדפדפן." });
+    }
 
-    // 3. שליפת רשימת החשבונות
+    // 3. שליפת רשימת החשבונות מהבנק
     const accountsRes = await fetch(`${BASE_URL}/accounts`, {
-      headers: { "Authorization": `Bearer ${access_token}`, "X-Connection-Id": activeConn.id }
+      headers: { 
+        "Authorization": `Bearer ${access_token}`,
+        "X-Connection-Id": activeConn.id 
+      }
     });
     const accounts = await accountsRes.json();
-    
-    // ניקח את ה-ID של החשבון הראשון שמצאנו
     const accountId = accounts[0]?.id;
-    if (!accountId) throw new Error("לא נמצאו חשבונות בחיבור הזה");
 
-    // 4. שליפת העסקאות עבור החשבון הזה
+    if (!accountId) {
+      return Response.json({ error: "החיבור קיים אך לא נמצאו חשבונות." });
+    }
+
+    // 4. שליפת העסקאות של החשבון
     const transRes = await fetch(`${BASE_URL}/transactions?accountId=${accountId}`, {
       headers: { 
         "Authorization": `Bearer ${access_token}`,
@@ -42,16 +48,13 @@ Deno.serve(async (req) => {
     });
     const transactions = await transRes.json();
 
-    // החזרת הנתונים בצורה מסודרת
+    // הצגת התוצאה הסופית
     return Response.json({
       success: true,
       bank: activeConn.providerId,
-      account_summary: {
-        id: accountId,
-        balance: accounts[0].balances?.current?.amount,
-        currency: accounts[0].currency
-      },
-      recent_transactions: transactions.slice(0, 5) // מציג רק את 5 העסקאות האחרונות
+      balance: accounts[0].balances?.current?.amount + " " + accounts[0].currency,
+      total_transactions: transactions.length,
+      transactions: transactions.slice(0, 10) // מציג 10 עסקאות אחרונות
     });
 
   } catch (err) {
