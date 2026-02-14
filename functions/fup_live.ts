@@ -14,40 +14,18 @@ Deno.serve(async (req) => {
 
     const { psuId } = await req.json();
     console.log("PSU ID:", psuId);
+// 1️⃣ GET ACCESS TOKEN
+const tokenRes = await fetch(`${API_BASE}/oauth/token`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    clientId: API_KEY,
+    clientSecret: API_SECRET
+  })
+});
 
-    // =====================================================
-    // 1️⃣ GET ACCESS TOKEN
-    // =====================================================
-    console.log("STEP 1: Requesting Access Token...");
-
-    const tokenRes = await fetch(`${API_BASE}/oauth/token`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        grant_type: "client_credentials",
-        client_id: API_KEY,
-        client_secret: API_SECRET
-      })
-    });
-
-    const tokenText = await tokenRes.text();
-    console.log("TOKEN STATUS:", tokenRes.status);
-    console.log("TOKEN RAW RESPONSE:", tokenText);
-
-    if (!tokenRes.ok) {
-      throw new Error(`Token request failed: ${tokenText}`);
-    }
-
-    const tokenData = JSON.parse(tokenText);
-
-    if (!tokenData.accessToken) {
-      throw new Error("No accessToken received from OAuth");
-    }
-
-    const access_token = tokenData.accessToken;
-    console.log("ACCESS TOKEN RECEIVED");
 
     // =====================================================
     // 2️⃣ CREATE CONNECTION
