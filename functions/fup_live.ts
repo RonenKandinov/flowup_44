@@ -48,11 +48,13 @@ Deno.serve(async (req) => {
         "Authorization": `Bearer ${access_token}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        userId: psuId,
-        connectionMode: "PSD2",
-        includeFakeProviders: true
-      })
+     body: JSON.stringify({
+  data: {
+    userId: psuId,
+    connectionMode: "PSD2",
+    includeFakeProviders: true
+  }
+})
     });
 
     const connText = await connRes.text();
