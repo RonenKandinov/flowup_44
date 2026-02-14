@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        userId,
+        
         clientId: API_KEY,
         clientSecret: API_SECRET
       })
