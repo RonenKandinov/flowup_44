@@ -1,110 +1,52 @@
 Deno.serve(async (req) => {
-  const API_BASE = "https://api.open-finance.ai";
-  const API_V2 = "https://api.open-finance.ai/v2";
-
+  const BASE_URL = "https://api.open-finance.ai/v2";
   const API_KEY = Deno.env.get("OPEN_FINANCE_API_KEY");
   const API_SECRET = Deno.env.get("OPEN_FINANCE_API_SECRET");
 
   try {
-    if (!API_KEY || !API_SECRET) {
-      throw new Error("Missing API credentials");
-    }
-
     const { psuId } = await req.json();
 
-    if (!psuId) {
-      throw new Error("psuId is required");
-    }
-
-    // =========================
-    // 1️⃣ TOKEN
-    // =========================
-    const tokenRes = await fetch(`${API_BASE}/oauth/token`, {
+    // 1. קבלת טוקן
+    const tokenRes = await fetch(`${BASE_URL}/oauth/token`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        clientId: API_KEY,
-        clientSecret: API_SECRET
-      })
+      body: JSON.stringify({ userId: psuId, clientId: API_KEY, clientSecret: API_SECRET })
     });
+    const { access_token } = await tokenRes.json();
 
-    if (!tokenRes.ok) {
-      throw new Error(await tokenRes.text());
-    }
-
-    const tokenJson = await tokenRes.json();
-    const access_token = tokenJson.accessToken;
-
-    if (!access_token) {
-      throw new Error("No accessToken returned");
-    }
-
-    // =========================
-    // 2️⃣ CREATE CONNECTION
-    // =========================
-    const connRes = await fetch(`${API_V2}/connections`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${access_token}`,
-        "Content-Type": "application/json"
-      },
-     body: JSON.stringify({
-  data: {
-    userId: psuId,
-    connectionMode: "PSD2",
-    includeFakeProviders: true
-  }
-})
+    // 2. איתור החיבור הפעיל
+    const listRes = await fetch(`${BASE_URL}/connections?customerId=${psuId}`, {
+      headers: { "Authorization": `Bearer ${access_token}` }
     });
+    const connections = await listRes.json();
+    const activeConn = connections.find(c => c.status === "CONNECTED");
 
-    const connText = await connRes.text();
-
-    if (!connRes.ok) {
-      throw new Error(connText);
+    if (!activeConn) {
+      return Response.json({ message: "לא נמצא חיבור פעיל. וודא שאישרת במזרחי." });
     }
 
-    const connData = JSON.parse(connText);
-
-    if (!connData.id) {
-      throw new Error("Connection ID missing");
-    }
-
-    // =========================
-    // 3️⃣ INIT FLOW
-    // =========================
-    const initRes = await fetch(`${API_V2}/connect/open-banking-init`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${access_token}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        connectionId: connData.id,
-        providerId: "hapoalim-sandbox",
-        psuId: psuId,
-        psuIdType: "NATIONAL_ID",
-        redirectUri: "https://google.com"
-      })
+    // 3. שליפת חשבון
+    const accountsRes = await fetch(`${BASE_URL}/accounts`, {
+      headers: { "Authorization": `Bearer ${access_token}`, "X-Connection-Id": activeConn.id }
     });
+    const accounts = await accountsRes.json();
+    const accountId = accounts[0]?.id;
 
-    const initText = await initRes.text();
+    // 4. שליפת עסקאות
+    const transRes = await fetch(`${BASE_URL}/transactions?accountId=${accountId}`, {
+      headers: { "Authorization": `Bearer ${access_token}`, "X-Connection-Id": activeConn.id }
+    });
+    const transactions = await transRes.json();
 
-    if (!initRes.ok) {
-      throw new Error(initText);
-    }
-
-    const initData = JSON.parse(initText);
-
+    // החזרת התוצאה המלאה למסך
     return Response.json({
       success: true,
-      connectionId: connData.id,
-      connectUrl: initData.connectUrl || initData.scaOAuth || null
+      bank: activeConn.providerId,
+      balance: accounts[0].balances?.current?.amount + " " + accounts[0].currency,
+      transactions: transactions.slice(0, 10) // יציג את 10 העסקאות האחרונות
     });
 
   } catch (err) {
-    return Response.json(
-      { success: false, error: err.message },
-      { status: 500 }
-    );
+    return Response.json({ success: false, error: err.message });
   }
 });
