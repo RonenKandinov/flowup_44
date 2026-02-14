@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         connectionId,
-        providerId: "mizrahi-tefahot-sandbox",
+      providerId: "mizrahi-sandbox",
         psuId,                      // ת"ז
         psuIdType: "NATIONAL_ID",
         redirectUri: "https://google.com"
