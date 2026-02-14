@@ -102,25 +102,25 @@ Deno.serve(async (req) => {
       })
     });
 
-    const initJson = await initRes.json();
+  const redirectUrl = initJson.connectUrl || initJson.scaOAuth;
 
-    if (!initRes.ok) {
-      return Response.json({
-        success: false,
-        step: "INIT",
-        error: initJson
-      });
-    }
+if (!redirectUrl) {
+  return Response.json({
+    success: false,
+    step: "NO_REDIRECT_URL",
+    initResponse: initJson
+  });
+}
 
-   return new Response(`
+return new Response(`
   <html>
     <head>
-      <meta http-equiv="refresh" content="0; url=${initJson.connectUrl}" />
+      <meta http-equiv="refresh" content="0; url=${redirectUrl}" />
     </head>
     <body>
       Redirecting to bank...
       <script>
-        window.location.href = "${initJson.connectUrl}";
+        window.location.href = "${redirectUrl}";
       </script>
     </body>
   </html>
