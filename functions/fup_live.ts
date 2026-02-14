@@ -18,8 +18,15 @@ Deno.serve(async (req) => {
     const listRes = await fetch(`${BASE_URL}/connections?customerId=${psuId}`, {
       headers: { "Authorization": `Bearer ${access_token}` }
     });
-    const connections = await listRes.json();
-    const activeConn = connections.find(c => c.status === "CONNECTED");
+   const listJson = await listRes.json();
+console.log("RAW CONNECTION LIST:", listJson);
+
+const connections = Array.isArray(listJson)
+  ? listJson
+  : listJson.data || [];
+
+const activeConn = connections.find(c => c.status === "CONNECTED");
+
 
     if (!activeConn) {
       return Response.json({ message: "לא נמצא חיבור פעיל. וודא שאישרת במזרחי." });
