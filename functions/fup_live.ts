@@ -1,5 +1,6 @@
 Deno.serve(async (req) => {
-  const BASE_URL = "https://api.open-finance.ai/v2";
+  const API_ROOT = "https://api.open-finance.ai";
+  const API_V2 = "https://api.open-finance.ai/v2";
 
   const API_KEY = Deno.env.get("OPEN_FINANCE_API_KEY");
   const API_SECRET = Deno.env.get("OPEN_FINANCE_API_SECRET");
@@ -14,8 +15,10 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ===============================
     // 1️⃣ GET TOKEN
-    const tokenRes = await fetch(`${BASE_URL}/oauth/token`, {
+    // ===============================
+    const tokenRes = await fetch(`${API_ROOT}/oauth/token`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -28,13 +31,19 @@ Deno.serve(async (req) => {
     const tokenJson = await tokenRes.json();
 
     if (!tokenRes.ok) {
-      throw new Error(JSON.stringify(tokenJson));
+      return Response.json({
+        success: false,
+        step: "TOKEN",
+        error: tokenJson
+      });
     }
 
     const access_token = tokenJson.access_token;
 
+    // ===============================
     // 2️⃣ CREATE CONNECTION
-    const connRes = await fetch(`${BASE_URL}/connections`, {
+    // ===============================
+    const connRes = await fetch(`${API_V2}/connections`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${access_token}`,
@@ -50,13 +59,19 @@ Deno.serve(async (req) => {
     const connJson = await connRes.json();
 
     if (!connRes.ok) {
-      throw new Error(JSON.stringify(connJson));
+      return Response.json({
+        success: false,
+        step: "CREATE_CONNECTION",
+        error: connJson
+      });
     }
 
     const connectionId = connJson.id;
 
-    // 3️⃣ INIT OPEN BANKING FLOW
-    const initRes = await fetch(`${BASE_URL}/connect/open-banking-init`, {
+    // ===============================
+    // 3️⃣ INIT OPEN BANKING
+    // ===============================
+    const initRes = await fetch(`${API_V2}/connect/open-banking-init`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${access_token}`,
@@ -65,7 +80,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         connectionId,
         providerId: "mizrahi-tefahot-sandbox",
-        psuId: psuId,
+        psuId,
         psuIdType: "NATIONAL_ID",
         redirectUri: "https://google.com"
       })
@@ -74,7 +89,11 @@ Deno.serve(async (req) => {
     const initJson = await initRes.json();
 
     if (!initRes.ok) {
-      throw new Error(JSON.stringify(initJson));
+      return Response.json({
+        success: false,
+        step: "INIT",
+        error: initJson
+      });
     }
 
     return Response.json({
