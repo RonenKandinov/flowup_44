@@ -2,8 +2,6 @@
 Deno.serve(async (req) => {
   const API_KEY = Deno.env.get("OPEN_FINANCE_API_KEY");
   const API_SECRET = Deno.env.get("OPEN_FINANCE_API_SECRET");
-  
-  // ה-URL הנכון עבור Sandbox (במקום ה-API_PREFIX)
   const BASE_URL = "https://api.open-finance.ai/v2";
 
   if (req.method !== "POST") return new Response("Use POST", { status: 405 });
@@ -20,26 +18,26 @@ Deno.serve(async (req) => {
     });
     const { access_token } = await tokenRes.json();
 
-    // 2. יצירת Connection
+    // 2. יצירת Connection עם הרשאות מלאות
     const connRes = await fetch(`${BASE_URL}/connections`, {
       method: "POST",
       headers: { "Authorization": `Bearer ${access_token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ 
         customerId: psuId, 
         connectionMode: "PSD2", 
-        includeFakeProviders: true, // קריטי עבור פועלים סנדבוקס
+        includeFakeProviders: true, // חובה כדי שהפועלים-סנדבוקס יופיע
         permissions: ["READ_ACCOUNTS", "READ_BALANCES", "READ_TRANSACTIONS"] 
       })
     });
     const connData = await connRes.json();
 
-    // 3. יצירת הלינק (init) במיוחד לפועלים
+    // 3. יצירת הלינק (Init) ספציפית לבנק הפועלים
     const initRes = await fetch(`${BASE_URL}/connect/open-banking-init`, {
       method: "POST",
       headers: { "Authorization": `Bearer ${access_token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ 
         connectionId: connData.id, 
-        providerId: "poalim-sandbox", 
+        providerId: "hapoalim-sandbox", // זה המזהה של הפועלים בסנדבוקס
         psuId: psuId, 
         psuIdType: "NATIONAL_ID",
         redirectUri: "https://google.com" 
@@ -47,10 +45,12 @@ Deno.serve(async (req) => {
     });
     const initData = await initRes.json();
 
-    // מחזיר את ה-URL האמיתי להזדהות
+    // חילוץ ה-URL שהקוד יציג לך ב-Output
+    const finalUrl = initData.connectUrl || initData.scaOAuth;
+
     return Response.json({ 
       success: true, 
-      url: initData.connectUrl || initData.scaOAuth,
+      url: finalUrl, 
       connectionId: connData.id 
     });
 
