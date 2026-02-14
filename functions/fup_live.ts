@@ -6,50 +6,48 @@ Deno.serve(async (req) => {
   try {
     const { psuId } = await req.json();
 
-    // 1. קבלת טוקן
+    // 1. הפקת Access Token
     const tokenRes = await fetch(`${BASE_URL}/oauth/token`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId: psuId, clientId: API_KEY, clientSecret: API_SECRET })
     });
-    
     const tokenData = await tokenRes.json();
-    
-    // הדפסה ללוגים כדי שנראה מה השגיאה אם יש כזו
-    console.log("DEBUG - Token Response:", JSON.stringify(tokenData));
-
     const access_token = tokenData.access_token;
 
-    if (!access_token) {
-      return Response.json({ 
-        success: false, 
-        error: "שגיאת טוקן - המפתחות לא מזוהים ב-Settings",
-        debug: tokenData 
-      });
-    }
+    // --- ההדפסה החשובה ללוגים ---
+    console.log("--- COPY THIS TOKEN FOR PORTAL ---");
+    console.log(access_token); 
+    console.log("----------------------------------");
 
-    // 2. בדיקת חיבור קיים (מזרחי שכבר אישרת)
-    const listRes = await fetch(`${BASE_URL}/connections?customerId=${psuId}`, {
-      headers: { "Authorization": `Bearer ${access_token}` }
+    // 2. יצירת Connection ו-Init
+    const connRes = await fetch(`${BASE_URL}/connections`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${access_token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ customerId: psuId, connectionMode: "PSD2", includeFakeProviders: true })
     });
-    const connections = await listRes.json();
-    const activeConn = connections.find(c => c.status === "CONNECTED");
+    const connData = await connRes.json();
 
-    if (!activeConn) {
-      return Response.json({ 
-        success: false, 
-        message: "הטוקן עובד! אבל לא מצאתי חיבור פעיל. וודא שאישרת בדפדפן."
-      });
-    }
+    const initRes = await fetch(`${BASE_URL}/connect/open-banking-init`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${access_token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        connectionId: connData.id, 
+        providerId: "hapoalim-sandbox", 
+        psuId: psuId, 
+        psuIdType: "NATIONAL_ID",
+        redirectUri: "https://google.com"
+      })
+    });
+    const initData = await initRes.json();
 
     return Response.json({
       success: true,
-      token_found: true,
-      connection_id: activeConn.id,
-      bank: activeConn.providerId
+      real_token: access_token,
+      url: initData.connectUrl || initData.scaOAuth
     });
 
   } catch (err) {
-    return Response.json({ success: false, error: err.message });
+    return Response.json({ error: err.message }, { status: 500 });
   }
 });
