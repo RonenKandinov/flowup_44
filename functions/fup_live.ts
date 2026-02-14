@@ -48,7 +48,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    const access_token = tokenJson.access_token;
+    const access_token = tokenJson.access_token || tokenJson.token;
+
+if (!access_token) {
+  return Response.json({
+    success: false,
+    step: "TOKEN_NO_ACCESS_TOKEN",
+    tokenResponse: tokenJson
+  });
+}
+
 
     // ===============================
     // 🔎 DECODE TOKEN
