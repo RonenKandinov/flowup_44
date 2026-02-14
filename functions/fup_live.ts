@@ -23,22 +23,21 @@ Deno.serve(async (req) => {
     }
 
     // ===============================
-    // 1️⃣ GET TOKEN
+    // 1️⃣ GET TOKEN (userId חובה כאן)
     // ===============================
     const tokenRes = await fetch(`${API_ROOT}/oauth/token`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json"
+      },
       body: JSON.stringify({
-        
+        userId,               // ✅ חייב כאן
         clientId: API_KEY,
         clientSecret: API_SECRET
       })
     });
 
     const tokenJson = await tokenRes.json();
-
-    console.log("TOKEN STATUS:", tokenRes.status);
-    console.log("TOKEN RESPONSE:", tokenJson);
 
     if (!tokenRes.ok) {
       return Response.json({
@@ -48,52 +47,19 @@ Deno.serve(async (req) => {
       });
     }
 
-   const access_token = tokenJson.accessToken;
+    // חשוב: השדה הנכון הוא accessToken (CamelCase)
+    const access_token = tokenJson.accessToken;
 
-if (!access_token) {
-  return Response.json({
-    success: false,
-    step: "TOKEN_NO_ACCESS_TOKEN",
-    tokenResponse: tokenJson
-  });
-}
-
-
-    // ===============================
-    // 🔎 DECODE TOKEN
-    // ===============================
-    const payload = JSON.parse(
-      atob(access_token.split(".")[1])
-    );
-
-    console.log("DECODED TOKEN:", payload);
-
-    // ===============================
-    // 🔎 TEST GET CONNECTIONS
-    // ===============================
-    const testRes = await fetch(`${API_V2}/connections`, {
-      method: "GET",
-      headers: {
-        "Authorization": `Bearer ${access_token}`
-      }
-    });
-
-    const testJson = await testRes.json();
-
-    console.log("TEST GET STATUS:", testRes.status);
-    console.log("TEST GET RESPONSE:", testJson);
-
-    if (!testRes.ok) {
+    if (!access_token) {
       return Response.json({
         success: false,
-        step: "TEST_GET_CONNECTIONS",
-        error: testJson,
-        decodedToken: payload
+        step: "TOKEN_NO_ACCESS_TOKEN",
+        tokenResponse: tokenJson
       });
     }
 
     // ===============================
-    // 2️⃣ CREATE CONNECTION
+    // 2️⃣ CREATE CONNECTION (בלי userId!)
     // ===============================
     const connRes = await fetch(`${API_V2}/connections`, {
       method: "POST",
@@ -102,7 +68,6 @@ if (!access_token) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        userId,
         connectionMode: "PSD2",
         includeFakeProviders: true
       })
@@ -110,15 +75,11 @@ if (!access_token) {
 
     const connJson = await connRes.json();
 
-    console.log("CREATE CONNECTION STATUS:", connRes.status);
-    console.log("CREATE CONNECTION RESPONSE:", connJson);
-
     if (!connRes.ok) {
       return Response.json({
         success: false,
         step: "CREATE_CONNECTION",
-        error: connJson,
-        decodedToken: payload
+        error: connJson
       });
     }
 
@@ -136,16 +97,13 @@ if (!access_token) {
       body: JSON.stringify({
         connectionId,
         providerId: "mizrahi-tefahot-sandbox",
-        psuId,
+        psuId,                      // ת"ז
         psuIdType: "NATIONAL_ID",
         redirectUri: "https://google.com"
       })
     });
 
     const initJson = await initRes.json();
-
-    console.log("INIT STATUS:", initRes.status);
-    console.log("INIT RESPONSE:", initJson);
 
     if (!initRes.ok) {
       return Response.json({
