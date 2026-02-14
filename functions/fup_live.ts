@@ -84,25 +84,34 @@ Deno.serve(async (req) => {
     }
 
     const connectionId = connJson.id;
+// ===============================
+// 3️⃣ INIT OPEN BANKING
+// ===============================
+const initRes = await fetch(`${API_V2}/connect/open-banking-init`, {
+  method: "POST",
+  headers: {
+    "Authorization": `Bearer ${access_token}`,
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    connectionId,
+    providerId: "mizrahi-sandbox",
+    psuId,
+    psuIdType: "NATIONAL_ID"
+  })
+});
 
-    // ===============================
-    // 3️⃣ INIT OPEN BANKING
-    // ===============================
-    const initRes = await fetch(`${API_V2}/connect/open-banking-init`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${access_token}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        connectionId,
-       providerId: "mizrahi-sandbox",
-        psuId,                      // ת"ז
-        psuIdType: "NATIONAL_ID"
-      })
-    });
+const initJson = await initRes.json();  // 👈 השורה שהייתה חסרה
 
-  const redirectUrl = initJson.connectUrl || initJson.scaOAuth;
+if (!initRes.ok) {
+  return Response.json({
+    success: false,
+    step: "INIT",
+    error: initJson
+  });
+}
+
+const redirectUrl = initJson.connectUrl || initJson.scaOAuth;
 
 if (!redirectUrl) {
   return Response.json({
@@ -127,6 +136,7 @@ return new Response(`
 `, {
   headers: { "Content-Type": "text/html" }
 });
+   
   } catch (err) {
     return Response.json({
       success: false,
