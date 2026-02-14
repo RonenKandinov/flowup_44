@@ -44,12 +44,9 @@ if (!completed) {
 }
 
 const connectionId = completed?.id;
-
-  
-
-  // 3️⃣ Get accounts (flat endpoint)
-const accountsRes = await fetch(
-  `${API_V2}/accounts?connectionId=${connectionId}`,
+// 3️⃣ Get full connection details
+const fullConnRes = await fetch(
+  `${API_V2}/connections/${connectionId}`,
   {
     headers: {
       "Authorization": `Bearer ${access_token}`
@@ -57,38 +54,21 @@ const accountsRes = await fetch(
   }
 );
 
-const accounts = await accountsRes.json();
+const fullConnection = await fullConnRes.json();
 
-if (!accountsRes.ok) {
+if (!fullConnRes.ok) {
   return Response.json({
-    error: "Accounts fetch failed",
-    accounts
-  });
-}
-
-// 4️⃣ Get transactions (flat endpoint)
-const txRes = await fetch(
-  `${API_V2}/transactions?connectionId=${connectionId}`,
-  {
-    headers: {
-      "Authorization": `Bearer ${access_token}`
-    }
-  }
-);
-
-const transactions = await txRes.json();
-
-if (!txRes.ok) {
-  return Response.json({
-    error: "Transactions fetch failed",
-    transactions
+    error: "Failed to fetch connection details",
+    fullConnection
   });
 }
 
 return Response.json({
   success: true,
   connectionId,
-  accounts,
-  transactions
+  connectionData: fullConnection
 });
+  
+
+
 });
