@@ -84,59 +84,57 @@ Deno.serve(async (req) => {
     const connectionId = completed.id;
 
     // ===============================
-    // 3️⃣ GET ACCOUNTS
-    // ===============================
-    const accountsRes = await fetch(
-      `${API_V2}/accounts?connectionId=${connectionId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${access_token}`,
-          Accept: "application/json"
-        }
-      }
-    );
-
-    const accountsJson = await accountsRes.json();
-
-    if (!accountsRes.ok) {
-      return Response.json({
-        error: "Failed to fetch accounts",
-        accountsJson
-      }, { status: 500 });
+// 3️⃣ GET ACCOUNTS (Correct Path)
+// ===============================
+const accountsRes = await fetch(
+  `${API_V2}/connections/${connectionId}/accounts`,
+  {
+    headers: {
+      Authorization: `Bearer ${access_token}`,
+      Accept: "application/json"
     }
+  }
+);
 
-    const accounts =
-      accountsJson.items ||
-      accountsJson.data ||
-      accountsJson;
+const accountsJson = await accountsRes.json();
 
+if (!accountsRes.ok) {
+  return Response.json({
+    error: "Failed to fetch accounts",
+    accountsJson
+  }, { status: 500 });
+}
+
+const accounts =
+  accountsJson.items ||
+  accountsJson.data ||
+  accountsJson;
     // ===============================
-    // 4️⃣ GET TRANSACTIONS
-    // ===============================
-    const transactionsRes = await fetch(
-      `${API_V2}/transactions?connectionId=${connectionId}&fromDate=2025-01-01`,
-      {
-        headers: {
-          Authorization: `Bearer ${access_token}`,
-          Accept: "application/json"
-        }
-      }
-    );
-
-    const transactionsJson = await transactionsRes.json();
-
-    if (!transactionsRes.ok) {
-      return Response.json({
-        error: "Failed to fetch transactions",
-        transactionsJson
-      }, { status: 500 });
+// 4️⃣ GET TRANSACTIONS (Correct Path)
+// ===============================
+const transactionsRes = await fetch(
+  `${API_V2}/connections/${connectionId}/transactions?fromDate=2025-01-01`,
+  {
+    headers: {
+      Authorization: `Bearer ${access_token}`,
+      Accept: "application/json"
     }
+  }
+);
 
-    const transactions =
-      transactionsJson.items ||
-      transactionsJson.data ||
-      transactionsJson;
+const transactionsJson = await transactionsRes.json();
 
+if (!transactionsRes.ok) {
+  return Response.json({
+    error: "Failed to fetch transactions",
+    transactionsJson
+  }, { status: 500 });
+}
+
+const transactions =
+  transactionsJson.items ||
+  transactionsJson.data ||
+  transactionsJson;
     // ===============================
     // SUCCESS RESPONSE
     // ===============================
