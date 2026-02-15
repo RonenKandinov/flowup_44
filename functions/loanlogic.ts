@@ -1,5 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.11';
-import * as _ from 'npm:lodash@4.17.21';
+import { createClientFromRequest } from 'npm:@base44/sdk';
 
 // Keyword dictionaries for categorization mapping
 const FIXED_CATEGORIES = ['housing', 'loans', 'transportation', 'insurance', 'tax', 'utilities'];
