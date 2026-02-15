@@ -50,12 +50,10 @@ Deno.serve(async (req) => {
         dti: parseFloat(dti.toFixed(1)),
         status: dti < 40 ? "GREEN" : dti < 60 ? "ORANGE" : "RED"
       },
-      // אלו השורות החדשות שהוספנו:
+     
       analysis: {
-        loanEligibility: dti < 40,
-        // מרווח הביטחון באחוזים: המרחק בין ה-DTI הנוכחי ל-40%
+        loanEligibility: dti < 40,    
         safetyMargin: parseFloat((40 - dti).toFixed(1)),
-        // ציון עוצמה פיננסית (מ-0 עד 100)
         financialStrengthScore: Math.round(100 - (dti * 2.5)) 
       }
     });
