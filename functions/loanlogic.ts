@@ -3,65 +3,65 @@ import { createClientFromRequest } from 'npm:@base44/sdk';
 export default Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    
+    // קריאת הנתונים מהבקשה (Payload)
     const { connectionId, psuId } = await req.json();
 
-    let transactions = [];
-    let dataSource = "LIVE";
+    // 1. קריאה ישירה לפונקציית ה-Ingestion שמביאה נתונים מהבנק
+    const ingestionResponse = await base44.functions.invoke('fup_live', {
+      action: 'sync',
+      connectionId,
+      psuId
+    });
 
-    try {
-      // ניסיון משיכה מהבנק
-      const ingestionResponse = await base44.functions.invoke('fup_live', {
-        action: 'sync',
-        connectionId,
-        psuId
-      });
-      
-      if (ingestionResponse.data?.transactions) {
-        transactions = ingestionResponse.data.transactions;
-      } else {
-        throw new Error("No transactions found");
-      }
-    } catch (bankError) {
-      // אם הבנק מחזיר 400 או שגיאה - עוברים למצב "מלון" (Backup)
-      console.warn("Bank Sync Failed, switching to Fail-Safe data");
-      dataSource = "FAILSAFE";
-      transactions = [
-        { "amount": { "chargedAmount": { "amount": 10000 } }, "category": { "main": "INCOME" }, "classification": { "type": "PRIMARY_INCOME" } },
-        { "amount": { "chargedAmount": { "amount": -3500 } }, "category": { "main": "HOUSING" }, "classification": { "type": "FIXED_EXPENSE" } },
-        { "amount": { "chargedAmount": { "amount": -1200 } }, "category": { "main": "LOAN" }, "classification": { "type": "FIXED_EXPENSE" } },
-        { "amount": { "chargedAmount": { "amount": -800 } }, "category": { "main": "ENTERTAINMENT" }, "classification": { "type": "LIFESTYLE" } }
-      ];
+    // בדיקה אם הבנק החזיר נתונים
+    const transactions = ingestionResponse.data?.transactions || [];
+    
+    if (transactions.length === 0) {
+      return Response.json({ 
+        success: false, 
+        message: "לא נמצאו תנועות בחשבון הבנק. וודא שהחיבור תקין." 
+      }, { status: 400 });
     }
 
-    // לוגיקת העיבוד (עובדת על שני סוגי הנתונים)
     let income = 0;
     let fixed = 0;
     let lifestyle = 0;
 
+    // 2. עיבוד הנתונים האמיתיים מהבנק
     transactions.forEach(tx => {
       const amount = tx.amount?.chargedAmount?.amount || 0;
       const category = (tx.category?.main || '').toLowerCase();
+      
+      // זיהוי הכנסה (הפקדות חיוביות)
       const isIncome = tx.classification?.type?.includes('INCOME') || amount > 0;
 
-      if (isIncome) income += amount;
-      else {
+      if (isIncome) {
+        income += amount;
+      } else {
         const absAmt = Math.abs(amount);
+        // סיווג הוצאות קבועות מול משתנות
         const isFixed = ['housing', 'loan', 'insurance', 'transportation', 'utilities'].some(c => category.includes(c));
-        if (isFixed) fixed += absAmt;
-        else lifestyle += absAmt;
+        
+        if (isFixed) {
+          fixed += absAmt;
+        } else {
+          lifestyle += absAmt;
+        }
       }
     });
 
+    // 3. חישוב ה-DTI (יחס החזר)
     const dti = income > 0 ? (fixed / income) * 100 : 0;
 
+    // 4. החזרת התוצאה הסופית ל-Frontend
     return Response.json({
       success: true,
-      dataSource, // ככה תדע ב-Logs אם אתה על חי או על הגיבוי
       metrics: {
         totalIncome: Math.round(income),
         fixedExpenses: Math.round(fixed),
         lifestyleExpenses: Math.round(lifestyle),
-        dti: parseFloat(dti.toFixed(1)),
+        dti: parseFloat(dti.toFixed(1)), // מחזיר מספר לספידומטר
         status: dti < 40 ? 'GREEN' : dti < 60 ? 'ORANGE' : 'RED'
       },
       simulation: {
@@ -70,6 +70,10 @@ export default Deno.serve(async (req) => {
     });
 
   } catch (err) {
-    return Response.json({ error: err.message }, { status: 500 });
+    // החזרת השגיאה המדויקת כדי שנדע אם ה-ConnectionId פג תוקף
+    return Response.json({ 
+      error: "Bank Connection Failed", 
+      details: err.message 
+    }, { status: 400 });
   }
 });
