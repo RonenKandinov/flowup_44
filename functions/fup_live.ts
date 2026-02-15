@@ -107,9 +107,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 4️⃣ Get Transactions
+// 4️⃣ Get Transactions (Global User Endpoint)
 const txRes = await fetch(
-  `${API_V2}/transactions?connectionId=${connectionId}`,
+  `${API_V2}/data/transactions`,
   {
     headers: {
       Authorization: `Bearer ${accessToken}`,
