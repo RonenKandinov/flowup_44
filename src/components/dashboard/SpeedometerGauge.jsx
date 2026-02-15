@@ -10,8 +10,7 @@ export default function SpeedometerGauge({
   whatIfAmount = 0,
   engineData,
   label,
-  isScore = false,
-  b2bSummary = null
+  isScore = false
 }) {
   // Use projected balance as-is (already calculated by forecasting logic)
   const adjustedBalance = projectedBalance;
@@ -199,54 +198,35 @@ export default function SpeedometerGauge({
         <circle cx="100" cy="100" r="3" fill="#1e293b" />
       </svg>
       
-      {/* Balance/Summary Display */}
+      {/* Balance Display */}
       <div className="text-center mt-2 md:mt-4 w-full relative z-10">
-        <p className="text-[10px] md:text-xs text-slate-400 mb-1 md:mb-2 uppercase tracking-wide">{label || "Smart Underwriting Status"}</p>
+        <p className="text-[10px] md:text-xs text-slate-400 mb-1 md:mb-2 uppercase tracking-wide">{label || "יתרה צפויה לסוף החודש"}</p>
+        <motion.p 
+          key={adjustedBalance}
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="text-3xl md:text-4xl font-bold text-white tracking-tight"
+        >
+          {isScore ? `${adjustedBalance}%` : `₪${adjustedBalance.toLocaleString('he-IL')}`}
+        </motion.p>
         
-        {b2bSummary ? (
-            <div className="flex flex-col gap-2 mt-2">
-                <h4 className="text-sm font-semibold text-slate-200">Credit Analysis Summary</h4>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="bg-slate-900/50 p-2 rounded border border-slate-700/50">
-                        <span className="block text-slate-500 mb-1">Regulatory Buffer</span>
-                        <span className="text-emerald-400 font-mono">₪{b2bSummary.buffer.toLocaleString()}</span>
-                    </div>
-                    <div className="bg-slate-900/50 p-2 rounded border border-slate-700/50">
-                        <span className="block text-slate-500 mb-1">Lifestyle Pivot</span>
-                        <span className="text-blue-400 font-mono">₪{b2bSummary.pivot.toLocaleString()}</span>
-                    </div>
-                </div>
-            </div>
+        {riskDay ? (
+          <div className={`mt-3 md:mt-4 inline-flex items-center px-3 py-1.5 rounded-full border ${
+            statusColor === 'green' ? 'bg-green-500/10 border-green-500/20' :
+            statusColor === 'yellow' ? 'bg-yellow-500/10 border-yellow-500/20' :
+            'bg-red-500/10 border-red-500/20'
+          }`}>
+            <p className={`text-xs ${
+              statusColor === 'green' ? 'text-green-400' :
+              statusColor === 'yellow' ? 'text-yellow-400' :
+              'text-red-400'
+            }`}>
+              <span className="opacity-75">יום סיכון צפוי: </span>
+              <span className="font-bold mr-1">{riskDay}</span>
+            </p>
+          </div>
         ) : (
-            <>
-                <motion.p 
-                key={adjustedBalance}
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="text-3xl md:text-4xl font-bold text-white tracking-tight"
-                >
-                {isScore ? `${adjustedBalance}%` : `₪${adjustedBalance.toLocaleString('he-IL')}`}
-                </motion.p>
-                
-                {riskDay ? (
-                <div className={`mt-3 md:mt-4 inline-flex items-center px-3 py-1.5 rounded-full border ${
-                    statusColor === 'green' ? 'bg-green-500/10 border-green-500/20' :
-                    statusColor === 'yellow' ? 'bg-yellow-500/10 border-yellow-500/20' :
-                    'bg-red-500/10 border-red-500/20'
-                }`}>
-                    <p className={`text-xs ${
-                    statusColor === 'green' ? 'text-green-400' :
-                    statusColor === 'yellow' ? 'text-yellow-400' :
-                    'text-red-400'
-                    }`}>
-                    <span className="opacity-75">יום סיכון צפוי: </span>
-                    <span className="font-bold mr-1">{riskDay}</span>
-                    </p>
-                </div>
-                ) : (
-                <div className="mt-3 md:mt-4 h-8"></div> 
-                )}
-            </>
+           <div className="mt-3 md:mt-4 h-8"></div> 
         )}
       </div>
 

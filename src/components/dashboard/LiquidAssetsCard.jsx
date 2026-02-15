@@ -59,7 +59,7 @@ export default function LiquidAssetsCard({ cash, etf, trainingFund }) {
                         <Wallet className="w-5 h-5 text-blue-400" />
                     </div>
                     <div>
-                        <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">Cash Flow Solvency</h3>
+                        <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">נכסים נזילים</h3>
                         <div className="text-2xl font-bold text-white mt-0.5 font-mono">
                             {formatCurrency(weightedTotal)}
                         </div>
