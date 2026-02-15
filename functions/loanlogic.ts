@@ -8,38 +8,79 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const userId = body?.userId || "ronenk2424@gmail.com";
 
-    // 1. קבלת טוקן (כמו שעבד ב-fup_live)
+    // 1️⃣ Token
     const tokenRes = await fetch(`${API_ROOT}/oauth/token`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, clientId: API_KEY, clientSecret: API_SECRET })
     });
+
     const { accessToken } = await tokenRes.json();
 
-    // 2. משיכת העסקאות שראינו ב-Test
+    // 2️⃣ Transactions
     const txRes = await fetch(`${API_V2}/data/transactions`, {
-      headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" }
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json"
+      }
     });
+
     const txData = await txRes.json();
     const transactions = txData.data || txData.items || [];
 
-    
-    let income = 0, fixed = 0, lifestyle = 0;
+    let income = 0;
+    let fixed = 0;
+    let lifestyle = 0;
 
     transactions.forEach((tx) => {
       const amount = tx.amount?.chargedAmount?.amount || 0;
       const category = (tx.category?.main || "").toLowerCase();
-      
-      if (amount > 0) income += amount;
-      else {
+      const direction = (tx.type || tx.direction || "").toLowerCase();
+
+      // CREDIT = income
+      if (direction.includes("credit")) {
+        income += Math.abs(amount);
+      }
+
+      // DEBIT = expense
+      if (direction.includes("debit")) {
         const absAmt = Math.abs(amount);
-        const isFixed = ["housing", "loan", "insurance", "transportation"].some(c => category.includes(c));
+
+        const isFixed = [
+          "housing",
+          "loan",
+          "insurance",
+          "transportation"
+        ].some((c) => category.includes(c));
+
         if (isFixed) fixed += absAmt;
         else lifestyle += absAmt;
       }
     });
 
-    const dti = income > 0 ? (fixed / income) * 100 : 0;
+    const totalExpenses = fixed + lifestyle;
+    const netCashFlow = income - totalExpenses;
+
+    const dti = income > 0 ? (fixed / income) * 100 : 100;
+
+    // 🚨 Hard Fail Rules
+    let status = "GREEN";
+
+    if (netCashFlow < 0) status = "RED";
+    else if (dti >= 60) status = "RED";
+    else if (dti >= 40) status = "ORANGE";
+
+    // 🎯 Strength Score
+    let rawScore =
+      100 -
+      (dti * 1.5) -
+      (netCashFlow < 0 ? 30 : 0);
+
+    // clamp
+    const financialStrengthScore = Math.max(
+      0,
+      Math.min(100, Math.round(rawScore))
+    );
 
     return Response.json({
       success: true,
@@ -47,12 +88,22 @@ Deno.serve(async (req) => {
         totalIncome: Math.round(income),
         fixedExpenses: Math.round(fixed),
         lifestyleExpenses: Math.round(lifestyle),
+        totalExpenses: Math.round(totalExpenses),
+        netCashFlow: Math.round(netCashFlow),
         dti: parseFloat(dti.toFixed(1)),
-        status: dti < 40 ? "GREEN" : dti < 60 ? "ORANGE" : "RED"
+        status
+      },
+      analysis: {
+        loanEligibility: status === "GREEN",
+        safetyMargin: Math.round(netCashFlow),
+        financialStrengthScore
       }
     });
 
   } catch (err) {
-    return Response.json({ error: "Analysis Failed", details: err.message }, { status: 500 });
+    return Response.json(
+      { error: "Analysis Failed", details: err.message },
+      { status: 500 }
+    );
   }
 });
