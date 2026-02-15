@@ -29,7 +29,7 @@ export default function Dashboard() {
   const [engineData, setEngineData] = useState(null);
   const [isStorageLoading, setIsStorageLoading] = useState(true);
   
-  const { sync, transactions: syncedTransactions, isLoading: isSyncing, summary: syncSummary } = useTransactionSync();
+  const { sync, data: loanLogicData, isLoading: isSyncing, metrics: loanMetrics } = useTransactionSync();
   const queryClient = useQueryClient();
 
   // Load from Local Storage on mount
@@ -479,24 +479,34 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-4 mb-4 md:mb-6">
                 {/* Replaced Balance StatCard with LiquidAssetsCard */}
                 <LiquidAssetsCard 
-                    cash={snapshot.current_balance || 0}
+                    cash={loanLogicData ? loanMetrics.netCashflow : (snapshot.current_balance || 0)} 
                     etf={currentEngineData?.assets?.etf || 0}
                     trainingFund={currentEngineData?.assets?.trainingFund || 0}
+                    // Note: LiquidAssets usually implies Stock, not Cashflow. Using Net Cashflow as placeholder for "Cash" if synced.
                 />
                 <StatCard
                   title="סך הכנסות"
-                  value={`₪${Math.round(syncedTransactions.length > 0 ? syncSummary.totalIncome : (currentEngineData?.totalIncome ?? currentMonthStats?.income ?? snapshot.total_income ?? 0)).toLocaleString('he-IL')}`}
+                  value={`₪${Math.round(loanLogicData ? loanMetrics.totalIncome : (currentEngineData?.totalIncome ?? currentMonthStats?.income ?? snapshot.total_income ?? 0)).toLocaleString('he-IL')}`}
                   icon={TrendingUp}
                   color="green"
                   delay={0.1}
                 />
                 <StatCard
                   title="סך הוצאות"
-                  value={`₪${Math.round(syncedTransactions.length > 0 ? syncSummary.totalExpenses : (currentEngineData?.totalExpenses ?? currentMonthStats?.expenses ?? snapshot.total_expenses ?? 0)).toLocaleString('he-IL')}`}
+                  value={`₪${Math.round(loanLogicData ? loanMetrics.totalExpenses : (currentEngineData?.totalExpenses ?? currentMonthStats?.expenses ?? snapshot.total_expenses ?? 0)).toLocaleString('he-IL')}`}
                   icon={TrendingDown}
                   color="red"
                   delay={0.2}
                 />
+                {loanLogicData && (
+                     <StatCard
+                        title="DTI Ratio"
+                        value={`${loanMetrics.dti}%`}
+                        icon={Cpu}
+                        color={loanMetrics.trafficLight === 'GREEN' ? 'green' : (loanMetrics.trafficLight === 'ORANGE' ? 'yellow' : 'red')}
+                        delay={0.3}
+                     />
+                )}
               </div>
 
               {/* Main Dashboard Grid */}
@@ -508,22 +518,14 @@ export default function Dashboard() {
                   className="order-1 lg:order-1 relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-auto min-h-[240px]"
                 >
                   <SpeedometerGauge
-                    projectedBalance={
-                      currentEngineData?.milestoneData 
-                        ? currentEngineData.milestoneData.projection 
-                        : (currentEngineData?.whatIfApplied 
-                            ? currentEngineData.projectedEOM 
-                            : (snapshot.projected_eom_balance || 0))
-                    }
-                    label={
-                      currentEngineData?.milestoneData 
-                        ? currentEngineData.milestoneData.text 
-                        : "יתרה צפויה לסוף החודש"
-                    }
-                    riskLevel={currentEngineData?.riskStatus || snapshot.risk_level || 'green'}
-                    riskDay={currentEngineData?.riskDay || snapshot.risk_day}
+                    projectedBalance={loanLogicData ? loanMetrics.dti : (snapshot.projected_eom_balance || 0)}
+                    label={loanLogicData ? "DTI Score (Debt-to-Income)" : "יתרה צפויה לסוף החודש"}
+                    riskLevel={loanLogicData ? loanMetrics.trafficLight.toLowerCase() : (currentEngineData?.riskStatus || snapshot.risk_level || 'green')}
+                    riskDay={null}
                     whatIfAmount={whatIfAmount}
-                    engineData={currentEngineData}
+                    engineData={null}
+                    // Adapting Speedometer to show Score/DTI if LoanLogic is active
+                    isScore={!!loanLogicData} 
                   />
                 </motion.div>
 
@@ -535,9 +537,9 @@ export default function Dashboard() {
                     className="order-4 lg:order-2 relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-auto"
                 >
                     <FutureCake 
-                        fixedExpenses={currentEngineData?.expenseAnalysis?.fixed || 0}
-                        flexExpenses={currentEngineData?.expenseAnalysis?.flex || 0}
-                        taxRefundPotential={currentEngineData?.expenseAnalysis?.taxPotential || 0}
+                        fixedExpenses={loanLogicData ? loanMetrics.totalFixedExpenses : (currentEngineData?.expenseAnalysis?.fixed || 0)}
+                        flexExpenses={loanLogicData ? loanMetrics.totalLifestyleExpenses : (currentEngineData?.expenseAnalysis?.flex || 0)}
+                        taxRefundPotential={0}
                     />
                 </motion.div>
 

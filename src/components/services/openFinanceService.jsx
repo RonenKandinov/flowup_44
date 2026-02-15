@@ -19,12 +19,12 @@ export const openFinanceService = {
      * @returns {Promise<Array>} - The synced transactions.
      */
     syncTransactions: async (connectionId, psuId) => {
-        const { data } = await base44.functions.invoke('fup_live', { 
-            action: 'sync', 
+        // Updated to use LoanLogic (Intelligence Layer)
+        const { data } = await base44.functions.invoke('loanlogic', { 
             connectionId, 
             psuId 
         });
         if (data.error) throw new Error(data.error);
-        return data.transactions || [];
+        return data;
     }
 };
