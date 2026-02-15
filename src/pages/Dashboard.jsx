@@ -19,6 +19,7 @@ import EmptyState from '../components/dashboard/EmptyState';
 import Disclaimer from '../components/dashboard/Disclaimer';
 import OpenFinanceConnect from '../components/connect/OpenFinanceConnect';
 import { useTransactionSync } from '../components/hooks/useTransactionSync';
+import { useLoanMetrics } from '../components/hooks/useLoanMetrics';
 
 export default function Dashboard() {
   const [showUploader, setShowUploader] = useState(false);
@@ -30,6 +31,7 @@ export default function Dashboard() {
   const [isStorageLoading, setIsStorageLoading] = useState(true);
   
   const { sync, data: loanLogicData, isLoading: isSyncing, metrics: loanMetrics } = useTransactionSync();
+  const { metrics: newLoanMetrics, isLoading: isLoanMetricsLoading } = useLoanMetrics();
   const queryClient = useQueryClient();
 
   // Load from Local Storage on mount
@@ -486,7 +488,7 @@ export default function Dashboard() {
                 />
                 <StatCard
                   title="סך הכנסות"
-                  value={`₪${Math.round(loanLogicData ? loanMetrics.totalIncome : (currentEngineData?.totalIncome ?? currentMonthStats?.income ?? snapshot.total_income ?? 0)).toLocaleString('he-IL')}`}
+                  value={`₪${Math.round(newLoanMetrics ? newLoanMetrics.totalIncome : (loanLogicData ? loanMetrics.totalIncome : (currentEngineData?.totalIncome ?? currentMonthStats?.income ?? snapshot.total_income ?? 0))).toLocaleString('he-IL')}`}
                   icon={TrendingUp}
                   color="green"
                   delay={0.1}
@@ -498,12 +500,12 @@ export default function Dashboard() {
                   color="red"
                   delay={0.2}
                 />
-                {loanLogicData && (
+                {(newLoanMetrics || loanLogicData) && (
                      <StatCard
                         title="DTI Ratio"
-                        value={`${loanMetrics.dti}%`}
+                        value={`${newLoanMetrics ? newLoanMetrics.dti : loanMetrics.dti}%`}
                         icon={Cpu}
-                        color={loanMetrics.trafficLight === 'GREEN' ? 'green' : (loanMetrics.trafficLight === 'ORANGE' ? 'yellow' : 'red')}
+                        color={(newLoanMetrics ? newLoanMetrics.status : loanMetrics.trafficLight) === 'GREEN' ? 'green' : ((newLoanMetrics ? newLoanMetrics.status : loanMetrics.trafficLight) === 'ORANGE' ? 'yellow' : 'red')}
                         delay={0.3}
                      />
                 )}
