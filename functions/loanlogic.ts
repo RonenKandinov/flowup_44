@@ -53,8 +53,10 @@ Deno.serve(async (req) => {
       // אלו השורות החדשות שהוספנו:
       analysis: {
         loanEligibility: dti < 40,
-        maxAdditionalMonthlyLoan: Math.max(0, Math.round((income * 0.4) - fixed)),
-        disposableIncome: Math.round(income - fixed - lifestyle)
+        // מרווח הביטחון באחוזים: המרחק בין ה-DTI הנוכחי ל-40%
+        safetyMargin: parseFloat((40 - dti).toFixed(1)),
+        // ציון עוצמה פיננסית (מ-0 עד 100)
+        financialStrengthScore: Math.round(100 - (dti * 2.5)) 
       }
     });
 
