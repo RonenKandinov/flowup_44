@@ -1,98 +1,130 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.11';
 
-/**
- * ==============================================================================
- * OPEN FINANCE WEBHOOK CONTROLLER
- * ==============================================================================
- * Handles asynchronous status updates and data notifications.
- */
 
-const WEBHOOK_SECRET = Deno.env.get("OPEN_FINANCE_WEBHOOK_SECRET");
-
-// Simple HMAC-SHA256 Validation
-async function validateSignature(req, secret) {
-    if (!secret) return true; // Skip if no secret configured (Dev mode)
-    
-    const signature = req.headers.get("X-OpenFinance-Signature");
-    if (!signature) return false;
-
-    const bodyText = await req.text();
-    const encoder = new TextEncoder();
-    const key = await crypto.subtle.importKey(
-        "raw",
-        encoder.encode(secret),
-        { name: "HMAC", hash: "SHA-256" },
-        false,
-        ["verify"]
-    );
-    
-    // Re-verify (simplified) - In prod, reconstruct strict payload string
-    // This is a placeholder for actual HMAC logic
-    return true; 
-}
+const API_ROOT = "https://api.open-finance.ai";
+const API_V2 = "https://api.open-finance.ai/v2";
 
 Deno.serve(async (req) => {
-    // 1. Signature Validation
-    // Note: We clone req to read body twice if needed (once for sig, once for parsing)
-    // For simplicity in this environment, we assume validation passes or is handled
-    
-    try {
-        const base44 = createClientFromRequest(req);
-        // Use Service Role for database operations (Webhooks are system-to-system)
-        const adminService = base44.asServiceRole;
+  try {
+    const base44 = createClientFromRequest(req);
+    const adminService = base44.asServiceRole;
 
-        const payload = await req.json();
-        const { eventType, connectionId, status, timestamp } = payload;
+    const payload = await req.json();
+    const { eventType, connectionId, status } = payload;
 
-        console.log(`🔔 Webhook Received: ${eventType} for ${connectionId}`);
+    console.log(`🔔 Webhook: ${eventType} for ${connectionId}`);
 
-        // 2. Find Connection
-        const [connection] = await adminService.entities.OpenFinanceConnection.filter({ connection_id: connectionId });
-        
-        if (!connection) {
-            console.warn(`⚠️ Connection ${connectionId} not found.`);
-            return Response.json({ status: 'ignored' });
-        }
+    const [connection] =
+      await adminService.entities.OpenFinanceConnection.filter({
+        connection_id: connectionId
+      });
 
-        // 3. Handle Events
-        switch (eventType) {
-            case 'CONNECTION_STATUS_CHANGED':
-                await adminService.entities.OpenFinanceConnection.update(connection.id, {
-                    status: status,
-                    last_synced_at: new Date().toISOString()
-                });
-                
-                if (status === 'CONNECTED' || status === 'ACTIVE') {
-                    // Trigger Data Sync
-                    // Note: In Base44, we can call another function.
-                    // Or ideally, we just replicate the sync logic here or queue a job.
-                    // For now, we update status. Real data fetch might be pulled by the user or a scheduled job.
-                    console.log(`✅ Connection ${connectionId} is now ${status}`);
-                }
-                break;
-
-            case 'DATA_READY':
-                // Provider signals new data is available
-                // Trigger sync logic (Simplified: just log)
-                console.log(`📥 Data ready for ${connectionId}. Triggering fetch...`);
-                // In a real microservice, we'd emit an event or call the sync function.
-                // await base44.functions.invoke('openFinance', { action: 'sync', connectionId });
-                break;
-
-            case 'CONSENT_REVOKED':
-                await adminService.entities.OpenFinanceConnection.update(connection.id, {
-                    status: 'REVOKED'
-                });
-                break;
-
-            default:
-                console.log(`ℹ️ Unhandled event type: ${eventType}`);
-        }
-
-        return Response.json({ received: true });
-
-    } catch (error) {
-        console.error("Webhook Error:", error);
-        return Response.json({ error: error.message }, { status: 500 });
+    if (!connection) {
+      console.warn(`⚠️ Connection ${connectionId} not found.`);
+      return Response.json({ ignored: true });
     }
+
+    switch (eventType) {
+
+      case "CONNECTION_STATUS_CHANGED":
+        await adminService.entities.OpenFinanceConnection.update(
+          connection.id,
+          {
+            status,
+            last_synced_at: new Date().toISOString()
+          }
+        );
+        console.log(`✅ Status updated to ${status}`);
+        break;
+
+      case "DATA_READY":
+        console.log(`📥 DATA_READY received. Starting sync...`);
+
+        // 1️⃣ Get token
+        const tokenRes = await fetch(`${API_ROOT}/oauth/token`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: connection.user_id,
+            clientId: Deno.env.get("OPEN_FINANCE_API_KEY"),
+            clientSecret: Deno.env.get("OPEN_FINANCE_API_SECRET")
+          })
+        });
+
+        const tokenJson = await tokenRes.json();
+        const accessToken = tokenJson.accessToken;
+
+        if (!accessToken) {
+          console.error("❌ Failed to get access token");
+          break;
+        }
+
+        // 2️⃣ Fetch transactions
+        const txRes = await fetch(
+          `${API_V2}/transactions?connectionId=${connectionId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              Accept: "application/json"
+            }
+          }
+        );
+
+        const txJson = await txRes.json();
+        const transactions =
+          txJson.items || txJson.data || [];
+
+        if (!Array.isArray(transactions)) {
+          console.error("❌ Invalid transactions format");
+          break;
+        }
+
+        console.log(`📊 Fetched ${transactions.length} transactions`);
+
+        // 3️⃣ Optional: Clear old transactions (for demo simplicity)
+        const existing =
+          await adminService.entities.OpenFinanceTransaction.filter({
+            connection_id: connectionId
+          });
+
+        for (const row of existing) {
+          await adminService.entities.OpenFinanceTransaction.delete(row.id);
+        }
+
+        // 4️⃣ Save new transactions
+        for (const tx of transactions) {
+          await adminService.entities.OpenFinanceTransaction.create({
+            connection_id: connectionId,
+            date: tx.bookingDate || tx.valueDate,
+            amount: Number(tx.transactionAmount?.amount || 0),
+            description:
+              tx.remittanceInformationUnstructured ||
+              tx.additionalInformation ||
+              "",
+            category: tx.creditorName || null
+          });
+        }
+
+        console.log(`✅ Synced ${transactions.length} transactions`);
+        break;
+
+      case "CONSENT_REVOKED":
+        await adminService.entities.OpenFinanceConnection.update(
+          connection.id,
+          { status: "REVOKED" }
+        );
+        break;
+
+      default:
+        console.log(`ℹ️ Unhandled event type: ${eventType}`);
+    }
+
+    return Response.json({ received: true });
+
+  } catch (error) {
+    console.error("Webhook Error:", error);
+    return Response.json(
+      { error: error.message },
+      { status: 500 }
+    );
+  }
 });
