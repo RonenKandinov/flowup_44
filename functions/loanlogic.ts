@@ -8,7 +8,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const userId = body?.userId || "ronenk2424@gmail.com";
 
-    // 1. קבלת טוקן (כמו שעבד ב-fup_live)
+    // 1. קבלת טוקן
     const tokenRes = await fetch(`${API_ROOT}/oauth/token`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -16,14 +16,13 @@ Deno.serve(async (req) => {
     });
     const { accessToken } = await tokenRes.json();
 
-    // 2. משיכת העסקאות שראינו ב-Test
+    // 2. משיכת עסקאות
     const txRes = await fetch(`${API_V2}/data/transactions`, {
       headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" }
     });
     const txData = await txRes.json();
     const transactions = txData.data || txData.items || [];
 
-    
     let income = 0, fixed = 0, lifestyle = 0;
 
     transactions.forEach((tx) => {
@@ -41,6 +40,7 @@ Deno.serve(async (req) => {
 
     const dti = income > 0 ? (fixed / income) * 100 : 0;
 
+    // 🚀 החזרת התשובה עם הניתוח החדש
     return Response.json({
       success: true,
       metrics: {
@@ -49,6 +49,12 @@ Deno.serve(async (req) => {
         lifestyleExpenses: Math.round(lifestyle),
         dti: parseFloat(dti.toFixed(1)),
         status: dti < 40 ? "GREEN" : dti < 60 ? "ORANGE" : "RED"
+      },
+      // אלו השורות החדשות שהוספנו:
+      analysis: {
+        loanEligibility: dti < 40,
+        maxAdditionalMonthlyLoan: Math.max(0, Math.round((income * 0.4) - fixed)),
+        disposableIncome: Math.round(income - fixed - lifestyle)
       }
     });
 
