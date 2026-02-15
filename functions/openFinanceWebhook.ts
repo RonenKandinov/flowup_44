@@ -1,6 +1,8 @@
 const API_ROOT = "https://api.open-finance.ai";
 const API_V2 = "https://api.open-finance.ai/v2";
 
+const REAL_USER_ID = "ronenk2424@gmail.com"; // אותו userId שיצר את החיבור
+
 Deno.serve(async (req) => {
   try {
     if (req.method !== "POST") {
@@ -11,7 +13,7 @@ Deno.serve(async (req) => {
     }
 
     const payload = await req.json();
-    const { eventType, connectionId, status } = payload;
+    const { eventType, connectionId } = payload;
 
     console.log("🔔 Webhook received:", payload);
 
@@ -22,21 +24,18 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ==============================
-    // Handle DATA_READY
-    // ==============================
     if (eventType === "DATA_READY") {
 
-      console.log("📥 DATA_READY → fetching transactions...");
+      console.log("📥 DATA_READY → fetching connection data...");
 
-      // 1️⃣ Get Access Token
+      // 1️⃣ Get Access Token (correct userId!)
       const tokenRes = await fetch(`${API_ROOT}/oauth/token`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          userId: connectionId, // זמני לבדיקה
+          userId: REAL_USER_ID,
           clientId: Deno.env.get("OPEN_FINANCE_API_KEY"),
           clientSecret: Deno.env.get("OPEN_FINANCE_API_SECRET")
         })
@@ -53,43 +52,36 @@ Deno.serve(async (req) => {
       }
 
       const accessToken = tokenJson.accessToken;
-// 2️⃣ Fetch full connection data
-const dataRes = await fetch(
-  `${API_V2}/connections/${connectionId}`,
-  {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: "application/json"
+
+      // 2️⃣ Fetch full connection
+      const dataRes = await fetch(
+        `${API_V2}/connections/${connectionId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: "application/json"
+          }
+        }
+      );
+
+      const dataJson = await dataRes.json();
+
+      if (!dataRes.ok) {
+        console.error("❌ Failed to fetch connection:", dataJson);
+        return Response.json(
+          { error: "Failed to fetch connection", details: dataJson },
+          { status: 500 }
+        );
+      }
+
+      console.log("📦 Connection data:", dataJson);
+
+      return Response.json({
+        success: true,
+        transactionsCount: dataJson.transactions,
+        accountsCount: dataJson.accounts
+      });
     }
-  }
-);
-
-const dataJson = await dataRes.json();
-
-if (!dataRes.ok) {
-  console.error("❌ Failed to fetch connection data:", dataJson);
-  return Response.json(
-    { error: "Failed to fetch connection data", details: dataJson },
-    { status: 500 }
-  );
-}
-
-console.log("📦 Full connection data:", dataJson);
-
-return Response.json({
-  success: true,
-  transactionsCount: dataJson.transactions,
-  accountsCount: dataJson.accounts,
-  raw: dataJson
-});
-
-   
-    }
-
-    // ==============================
-    // Other Events
-    // ==============================
-    console.log("ℹ️ Event ignored:", eventType);
 
     return Response.json({ received: true });
 
