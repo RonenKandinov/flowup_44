@@ -3,10 +3,10 @@
 const API_ROOT = "https://api.open-finance.ai";
 const API_V2 = "https://api.open-finance.ai/v2";
 
+
 Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
-    const adminService = base44.asServiceRole;
+    const adminService = globalThis.base44.asServiceRole;
 
     const payload = await req.json();
     const { eventType, connectionId, status } = payload;
