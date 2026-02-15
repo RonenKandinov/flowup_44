@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
     const txData = await txRes.json();
     const transactions = txData.data || txData.items || [];
 
-    // 3. ניתוח הנתונים האמיתיים של רונן
+    
     let income = 0, fixed = 0, lifestyle = 0;
 
     transactions.forEach((tx) => {
