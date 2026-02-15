@@ -18,6 +18,7 @@ import CSVUploader from '../components/upload/CSVUploader'; // Kept for admin fa
 import EmptyState from '../components/dashboard/EmptyState';
 import Disclaimer from '../components/dashboard/Disclaimer';
 import OpenFinanceConnect from '../components/connect/OpenFinanceConnect';
+import { useTransactionSync } from '../components/hooks/useTransactionSync';
 
 export default function Dashboard() {
   const [showUploader, setShowUploader] = useState(false);
@@ -28,6 +29,7 @@ export default function Dashboard() {
   const [engineData, setEngineData] = useState(null);
   const [isStorageLoading, setIsStorageLoading] = useState(true);
   
+  const { sync, transactions: syncedTransactions, isLoading: isSyncing, summary: syncSummary } = useTransactionSync();
   const queryClient = useQueryClient();
 
   // Load from Local Storage on mount
@@ -424,12 +426,17 @@ export default function Dashboard() {
           {hasData && (
             <div className="flex items-center gap-2">
               <Button
-                onClick={() => setShowOpenFinance(true)}
+                onClick={() => {
+                    // Assuming we have a connection ID stored or just use the UI flow
+                    // For now, triggering UI flow if no connection, or we could auto-sync.
+                    // Given instructions, we'll open the modal which now can handle sync via the hook or we pass the sync function
+                    setShowOpenFinance(true)
+                }}
                 variant="ghost"
                 size="sm"
                 className="bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:bg-slate-800 hover:text-white transition-all h-7 px-3 rounded-md"
               >
-                <RefreshCw className="w-3 h-3 ml-1.5" />
+                <RefreshCw className={`w-3 h-3 ml-1.5 ${isSyncing ? 'animate-spin' : ''}`} />
                 <span className="text-[11px] font-medium">סנכרון Open Finance</span>
               </Button>
               <Button
@@ -466,14 +473,14 @@ export default function Dashboard() {
                 />
                 <StatCard
                   title="סך הכנסות"
-                  value={`₪${Math.round(currentEngineData?.totalIncome ?? currentMonthStats?.income ?? snapshot.total_income ?? 0).toLocaleString('he-IL')}`}
+                  value={`₪${Math.round(syncedTransactions.length > 0 ? syncSummary.totalIncome : (currentEngineData?.totalIncome ?? currentMonthStats?.income ?? snapshot.total_income ?? 0)).toLocaleString('he-IL')}`}
                   icon={TrendingUp}
                   color="green"
                   delay={0.1}
                 />
                 <StatCard
                   title="סך הוצאות"
-                  value={`₪${Math.round(currentEngineData?.totalExpenses ?? currentMonthStats?.expenses ?? snapshot.total_expenses ?? 0).toLocaleString('he-IL')}`}
+                  value={`₪${Math.round(syncedTransactions.length > 0 ? syncSummary.totalExpenses : (currentEngineData?.totalExpenses ?? currentMonthStats?.expenses ?? snapshot.total_expenses ?? 0)).toLocaleString('he-IL')}`}
                   icon={TrendingDown}
                   color="red"
                   delay={0.2}
