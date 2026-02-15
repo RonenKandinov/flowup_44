@@ -487,14 +487,14 @@ export default function Dashboard() {
                     // Note: LiquidAssets usually implies Stock, not Cashflow. Using Net Cashflow as placeholder for "Cash" if synced.
                 />
                 <StatCard
-                  title="סך הכנסות"
+                  title="Monthly Inflow"
                   value={`₪${Math.round(newLoanMetrics ? newLoanMetrics.totalIncome : (loanLogicData ? loanMetrics.totalIncome : (currentEngineData?.totalIncome ?? currentMonthStats?.income ?? snapshot.total_income ?? 0))).toLocaleString('he-IL')}`}
                   icon={TrendingUp}
                   color="green"
                   delay={0.1}
                 />
                 <StatCard
-                  title="סך הוצאות"
+                  title="Monthly Outflow"
                   value={`₪${Math.round(loanLogicData ? loanMetrics.totalExpenses : (currentEngineData?.totalExpenses ?? currentMonthStats?.expenses ?? snapshot.total_expenses ?? 0)).toLocaleString('he-IL')}`}
                   icon={TrendingDown}
                   color="red"
@@ -502,7 +502,7 @@ export default function Dashboard() {
                 />
                 {(newLoanMetrics || loanLogicData) && (
                      <StatCard
-                        title="DTI Ratio"
+                        title="Fixed Debt (DTI)"
                         value={`${newLoanMetrics ? newLoanMetrics.dti : loanMetrics.dti}%`}
                         icon={Cpu}
                         color={(newLoanMetrics ? newLoanMetrics.status : loanMetrics.trafficLight) === 'GREEN' ? 'green' : ((newLoanMetrics ? newLoanMetrics.status : loanMetrics.trafficLight) === 'ORANGE' ? 'yellow' : 'red')}
@@ -520,14 +520,17 @@ export default function Dashboard() {
                   className="order-1 lg:order-1 relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-auto min-h-[240px]"
                 >
                   <SpeedometerGauge
-                    projectedBalance={loanLogicData ? loanMetrics.dti : (snapshot.projected_eom_balance || 0)}
-                    label={loanLogicData ? "DTI Score (Debt-to-Income)" : "יתרה צפויה לסוף החודש"}
-                    riskLevel={loanLogicData ? loanMetrics.trafficLight.toLowerCase() : (currentEngineData?.riskStatus || snapshot.risk_level || 'green')}
+                    projectedBalance={newLoanMetrics ? newLoanMetrics.dti : (loanLogicData ? loanMetrics.dti : (snapshot.projected_eom_balance || 0))}
+                    label="Smart Underwriting Status"
+                    riskLevel={(newLoanMetrics ? newLoanMetrics.status : (loanLogicData ? loanMetrics.trafficLight : 'green')).toLowerCase()}
                     riskDay={null}
                     whatIfAmount={whatIfAmount}
                     engineData={null}
-                    // Adapting Speedometer to show Score/DTI if LoanLogic is active
-                    isScore={!!loanLogicData} 
+                    isScore={!!(newLoanMetrics || loanLogicData)}
+                    b2bSummary={newLoanMetrics ? {
+                        buffer: newLoanMetrics.totalIncome - newLoanMetrics.totalExpenses, // Regulatory Buffer (Net Cashflow)
+                        pivot: newLoanMetrics.lifestyleExpenses // Lifestyle Pivot Potential
+                    } : null}
                   />
                 </motion.div>
 
