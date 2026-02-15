@@ -1,78 +1,79 @@
 Deno.serve(async (req) => {
-  const API_KEY = Deno.env.get("OPEN_FINANCE_API_KEY");
-  const API_SECRET = Deno.env.get("OPEN_FINANCE_API_SECRET");
-
-  if (req.method !== "POST") return new Response("Use POST", { status: 405 });
-
   try {
-    const { psuId, action, connectionId } = await req.json();
+    const API_ROOT = "https://api.open-finance.ai";
+    const API_V2 = "https://api.open-finance.ai/v2";
 
-    // 1. Get Access Token (Common Step)
-    const tokenRes = await fetch("https://api.open-finance.ai/v2/oauth/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: psuId, clientId: API_KEY, clientSecret: API_SECRET })
-    });
-    const tokenData = await tokenRes.json();
-    const access_token = tokenData.access_token;
+    const API_KEY = Deno.env.get("OPEN_FINANCE_API_KEY");
+    const API_SECRET = Deno.env.get("OPEN_FINANCE_API_SECRET");
 
-    if (!access_token) throw new Error("Failed to get access token");
-
-    // --- ACTION: SYNC TRANSACTIONS ---
-    if (action === 'sync') {
-      if (!connectionId) throw new Error("connectionId is required for sync");
-      
-      const txRes = await fetch(`https://api.open-finance.ai/v2/accounts/${connectionId}/transactions`, {
-        method: "GET",
-        headers: { "Authorization": `Bearer ${access_token}` }
-      });
-      
-      const txData = await txRes.json();
-      
-      // Assume API returns { transactions: [] } or array
-      const transactions = Array.isArray(txData) ? txData : (txData.transactions || []);
-      
-      // Normalize to OpenFinanceTransaction entity
-      const base44 = globalThis.base44; // SDK Client from Service Role or Request
-      
-      // We need to use SDK to save. 
-      // Note: In Deno.serve (standard) we use createClientFromRequest usually.
-      // But here I used the "lean" version without imports in the previous step.
-      // Now I need imports to save to DB.
-      // User asked for "lean" previously, but now asks to "Store transactions in state" (Frontend).
-      // But `underwriting` uses DB. So I should save to DB.
-      // I will import createClientFromRequest.
-      
-      // Let's rewrite the file with imports to be safe and robust.
-      // See below for the actual write_file content.
-      return Response.json({ success: true, transactions });
+    if (!API_KEY || !API_SECRET) {
+      return Response.json(
+        { error: "Missing Open Finance credentials" },
+        { status: 500 }
+      );
     }
 
-    // --- ACTION: CONNECT (Default) ---
-    // 2. Create Connection
-    const connRes = await fetch("https://api.open-finance.ai/v2/connections", {
+    const body = await req.json();
+    const userId = body?.userId;
+
+    if (!userId) {
+      return Response.json(
+        { error: "userId is required" },
+        { status: 400 }
+      );
+    }
+
+    // 🔑 Get Token (הגרסה שעבדה לך)
+    const tokenRes = await fetch(`${API_ROOT}/oauth/token`, {
       method: "POST",
-      headers: { "Authorization": `Bearer ${access_token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ customerId: psuId, connectionMode: "PSD2", language: "he" })
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId,
+        clientId: API_KEY,
+        clientSecret: API_SECRET
+      })
     });
-    const connData = await connRes.json();
 
-    if (!connData.id) throw new Error("Failed to create connection");
+    const tokenJson = await tokenRes.json();
 
-    // 3. Get Bank Link
-    const initRes = await fetch("https://api.open-finance.ai/v2/connect/open-banking-init", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${access_token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ connectionId: connData.id, providerId: "leumi-sandbox", psuId: psuId, psuIdType: "NATIONAL_ID" })
-    });
-    const initData = await initRes.json();
+    if (!tokenRes.ok || !tokenJson?.accessToken) {
+      return Response.json(
+        { error: "Failed to get access token", tokenJson },
+        { status: 500 }
+      );
+    }
 
-    return Response.json({ 
-      success: true, 
-      url: initData.connectUrl || initData.scaOAuth 
+    const accessToken = tokenJson.accessToken;
+
+    // 📊 Get Transactions (endpoint שעבד לך)
+    const txRes = await fetch(
+      `${API_V2}/data/transactions`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/json"
+        }
+      }
+    );
+
+    const transactionsJson = await txRes.json();
+
+    if (!txRes.ok) {
+      return Response.json(
+        { error: "Failed to fetch transactions", transactionsJson },
+        { status: 500 }
+      );
+    }
+
+    return Response.json({
+      success: true,
+      transactions: transactionsJson
     });
 
   } catch (err) {
-    return Response.json({ error: err.message }, { status: 500 });
+    return Response.json(
+      { error: "Unexpected server error" },
+      { status: 500 }
+    );
   }
 });
