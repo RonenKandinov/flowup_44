@@ -9,57 +9,93 @@ export default function SpeedometerGauge({
   riskDay,
   whatIfAmount = 0,
   engineData,
-  label
+  label,
+  isScore = false
 }) {
   // Use projected balance as-is (already calculated by forecasting logic)
   const adjustedBalance = projectedBalance;
   
   const { angle, color, glowColor, statusColor } = useMemo(() => {
-    // Exact requested calibration:
-    // 1. Balance < 0 (Red): 0 -> +20°, -1000 -> +40° (Middle), -2000+ -> +60°
-    // 2. 0 <= Balance < 1500 (Yellow): 0 -> +20°, 1500 -> -20°
-    // 3. Balance >= 1500 (Green):
-    //    - 1500 to 2000: -20° to -40° (Middle)
-    //    - 2000+: -40° to -60°
-
     let calculatedAngle;
     let calculatedColor;
     let calculatedGlow;
     let statusColor;
 
-    if (adjustedBalance >= 2000) {
-      // Super Safe (Middle of Green to End)
-      // 2000 -> -40, 4000 -> -60
-      const ratio = Math.min((adjustedBalance - 2000) / 2000, 1);
-      calculatedAngle = -40 + (ratio * -20);
-      calculatedColor = '#22c55e';
-      calculatedGlow = 'rgba(34, 197, 94, 0.5)';
-      statusColor = 'green';
-    } else if (adjustedBalance >= 1500) {
-      // Safe Entry (Start of Green to Middle)
-      // 1500 -> -20, 2000 -> -40
-      const ratio = (adjustedBalance - 1500) / 500;
-      calculatedAngle = -20 + (ratio * -20);
-      calculatedColor = '#22c55e';
-      calculatedGlow = 'rgba(34, 197, 94, 0.5)';
-      statusColor = 'green';
-    } else if (adjustedBalance >= 0) {
-      // Caution (Yellow)
-      // 0 -> +20, 1500 -> -20
-      const ratio = adjustedBalance / 1500;
-      calculatedAngle = 20 - (ratio * 40);
-      calculatedColor = '#eab308';
-      calculatedGlow = 'rgba(234, 179, 8, 0.5)';
-      statusColor = 'yellow';
+    if (isScore) {
+        // DTI SCORING LOGIC
+        // Green: DTI < 30% -> Angle -40 to -60
+        // Yellow: 30% <= DTI < 45% -> Angle -20 to 20
+        // Red: DTI >= 45% -> Angle 20 to 60
+        const dti = adjustedBalance;
+
+        if (dti < 30) {
+            // GREEN ZONE (Low Risk)
+            // Map 0-30 to -60 -> -20
+            const ratio = dti / 30; 
+            calculatedAngle = -60 + (ratio * 40); // 0 => -60, 30 => -20
+            calculatedColor = '#22c55e';
+            calculatedGlow = 'rgba(34, 197, 94, 0.5)';
+            statusColor = 'green';
+        } else if (dti < 45) {
+            // YELLOW ZONE (Medium Risk)
+            // Map 30-45 to -20 -> +20
+            const ratio = (dti - 30) / 15;
+            calculatedAngle = -20 + (ratio * 40);
+            calculatedColor = '#eab308';
+            calculatedGlow = 'rgba(234, 179, 8, 0.5)';
+            statusColor = 'yellow';
+        } else {
+            // RED ZONE (High Risk)
+            // Map 45-100 to +20 -> +60
+            const ratio = Math.min((dti - 45) / 55, 1);
+            calculatedAngle = 20 + (ratio * 40);
+            calculatedColor = '#ef4444';
+            calculatedGlow = 'rgba(239, 68, 68, 0.5)';
+            statusColor = 'red';
+        }
+
     } else {
-      // Danger (Red)
-      // 0 -> +20, -1000 -> +40 (Middle), -2000 -> +60
-      const negativeVal = Math.abs(adjustedBalance);
-      const ratio = Math.min(negativeVal / 2000, 1);
-      calculatedAngle = 20 + (ratio * 40);
-      calculatedColor = '#ef4444';
-      calculatedGlow = 'rgba(239, 68, 68, 0.5)';
-      statusColor = 'red';
+        // ORIGINAL BALANCE LOGIC
+        // 1. Balance < 0 (Red): 0 -> +20°, -1000 -> +40° (Middle), -2000+ -> +60°
+        // 2. 0 <= Balance < 1500 (Yellow): 0 -> +20°, 1500 -> -20°
+        // 3. Balance >= 1500 (Green):
+        //    - 1500 to 2000: -20° to -40° (Middle)
+        //    - 2000+: -40° to -60°
+
+        if (adjustedBalance >= 2000) {
+        // Super Safe (Middle of Green to End)
+        // 2000 -> -40, 4000 -> -60
+        const ratio = Math.min((adjustedBalance - 2000) / 2000, 1);
+        calculatedAngle = -40 + (ratio * -20);
+        calculatedColor = '#22c55e';
+        calculatedGlow = 'rgba(34, 197, 94, 0.5)';
+        statusColor = 'green';
+        } else if (adjustedBalance >= 1500) {
+        // Safe Entry (Start of Green to Middle)
+        // 1500 -> -20, 2000 -> -40
+        const ratio = (adjustedBalance - 1500) / 500;
+        calculatedAngle = -20 + (ratio * -20);
+        calculatedColor = '#22c55e';
+        calculatedGlow = 'rgba(34, 197, 94, 0.5)';
+        statusColor = 'green';
+        } else if (adjustedBalance >= 0) {
+        // Caution (Yellow)
+        // 0 -> +20, 1500 -> -20
+        const ratio = adjustedBalance / 1500;
+        calculatedAngle = 20 - (ratio * 40);
+        calculatedColor = '#eab308';
+        calculatedGlow = 'rgba(234, 179, 8, 0.5)';
+        statusColor = 'yellow';
+        } else {
+        // Danger (Red)
+        // 0 -> +20, -1000 -> +40 (Middle), -2000 -> +60
+        const negativeVal = Math.abs(adjustedBalance);
+        const ratio = Math.min(negativeVal / 2000, 1);
+        calculatedAngle = 20 + (ratio * 40);
+        calculatedColor = '#ef4444';
+        calculatedGlow = 'rgba(239, 68, 68, 0.5)';
+        statusColor = 'red';
+        }
     }
     
     return { 
@@ -68,7 +104,7 @@ export default function SpeedometerGauge({
       glowColor: calculatedGlow,
       statusColor
     };
-  }, [adjustedBalance]);
+  }, [adjustedBalance, isScore]);
 
   return (
     <div className="relative flex flex-col items-center justify-center w-full p-6 rounded-xl bg-slate-800/30 border border-slate-700/30 backdrop-blur-sm h-full">
@@ -171,7 +207,7 @@ export default function SpeedometerGauge({
           animate={{ scale: 1, opacity: 1 }}
           className="text-3xl md:text-4xl font-bold text-white tracking-tight"
         >
-          ₪{adjustedBalance.toLocaleString('he-IL')}
+          {isScore ? `${adjustedBalance}%` : `₪${adjustedBalance.toLocaleString('he-IL')}`}
         </motion.p>
         
         {riskDay ? (
