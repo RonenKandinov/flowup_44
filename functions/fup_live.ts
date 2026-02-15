@@ -107,15 +107,30 @@ Deno.serve(async (req) => {
       );
     }
 
+    // 4️⃣ Get Transactions
+    const txRes = await fetch(
+      `${API_V2}/connections/${connectionId}/transactions`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/json"
+        }
+      }
+    );
+
+    const transactionsJson = await txRes.json();
+
+    if (!txRes.ok) {
+      return Response.json(
+        { error: "Failed to fetch transactions", transactionsJson },
+        { status: 500 }
+      );
+    }
+
     return Response.json({
       success: true,
       connectionId,
-      provider: fullConnection.providerId,
-      status: fullConnection.status,
-      accountsCount: fullConnection.accounts,
-      transactionsCount: fullConnection.transactions,
-      loansCount: fullConnection.loans,
-      rawConnection: fullConnection
+      transactions: transactionsJson
     });
 
   } catch (err) {
