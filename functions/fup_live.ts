@@ -23,14 +23,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ===============================
-    // 1️⃣ GET ACCESS TOKEN
-    // ===============================
+    // 1️⃣ Get Token
     const tokenRes = await fetch(`${API_ROOT}/oauth/token`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         userId,
         clientId: API_KEY,
@@ -42,19 +38,14 @@ Deno.serve(async (req) => {
 
     if (!tokenRes.ok || !tokenJson?.accessToken) {
       return Response.json(
-        {
-          error: "Token fetch failed",
-          tokenJson
-        },
+        { error: "Token fetch failed", tokenJson },
         { status: 500 }
       );
     }
 
     const accessToken = tokenJson.accessToken;
 
-    // ===============================
-    // 2️⃣ GET CONNECTIONS
-    // ===============================
+    // 2️⃣ Get Connections
     const connectionsRes = await fetch(`${API_V2}/connections`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -66,10 +57,7 @@ Deno.serve(async (req) => {
 
     if (!connectionsRes.ok) {
       return Response.json(
-        {
-          error: "Connections fetch failed",
-          connectionsJson
-        },
+        { error: "Connections fetch failed", connectionsJson },
         { status: 500 }
       );
     }
@@ -81,10 +69,7 @@ Deno.serve(async (req) => {
 
     if (!Array.isArray(list)) {
       return Response.json(
-        {
-          error: "Connections format unexpected",
-          connectionsJson
-        },
+        { error: "Connections format unexpected", connectionsJson },
         { status: 500 }
       );
     }
@@ -95,21 +80,16 @@ Deno.serve(async (req) => {
 
     if (!completed?.id) {
       return Response.json(
-        {
-          error: "No COMPLETED connection found",
-          connections: list
-        },
+        { error: "No COMPLETED connection found", list },
         { status: 404 }
       );
     }
 
     const connectionId = completed.id;
 
-    // ===============================
-    // 3️⃣ GET ACCOUNTS
-    // ===============================
-    const accountsRes = await fetch(
-      `${API_V2}/accounts?connectionId=${connectionId}`,
+    // 3️⃣ Get FULL connection details
+    const fullConnRes = await fetch(
+      `${API_V2}/connections/${connectionId}`,
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -118,68 +98,24 @@ Deno.serve(async (req) => {
       }
     );
 
-    const accountsJson = await accountsRes.json();
+    const fullConnection = await fullConnRes.json();
 
-    if (!accountsRes.ok) {
+    if (!fullConnRes.ok) {
       return Response.json(
-        {
-          error: "Accounts fetch failed",
-          accountsJson,
-          connectionId
-        },
+        { error: "Failed to fetch connection details", fullConnection },
         { status: 500 }
       );
     }
 
-    const accounts =
-      accountsJson?.items ||
-      accountsJson?.data ||
-      accountsJson ||
-      [];
-
-    // ===============================
-    // 4️⃣ GET TRANSACTIONS
-    // ===============================
-    const transactionsRes = await fetch(
-      `${API_V2}/transactions?connectionId=${connectionId}&fromDate=2025-01-01`,
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          Accept: "application/json"
-        }
-      }
-    );
-
-    const transactionsJson = await transactionsRes.json();
-
-    if (!transactionsRes.ok) {
-      return Response.json(
-        {
-          error: "Transactions fetch failed",
-          transactionsJson
-        },
-        { status: 500 }
-      );
-    }
-
-    const transactions =
-      transactionsJson?.items ||
-      transactionsJson?.data ||
-      transactionsJson ||
-      [];
-
-    // ===============================
-    // SUCCESS
-    // ===============================
     return Response.json({
       success: true,
       connectionId,
-      accountsCount: Array.isArray(accounts) ? accounts.length : 0,
-      transactionsCount: Array.isArray(transactions)
-        ? transactions.length
-        : 0,
-      accounts,
-      transactions
+      provider: fullConnection.providerId,
+      status: fullConnection.status,
+      accountsCount: fullConnection.accounts,
+      transactionsCount: fullConnection.transactions,
+      loansCount: fullConnection.loans,
+      rawConnection: fullConnection
     });
 
   } catch (err) {
@@ -187,10 +123,7 @@ Deno.serve(async (req) => {
       err instanceof Error ? err.message : "Unknown error";
 
     return Response.json(
-      {
-        error: "Unexpected server error",
-        message
-      },
+      { error: "Unexpected server error", message },
       { status: 500 }
     );
   }
