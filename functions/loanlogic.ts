@@ -1,79 +1,58 @@
-import { createClientFromRequest } from 'npm:@base44/sdk';
-
-export default Deno.serve(async (req) => {
+Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
-    
-    // קריאת הנתונים מהבקשה (Payload)
-    const { connectionId, psuId } = await req.json();
+    const API_ROOT = "https://api.open-finance.ai";
+    const API_V2 = "https://api.open-finance.ai/v2";
+    const API_KEY = Deno.env.get("OPEN_FINANCE_API_KEY");
+    const API_SECRET = Deno.env.get("OPEN_FINANCE_API_SECRET");
 
-    // 1. קריאה ישירה לפונקציית ה-Ingestion שמביאה נתונים מהבנק
-    const ingestionResponse = await base44.functions.invoke('fup_live', {
-      action: 'sync',
-      connectionId,
-      psuId
+    const body = await req.json();
+    const userId = body?.userId || "ronenk2424@gmail.com";
+
+    // 1. קבלת טוקן (כמו שעבד ב-fup_live)
+    const tokenRes = await fetch(`${API_ROOT}/oauth/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, clientId: API_KEY, clientSecret: API_SECRET })
     });
+    const { accessToken } = await tokenRes.json();
 
-    // בדיקה אם הבנק החזיר נתונים
-    const transactions = ingestionResponse.data?.transactions || [];
-    
-    if (transactions.length === 0) {
-      return Response.json({ 
-        success: false, 
-        message: "לא נמצאו תנועות בחשבון הבנק. וודא שהחיבור תקין." 
-      }, { status: 400 });
-    }
+    // 2. משיכת העסקאות שראינו ב-Test
+    const txRes = await fetch(`${API_V2}/data/transactions`, {
+      headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" }
+    });
+    const txData = await txRes.json();
+    const transactions = txData.data || txData.items || [];
 
-    let income = 0;
-    let fixed = 0;
-    let lifestyle = 0;
+    // 3. ניתוח הנתונים האמיתיים של רונן
+    let income = 0, fixed = 0, lifestyle = 0;
 
-    // 2. עיבוד הנתונים האמיתיים מהבנק
-    transactions.forEach(tx => {
+    transactions.forEach((tx) => {
       const amount = tx.amount?.chargedAmount?.amount || 0;
-      const category = (tx.category?.main || '').toLowerCase();
+      const category = (tx.category?.main || "").toLowerCase();
       
-      // זיהוי הכנסה (הפקדות חיוביות)
-      const isIncome = tx.classification?.type?.includes('INCOME') || amount > 0;
-
-      if (isIncome) {
-        income += amount;
-      } else {
+      if (amount > 0) income += amount;
+      else {
         const absAmt = Math.abs(amount);
-        // סיווג הוצאות קבועות מול משתנות
-        const isFixed = ['housing', 'loan', 'insurance', 'transportation', 'utilities'].some(c => category.includes(c));
-        
-        if (isFixed) {
-          fixed += absAmt;
-        } else {
-          lifestyle += absAmt;
-        }
+        const isFixed = ["housing", "loan", "insurance", "transportation"].some(c => category.includes(c));
+        if (isFixed) fixed += absAmt;
+        else lifestyle += absAmt;
       }
     });
 
-    // 3. חישוב ה-DTI (יחס החזר)
     const dti = income > 0 ? (fixed / income) * 100 : 0;
 
-    // 4. החזרת התוצאה הסופית ל-Frontend
     return Response.json({
       success: true,
       metrics: {
         totalIncome: Math.round(income),
         fixedExpenses: Math.round(fixed),
         lifestyleExpenses: Math.round(lifestyle),
-        dti: parseFloat(dti.toFixed(1)), // מחזיר מספר לספידומטר
-        status: dti < 40 ? 'GREEN' : dti < 60 ? 'ORANGE' : 'RED'
-      },
-      simulation: {
-        maxLoanCapacity: Math.round((income * 0.4) - fixed)
+        dti: parseFloat(dti.toFixed(1)),
+        status: dti < 40 ? "GREEN" : dti < 60 ? "ORANGE" : "RED"
       }
     });
 
   } catch (err) {
-    // החזרת השגיאה המדויקת כדי שנדע אם ה-ConnectionId פג תוקף
-    return Response.json({ 
-      error: "Bank Connection Failed", 
-      details: err.message 
-    }, { status: 400 });
+    return Response.json({ error: "Analysis Failed", details: err.message }, { status: 500 });
   }
 });
