@@ -1,56 +1,70 @@
 import { createClientFromRequest } from 'npm:@base44/sdk';
 
 export default Deno.serve(async (req) => {
-    if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
+  try {
+    // נתוני דוגמה (Mock) - ככה לא צריך להריץ API ולא לשרוף קרדיטים על תיקונים
+    const mockTransactions = [
+      {
+        "amount": { "chargedAmount": { "amount": 10000 } },
+        "category": { "main": "INCOME" },
+        "classification": { "type": "PRIMARY_INCOME" },
+        "description": "משכורת"
+      },
+      {
+        "amount": { "chargedAmount": { "amount": -3500 } },
+        "category": { "main": "HOUSING" },
+        "classification": { "type": "FIXED_EXPENSE" },
+        "description": "שכר דירה"
+      },
+      {
+        "amount": { "chargedAmount": { "amount": -1200 } },
+        "category": { "main": "LOAN" },
+        "classification": { "type": "FIXED_EXPENSE" },
+        "description": "החזר הלוואה רכב"
+      },
+      {
+        "amount": { "chargedAmount": { "amount": -800 } },
+        "category": { "main": "ENTERTAINMENT" },
+        "classification": { "type": "LIFESTYLE" },
+        "description": "Wolt & Netflix"
+      }
+    ];
 
-    try {
-        const base44 = createClientFromRequest(req);
-        const body = await req.json();
-        const { connectionId, psuId } = body;
+    let income = 0;
+    let fixed = 0;
+    let lifestyle = 0;
 
-        // קריאה לצינור הנתונים
-        const ingestionResponse = await base44.functions.invoke('fup_live', {
-            action: 'sync',
-            connectionId,
-            psuId
-        });
+    mockTransactions.forEach(tx => {
+      const val = tx.amount.chargedAmount.amount;
+      const cat = tx.category.main.toLowerCase();
+      
+      if (val > 0) {
+        income += val;
+      } else {
+        const absVal = Math.abs(val);
+        // בדיקה אם ההוצאה היא קשיחה (Fixed)
+        if (['housing', 'loan', 'insurance', 'transportation'].includes(cat)) {
+          fixed += absVal;
+        } else {
+          lifestyle += absVal;
+        }
+      }
+    });
 
-        const transactions = ingestionResponse.data?.transactions || [];
+    const dti = income > 0 ? (fixed / income) * 100 : 0;
 
-        // חישוב לוגיקה על ה-JSON של מזרחי (בלי lodash)
-        let totalIncome = 0;
-        let totalFixed = 0;
-        let totalLifestyle = 0;
+    return Response.json({
+      success: true,
+      metrics: {
+        totalIncome: income,
+        fixedExpenses: fixed,
+        lifestyleExpenses: lifestyle,
+        dti: dti.toFixed(1),
+        status: dti < 40 ? 'GREEN' : dti < 60 ? 'ORANGE' : 'RED'
+      }
+    });
 
-        transactions.forEach(tx => {
-            const amount = tx.amount?.chargedAmount?.amount || 0;
-            const category = (tx.category?.main || '').toLowerCase();
-            const isIncome = tx.classification?.type?.includes('INCOME');
-
-            if (isIncome) {
-                totalIncome += amount;
-            } else {
-                const absAmt = Math.abs(amount);
-                const isFixed = ['housing', 'loans', 'insurance', 'transportation'].some(c => category.includes(c));
-                if (isFixed) totalFixed += absAmt;
-                else totalLifestyle += absAmt;
-            }
-        });
-
-        const dti = totalIncome > 0 ? (totalFixed / totalIncome) * 100 : 0;
-
-        return Response.json({
-            success: true,
-            metrics: {
-                income: Math.round(totalIncome),
-                fixed: Math.round(totalFixed),
-                lifestyle: Math.round(totalLifestyle),
-                dti: dti.toFixed(1),
-                status: dti < 40 ? 'GREEN' : dti < 60 ? 'ORANGE' : 'RED'
-            }
-        });
-
-    } catch (error) {
-        return Response.json({ error: error.message }, { status: 500 });
-    }
+  } catch (err) {
+    return Response.json({ error: err.message }, { status: 500 });
+  }
 });
