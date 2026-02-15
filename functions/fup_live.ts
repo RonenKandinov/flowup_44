@@ -7,17 +7,20 @@ Deno.serve(async (req) => {
     const API_SECRET = Deno.env.get("OPEN_FINANCE_API_SECRET");
 
     if (!API_KEY || !API_SECRET) {
-      return Response.json({
-        error: "Missing Open Finance credentials"
-      }, { status: 500 });
+      return Response.json(
+        { error: "Missing Open Finance credentials" },
+        { status: 500 }
+      );
     }
 
-    const { userId } = await req.json();
+    const body = await req.json();
+    const userId = body?.userId;
 
     if (!userId) {
-      return Response.json({
-        error: "userId is required"
-      }, { status: 400 });
+      return Response.json(
+        { error: "userId is required" },
+        { status: 400 }
+      );
     }
 
     // ===============================
@@ -37,21 +40,24 @@ Deno.serve(async (req) => {
 
     const tokenJson = await tokenRes.json();
 
-    if (!tokenRes.ok) {
-      return Response.json({
-        error: "Failed to get access token",
-        tokenJson
-      }, { status: 500 });
+    if (!tokenRes.ok || !tokenJson?.accessToken) {
+      return Response.json(
+        {
+          error: "Token fetch failed",
+          tokenJson
+        },
+        { status: 500 }
+      );
     }
 
-    const access_token = tokenJson.accessToken;
+    const accessToken = tokenJson.accessToken;
 
     // ===============================
     // 2️⃣ GET CONNECTIONS
     // ===============================
     const connectionsRes = await fetch(`${API_V2}/connections`, {
       headers: {
-        Authorization: `Bearer ${access_token}`,
+        Authorization: `Bearer ${accessToken}`,
         Accept: "application/json"
       }
     });
@@ -59,98 +65,133 @@ Deno.serve(async (req) => {
     const connectionsJson = await connectionsRes.json();
 
     if (!connectionsRes.ok) {
-      return Response.json({
-        error: "Failed to fetch connections",
-        connectionsJson
-      }, { status: 500 });
+      return Response.json(
+        {
+          error: "Connections fetch failed",
+          connectionsJson
+        },
+        { status: 500 }
+      );
     }
 
     const list =
-      connectionsJson.items ||
-      connectionsJson.data ||
+      connectionsJson?.items ||
+      connectionsJson?.data ||
       connectionsJson;
 
+    if (!Array.isArray(list)) {
+      return Response.json(
+        {
+          error: "Connections format unexpected",
+          connectionsJson
+        },
+        { status: 500 }
+      );
+    }
+
     const completed = list.find(
-      (c) => c.status === "COMPLETED"
+      (c) => c?.status === "COMPLETED"
     );
 
-    if (!completed) {
-      return Response.json({
-        error: "No COMPLETED connection found",
-        connections: list
-      }, { status: 404 });
+    if (!completed?.id) {
+      return Response.json(
+        {
+          error: "No COMPLETED connection found",
+          connections: list
+        },
+        { status: 404 }
+      );
     }
 
     const connectionId = completed.id;
 
     // ===============================
-// 3️⃣ GET ACCOUNTS (Correct Path)
-// ===============================
-const accountsRes = await fetch(
-  `${API_V2}/connections/${connectionId}/accounts`,
-  {
-    headers: {
-      Authorization: `Bearer ${access_token}`,
-      Accept: "application/json"
-    }
-  }
-);
-
-const accountsJson = await accountsRes.json();
-
-if (!accountsRes.ok) {
-  return Response.json({
-    error: "Failed to fetch accounts",
-    accountsJson
-  }, { status: 500 });
-}
-
-const accounts =
-  accountsJson.items ||
-  accountsJson.data ||
-  accountsJson;
+    // 3️⃣ GET ACCOUNTS
     // ===============================
-// 4️⃣ GET TRANSACTIONS (Correct Path)
-// ===============================
-const transactionsRes = await fetch(
-  `${API_V2}/connections/${connectionId}/transactions?fromDate=2025-01-01`,
-  {
-    headers: {
-      Authorization: `Bearer ${access_token}`,
-      Accept: "application/json"
+    const accountsRes = await fetch(
+      `${API_V2}/accounts?connectionId=${connectionId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/json"
+        }
+      }
+    );
+
+    const accountsJson = await accountsRes.json();
+
+    if (!accountsRes.ok) {
+      return Response.json(
+        {
+          error: "Accounts fetch failed",
+          accountsJson,
+          connectionId
+        },
+        { status: 500 }
+      );
     }
-  }
-);
 
-const transactionsJson = await transactionsRes.json();
+    const accounts =
+      accountsJson?.items ||
+      accountsJson?.data ||
+      accountsJson ||
+      [];
 
-if (!transactionsRes.ok) {
-  return Response.json({
-    error: "Failed to fetch transactions",
-    transactionsJson
-  }, { status: 500 });
-}
-
-const transactions =
-  transactionsJson.items ||
-  transactionsJson.data ||
-  transactionsJson;
     // ===============================
-    // SUCCESS RESPONSE
+    // 4️⃣ GET TRANSACTIONS
+    // ===============================
+    const transactionsRes = await fetch(
+      `${API_V2}/transactions?connectionId=${connectionId}&fromDate=2025-01-01`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/json"
+        }
+      }
+    );
+
+    const transactionsJson = await transactionsRes.json();
+
+    if (!transactionsRes.ok) {
+      return Response.json(
+        {
+          error: "Transactions fetch failed",
+          transactionsJson
+        },
+        { status: 500 }
+      );
+    }
+
+    const transactions =
+      transactionsJson?.items ||
+      transactionsJson?.data ||
+      transactionsJson ||
+      [];
+
+    // ===============================
+    // SUCCESS
     // ===============================
     return Response.json({
       success: true,
       connectionId,
-      accountsCount: accounts.length || 0,
-      transactionsCount: transactions.length || 0,
+      accountsCount: Array.isArray(accounts) ? accounts.length : 0,
+      transactionsCount: Array.isArray(transactions)
+        ? transactions.length
+        : 0,
       accounts,
       transactions
     });
 
   } catch (err) {
-    return Response.json({
-      error: "Unexpected error",
-      message: err.message
-    }, { status: 500 });
+    const message =
+      err instanceof Error ? err.message : "Unknown error";
+
+    return Response.json(
+      {
+        error: "Unexpected server error",
+        message
+      },
+      { status: 500 }
+    );
   }
 });
