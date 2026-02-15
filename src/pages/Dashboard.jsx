@@ -71,6 +71,17 @@ export default function Dashboard() {
 
   const isAdmin = user?.role === 'admin';
 
+  // Check for active Open Finance connection
+  const { data: activeConnection } = useQuery({
+    queryKey: ['active-connection', user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+        // Find active connection for this user
+        const conns = await base44.entities.OpenFinanceConnection.filter({ psu_id: user.id, status: 'ACTIVE' }, '-created_date', 1);
+        return conns[0];
+    }
+  });
+
   // Fetch saved snapshot
   const { data: snapshots, isLoading: isSnapshotsLoading } = useQuery({
     queryKey: ['financial-snapshots'],
@@ -427,10 +438,11 @@ export default function Dashboard() {
             <div className="flex items-center gap-2">
               <Button
                 onClick={() => {
-                    // Assuming we have a connection ID stored or just use the UI flow
-                    // For now, triggering UI flow if no connection, or we could auto-sync.
-                    // Given instructions, we'll open the modal which now can handle sync via the hook or we pass the sync function
-                    setShowOpenFinance(true)
+                    if (activeConnection) {
+                        sync(activeConnection.connection_id, user.id);
+                    } else {
+                        setShowOpenFinance(true);
+                    }
                 }}
                 variant="ghost"
                 size="sm"
