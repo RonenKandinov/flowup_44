@@ -53,10 +53,9 @@ Deno.serve(async (req) => {
       }
 
       const accessToken = tokenJson.accessToken;
-
-      // 2️⃣ Fetch Transactions
-const txRes = await fetch(
-  `${API_V2}/connections/${connectionId}/transactions`,
+// 2️⃣ Fetch full connection data
+const dataRes = await fetch(
+  `${API_V2}/connections/${connectionId}`,
   {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -65,28 +64,26 @@ const txRes = await fetch(
   }
 );
 
-const txJson = await txRes.json();
+const dataJson = await dataRes.json();
 
-if (!txRes.ok) {
-  console.error("❌ Failed to fetch transactions:", txJson);
+if (!dataRes.ok) {
+  console.error("❌ Failed to fetch connection data:", dataJson);
   return Response.json(
-    { error: "Failed to fetch transactions", details: txJson },
+    { error: "Failed to fetch connection data", details: dataJson },
     { status: 500 }
   );
 }
-      const transactions =
-        txJson.items ||
-        txJson.data ||
-        [];
 
-      console.log(`✅ Fetched ${transactions.length} transactions`);
+console.log("📦 Full connection data:", dataJson);
 
-      return Response.json({
-        success: true,
-        eventType,
-        connectionId,
-        transactionsCount: transactions.length
-      });
+return Response.json({
+  success: true,
+  transactionsCount: dataJson.transactions,
+  accountsCount: dataJson.accounts,
+  raw: dataJson
+});
+
+   
     }
 
     // ==============================
