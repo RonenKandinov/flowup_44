@@ -8,16 +8,34 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const userId = body?.userId || "ronenk2424@gmail.com";
 
-    // 1️⃣ Token
+    // ===============================
+    // 1️⃣ Get Access Token
+    // ===============================
     const tokenRes = await fetch(`${API_ROOT}/oauth/token`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, clientId: API_KEY, clientSecret: API_SECRET })
+      body: JSON.stringify({
+        userId,
+        clientId: API_KEY,
+        clientSecret: API_SECRET
+      })
     });
 
-    const { accessToken } = await tokenRes.json();
+    const tokenJson = await tokenRes.json();
 
-    // 2️⃣ Transactions
+    if (!tokenJson?.accessToken) {
+      return Response.json({
+        success: false,
+        error: "Failed to get access token",
+        raw: tokenJson
+      }, { status: 500 });
+    }
+
+    const accessToken = tokenJson.accessToken;
+
+    // ===============================
+    // 2️⃣ Fetch Transactions
+    // ===============================
     const txRes = await fetch(`${API_V2}/data/transactions`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -26,24 +44,56 @@ Deno.serve(async (req) => {
     });
 
     const txData = await txRes.json();
-    const transactions = txData.data || txData.items || [];
+
+    const transactions =
+      txData?.data ||
+      txData?.items ||
+      txData?.transactions ||
+      [];
+
+    if (!Array.isArray(transactions) || transactions.length === 0) {
+      return Response.json({
+        success: true,
+        message: "No transactions found",
+        metrics: {
+          totalIncome: 0,
+          fixedExpenses: 0,
+          lifestyleExpenses: 0,
+          totalExpenses: 0,
+          netCashFlow: 0,
+          dti: 100,
+          status: "RED"
+        },
+        analysis: {
+          loanEligibility: false,
+          safetyMargin: 0,
+          financialStrengthScore: 0
+        }
+      });
+    }
+
+    // ===============================
+    // 3️⃣ Financial Calculation
+    // ===============================
 
     let income = 0;
     let fixed = 0;
     let lifestyle = 0;
 
     transactions.forEach((tx) => {
-      const amount = tx.amount?.chargedAmount?.amount || 0;
-      const category = (tx.category?.main || "").toLowerCase();
-      const direction = (tx.type || tx.direction || "").toLowerCase();
+      const amount = Number(
+        tx?.amount?.chargedAmount?.amount || 0
+      );
 
-      // CREDIT = income
-      if (direction.includes("credit")) {
-        income += Math.abs(amount);
+      const category =
+        (tx?.category?.main || "").toLowerCase();
+
+      if (amount > 0) {
+        // CREDIT
+        income += amount;
       }
 
-      // DEBIT = expense
-      if (direction.includes("debit")) {
+      if (amount < 0) {
         const absAmt = Math.abs(amount);
 
         const isFixed = [
@@ -60,27 +110,31 @@ Deno.serve(async (req) => {
 
     const totalExpenses = fixed + lifestyle;
     const netCashFlow = income - totalExpenses;
-
     const dti = income > 0 ? (fixed / income) * 100 : 100;
 
-    // 🚨 Hard Fail Rules
+    // ===============================
+    // 4️⃣ Underwriting Logic
+    // ===============================
+
     let status = "GREEN";
 
     if (netCashFlow < 0) status = "RED";
     else if (dti >= 60) status = "RED";
     else if (dti >= 40) status = "ORANGE";
 
-    // 🎯 Strength Score
     let rawScore =
       100 -
       (dti * 1.5) -
       (netCashFlow < 0 ? 30 : 0);
 
-    // clamp
     const financialStrengthScore = Math.max(
       0,
       Math.min(100, Math.round(rawScore))
     );
+
+    // ===============================
+    // 5️⃣ Response
+    // ===============================
 
     return Response.json({
       success: true,
@@ -101,9 +155,10 @@ Deno.serve(async (req) => {
     });
 
   } catch (err) {
-    return Response.json(
-      { error: "Analysis Failed", details: err.message },
-      { status: 500 }
-    );
+    return Response.json({
+      success: false,
+      error: "Analysis Failed",
+      details: err.message
+    }, { status: 500 });
   }
 });
