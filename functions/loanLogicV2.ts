@@ -1,185 +1,185 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.11';
-import * as _ from 'npm:lodash@4.17.21';
+// fup_underwriting_engine/index.ts
 
-// --- SHADOW VECTOR LOGIC (Replicated from Protocol) ---
+// --- Millennium Protocol Utilities (Shadow Realm) ---
 const PRECISION_SCALE = 1000;
 const ENTROPY_FACTOR = 1000000;
 
-function toShadow(amount, userKeyFactor) {
+/**
+ * הופך סכום גולמי לוקטור עיוור
+ */
+function toShadow(amount, key) {
     const normalized = amount / PRECISION_SCALE;
-    const theta = (userKeyFactor * ENTROPY_FACTOR) % (2 * Math.PI);
-    return {
-        m: normalized * Math.cos(theta), // Magnitude
-        p: normalized * Math.sin(theta)  // Phantom
+    const theta = (key * ENTROPY_FACTOR) % (2 * Math.PI);
+    return { 
+        m: normalized * Math.cos(theta), 
+        p: normalized * Math.sin(theta) 
     };
 }
 
-function fromShadow(m, p, userKeyFactor) {
-    const theta = (userKeyFactor * ENTROPY_FACTOR) % (2 * Math.PI);
-    // x = m*cos + p*sin
+/**
+ * משחזר וקטור לסכום פיננסי גולמי (Recovery Layer)
+ */
+function fromShadow(m, p, key) {
+    const theta = (key * ENTROPY_FACTOR) % (2 * Math.PI);
     const normalized = (m * Math.cos(theta)) + (p * Math.sin(theta));
-    return normalized * PRECISION_SCALE;
+    const amount = normalized * PRECISION_SCALE;
+    return Math.round(amount * 100) / 100;
 }
 
-// --- CORE LOGIC ---
-export default Deno.serve(async (req) => {
+// --- Main Edge Function ---
+Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
-        const { userId } = await req.json();
+        const API_ROOT = "https://api.open-finance.ai";
+        const API_V2 = "https://api.open-finance.ai/v2";
+        const API_KEY = Deno.env.get("OPEN_FINANCE_API_KEY");
+        const API_SECRET = Deno.env.get("OPEN_FINANCE_API_SECRET");
 
-        // 1. Ingest Raw Data (Service-to-Service)
-        const fupResponse = await base44.functions.invoke('fup_live', { userId });
-        const rawTransactions = fupResponse.data?.transactions?.data || [];
-        
-        if (!rawTransactions.length) {
-             return Response.json({ error: "No data available for analysis" });
-        }
+        const body = await req.json();
+        const userId = body?.userId || "ronenk2424@gmail.com";
 
-        // 2. Initialize Shadow Protocol (Ephemeral Session Key)
-        // We use a random key so even we don't know the projection angle across sessions
+        // 1. קבלת Access Token מ-Open Finance
+        const tokenRes = await fetch(`${API_ROOT}/oauth/token`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId, clientId: API_KEY, clientSecret: API_SECRET })
+        });
+        const { accessToken } = await tokenRes.json();
+
+        // 2. שליפת עסקאות חיות
+        const txRes = await fetch(`${API_V2}/data/transactions`, {
+            headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" }
+        });
+        const txData = await txRes.json();
+        const rawTransactions = txData?.data || txData?.items || [];
+
+        // --- Millennium Zero-Knowledge Integration ---
         const SESSION_KEY = Math.random() * 1000; 
 
-        // 3. Transform to Shadow Realm (Vector Space)
-        const vectors = rawTransactions.map(t => {
-            const amount = t.amount?.chargedAmount?.amount || 0;
-            const vec = toShadow(amount, SESSION_KEY);
+        // 3. התמרה לוקטורים (Shadow Transformation)
+        const vectors = rawTransactions.map(tx => {
+            const amount = Number(tx?.amount?.chargedAmount?.amount || 0);
             return {
-                ...vec,
-                date: new Date(t.date),
-                type: amount > 0 ? 'income' : 'expense'
+                m: toShadow(amount, SESSION_KEY).m,
+                p: toShadow(amount, SESSION_KEY).p,
+                type: amount > 0 ? 'income' : 'expense',
+                category: (tx.category?.main || "").toLowerCase()
             };
         });
 
-        // 4. Build DNA Profile (Vector Aggregation)
-        // Identify Assets & Flows in Vector Space
+        // 4. ניתוח DNA וסימולציית Monte Carlo
         const dnaProfile = analyzeDNA(vectors, SESSION_KEY);
-
-        // 5. Monte Carlo Simulation (500 Iterations, 45 Days)
         const simulation = runMonteCarlo(vectors, dnaProfile, SESSION_KEY);
 
-        // 6. Risk Assessment
+        // 5. הערכת סיכון סופית (מודל הרמזור)
         const riskAssessment = assessRisk(simulation);
+
+        // 6. שחזור נתונים פיננסיים (Recovery) לתצוגה
+        const recoveredMetrics = {
+            totalIncome: fromShadow(dnaProfile.sums.incomeM, dnaProfile.sums.incomeP, SESSION_KEY),
+            fixedExpenses: fromShadow(dnaProfile.sums.fixedM, dnaProfile.sums.fixedP, SESSION_KEY),
+            lifestyleExpenses: fromShadow(dnaProfile.sums.flexM, dnaProfile.sums.flexP, SESSION_KEY),
+            netCashFlow: fromShadow(dnaProfile.sums.totalM, dnaProfile.sums.totalP, SESSION_KEY)
+        };
 
         return Response.json({
             success: true,
-            riskProfile: riskAssessment,
-            dnaProfile: {
-                // Return safe, aggregated stats only
-                volatility: dnaProfile.volatility,
+            status: riskAssessment.riskStatus,
+            survivalRate: Math.round(simulation.survivalRate),
+            riskDay: riskAssessment.riskDay,
+            metrics: recoveredMetrics,
+            analysis: {
+                loanEligibility: riskAssessment.riskStatus === "GREEN",
                 resilienceScore: dnaProfile.resilienceScore
-            },
-            simulation: {
-                survivalProbability: simulation.survivalRate,
-                failurePoints: simulation.failureDays
             }
         });
 
     } catch (error) {
-        return Response.json({ error: error.message }, { status: 500 });
+        return Response.json({ success: false, error: error.message }, { status: 500 });
     }
 });
 
+// --- DNA & Risk Logic Functions ---
+
 function analyzeDNA(vectors, key) {
-    // Calculate Volatility (Standard Deviation of Daily Vectors)
-    // We can do this in vector space: StdDev(Mag), StdDev(Phan)
-    const dailyChange = vectors.map(v => Math.sqrt(v.m**2 + v.p**2)); // Amplitude
-    const mean = _.mean(dailyChange);
-    const variance = _.mean(dailyChange.map(x => (x - mean)**2));
-    const volatility = Math.sqrt(variance);
-
-    // Identify "Assets" (Positive Flows) -> Resilience Buffer
-    // Sum of all positive vectors (Income) over the period
-    const incomeVectors = vectors.filter(v => v.type === 'income');
-    const totalIncomeM = _.sumBy(incomeVectors, 'm');
-    const totalIncomeP = _.sumBy(incomeVectors, 'p');
-    
-    // Virtual Asset Buffer (e.g. 10% of flow is liquidable)
-    const assetBuffer = {
-        m: totalIncomeM * 0.1, 
-        p: totalIncomeP * 0.1
+    const sums = { 
+        incomeM: 0, incomeP: 0, 
+        fixedM: 0, fixedP: 0, 
+        flexM: 0, flexP: 0, 
+        totalM: 0, totalP: 0 
     };
+    const FIXED_KEYWORDS = ["housing", "loan", "insurance", "transportation", "utilities"];
 
-    return {
-        volatility,
-        assetBuffer,
-        resilienceScore: Math.min((incomeVectors.length / 5) * 100, 100) // Rough score
+    vectors.forEach(v => {
+        sums.totalM += v.m; sums.totalP += v.p;
+        if (v.type === 'income') {
+            sums.incomeM += v.m; sums.incomeP += v.p;
+        } else {
+            const isFixed = FIXED_KEYWORDS.some(k => v.category.includes(k));
+            if (isFixed) {
+                sums.fixedM += v.m; sums.fixedP += v.p;
+            } else {
+                sums.flexM += v.m; sums.flexP += v.p;
+            }
+        }
+    });
+
+    const amplitudes = vectors.map(v => Math.sqrt(v.m**2 + v.p**2));
+    const mean = amplitudes.reduce((a, b) => a + b, 0) / Math.max(1, amplitudes.length);
+    const volatility = Math.sqrt(amplitudes.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b, 0) / Math.max(1, amplitudes.length));
+
+    return { 
+        sums, 
+        volatility, 
+        resilienceScore: Math.min((vectors.filter(v => v.type === 'income').length / 5) * 100, 100) 
     };
 }
 
-function runMonteCarlo(historyVectors, dna, key) {
+function runMonteCarlo(history, dna, key) {
     const ITERATIONS = 500;
     const HORIZON = 45;
-    
-    // Starting Position (Current Balance Vector)
-    // For simulation, we need a starting point. 
-    // We sum ALL history to get "Current Balance" in vector space
-    const startM = _.sumBy(historyVectors, 'm');
-    const startP = _.sumBy(historyVectors, 'p');
-
     let failures = 0;
-    const failureDays = {};
-
-    // Weighted SES Factors
-    const ALPHA_TREND = 0.7; // Annual
-    const ALPHA_VOLATILITY = 0.3; // Recent
+    let failureDays = {};
 
     for (let i = 0; i < ITERATIONS; i++) {
-        let currentM = startM + dna.assetBuffer.m; // Inject Asset Buffer
-        let currentP = startP + dna.assetBuffer.p;
+        let curM = dna.sums.totalM; 
+        let curP = dna.sums.totalP;
+        
+        for (let d = 1; d <= HORIZON; d++) {
+            const shock = (Math.random() - 0.5) * dna.volatility;
+            curM += (shock / PRECISION_SCALE) * Math.cos(key);
+            curP += (shock / PRECISION_SCALE) * Math.sin(key);
 
-        for (let day = 1; day <= HORIZON; day++) {
-            // Predict Daily Flow (Vector)
-            // Random walk based on DNA Volatility
-            const shock = (Math.random() - 0.5) * dna.volatility; // Simplified vector shock
-            
-            // Apply Forecast (Simplified SES logic for simulation step)
-            // In a full implementation, we'd project trend vectors. 
-            // Here we assume mean reversion + shock.
-            
-            currentM += (shock / PRECISION_SCALE) * Math.cos(key); 
-            currentP += (shock / PRECISION_SCALE) * Math.sin(key);
-
-            // Check Failure (Reconstruct to check sign)
-            const balance = fromShadow(currentM, currentP, key);
-            
-            if (balance < 0) {
+            if (fromShadow(curM, curP, key) < 0) {
                 failures++;
-                failureDays[day] = (failureDays[day] || 0) + 1;
-                break; // Bust
+                failureDays[d] = (failureDays[d] || 0) + 1;
+                break;
             }
         }
     }
-
-    return {
-        survivalRate: ((ITERATIONS - failures) / ITERATIONS) * 100,
-        failureDays
+    return { 
+        survivalRate: ((ITERATIONS - failures) / ITERATIONS) * 100, 
+        failureDays 
     };
 }
 
 function assessRisk(sim) {
     const survival = sim.survivalRate;
     let status = 'RED';
-    let confidence = 'LOW';
 
     if (survival > 95) {
         status = 'GREEN';
-        confidence = 'HIGH';
     } else if (survival > 75) {
         status = 'ORANGE';
-        confidence = 'MEDIUM';
     }
 
-    // Find most common failure day
-    const riskDayOffset = Object.entries(sim.failureDays)
-        .sort((a,b) => b[1] - a[1])[0]?.[0];
-
-    const riskDay = riskDayOffset 
-        ? new Date(Date.now() + (parseInt(riskDayOffset) * 86400000)).toISOString()
+    const failureEntries = Object.entries(sim.failureDays || {});
+    const riskDayOffset = failureEntries.length > 0 
+        ? failureEntries.sort((a, b) => b[1] - a[1])[0][0] 
         : null;
 
-    return {
-        riskStatus: status,
-        confidence,
-        riskDay
+    return { 
+        riskStatus: status, 
+        survivalRate: survival, 
+        riskDay: riskDayOffset 
     };
 }
