@@ -34,28 +34,34 @@ export const useLoanMetrics = () => {
 
             if (data.success) {
                 // 3. Data Transformation Layer
-                const calculatedDti = data.metrics.dti || (data.metrics.totalIncome > 0 
-                    ? Math.round((data.metrics.fixedExpenses / data.metrics.totalIncome) * 100) 
-                    : 0);
-                
-                // Use backend calculated score if available, otherwise fallback to survival rate
-                const flowUpScore = data.metrics.score !== undefined ? data.metrics.score : data.survivalRate;
+                const report = data.report || {};
+                const metrics = data.metrics || {};
 
+                // Use new report structure if available, fallback to legacy
+                const flowUpScore = report.score !== undefined ? report.score : (metrics.score !== undefined ? metrics.score : data.survivalRate);
+                const status = report.status || data.status;
+                
                 const transformedMetrics = {
                     score: flowUpScore, 
-                    trafficLight: data.status, // GREEN, ORANGE, RED
-                    status: data.status,
-                    dti: calculatedDti,
-                    riskDay: data.riskDay,
-                    totalIncome: data.metrics.totalIncome,
-                    totalExpenses: data.metrics.totalExpenses || (data.metrics.fixedExpenses + data.metrics.lifestyleExpenses),
-                    totalFixedExpenses: data.metrics.fixedExpenses,
-                    totalLifestyleExpenses: data.metrics.lifestyleExpenses,
-                    liquidAssets: data.metrics.liquidAssets || 0
+                    trafficLight: status, 
+                    status: status,
+                    dti: report.metrics?.dti ?? metrics.dti ?? 0,
+                    riskDay: null, // Deprecated in V3
+                    totalIncome: report.metrics?.monthlyAverageIncome ?? metrics.totalIncome ?? 0,
+                    totalExpenses: report.metrics?.monthlyAverageExpenses ?? metrics.totalExpenses ?? 0,
+                    totalFixedExpenses: metrics.fixedExpenses ?? 0,
+                    totalLifestyleExpenses: metrics.lifestyleExpenses ?? 0,
+                    liquidAssets: report.metrics?.liquidAssets ?? metrics.liquidAssets ?? 0,
+                    
+                    // New Pilot Fields
+                    confidence: report.decision?.confidence || "Standard",
+                    recommendation: report.decision?.recommendation || "N/A",
+                    stressTestPassed: report.stressTest?.passedCount ?? 0,
+                    forceRedReason: report.decision?.forceRedReason
                 };
 
                 setMetrics(transformedMetrics);
-                sessionStorage.setItem('loanMetricsCacheV2', JSON.stringify(transformedMetrics));
+                sessionStorage.setItem('loanMetricsCacheV3', JSON.stringify(transformedMetrics));
             } else {
                 throw new Error("Analysis failed to return success status");
             }
