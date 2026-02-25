@@ -1,195 +1,222 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.11';
-import { startOfMonth, subMonths, parseISO, differenceInDays, isSameDay } from 'npm:date-fns@3.6.0';
 import * as _ from 'npm:lodash@4.17.21';
 
-const SCORING_WEIGHTS = {
-  CASHFLOW: 0.35,
-  STABILITY: 0.25,
-  VOLATILITY: 0.20,
-  DEBT_RATIO: 0.20
-};
-
-const RIGID_KEYWORDS = ['loan', 'mortgage', 'rent', 'insurance', 'subscription', 'netflix', 'spotify', 'gym', 'internet', 'utilities'];
+// --- Configuration ---
+const FIXED_CATEGORIES = ['housing', 'loans', 'mortgage', 'rent', 'utilities', 'insurance', 'transportation', 'tax'];
+const SIMULATION_ITERATIONS = 500;
+const SIMULATION_HORIZON_DAYS = 45;
 
 export default Deno.serve(async (req) => {
-  const base44 = createClientFromRequest(req);
-  
-  if (req.method !== 'POST') {
-    return new Response('Method Not Allowed', { status: 405 });
-  }
+    if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
 
-  try {
-    const user = await base44.auth.me();
-    if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    try {
+        const base44 = createClientFromRequest(req);
+        const { userId } = await req.json();
+
+        if (!userId) {
+            return Response.json({ error: "userId is required" }, { status: 400 });
+        }
+
+        // 1. Data Ingestion: Fetch Access Token
+        const tokens = await base44.entities.OpenFinanceToken.filter({ user_id: userId }, '-created_date', 1);
+        if (!tokens.length) {
+             return Response.json({ error: "No Open Finance token found for user" }, { status: 404 });
+        }
+        const accessToken = tokens[0].access_token;
+
+        // 2. Data Ingestion: Fetch Live Transactions
+        const txRes = await fetch("https://api.open-finance.ai/v2/data/transactions", {
+            headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" }
+        });
+        
+        if (!txRes.ok) {
+             return Response.json({ error: "Failed to fetch transactions from Open Finance" }, { status: 502 });
+        }
+        
+        const txData = await txRes.json();
+        const rawTransactions = txData.data || txData.items || [];
+
+        // 3. Financial Mapping & Metrics Calculation
+        const { metrics, history, currentBalance } = processTransactions(rawTransactions);
+
+        // 4. DNA Risk Engine (Monte Carlo + Weighted SES)
+        const simulation = runMonteCarlo(currentBalance, history);
+
+        // 5. Risk Assessment Logic
+        const riskAnalysis = assessRisk(simulation);
+
+        // 6. Response
+        return Response.json({
+            success: true,
+            status: riskAnalysis.riskStatus,
+            survivalRate: riskAnalysis.survivalRate,
+            riskDay: riskAnalysis.riskDay,
+            metrics: {
+                totalIncome: metrics.totalIncome,
+                fixedExpenses: metrics.fixedExpenses,
+                lifestyleExpenses: metrics.lifestyleExpenses,
+                dti: metrics.dti
+            },
+            analysis: {
+                loanEligibility: riskAnalysis.riskStatus === 'GREEN',
+                resilienceScore: riskAnalysis.survivalRate // Simple mapping for resilience
+            }
+        });
+
+    } catch (error) {
+        console.error("Underwriting Core Error:", error);
+        return Response.json({ error: error.message }, { status: 500 });
     }
-
-    const { lookbackMonths = 3 } = await req.json().catch(() => ({}));
-
-    // 1. Fetch Data
-    const connections = await base44.entities.OpenFinanceConnection.filter({ user_id: user.id, status: 'ACTIVE' });
-    
-    if (connections.length === 0) {
-      return Response.json({
-        status: "insufficient_data",
-        reason: "No active bank connections found.",
-        score: null
-      });
-    }
-
-    const connectionIds = connections.map(c => c.connection_id);
-    // Fetch transactions for all connections (simulated "in" query by fetching all and filtering, or multiple requests. 
-    // Since filter doesn't support "in", we loop or fetch all if volume is low. 
-    // Best practice: Fetch by connection if possible. Here we assume we can fetch by user's connections)
-    
-    let allTransactions = [];
-    for (const connId of connectionIds) {
-      const txs = await base44.entities.OpenFinanceTransaction.filter({ connection_id: connId }, '-date', 1000);
-      allTransactions = allTransactions.concat(txs);
-    }
-
-    if (allTransactions.length < 10) {
-      return Response.json({
-        status: "insufficient_data",
-        reason: "Insufficient transaction history for analysis.",
-        score: null
-      });
-    }
-
-    // 2. Normalize & Classify
-    const analysis = analyzeTransactions(allTransactions, lookbackMonths);
-    
-    // 3. Generate FlowScore
-    const score = calculateFlowScore(analysis);
-
-    return Response.json({
-      status: "success",
-      timestamp: new Date().toISOString(),
-      metrics: analysis,
-      underwriting: {
-        flowScore: score,
-        riskLevel: getRiskLevel(score),
-        maxApprovedCredit: calculateMaxCredit(analysis, score),
-        reasoning: generateReasoning(analysis, score)
-      }
-    });
-
-  } catch (error) {
-    console.error("Underwriting Engine Error:", error);
-    return Response.json({ error: error.message }, { status: 500 });
-  }
 });
 
-function analyzeTransactions(transactions, months) {
-  const now = new Date();
-  const startDate = subMonths(now, months);
-  
-  const validTxs = transactions.filter(t => new Date(t.date) >= startDate);
-  
-  const incomeTxs = validTxs.filter(t => t.amount > 0);
-  const expenseTxs = validTxs.filter(t => t.amount < 0);
+// --- Core Logic Helpers ---
 
-  const totalIncome = _.sumBy(incomeTxs, 'amount');
-  const totalExpenses = Math.abs(_.sumBy(expenseTxs, 'amount'));
-  
-  // Detect Recurring Income
-  const recurringIncome = detectRecurringPatterns(incomeTxs);
-  
-  // Identify Rigid Obligations
-  const rigidExpenses = expenseTxs.filter(t => 
-    RIGID_KEYWORDS.some(kw => t.description?.toLowerCase().includes(kw)) ||
-    t.category === 'housing' || t.category === 'loans'
-  );
-  
-  const totalRigid = Math.abs(_.sumBy(rigidExpenses, 'amount'));
-  const monthlyAverageIncome = totalIncome / months;
-  const monthlyAverageExpense = totalExpenses / months;
+function processTransactions(rawTransactions) {
+    let totalIncome = 0;
+    let fixedExpenses = 0;
+    let lifestyleExpenses = 0;
+    
+    // Group by Day for History (DNA)
+    const dailyNetFlow = {};
+    const today = new Date();
+    
+    // We also need to estimate current balance if not provided, 
+    // but typically we'd fetch balance endpoint. 
+    // For this exercise, we assume a starting balance or sum of history?
+    // The prompt implies "Fetch live transaction history...". 
+    // Usually Open Finance has a /balances endpoint. 
+    // Without it, we might simulate 'Current Balance' from the sum of all transactions? 
+    // Or maybe the simulation starts from 0 relative change? 
+    // Let's assume we sum all history to get a "Net Position" or use 0 as relative start.
+    // However, "avoid a negative balance" implies we need an absolute balance.
+    // I'll calculate a 'Running Balance' assuming the first transaction started at 0 
+    // OR just use the sum of all transactions as the "Current Balance" proxy.
+    let currentBalance = 0;
 
-  return {
-    period_months: months,
-    total_income: totalIncome,
-    total_expenses: totalExpenses,
-    net_cashflow: totalIncome - totalExpenses,
-    savings_rate: totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) : 0,
-    monthly_average_income: monthlyAverageIncome,
-    monthly_average_expense: monthlyAverageExpense,
-    disposable_income: monthlyAverageIncome - monthlyAverageExpense,
-    rigid_obligations_ratio: totalIncome > 0 ? (totalRigid / totalIncome) : 1,
-    recurring_income_sources: recurringIncome
-  };
+    rawTransactions.forEach(tx => {
+        const amount = Number(tx.amount?.chargedAmount?.amount || 0);
+        const dateStr = tx.date ? tx.date.split('T')[0] : null;
+        const category = (tx.category?.main || "").toLowerCase();
+        
+        currentBalance += amount;
+
+        // Metrics Aggregation
+        if (amount > 0) {
+            totalIncome += amount;
+        } else {
+            const absAmount = Math.abs(amount);
+            if (FIXED_CATEGORIES.some(c => category.includes(c))) {
+                fixedExpenses += absAmount;
+            } else {
+                lifestyleExpenses += absAmount;
+            }
+        }
+
+        // Daily Aggregation for DNA
+        if (dateStr) {
+            dailyNetFlow[dateStr] = (dailyNetFlow[dateStr] || 0) + amount;
+        }
+    });
+
+    const dti = totalIncome > 0 ? (fixedExpenses / totalIncome) * 100 : 0;
+
+    // Convert daily flows to array for stats
+    const history = Object.entries(dailyNetFlow)
+        .map(([date, amount]) => ({ date, amount }))
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    return {
+        metrics: {
+            totalIncome: Math.round(totalIncome),
+            fixedExpenses: Math.round(fixedExpenses),
+            lifestyleExpenses: Math.round(lifestyleExpenses),
+            dti: parseFloat(dti.toFixed(2))
+        },
+        history,
+        currentBalance
+    };
 }
 
-function detectRecurringPatterns(transactions) {
-  // Simple heuristic: Group by description (normalized), check count > 1 per month approx
-  const grouped = _.groupBy(transactions, t => t.description?.trim().toLowerCase().slice(0, 10)); // First 10 chars as key
-  
-  const recurring = [];
-  
-  for (const [key, txs] of Object.entries(grouped)) {
-    if (txs.length >= 2) { // At least 2 occurrences
-      const avgAmount = _.meanBy(txs, 'amount');
-      const stdDev = calculateStdDev(txs.map(t => t.amount));
-      
-      // If amount is relatively stable (stdDev < 20% of avg)
-      if (stdDev / avgAmount < 0.2) {
-        recurring.push({
-          source: key,
-          average_amount: avgAmount,
-          frequency: txs.length,
-          confidence: 'high'
-        });
-      }
+function runMonteCarlo(startBalance, history) {
+    if (history.length < 2) {
+        // Not enough data for stats, return safe default
+        return { survivalRate: 0, failureCounts: {} };
     }
-  }
-  return recurring;
+
+    // --- Weighted SES Logic ---
+    // 70% Annual Trend (Long Term Avg)
+    // 30% Recent 14-Day Volatility (actually, logic usually combines Trend + Volatility for shock)
+    
+    // 1. Calculate Long Term Daily Average (Trend)
+    const longTermAvg = _.meanBy(history, 'amount');
+
+    // 2. Calculate Recent 14-Day Volatility (Std Dev)
+    const recentHistory = history.slice(-14);
+    const recentAvg = _.meanBy(recentHistory, 'amount');
+    const recentVariance = _.meanBy(recentHistory, (d) => Math.pow(d.amount - recentAvg, 2));
+    const recentVolatility = Math.sqrt(recentVariance);
+
+    // Prompt: "Weighted SES... 70% annual trend, 30% recent... to generate... shocks"
+    // Interpretation: The Drift component is weighted, the Noise is the volatility.
+    // Let's use: Drift = (0.7 * LongTermAvg) + (0.3 * RecentAvg)
+    // Note: This mixes the "Trend" signal.
+    const weightedDrift = (0.7 * longTermAvg) + (0.3 * recentAvg);
+
+    let failures = 0;
+    const failureCounts = {}; // Key: Day index (1-45), Value: Count
+
+    for (let i = 0; i < SIMULATION_ITERATIONS; i++) {
+        let simBalance = startBalance;
+        let failed = false;
+
+        for (let day = 1; day <= SIMULATION_HORIZON_DAYS; day++) {
+            // Generate Shock: Gaussian Random * Volatility
+            const u1 = Math.random();
+            const u2 = Math.random();
+            const z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2); // Box-Muller
+            const shock = z * recentVolatility;
+
+            // Step
+            simBalance += weightedDrift + shock;
+
+            if (simBalance < 0 && !failed) {
+                failures++;
+                failureCounts[day] = (failureCounts[day] || 0) + 1;
+                failed = true;
+                // We count the failure but continue or break? 
+                // "how many paths avoid a negative balance" -> Once negative, the path fails.
+                break; 
+            }
+        }
+    }
+
+    return {
+        survivalRate: ((SIMULATION_ITERATIONS - failures) / SIMULATION_ITERATIONS) * 100,
+        failureCounts
+    };
 }
 
-function calculateFlowScore(metrics) {
-  let score = 600; // Base Score
+function assessRisk(simulation) {
+    const survival = simulation.survivalRate;
+    let status = 'RED';
 
-  // 1. Cashflow Impact (+/- 100)
-  if (metrics.net_cashflow > 0) score += 50;
-  if (metrics.savings_rate > 0.15) score += 50;
-  if (metrics.net_cashflow < 0) score -= 50;
+    if (survival > 95) status = 'GREEN';
+    else if (survival > 75) status = 'ORANGE';
+    else status = 'RED';
 
-  // 2. Stability Impact
-  if (metrics.recurring_income_sources.length > 0) score += 40;
-  
-  // 3. Debt/Rigid Burden
-  if (metrics.rigid_obligations_ratio > 0.5) score -= 50;
-  if (metrics.rigid_obligations_ratio < 0.3) score += 30;
+    // Risk Day: Mode of failure counts
+    let riskDay = null;
+    if (Object.keys(simulation.failureCounts).length > 0) {
+        const sortedDays = Object.entries(simulation.failureCounts)
+            .sort((a, b) => b[1] - a[1]); // Sort by count desc
+        
+        // Return the day number (1-45)
+        riskDay = parseInt(sortedDays[0][0]);
+    }
 
-  // 4. Caps
-  return Math.min(850, Math.max(300, Math.round(score)));
-}
-
-function getRiskLevel(score) {
-  if (score >= 750) return "LOW";
-  if (score >= 650) return "MEDIUM";
-  return "HIGH";
-}
-
-function calculateMaxCredit(metrics, score) {
-  if (score < 600) return 0;
-  // Conservative: 3x monthly disposable income
-  return Math.max(0, Math.round(metrics.disposable_income * 3));
-}
-
-function generateReasoning(metrics, score) {
-  const reasons = [];
-  if (metrics.net_cashflow > 0) reasons.push("Positive net cashflow identified.");
-  else reasons.push("Negative net cashflow detected.");
-  
-  if (metrics.recurring_income_sources.length > 0) reasons.push(`Found ${metrics.recurring_income_sources.length} recurring income sources.`);
-  
-  if (metrics.rigid_obligations_ratio > 0.5) reasons.push("High rigid obligation ratio.");
-  
-  return reasons;
-}
-
-function calculateStdDev(array) {
-  const n = array.length;
-  if (n === 0) return 0;
-  const mean = _.mean(array);
-  return Math.sqrt(_.sum(array.map(x => Math.pow(x - mean, 2))) / n);
+    return {
+        riskStatus: status,
+        survivalRate: survival,
+        riskDay
+    };
 }
