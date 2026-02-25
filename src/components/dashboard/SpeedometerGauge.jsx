@@ -4,7 +4,8 @@ import { motion } from 'framer-motion';
 import { SystemInfo } from '@/components/utils/forecastingLogic';
 
 export default function SpeedometerGauge({ 
-  projectedBalance, 
+  projectedBalance,
+  dti, 
   riskLevel = 'green',
   riskDay,
   whatIfAmount = 0,
@@ -207,9 +208,16 @@ export default function SpeedometerGauge({
           animate={{ scale: 1, opacity: 1 }}
           className="text-3xl md:text-4xl font-bold text-white tracking-tight"
         >
-          {isScore ? `${adjustedBalance}%` : `₪${adjustedBalance.toLocaleString('he-IL')}`}
+          {isScore ? `${adjustedBalance}/100` : `₪${adjustedBalance.toLocaleString('he-IL')}`}
         </motion.p>
         
+        {isScore && dti !== undefined && (
+             <div className="mt-2 text-sm font-medium text-slate-300">
+                <span className="opacity-70">DTI: </span>
+                <span className={dti > 45 ? 'text-red-400' : 'text-green-400'}>{dti}%</span>
+             </div>
+        )}
+
         {riskDay ? (
           <div className={`mt-3 md:mt-4 inline-flex items-center px-3 py-1.5 rounded-full border ${
             statusColor === 'green' ? 'bg-green-500/10 border-green-500/20' :
@@ -226,7 +234,7 @@ export default function SpeedometerGauge({
             </p>
           </div>
         ) : (
-           <div className="mt-3 md:mt-4 h-8"></div> 
+           !isScore && <div className="mt-3 md:mt-4 h-8"></div> 
         )}
       </div>
 

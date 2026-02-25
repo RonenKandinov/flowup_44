@@ -543,15 +543,6 @@ export default function Dashboard() {
                   color="red"
                   delay={0.2}
                 />
-                {(newLoanMetrics || loanLogicData) && (
-                     <StatCard
-                        title="DTI Ratio"
-                        value={`${newLoanMetrics ? newLoanMetrics.dti : loanMetrics.dti}%`}
-                        icon={Cpu}
-                        color={(newLoanMetrics ? newLoanMetrics.status : loanMetrics.trafficLight) === 'GREEN' ? 'green' : ((newLoanMetrics ? newLoanMetrics.status : loanMetrics.trafficLight) === 'ORANGE' ? 'yellow' : 'red')}
-                        delay={0.3}
-                     />
-                )}
               </div>
 
               {/* Main Dashboard Grid */}
@@ -563,14 +554,14 @@ export default function Dashboard() {
                   className="order-1 lg:order-1 relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-auto min-h-[240px]"
                 >
                   <SpeedometerGauge
-                    projectedBalance={loanLogicData ? loanMetrics.dti : (snapshot.projected_eom_balance || 0)}
-                    label={loanLogicData ? "DTI Score (Debt-to-Income)" : "יתרה צפויה לסוף החודש"}
-                    riskLevel={loanLogicData ? loanMetrics.trafficLight.toLowerCase() : (currentEngineData?.riskStatus || snapshot.risk_level || 'green')}
-                    riskDay={null}
+                    projectedBalance={newLoanMetrics ? newLoanMetrics.score : (loanLogicData ? loanMetrics.dti : (snapshot.projected_eom_balance || 0))}
+                    dti={newLoanMetrics ? newLoanMetrics.dti : 0}
+                    label={newLoanMetrics ? "ציון חיתום (FlowUp Score)" : "יתרה צפויה לסוף החודש"}
+                    riskLevel={newLoanMetrics ? newLoanMetrics.status : (loanLogicData ? loanMetrics.trafficLight.toLowerCase() : (currentEngineData?.riskStatus || snapshot.risk_level || 'green'))}
+                    riskDay={newLoanMetrics ? newLoanMetrics.riskDay : null}
                     whatIfAmount={whatIfAmount}
                     engineData={null}
-                    // Adapting Speedometer to show Score/DTI if LoanLogic is active
-                    isScore={!!loanLogicData} 
+                    isScore={!!(newLoanMetrics || loanLogicData)} 
                   />
                 </motion.div>
 
