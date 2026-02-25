@@ -212,9 +212,9 @@ export default function SpeedometerGauge({
         </motion.p>
         
         {isScore && dti !== undefined && (
-             <div className="mt-2 text-sm font-medium text-slate-300">
+             <div className="mt-2 text-xs font-medium text-slate-500">
                 <span className="opacity-70">DTI: </span>
-                <span className={dti > 45 ? 'text-red-400' : 'text-green-400'}>{dti}%</span>
+                <span>{dti}%</span>
              </div>
         )}
 

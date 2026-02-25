@@ -31,7 +31,7 @@ export default function Dashboard() {
   const [isStorageLoading, setIsStorageLoading] = useState(true);
   
   const { sync, data: loanLogicData, isLoading: isSyncing, metrics: loanMetrics } = useTransactionSync();
-  const { metrics: newLoanMetrics, isLoading: isLoanMetricsLoading } = useLoanMetrics();
+  const { metrics: newLoanMetrics, isLoading: isLoanMetricsLoading, error: loanMetricsError, refetch: refetchLoanMetrics } = useLoanMetrics();
   const queryClient = useQueryClient();
 
   // Load from Local Storage on mount
@@ -512,13 +512,38 @@ export default function Dashboard() {
       {/* Main content */}
       <main className="relative z-10 px-4 pb-8 md:px-8">
         <div className="max-w-6xl mx-auto">
-          {isLoading ? (
-            <div className="flex items-center justify-center h-[60vh]">
-              <div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : !hasData ? (
+          {/* System Calibration Error State */}
+          {loanMetricsError && (
+             <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
+                <div className="p-4 bg-red-500/10 rounded-full">
+                    <Cpu className="w-8 h-8 text-red-500" />
+                </div>
+                <h3 className="text-xl font-bold text-white">System Calibration Required</h3>
+                <p className="text-slate-400 max-w-md">
+                    The forecasting engine encountered an error while processing the simulation.
+                </p>
+                <Button 
+                    onClick={refetchLoanMetrics}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Retry Calibration
+                </Button>
+             </div>
+          )}
+
+          {/* Loading Skeleton */}
+          {(!loanMetricsError && (isLoading || isLoanMetricsLoading)) ? (
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-pulse">
+                <div className="h-32 bg-slate-800/50 rounded-xl" />
+                <div className="h-32 bg-slate-800/50 rounded-xl" />
+                <div className="h-32 bg-slate-800/50 rounded-xl" />
+                <div className="col-span-1 md:col-span-2 h-64 bg-slate-800/50 rounded-xl mt-6" />
+                <div className="h-64 bg-slate-800/50 rounded-xl mt-6" />
+             </div>
+          ) : (!loanMetricsError && !hasData) ? (
             <EmptyState onDataParsed={handleDataParsed} />
-          ) : (
+          ) : (!loanMetricsError && (
             <>
               {/* Stats Row - Compact on Mobile */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-4 mb-4 md:mb-6">
@@ -554,14 +579,14 @@ export default function Dashboard() {
                   className="order-1 lg:order-1 relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-auto min-h-[240px]"
                 >
                   <SpeedometerGauge
-                    projectedBalance={newLoanMetrics ? newLoanMetrics.score : (loanLogicData ? loanMetrics.dti : (snapshot.projected_eom_balance || 0))}
+                    projectedBalance={newLoanMetrics ? newLoanMetrics.score : (snapshot.projected_eom_balance || 0)}
                     dti={newLoanMetrics ? newLoanMetrics.dti : 0}
                     label={newLoanMetrics ? "ציון חיתום (FlowUp Score)" : "יתרה צפויה לסוף החודש"}
-                    riskLevel={newLoanMetrics ? newLoanMetrics.status : (loanLogicData ? loanMetrics.trafficLight.toLowerCase() : (currentEngineData?.riskStatus || snapshot.risk_level || 'green'))}
+                    riskLevel={newLoanMetrics ? newLoanMetrics.status : (snapshot.risk_level || 'green')}
                     riskDay={newLoanMetrics ? newLoanMetrics.riskDay : null}
                     whatIfAmount={whatIfAmount}
                     engineData={null}
-                    isScore={!!(newLoanMetrics || loanLogicData)} 
+                    isScore={!!newLoanMetrics} 
                   />
                 </motion.div>
 
