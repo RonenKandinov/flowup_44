@@ -482,14 +482,10 @@ export default function Dashboard() {
           {hasData && (
             <div className="flex items-center gap-2">
               <Button
-                onClick={() => {
-                    if (activeConnection) {
-                        sync(activeConnection.connection_id, user.id);
-                    } else {
-                        setShowOpenFinance(true);
-                    }
-                }}
-                variant="ghost"
+              onClick={() => {
+                 setShowOpenFinance(true);
+              }}
+              variant="ghost"
                 size="sm"
                 className="bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:bg-slate-800 hover:text-white transition-all h-7 px-3 rounded-md"
               >

@@ -81,12 +81,21 @@ Deno.serve(async (req) => {
             netCashFlow: fromShadow(dnaProfile.sums.totalM, dnaProfile.sums.totalP, SESSION_KEY)
         };
 
+        // 7. שחזור עסקאות לתצוגה בדאשבורד (Sanitized)
+        const displayTransactions = vectors.map(v => ({
+            date: new Date().toISOString(), // Mock date as original dates weren't tracked in vector
+            amount: fromShadow(v.m, v.p, SESSION_KEY) * (v.type === 'expense' ? -1 : 1),
+            category: v.category,
+            description: v.category // Description masked for privacy
+        }));
+
         return Response.json({
             success: true,
             status: riskAssessment.riskStatus,
             survivalRate: Math.round(simulation.survivalRate),
             riskDay: riskAssessment.riskDay,
             metrics: recoveredMetrics,
+            transactions: displayTransactions,
             analysis: {
                 loanEligibility: riskAssessment.riskStatus === "GREEN",
                 resilienceScore: dnaProfile.resilienceScore

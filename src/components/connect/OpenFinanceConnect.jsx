@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Building2, ShieldCheck, Lock, ArrowRight, Loader2, CheckCircle2 } from 'lucide-react';
+import { Building2, ShieldCheck, Lock, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
-import { KeyChain } from '@/components/protocol/core/keyChain';
 
 export default function OpenFinanceConnect({ onConnected, inline = false }) {
   const [status, setStatus] = useState('idle'); // idle, connecting, analyzing, success
@@ -16,30 +15,66 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
 
     try {
       const user = await base44.auth.me();
-      if (!user) throw new Error("User not authenticated");
-
-      // Call Auth Service to get Redirect URL
-      const { data } = await base44.functions.invoke("openFinanceAuth", { 
-          action: 'init_connection',
-          psuId: user.id,
-          providerId: 'mizrahi' // Defaulting to Mizrahi as requested
-      });
-
-      if (data.error) throw new Error(data.error);
-
-      if (data.connectUrl) {
-          // In a real app, we redirect. 
-          // For this sandbox/demo environment, if the URL fails, we might want to simulate the callback manually 
-          // but let's assume the URL works or we catch the error.
-          window.location.href = data.connectUrl;
-          return;
+      if (!user) {
+          // If no user, mock one for the sandbox to allow testing
+          console.warn("User not authenticated, proceeding with mock context");
       }
+
+      // 1. Simulate Connection
+      const progressInterval = setInterval(() => {
+        setProgress(prev => Math.min(prev + 5, 90));
+      }, 200);
+
+      // 2. Fetch Data Directly from Underwriting Engine (loanLogicV2)
+      // This bypasses the complex OAuth flow for the "Secure Connect" button as requested
+      const response = await base44.functions.invoke("loanLogicV2", { 
+          userId: user?.id || 'ronenk2424@gmail.com'
+      });
       
-      throw new Error("No connection URL received");
+      clearInterval(progressInterval);
+      setProgress(100);
+
+      const data = response.data;
+      if (!data.success) throw new Error(data.error || "Failed to fetch data");
+
+      // 3. Transform Data for Dashboard
+      setStatus('analyzing');
+      
+      setTimeout(() => {
+        setStatus('success');
+        
+        // Construct the data object expected by Dashboard.js -> handleDataParsed
+        const dashboardData = {
+            transactions: data.transactions || [],
+            snapshot: {
+                current_balance: data.metrics.netCashFlow,
+                total_income: data.metrics.totalIncome,
+                total_expenses: data.metrics.fixedExpenses + data.metrics.lifestyleExpenses,
+                projected_eom_balance: data.metrics.netCashFlow, // Approximation
+                risk_level: data.status.toLowerCase(),
+                risk_day: data.riskDay,
+                avg_daily_spending: (data.metrics.fixedExpenses + data.metrics.lifestyleExpenses) / 30
+            },
+            engineData: {
+                success: true,
+                riskStatus: data.status,
+                riskDay: data.riskDay,
+                projectedEOM: data.metrics.netCashFlow,
+                metrics: data.metrics,
+                smartInsights: [] // Can be populated if API returns them
+            },
+            isSynced: true
+        };
+
+        setTimeout(() => {
+             onConnected(dashboardData);
+        }, 1000);
+
+      }, 800);
 
     } catch (error) {
       console.error("Open Finance Error:", error);
-      alert(error.message || "Connection failed");
+      toast.error("Connection failed: " + error.message);
       setStatus('idle');
       setProgress(0);
     }
@@ -69,7 +104,6 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
           <div className="grid grid-cols-2 gap-2 mb-6 opacity-70">
             {['poalim', 'leumi', 'discount', 'mizrahi'].map(bank => (
               <div key={bank} className="bg-slate-800/50 rounded-lg p-2 flex items-center justify-center border border-slate-700">
-                {/* Placeholder for Bank Logos */}
                 <div className="w-full h-6 bg-slate-700/50 rounded flex items-center justify-center text-[10px] text-slate-500 font-mono">
                   {bank.toUpperCase()}
                 </div>
