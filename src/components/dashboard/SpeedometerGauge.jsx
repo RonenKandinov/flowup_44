@@ -23,36 +23,36 @@ export default function SpeedometerGauge({
     let statusColor;
 
     if (isScore) {
-        // DTI SCORING LOGIC
-        // Green: DTI < 30% -> Angle -40 to -60
-        // Yellow: 30% <= DTI < 45% -> Angle -20 to 20
-        // Red: DTI >= 45% -> Angle 20 to 60
-        const dti = adjustedBalance;
+        // FLOWUP SCORING LOGIC (0-100)
+        // Red: Score 0-54 -> Left (-60 to -20)
+        // Orange: Score 55-79 -> Center (-20 to 20)
+        // Green: Score 80-100 -> Right (20 to 60)
+        const score = adjustedBalance; // adjustedBalance is passed as score
 
-        if (dti < 30) {
-            // GREEN ZONE (Low Risk)
-            // Map 0-30 to -60 -> -20
-            const ratio = dti / 30; 
-            calculatedAngle = -60 + (ratio * 40); // 0 => -60, 30 => -20
-            calculatedColor = '#22c55e';
-            calculatedGlow = 'rgba(34, 197, 94, 0.5)';
-            statusColor = 'green';
-        } else if (dti < 45) {
-            // YELLOW ZONE (Medium Risk)
-            // Map 30-45 to -20 -> +20
-            const ratio = (dti - 30) / 15;
-            calculatedAngle = -20 + (ratio * 40);
-            calculatedColor = '#eab308';
-            calculatedGlow = 'rgba(234, 179, 8, 0.5)';
-            statusColor = 'yellow';
-        } else {
-            // RED ZONE (High Risk)
-            // Map 45-100 to +20 -> +60
-            const ratio = Math.min((dti - 45) / 55, 1);
-            calculatedAngle = 20 + (ratio * 40);
+        if (score < 55) {
+            // RED ZONE (High Risk / Low Score)
+            // Map 0-54 to -60 -> -20
+            const ratio = score / 55;
+            calculatedAngle = -60 + (ratio * 40);
             calculatedColor = '#ef4444';
             calculatedGlow = 'rgba(239, 68, 68, 0.5)';
             statusColor = 'red';
+        } else if (score < 80) {
+            // ORANGE ZONE (Medium Risk / Medium Score)
+            // Map 55-79 to -20 -> +20
+            const ratio = (score - 55) / 25;
+            calculatedAngle = -20 + (ratio * 40);
+            calculatedColor = '#f97316'; // Orange-500
+            calculatedGlow = 'rgba(249, 115, 22, 0.5)';
+            statusColor = 'yellow';
+        } else {
+            // GREEN ZONE (Low Risk / High Score)
+            // Map 80-100 to +20 -> +60
+            const ratio = (score - 80) / 20;
+            calculatedAngle = 20 + (ratio * 40);
+            calculatedColor = '#22c55e';
+            calculatedGlow = 'rgba(34, 197, 94, 0.5)';
+            statusColor = 'green';
         }
 
     } else {
@@ -116,17 +116,20 @@ export default function SpeedometerGauge({
       >
         {/* Background arc segments */}
         <defs>
-          <linearGradient id="greenGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#22c55e" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#22c55e" stopOpacity="0.8" />
-          </linearGradient>
-          <linearGradient id="yellowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#eab308" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#eab308" stopOpacity="0.8" />
-          </linearGradient>
+          {/* RED Gradient (Left) */}
           <linearGradient id="redGrad" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor="#ef4444" stopOpacity="0.3" />
             <stop offset="100%" stopColor="#ef4444" stopOpacity="0.8" />
+          </linearGradient>
+          {/* ORANGE Gradient (Center) */}
+          <linearGradient id="orangeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#f97316" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#f97316" stopOpacity="0.8" />
+          </linearGradient>
+          {/* GREEN Gradient (Right) */}
+          <linearGradient id="greenGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#22c55e" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#22c55e" stopOpacity="0.8" />
           </linearGradient>
           <filter id="glow">
             <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
@@ -137,29 +140,29 @@ export default function SpeedometerGauge({
           </filter>
         </defs>
         
-        {/* Green segment */}
+        {/* Red segment (Left) */}
         <path
           d="M 30 100 A 70 70 0 0 1 70 38"
           fill="none"
-          stroke="url(#greenGrad)"
+          stroke="url(#redGrad)"
           strokeWidth="12"
           strokeLinecap="round"
         />
         
-        {/* Yellow segment */}
+        {/* Orange segment (Center) */}
         <path
           d="M 75 35 A 70 70 0 0 1 125 35"
           fill="none"
-          stroke="url(#yellowGrad)"
+          stroke="url(#orangeGrad)"
           strokeWidth="12"
           strokeLinecap="round"
         />
         
-        {/* Red segment */}
+        {/* Green segment (Right) */}
         <path
           d="M 130 38 A 70 70 0 0 1 170 100"
           fill="none"
-          stroke="url(#redGrad)"
+          stroke="url(#greenGrad)"
           strokeWidth="12"
           strokeLinecap="round"
         />
