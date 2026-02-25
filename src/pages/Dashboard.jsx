@@ -625,7 +625,7 @@ export default function Dashboard() {
 
               <Disclaimer />
             </>
-          )}
+          ))}
         </div>
       </main>
 
