@@ -11,6 +11,7 @@ import { FiscalAgent } from '../components/protocol/core/fiscalAgent';
 import SpeedometerGauge from '../components/dashboard/SpeedometerGauge';
 import StatCard from '../components/dashboard/StatCard';
 import LiquidAssetsCard from '../components/dashboard/LiquidAssetsCard'; // New Component
+import ResilienceCard from '../components/dashboard/ResilienceCard'; // Pilot Feature
 import WhatIfSimulator from '../components/dashboard/WhatIfSimulator';
 import FutureCake from '../components/dashboard/FutureCake';
 import InsightsAgent from '../components/dashboard/InsightsAgent'; // New
