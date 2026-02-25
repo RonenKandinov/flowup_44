@@ -96,10 +96,24 @@ const finalTransactions = mockTransactions;
         const dti = totalIncome > 0 ? (totalExpenses / totalIncome) * 100 : 0;
         const survivalRate = Math.round(simulation.survivalRate);
         
-        // Score: 60% Survival, 40% (100 - DTI)
-        // Ensure DTI doesn't exceed 100 for score calc to avoid negative impact beyond 0
+        // --- FLOWUP SMART SCORE ALGORITHM V2 ---
+        // 1. Stability (40%): Monte Carlo Survival Rate
+        // 2. Serviceability (30%): DTI Score (Inverse DTI)
+        // 3. Resilience (30%): Runway Score (Liquid Assets / Monthly Expenses)
+        
         const dtiScore = Math.max(0, 100 - dti);
-        const flowUpScore = Math.round((0.6 * survivalRate) + (0.4 * dtiScore));
+        
+        // Resilience: Calculate Runway in Months
+        // Target: 6 months of runway = 100 points
+        const liquidAssets = fromShadow(dnaProfile.sums.assetsM, dnaProfile.sums.assetsP, SESSION_KEY);
+        const monthlyRunway = totalExpenses > 0 ? (liquidAssets / totalExpenses) : 6; // infinite if no expenses
+        const resilienceScore = Math.min((monthlyRunway / 6) * 100, 100);
+
+        const flowUpScore = Math.round(
+            (0.40 * survivalRate) + 
+            (0.30 * dtiScore) + 
+            (0.30 * resilienceScore)
+        );
 
         const recoveredMetrics = {
             totalIncome,
@@ -107,9 +121,10 @@ const finalTransactions = mockTransactions;
             lifestyleExpenses,
             totalExpenses,
             netCashFlow: fromShadow(dnaProfile.sums.totalM, dnaProfile.sums.totalP, SESSION_KEY),
-            liquidAssets: fromShadow(dnaProfile.sums.assetsM, dnaProfile.sums.assetsP, SESSION_KEY),
+            liquidAssets,
             score: flowUpScore,
-            dti: Math.round(dti)
+            dti: Math.round(dti),
+            runway: parseFloat(monthlyRunway.toFixed(1))
         };
 
         // 7. שחזור עסקאות לתצוגה בדאשבורד (Sanitized)
