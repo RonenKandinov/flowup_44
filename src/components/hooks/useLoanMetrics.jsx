@@ -11,8 +11,8 @@ export const useLoanMetrics = () => {
         setError(null);
 
         try {
-            // 1. Session Caching Strategy (V2 Key for new schema)
-            const cachedData = sessionStorage.getItem('loanMetricsCacheV2');
+            // 1. Session Caching Strategy (V3 Key for pilot schema)
+            const cachedData = sessionStorage.getItem('loanMetricsCacheV3');
             if (!force && cachedData) {
                 setMetrics(JSON.parse(cachedData));
                 setIsLoading(false);
