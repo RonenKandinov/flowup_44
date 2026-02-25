@@ -49,11 +49,12 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
             snapshot: {
                 current_balance: data.metrics.netCashFlow,
                 total_income: data.metrics.totalIncome,
-                total_expenses: data.metrics.fixedExpenses + data.metrics.lifestyleExpenses,
+                total_expenses: data.metrics.totalExpenses,
                 projected_eom_balance: data.metrics.netCashFlow, // Approximation
                 risk_level: data.status.toLowerCase(),
                 risk_day: data.riskDay,
-                avg_daily_spending: (data.metrics.fixedExpenses + data.metrics.lifestyleExpenses) / 30
+                avg_daily_spending: data.metrics.totalExpenses / 30,
+                liquid_assets: data.metrics.liquidAssets
             },
             engineData: {
                 success: true,
