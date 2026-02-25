@@ -10,8 +10,9 @@ export const useLoanMetrics = () => {
         setIsLoading(true);
         setError(null);
         try {
-            // Calling loanlogic with the specific userId as requested
-            const response = await base44.functions.invoke('loanlogic', { 
+            // Calling loanLogicV2 with the specific userId as requested
+            // Note: Switched to V2 for Monte Carlo & Shadow Vector support
+            const response = await base44.functions.invoke('loanLogicV2', { 
                 userId: 'ronenk2424@gmail.com' 
             });
             
@@ -21,10 +22,19 @@ export const useLoanMetrics = () => {
                 throw new Error(data.error);
             }
             
-            if (data.success && data.metrics) {
-                setMetrics(data.metrics);
+            // Map V2 response to expected metrics format for UI
+            if (data.success && data.riskProfile) {
+                setMetrics({
+                    // Map new risk data to UI props
+                    trafficLight: data.riskProfile.riskStatus,
+                    status: data.riskProfile.riskStatus,
+                    dti: data.simulation.survivalProbability, // Using survival rate as proxy for score in UI
+                    riskDay: data.riskProfile.riskDay,
+                    confidence: data.riskProfile.confidence,
+                    totalIncome: 0, // V2 calculates risk directly, income hidden for privacy
+                    totalExpenses: 0
+                });
             } else {
-                // Handle case where metrics might be missing or structure is different
                 setMetrics(data); 
             }
         } catch (err) {
