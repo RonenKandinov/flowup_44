@@ -545,10 +545,9 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-4 mb-4 md:mb-6">
                 {/* Replaced Balance StatCard with LiquidAssetsCard */}
                 <LiquidAssetsCard 
-                    cash={loanLogicData ? loanMetrics.netCashflow : (snapshot.current_balance || 0)} 
-                    etf={currentEngineData?.assets?.etf || 0}
-                    trainingFund={currentEngineData?.assets?.trainingFund || 0}
-                    // Note: LiquidAssets usually implies Stock, not Cashflow. Using Net Cashflow as placeholder for "Cash" if synced.
+                    cash={newLoanMetrics ? newLoanMetrics.liquidAssets : (loanLogicData ? loanMetrics.netCashflow : (snapshot.current_balance || 0))} 
+                    etf={0}
+                    trainingFund={0}
                 />
                 <StatCard
                   title="סך הכנסות"
@@ -559,7 +558,7 @@ export default function Dashboard() {
                 />
                 <StatCard
                   title="סך הוצאות"
-                  value={`₪${Math.round(loanLogicData ? loanMetrics.totalExpenses : (currentEngineData?.totalExpenses ?? currentMonthStats?.expenses ?? snapshot.total_expenses ?? 0)).toLocaleString('he-IL')}`}
+                  value={`₪${Math.round(newLoanMetrics ? newLoanMetrics.totalExpenses : (loanLogicData ? loanMetrics.totalExpenses : (currentEngineData?.totalExpenses ?? currentMonthStats?.expenses ?? snapshot.total_expenses ?? 0))).toLocaleString('he-IL')}`}
                   icon={TrendingDown}
                   color="red"
                   delay={0.2}
