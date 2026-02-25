@@ -51,7 +51,20 @@ Deno.serve(async (req) => {
         });
         const txData = await txRes.json();
         const rawTransactions = txData?.data || txData?.items || [];
+// --- הארכיטקט: שכבת נתונים מדומים (Standard Underwriting Report) ---
+const mockTransactions = [
+    { amount: { chargedAmount: { amount: 35399 } }, category: { main: "Salary" } },
+    { amount: { chargedAmount: { amount: 1200 } }, category: { main: "Investment Dividends" } },
+    { amount: { chargedAmount: { amount: 120000 } }, category: { main: "Liquid Assets" } }, // נכסים נזילים
+    { amount: { chargedAmount: { amount: -8500 } }, category: { main: "Housing Rent" } },
+    { amount: { chargedAmount: { amount: -2400 } }, category: { main: "Car Loan" } },
+    { amount: { chargedAmount: { amount: -1500 } }, category: { main: "Utilities" } },
+    { amount: { chargedAmount: { amount: -4000 } }, category: { main: "Groceries" } },
+    { amount: { chargedAmount: { amount: -3500 } }, category: { main: "Leisure" } }
+];
 
+// החלפה לנתוני Mock לצורך כיול הדוח
+const finalTransactions = mockTransactions;
         // --- Millennium Zero-Knowledge Integration ---
         const SESSION_KEY = Math.random() * 1000; 
 
