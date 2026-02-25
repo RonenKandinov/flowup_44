@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
 const mockTransactions = [
     { amount: { chargedAmount: { amount: 35399 } }, category: { main: "Salary" } },
     { amount: { chargedAmount: { amount: 1200 } }, category: { main: "Investment Dividends" } },
-    { amount: { chargedAmount: { amount: 120000 } }, category: { main: "Liquid Assets" } }, // נכסים נזילים
+    { amount: { chargedAmount: { amount: 136699 } }, category: { main: "Liquid Assets" } }, // נכסים נזילים
     { amount: { chargedAmount: { amount: -8500 } }, category: { main: "Housing Rent" } },
     { amount: { chargedAmount: { amount: -2400 } }, category: { main: "Car Loan" } },
     { amount: { chargedAmount: { amount: -1500 } }, category: { main: "Utilities" } },
@@ -87,11 +87,29 @@ const finalTransactions = mockTransactions;
         const riskAssessment = assessRisk(simulation);
 
         // 6. שחזור נתונים פיננסיים (Recovery) לתצוגה
+        const totalIncome = fromShadow(dnaProfile.sums.incomeM, dnaProfile.sums.incomeP, SESSION_KEY);
+        const fixedExpenses = Math.abs(fromShadow(dnaProfile.sums.fixedM, dnaProfile.sums.fixedP, SESSION_KEY));
+        const lifestyleExpenses = Math.abs(fromShadow(dnaProfile.sums.flexM, dnaProfile.sums.flexP, SESSION_KEY));
+        
+        // Calculate DTI and Score
+        const totalExpenses = fixedExpenses + lifestyleExpenses;
+        const dti = totalIncome > 0 ? (totalExpenses / totalIncome) * 100 : 0;
+        const survivalRate = Math.round(simulation.survivalRate);
+        
+        // Score: 60% Survival, 40% (100 - DTI)
+        // Ensure DTI doesn't exceed 100 for score calc to avoid negative impact beyond 0
+        const dtiScore = Math.max(0, 100 - dti);
+        const flowUpScore = Math.round((0.6 * survivalRate) + (0.4 * dtiScore));
+
         const recoveredMetrics = {
-            totalIncome: fromShadow(dnaProfile.sums.incomeM, dnaProfile.sums.incomeP, SESSION_KEY),
-            fixedExpenses: fromShadow(dnaProfile.sums.fixedM, dnaProfile.sums.fixedP, SESSION_KEY),
-            lifestyleExpenses: fromShadow(dnaProfile.sums.flexM, dnaProfile.sums.flexP, SESSION_KEY),
-            netCashFlow: fromShadow(dnaProfile.sums.totalM, dnaProfile.sums.totalP, SESSION_KEY)
+            totalIncome,
+            fixedExpenses,
+            lifestyleExpenses,
+            totalExpenses,
+            netCashFlow: fromShadow(dnaProfile.sums.totalM, dnaProfile.sums.totalP, SESSION_KEY),
+            liquidAssets: fromShadow(dnaProfile.sums.assetsM, dnaProfile.sums.assetsP, SESSION_KEY),
+            score: flowUpScore,
+            dti: Math.round(dti)
         };
 
         // 7. שחזור עסקאות לתצוגה בדאשבורד (Sanitized)
@@ -127,11 +145,19 @@ function analyzeDNA(vectors, key) {
         incomeM: 0, incomeP: 0, 
         fixedM: 0, fixedP: 0, 
         flexM: 0, flexP: 0, 
-        totalM: 0, totalP: 0 
+        totalM: 0, totalP: 0,
+        assetsM: 0, assetsP: 0
     };
     const FIXED_KEYWORDS = ["housing", "loan", "insurance", "transportation", "utilities"];
 
     vectors.forEach(v => {
+        // Exclude Liquid Assets from cash flow sums
+        if (v.category.includes("liquid assets")) {
+            sums.assetsM += v.m;
+            sums.assetsP += v.p;
+            return;
+        }
+
         sums.totalM += v.m; sums.totalP += v.p;
         if (v.type === 'income') {
             sums.incomeM += v.m; sums.incomeP += v.p;
