@@ -600,22 +600,24 @@ export default function Dashboard() {
                     />
                 </motion.div>
 
-                {/* InsightsAgent: Mobile 3, Desktop 3 (Bottom Left) */}
-                <div className="order-3 lg:order-3 space-y-4">
-                     {/* Agent Widget - Prominently displayed */}
-                     <div className="h-auto">
-                        <InsightsAgent insights={currentEngineData?.smartInsights || []} />
-                     </div>
-
-
+                {/* Resilience Card (Pilot): Mobile 2, Desktop 3 */}
+                <div className="order-2 lg:order-3 h-auto">
+                    <ResilienceCard metrics={newLoanMetrics} />
                 </div>
                 
-                {/* WhatIfSimulator: Mobile 2, Desktop 4 (Bottom Right) */}
-                <div className="order-2 lg:order-4 h-auto">
+                {/* WhatIfSimulator: Mobile 3, Desktop 4 */}
+                <div className="order-3 lg:order-4 h-auto">
                     <WhatIfSimulator
                         onSimulate={handleWhatIfSimulate}
                         currentBalance={snapshot.current_balance}
                     />
+                </div>
+
+                {/* InsightsAgent: Mobile 5, Desktop 5 (Full Width?) */}
+                <div className="order-5 lg:col-span-2 space-y-4">
+                     <div className="h-auto">
+                        <InsightsAgent insights={currentEngineData?.smartInsights || []} />
+                     </div>
                 </div>
               </div>
 
