@@ -1,150 +1,261 @@
-// fup_underwriting_engine/index.ts
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.3';
 
-// --- Millennium Protocol Utilities (Shadow Realm) ---
-const PRECISION_SCALE = 1000;
-const ENTROPY_FACTOR = 1000000;
+// --- CONFIGURATION ---
+const SCORING_WEIGHTS = {
+    STABILITY: 0.35,
+    SERVICEABILITY: 0.25,
+    LIQUIDITY: 0.25,
+    VOLATILITY: 0.15
+};
+
+// --- HELPER FUNCTIONS ---
 
 /**
- * הופך סכום גולמי לוקטור עיוור
+ * Calculates standard deviation of an array of numbers
  */
-function toShadow(amount, key) {
-    const normalized = amount / PRECISION_SCALE;
-    const theta = (key * ENTROPY_FACTOR) % (2 * Math.PI);
-    return { 
-        m: normalized * Math.cos(theta), 
-        p: normalized * Math.sin(theta) 
-    };
+function getStandardDeviation(array) {
+    if (array.length === 0) return 0;
+    const n = array.length;
+    const mean = array.reduce((a, b) => a + b, 0) / n;
+    const variance = array.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / n;
+    return Math.sqrt(variance);
 }
 
 /**
- * משחזר וקטור לסכום פיננסי גולמי (Recovery Layer)
+ * Generates 12 months of mock transaction history for the pilot demo
  */
-function fromShadow(m, p, key) {
-    const theta = (key * ENTROPY_FACTOR) % (2 * Math.PI);
-    const normalized = (m * Math.cos(theta)) + (p * Math.sin(theta));
-    const amount = normalized * PRECISION_SCALE;
-    return Math.round(amount * 100) / 100;
+function generateMockHistory() {
+    const history = [];
+    const today = new Date();
+    
+    // Base figures with some randomization
+    const baseIncome = 18500;
+    const baseFixed = 6500;
+    const baseFlexible = 4500;
+    
+    for (let i = 0; i < 12; i++) {
+        const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        
+        // Add some volatility
+        const incomeVar = (Math.random() - 0.5) * 2000;
+        const expenseVar = (Math.random() - 0.5) * 1500;
+        
+        const income = baseIncome + incomeVar;
+        const fixed = baseFixed; // Fixed stays mostly fixed
+        const flexible = baseFlexible + expenseVar;
+        const totalExpenses = fixed + flexible;
+        
+        history.push({
+            month: monthKey,
+            income: Math.round(income),
+            expenses: Math.round(totalExpenses),
+            fixedExpenses: Math.round(fixed),
+            flexibleExpenses: Math.round(flexible),
+            netFlow: Math.round(income - totalExpenses)
+        });
+    }
+    
+    return history.sort((a, b) => a.month.localeCompare(b.month));
 }
 
-// --- Main Edge Function ---
+/**
+ * Processes raw transactions into 12-month history buckets
+ */
+function calculateMonthlyHistory(transactions) {
+    const months = {};
+    const today = new Date();
+    
+    // Initialize last 12 months
+    for(let i=0; i<12; i++) {
+        const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        months[key] = { income: 0, expenses: 0, fixedExpenses: 0, netFlow: 0, flexibleExpenses: 0 };
+    }
+
+    transactions.forEach(tx => {
+        // Handle nested structure from Open Finance
+        const amountObj = tx.amount?.chargedAmount || tx.amount || 0;
+        const amountVal = typeof amountObj === 'object' ? amountObj.amount : amountObj;
+        const amount = Number(amountVal);
+        
+        const dateStr = tx.date || tx.bookingDate || tx.transactionDate || new Date().toISOString();
+        const date = new Date(dateStr);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        
+        if (months[monthKey]) {
+            if (amount > 0) {
+                months[monthKey].income += amount;
+            } else {
+                const absAmount = Math.abs(amount);
+                months[monthKey].expenses += absAmount;
+                
+                // Categorization logic
+                const cat = (tx.category?.main || tx.category || "").toLowerCase();
+                const desc = (tx.description || "").toLowerCase();
+                const isFixed = /rent|mortgage|insurance|loan|tax|subscription|bill|utilities/.test(cat + desc);
+                
+                if (isFixed) {
+                    months[monthKey].fixedExpenses += absAmount;
+                } else {
+                    months[monthKey].flexibleExpenses += absAmount;
+                }
+            }
+            months[monthKey].netFlow += amount;
+        }
+    });
+
+    return Object.keys(months).sort().map(key => ({
+        month: key,
+        ...months[key]
+    }));
+}
+
+// --- MAIN EDGE FUNCTION ---
+
 Deno.serve(async (req) => {
     try {
-        const API_ROOT = "https://api.open-finance.ai";
-        const API_V2 = "https://api.open-finance.ai/v2";
-        const API_KEY = Deno.env.get("OPEN_FINANCE_API_KEY");
-        const API_SECRET = Deno.env.get("OPEN_FINANCE_API_SECRET");
-
-        const body = await req.json();
-        const userId = body?.userId || "ronenk2424@gmail.com";
-
-        // 1. קבלת Access Token מ-Open Finance
-        const tokenRes = await fetch(`${API_ROOT}/oauth/token`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId, clientId: API_KEY, clientSecret: API_SECRET })
-        });
-        const { accessToken } = await tokenRes.json();
-
-        // 2. שליפת עסקאות חיות
-        const txRes = await fetch(`${API_V2}/data/transactions`, {
-            headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" }
-        });
-        const txData = await txRes.json();
-        const rawTransactions = txData?.data || txData?.items || [];
-// --- הארכיטקט: שכבת נתונים מדומים (Standard Underwriting Report) ---
-const mockTransactions = [
-    { amount: { chargedAmount: { amount: 35399 } }, category: { main: "Salary" } },
-    { amount: { chargedAmount: { amount: 1200 } }, category: { main: "Investment Dividends" } },
-    { amount: { chargedAmount: { amount: 136699 } }, category: { main: "Liquid Assets" } }, // נכסים נזילים
-    { amount: { chargedAmount: { amount: -8500 } }, category: { main: "Housing Rent" } },
-    { amount: { chargedAmount: { amount: -2400 } }, category: { main: "Car Loan" } },
-    { amount: { chargedAmount: { amount: -1500 } }, category: { main: "Utilities" } },
-    { amount: { chargedAmount: { amount: -4000 } }, category: { main: "Groceries" } },
-    { amount: { chargedAmount: { amount: -3500 } }, category: { main: "Leisure" } }
-];
-
-// החלפה לנתוני Mock לצורך כיול הדוח
-const finalTransactions = mockTransactions;
-        // --- Millennium Zero-Knowledge Integration ---
-        const SESSION_KEY = Math.random() * 1000; 
-
-        // 3. התמרה לוקטורים (Shadow Transformation)
-        const vectors = finalTransactions.map(tx => {
-            const amount = Number(tx?.amount?.chargedAmount?.amount || 0);
-            return {
-                m: toShadow(amount, SESSION_KEY).m,
-                p: toShadow(amount, SESSION_KEY).p,
-                type: amount > 0 ? 'income' : 'expense',
-                category: (tx.category?.main || "").toLowerCase()
-            };
-        });
-
-        // 4. ניתוח DNA וסימולציית Monte Carlo
-        const dnaProfile = analyzeDNA(vectors, SESSION_KEY);
-        const simulation = runMonteCarlo(vectors, dnaProfile, SESSION_KEY);
-
-        // 5. הערכת סיכון סופית (מודל הרמזור)
-        const riskAssessment = assessRisk(simulation);
-
-        // 6. שחזור נתונים פיננסיים (Recovery) לתצוגה
-        const totalIncome = fromShadow(dnaProfile.sums.incomeM, dnaProfile.sums.incomeP, SESSION_KEY);
-        const fixedExpenses = Math.abs(fromShadow(dnaProfile.sums.fixedM, dnaProfile.sums.fixedP, SESSION_KEY));
-        const lifestyleExpenses = Math.abs(fromShadow(dnaProfile.sums.flexM, dnaProfile.sums.flexP, SESSION_KEY));
+        const base44 = createClientFromRequest(req);
         
-        // Calculate DTI and Score
-        const totalExpenses = fixedExpenses + lifestyleExpenses;
-        const dti = totalIncome > 0 ? (totalExpenses / totalIncome) * 100 : 0;
-        const survivalRate = Math.round(simulation.survivalRate);
+        // 1. Data Ingestion (Mock or Real)
+        // For the pilot, we default to the generated 12-month mock history
+        // to ensure the algorithm has sufficient data to demonstrate value.
+        // In prod, we would toggle this based on available OpenFinance data.
         
-        // --- FLOWUP SMART SCORE ALGORITHM V2 ---
-        // 1. Stability (40%): Monte Carlo Survival Rate
-        // 2. Serviceability (30%): DTI Score (Inverse DTI)
-        // 3. Resilience (30%): Runway Score (Liquid Assets / Monthly Expenses)
-        
-        const dtiScore = Math.max(0, 100 - dti);
-        
-        // Resilience: Calculate Runway in Months
-        // Target: 6 months of runway = 100 points
-        const liquidAssets = fromShadow(dnaProfile.sums.assetsM, dnaProfile.sums.assetsP, SESSION_KEY);
-        const monthlyRunway = totalExpenses > 0 ? (liquidAssets / totalExpenses) : 6; // infinite if no expenses
-        const resilienceScore = Math.min((monthlyRunway / 6) * 100, 100);
+        const shouldUseMock = true; 
+        let history = [];
+        let liquidAssets = 45000; // Mock assets
 
-        const flowUpScore = Math.round(
-            (0.40 * survivalRate) + 
-            (0.30 * dtiScore) + 
-            (0.30 * resilienceScore)
+        if (shouldUseMock) {
+            history = generateMockHistory();
+        } else {
+            // ... Real OpenFinance fetching logic would go here ...
+            // const rawTransactions = await fetchTransactions(...);
+            // history = calculateMonthlyHistory(rawTransactions);
+        }
+
+        // 2. Feature Engineering
+        const totals = history.reduce((acc, m) => ({
+            income: acc.income + m.income,
+            expenses: acc.expenses + m.expenses,
+            fixedExpenses: acc.fixedExpenses + m.fixedExpenses,
+            positiveMonths: acc.positiveMonths + (m.netFlow > 0 ? 1 : 0)
+        }), { income: 0, expenses: 0, fixedExpenses: 0, positiveMonths: 0 });
+
+        const avgIncome = totals.income / history.length;
+        const avgExpenses = totals.expenses / history.length;
+        const avgFixedExpenses = totals.fixedExpenses / history.length;
+
+        const incomeVolatility = getStandardDeviation(history.map(m => m.income)) / (avgIncome || 1);
+        
+        // DTI Calculation
+        const DTI = avgIncome > 0 ? avgFixedExpenses / avgIncome : 1;
+        
+        // Runway Calculation
+        const runwayMonths = avgExpenses > 0 ? (liquidAssets / avgExpenses) : 12;
+
+        // 3. Build Financial Resilience Score
+        
+        // Stability (35%)
+        const positiveMonthsRatio = totals.positiveMonths / history.length;
+        const scoreStability = positiveMonthsRatio * 100;
+
+        // Serviceability (25%)
+        const scoreServiceability = Math.max(0, 100 - (DTI * 100));
+
+        // Liquidity (25%)
+        // Cap at 6 months = 100 points
+        const scoreLiquidity = Math.min((runwayMonths / 6) * 100, 100);
+
+        // Volatility Adjustment (15%)
+        const scoreVolatility = Math.max(0, 100 - (incomeVolatility * 100));
+
+        let finalScore = (
+            (SCORING_WEIGHTS.STABILITY * scoreStability) +
+            (SCORING_WEIGHTS.SERVICEABILITY * scoreServiceability) +
+            (SCORING_WEIGHTS.LIQUIDITY * scoreLiquidity) +
+            (SCORING_WEIGHTS.VOLATILITY * scoreVolatility)
         );
 
-        const recoveredMetrics = {
-            totalIncome,
-            fixedExpenses,
-            lifestyleExpenses,
-            totalExpenses,
-            netCashFlow: fromShadow(dnaProfile.sums.totalM, dnaProfile.sums.totalP, SESSION_KEY),
-            liquidAssets,
-            score: flowUpScore,
-            dti: Math.round(dti),
-            runway: parseFloat(monthlyRunway.toFixed(1))
+        finalScore = Math.min(100, Math.max(0, Math.round(finalScore)));
+
+        // 4. Risk Decision Logic & Hard Rules
+        let riskStatus = "ORANGE";
+        if (finalScore >= 80) riskStatus = "GREEN";
+        else if (finalScore < 55) riskStatus = "RED";
+
+        let forceRedReason = null;
+        if (runwayMonths < 1) {
+            riskStatus = "RED";
+            forceRedReason = "Runway < 1 Month";
+        } else if (DTI > 0.75) {
+            riskStatus = "RED";
+            forceRedReason = "DTI > 75%";
+        }
+
+        // 5. Deterministic Stress Test
+        const stressResults = {
+            scenarioA: (avgIncome * 0.8) - avgExpenses > 0, // Income -20%
+            scenarioB: avgIncome - (avgExpenses * 1.15) > 0, // Expenses +15%
+            scenarioC: liquidAssets > avgExpenses // Survive 1 month zero income
         };
 
-        // 7. שחזור עסקאות לתצוגה בדאשבורד (Sanitized)
-        const displayTransactions = vectors.map(v => ({
-            date: new Date().toISOString(), // Mock date as original dates weren't tracked in vector
-            amount: fromShadow(v.m, v.p, SESSION_KEY) * (v.type === 'expense' ? -1 : 1),
-            category: v.category,
-            description: v.category // Description masked for privacy
-        }));
+        const passedScenarios = Object.values(stressResults).filter(r => r).length;
+        let confidence = "Standard";
+        
+        // Pilot Logic: Downgrade on 2+ failures
+        if (passedScenarios <= 1) {
+            confidence = "Low - Downgrade Applied";
+            if (riskStatus === "GREEN") riskStatus = "ORANGE";
+            else if (riskStatus === "ORANGE") riskStatus = "RED";
+        } else if (passedScenarios === 3) {
+            confidence = "High";
+        }
 
+        // 6. Recommendation
+        const recommendation = riskStatus === "GREEN" ? "Approve" 
+            : riskStatus === "ORANGE" ? "Manual Review / Balloon" 
+            : "Decline";
+
+        // Construct standardized pilot report
         return Response.json({
             success: true,
-            status: riskAssessment.riskStatus,
-            survivalRate: Math.round(simulation.survivalRate),
-            riskDay: riskAssessment.riskDay,
-            metrics: recoveredMetrics,
-            transactions: displayTransactions,
-            analysis: {
-                loanEligibility: riskAssessment.riskStatus === "GREEN",
-                resilienceScore: dnaProfile.resilienceScore
+            status: riskStatus, // Legacy support for dashboard
+            riskDay: null, // Deprecated in new model
+            report: {
+                score: finalScore,
+                status: riskStatus,
+                decision: {
+                    recommendation,
+                    confidence,
+                    forceRedReason
+                },
+                metrics: {
+                    dti: Math.round(DTI * 100),
+                    runwayMonths: parseFloat(runwayMonths.toFixed(1)),
+                    stabilityIndex: Math.round(scoreStability),
+                    volatilityIndex: Math.round(incomeVolatility * 100),
+                    monthlyAverageIncome: Math.round(avgIncome),
+                    monthlyAverageExpenses: Math.round(avgExpenses),
+                    liquidAssets: liquidAssets
+                },
+                stressTest: {
+                    passedCount: passedScenarios,
+                    details: stressResults
+                },
+                history: history // Optional: send back history for charts
+            },
+            // Legacy metric mapping for existing frontend compatibility
+            metrics: {
+                totalIncome: Math.round(avgIncome),
+                totalExpenses: Math.round(avgExpenses),
+                fixedExpenses: Math.round(avgFixedExpenses),
+                lifestyleExpenses: Math.round(avgExpenses - avgFixedExpenses),
+                netCashFlow: Math.round(avgIncome - avgExpenses),
+                liquidAssets: liquidAssets,
+                score: finalScore,
+                dti: Math.round(DTI * 100),
+                runway: parseFloat(runwayMonths.toFixed(1))
             }
         });
 
@@ -152,97 +263,3 @@ const finalTransactions = mockTransactions;
         return Response.json({ success: false, error: error.message }, { status: 500 });
     }
 });
-
-// --- DNA & Risk Logic Functions ---
-
-function analyzeDNA(vectors, key) {
-    const sums = { 
-        incomeM: 0, incomeP: 0, 
-        fixedM: 0, fixedP: 0, 
-        flexM: 0, flexP: 0, 
-        totalM: 0, totalP: 0,
-        assetsM: 0, assetsP: 0
-    };
-    const FIXED_KEYWORDS = ["housing", "loan", "insurance", "transportation", "utilities"];
-
-    vectors.forEach(v => {
-        // Exclude Liquid Assets from cash flow sums
-        if (v.category.includes("liquid assets")) {
-            sums.assetsM += v.m;
-            sums.assetsP += v.p;
-            return;
-        }
-
-        sums.totalM += v.m; sums.totalP += v.p;
-        if (v.type === 'income') {
-            sums.incomeM += v.m; sums.incomeP += v.p;
-        } else {
-            const isFixed = FIXED_KEYWORDS.some(k => v.category.includes(k));
-            if (isFixed) {
-                sums.fixedM += v.m; sums.fixedP += v.p;
-            } else {
-                sums.flexM += v.m; sums.flexP += v.p;
-            }
-        }
-    });
-
-    const amplitudes = vectors.map(v => Math.sqrt(v.m**2 + v.p**2));
-    const mean = amplitudes.reduce((a, b) => a + b, 0) / Math.max(1, amplitudes.length);
-    const volatility = Math.sqrt(amplitudes.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b, 0) / Math.max(1, amplitudes.length));
-
-    return { 
-        sums, 
-        volatility, 
-        resilienceScore: Math.min((vectors.filter(v => v.type === 'income').length / 5) * 100, 100) 
-    };
-}
-
-function runMonteCarlo(history, dna, key) {
-    const ITERATIONS = 500;
-    const HORIZON = 45;
-    let failures = 0;
-    let failureDays = {};
-
-    for (let i = 0; i < ITERATIONS; i++) {
-        let curM = dna.sums.totalM; 
-        let curP = dna.sums.totalP;
-        
-        for (let d = 1; d <= HORIZON; d++) {
-            const shock = (Math.random() - 0.5) * dna.volatility;
-            curM += (shock / PRECISION_SCALE) * Math.cos(key);
-            curP += (shock / PRECISION_SCALE) * Math.sin(key);
-
-            if (fromShadow(curM, curP, key) < 0) {
-                failures++;
-                failureDays[d] = (failureDays[d] || 0) + 1;
-                break;
-            }
-        }
-    }
-    return { 
-        survivalRate: ((ITERATIONS - failures) / ITERATIONS) * 100, 
-        failureDays 
-    };
-}
-
-function assessRisk(sim) {
-    const survival = sim.survivalRate;
-    let status = 'RED';
-
-    if (survival > 95) {
-        status = 'GREEN';
-    } else if (survival > 75) {
-        status = 'ORANGE';
-    }
-
-    const failureEntries = Object.entries(sim.failureDays || {});
-    const riskDayOffset = failureEntries.length > 0 
-        ? failureEntries.sort((a, b) => b[1] - a[1])[0][0] 
-        : null;
-
-    return { 
-        riskStatus: status, 
-        survivalRate: survival, 
-        riskDay: riskDayOffset 
-    };
-}
