@@ -11,8 +11,8 @@ export const useLoanMetrics = () => {
         setError(null);
 
         try {
-            // 1. Session Caching Strategy
-            const cachedData = sessionStorage.getItem('loanMetricsCache');
+            // 1. Session Caching Strategy (V2 Key for new schema)
+            const cachedData = sessionStorage.getItem('loanMetricsCacheV2');
             if (!force && cachedData) {
                 setMetrics(JSON.parse(cachedData));
                 setIsLoading(false);
@@ -34,25 +34,28 @@ export const useLoanMetrics = () => {
 
             if (data.success) {
                 // 3. Data Transformation Layer
-                // Calculate DTI since it's not explicitly returned in V2 metrics
-                const calculatedDti = data.metrics.totalIncome > 0 
+                const calculatedDti = data.metrics.dti || (data.metrics.totalIncome > 0 
                     ? Math.round((data.metrics.fixedExpenses / data.metrics.totalIncome) * 100) 
-                    : 0;
+                    : 0);
+                
+                // Use backend calculated score if available, otherwise fallback to survival rate
+                const flowUpScore = data.metrics.score !== undefined ? data.metrics.score : data.survivalRate;
 
                 const transformedMetrics = {
-                    score: data.survivalRate, // 0-100 Score from Monte Carlo Survival Rate
+                    score: flowUpScore, 
                     trafficLight: data.status, // GREEN, ORANGE, RED
                     status: data.status,
                     dti: calculatedDti,
                     riskDay: data.riskDay,
                     totalIncome: data.metrics.totalIncome,
-                    totalExpenses: data.metrics.fixedExpenses + data.metrics.lifestyleExpenses,
+                    totalExpenses: data.metrics.totalExpenses || (data.metrics.fixedExpenses + data.metrics.lifestyleExpenses),
                     totalFixedExpenses: data.metrics.fixedExpenses,
-                    totalLifestyleExpenses: data.metrics.lifestyleExpenses
+                    totalLifestyleExpenses: data.metrics.lifestyleExpenses,
+                    liquidAssets: data.metrics.liquidAssets || 0
                 };
 
                 setMetrics(transformedMetrics);
-                sessionStorage.setItem('loanMetricsCache', JSON.stringify(transformedMetrics));
+                sessionStorage.setItem('loanMetricsCacheV2', JSON.stringify(transformedMetrics));
             } else {
                 throw new Error("Analysis failed to return success status");
             }
