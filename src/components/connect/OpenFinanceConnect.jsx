@@ -18,12 +18,19 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
       const user = await base44.auth.me();
       if (!user) throw new Error("User not authenticated");
 
-      // Call new Open Finance Connector
-      const { data } = await base44.functions.invoke("fup_live", { psuId: user.id });
+      // Call Auth Service to get Redirect URL
+      const { data } = await base44.functions.invoke("openFinanceAuth", { 
+          action: 'init_connection',
+          psuId: user.id,
+          providerId: 'mizrahi' // Defaulting to Mizrahi as requested
+      });
 
       if (data.error) throw new Error(data.error);
 
       if (data.connectUrl) {
+          // In a real app, we redirect. 
+          // For this sandbox/demo environment, if the URL fails, we might want to simulate the callback manually 
+          // but let's assume the URL works or we catch the error.
           window.location.href = data.connectUrl;
           return;
       }
