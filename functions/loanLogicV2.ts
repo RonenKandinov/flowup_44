@@ -69,7 +69,7 @@ const finalTransactions = mockTransactions;
         const SESSION_KEY = Math.random() * 1000; 
 
         // 3. התמרה לוקטורים (Shadow Transformation)
-        const vectors = rawTransactions.map(tx => {
+        const vectors = finalTransactions.map(tx => {
             const amount = Number(tx?.amount?.chargedAmount?.amount || 0);
             return {
                 m: toShadow(amount, SESSION_KEY).m,
