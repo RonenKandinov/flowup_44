@@ -1,7 +1,5 @@
 Deno.serve(async (req) => {
   try {
-
-    const base44 = req.base44;
     const API_ROOT = "https://api.open-finance.ai";
     const API_V2 = "https://api.open-finance.ai/v2";
     const API_KEY = Deno.env.get("OPEN_FINANCE_API_KEY");
@@ -9,13 +7,6 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     const userId = body?.userId || "ronenk2424@gmail.com";
-
-    if (!API_KEY || !API_SECRET) {
-      return Response.json({
-        success: false,
-        error: "Missing API credentials"
-      }, { status: 500 });
-    }
 
     // ===============================
     // 1️⃣ Get Access Token
@@ -60,52 +51,114 @@ Deno.serve(async (req) => {
       txData?.transactions ||
       [];
 
-    if (!Array.isArray(transactions)) {
+    if (!Array.isArray(transactions) || transactions.length === 0) {
       return Response.json({
-        success: false,
-        error: "Invalid transactions format"
-      }, { status: 500 });
-    }
-
-    // ===============================
-    // 3️⃣ Delete Old Transactions
-    // ===============================
-    await base44.entities.OpenFinanceTransaction.deleteMany({
-      user_id: userId
-    });
-
-    // ===============================
-    // 4️⃣ Save Transactions
-    // ===============================
-    for (const tx of transactions) {
-
-      const amount = Number(
-        tx?.amount?.chargedAmount?.amount ||
-        tx?.amount ||
-        0
-      );
-
-      await base44.entities.OpenFinanceTransaction.create({
-        user_id: userId,
-        transaction_id: tx.id || crypto.randomUUID(),
-        bookingDate: tx.bookingDate || tx.valueDate || null,
-        amount,
-        category: tx?.category?.main || "",
-        description: tx?.description || "",
-        balance: tx?.balance || null,
-        raw_json: tx
+        success: true,
+        message: "No transactions found",
+        metrics: {
+          totalIncome: 0,
+          fixedExpenses: 0,
+          lifestyleExpenses: 0,
+          totalExpenses: 0,
+          netCashFlow: 0,
+          dti: 100,
+          status: "RED"
+        },
+        analysis: {
+          loanEligibility: false,
+          safetyMargin: 0,
+          financialStrengthScore: 0
+        }
       });
     }
 
+    // ===============================
+    // 3️⃣ Financial Calculation
+    // ===============================
+
+    let income = 0;
+    let fixed = 0;
+    let lifestyle = 0;
+
+    transactions.forEach((tx) => {
+      const amount = Number(
+        tx?.amount?.chargedAmount?.amount || 0
+      );
+
+      const category =
+        (tx?.category?.main || "").toLowerCase();
+
+      if (amount > 0) {
+        // CREDIT
+        income += amount;
+      }
+
+      if (amount < 0) {
+        const absAmt = Math.abs(amount);
+
+        const isFixed = [
+          "housing",
+          "loan",
+          "insurance",
+          "transportation"
+        ].some((c) => category.includes(c));
+
+        if (isFixed) fixed += absAmt;
+        else lifestyle += absAmt;
+      }
+    });
+
+    const totalExpenses = fixed + lifestyle;
+    const netCashFlow = income - totalExpenses;
+    const dti = income > 0 ? (fixed / income) * 100 : 100;
+
+    // ===============================
+    // 4️⃣ Underwriting Logic
+    // ===============================
+
+    let status = "GREEN";
+
+    if (netCashFlow < 0) status = "RED";
+    else if (dti >= 60) status = "RED";
+    else if (dti >= 40) status = "ORANGE";
+
+    let rawScore =
+      100 -
+      (dti * 1.5) -
+      (netCashFlow < 0 ? 30 : 0);
+
+    const financialStrengthScore = Math.max(
+      0,
+      Math.min(100, Math.round(rawScore))
+    );
+
+    // ===============================
+    // 5️⃣ Response
+    // ===============================
+
     return Response.json({
       success: true,
-      saved: transactions.length
+      metrics: {
+        totalIncome: Math.round(income),
+        fixedExpenses: Math.round(fixed),
+        lifestyleExpenses: Math.round(lifestyle),
+        totalExpenses: Math.round(totalExpenses),
+        netCashFlow: Math.round(netCashFlow),
+        dti: parseFloat(dti.toFixed(1)),
+        status
+      },
+      analysis: {
+        loanEligibility: status === "GREEN",
+        safetyMargin: Math.round(netCashFlow),
+        financialStrengthScore
+      }
     });
 
   } catch (err) {
     return Response.json({
       success: false,
-      error: err.message
+      error: "Analysis Failed",
+      details: err.message
     }, { status: 500 });
   }
 });
