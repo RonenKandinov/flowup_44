@@ -58,7 +58,11 @@ export const useLoanMetrics = () => {
                     confidence: report.decision?.confidence || "Standard",
                     recommendation: report.decision?.recommendation || "N/A",
                     stressTestPassed: report.stressTest?.passedCount ?? 0,
-                    forceRedReason: report.decision?.forceRedReason
+                    forceRedReason: report.decision?.forceRedReason,
+                    
+                    // Trends from Backend
+                    trends: report.metrics?.trends || metrics.trends || { income: 0, expenses: 0, dti: 0 },
+                    history: report.metrics?.history || []
                 };
 
                 setMetrics(transformedMetrics);
