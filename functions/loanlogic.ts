@@ -8,6 +8,13 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const userId = body?.userId || "ronenk2424@gmail.com";
 
+    if (!API_KEY || !API_SECRET) {
+      return Response.json({
+        success: false,
+        error: "Missing API credentials"
+      }, { status: 500 });
+    }
+
     // ===============================
     // 1️⃣ Get Access Token
     // ===============================
@@ -51,114 +58,52 @@ Deno.serve(async (req) => {
       txData?.transactions ||
       [];
 
-    if (!Array.isArray(transactions) || transactions.length === 0) {
+    if (!Array.isArray(transactions)) {
       return Response.json({
-        success: true,
-        message: "No transactions found",
-        metrics: {
-          totalIncome: 0,
-          fixedExpenses: 0,
-          lifestyleExpenses: 0,
-          totalExpenses: 0,
-          netCashFlow: 0,
-          dti: 100,
-          status: "RED"
-        },
-        analysis: {
-          loanEligibility: false,
-          safetyMargin: 0,
-          financialStrengthScore: 0
-        }
-      });
+        success: false,
+        error: "Invalid transactions format"
+      }, { status: 500 });
     }
 
     // ===============================
-    // 3️⃣ Financial Calculation
+    // 3️⃣ Delete Old Transactions
     // ===============================
-
-    let income = 0;
-    let fixed = 0;
-    let lifestyle = 0;
-
-    transactions.forEach((tx) => {
-      const amount = Number(
-        tx?.amount?.chargedAmount?.amount || 0
-      );
-
-      const category =
-        (tx?.category?.main || "").toLowerCase();
-
-      if (amount > 0) {
-        // CREDIT
-        income += amount;
-      }
-
-      if (amount < 0) {
-        const absAmt = Math.abs(amount);
-
-        const isFixed = [
-          "housing",
-          "loan",
-          "insurance",
-          "transportation"
-        ].some((c) => category.includes(c));
-
-        if (isFixed) fixed += absAmt;
-        else lifestyle += absAmt;
-      }
+    await base44.entities.OpenFinanceTransaction.deleteMany({
+      user_id: userId
     });
 
-    const totalExpenses = fixed + lifestyle;
-    const netCashFlow = income - totalExpenses;
-    const dti = income > 0 ? (fixed / income) * 100 : 100;
-
     // ===============================
-    // 4️⃣ Underwriting Logic
+    // 4️⃣ Save Transactions
     // ===============================
+    for (const tx of transactions) {
 
-    let status = "GREEN";
+      const amount = Number(
+        tx?.amount?.chargedAmount?.amount ||
+        tx?.amount ||
+        0
+      );
 
-    if (netCashFlow < 0) status = "RED";
-    else if (dti >= 60) status = "RED";
-    else if (dti >= 40) status = "ORANGE";
-
-    let rawScore =
-      100 -
-      (dti * 1.5) -
-      (netCashFlow < 0 ? 30 : 0);
-
-    const financialStrengthScore = Math.max(
-      0,
-      Math.min(100, Math.round(rawScore))
-    );
-
-    // ===============================
-    // 5️⃣ Response
-    // ===============================
+      await base44.entities.OpenFinanceTransaction.create({
+        user_id: userId,
+        transaction_id: tx.id || crypto.randomUUID(),
+        bookingDate: tx.bookingDate || tx.valueDate || null,
+        amount,
+        category: tx?.category?.main || "",
+        description: tx?.description || "",
+        balance: tx?.balance || null,
+        raw_json: tx
+      });
+    }
 
     return Response.json({
       success: true,
-      metrics: {
-        totalIncome: Math.round(income),
-        fixedExpenses: Math.round(fixed),
-        lifestyleExpenses: Math.round(lifestyle),
-        totalExpenses: Math.round(totalExpenses),
-        netCashFlow: Math.round(netCashFlow),
-        dti: parseFloat(dti.toFixed(1)),
-        status
-      },
-      analysis: {
-        loanEligibility: status === "GREEN",
-        safetyMargin: Math.round(netCashFlow),
-        financialStrengthScore
-      }
+      saved: transactions.length
     });
 
   } catch (err) {
     return Response.json({
       success: false,
-      error: "Analysis Failed",
-      details: err.message
+      error: err.message
     }, { status: 500 });
   }
 });
