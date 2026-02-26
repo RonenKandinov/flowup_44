@@ -11,7 +11,6 @@ import { FiscalAgent } from '../components/protocol/core/fiscalAgent';
 import SpeedometerGauge from '../components/dashboard/SpeedometerGauge';
 import StatCard from '../components/dashboard/StatCard';
 import LiquidAssetsCard from '../components/dashboard/LiquidAssetsCard'; // New Component
-import ResilienceCard from '../components/dashboard/ResilienceCard'; // Pilot Feature
 import WhatIfSimulator from '../components/dashboard/WhatIfSimulator';
 import FutureCake from '../components/dashboard/FutureCake';
 import InsightsAgent from '../components/dashboard/InsightsAgent'; // New
@@ -600,11 +599,6 @@ export default function Dashboard() {
                     />
                 </motion.div>
 
-                {/* Resilience Card (Pilot): Mobile 2, Desktop 3 */}
-                <div className="order-2 lg:order-3 h-auto">
-                    <ResilienceCard metrics={newLoanMetrics} />
-                </div>
-                
                 {/* WhatIfSimulator: Mobile 3, Desktop 4 */}
                 <div className="order-3 lg:order-4 h-auto">
                     <WhatIfSimulator
