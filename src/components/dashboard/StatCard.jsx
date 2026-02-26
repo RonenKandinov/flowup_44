@@ -67,7 +67,7 @@ export default function StatCard({
             </p>
         </div>
         
-        {trend !== null && trend !== undefined && (
+        {trend !== null && trend !== undefined && Math.abs(trend) >= 0.1 && (
             <div className={`flex items-center text-[10px] md:text-xs mt-1 font-medium ${
                 Math.abs(trend) < 1 ? 'text-slate-400' : 
                 (color === 'red' ? (trend > 0 ? 'text-red-400' : 'text-emerald-400') : (trend > 0 ? 'text-emerald-400' : 'text-red-400'))
