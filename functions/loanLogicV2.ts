@@ -31,7 +31,7 @@ function fromShadow(m, p, key) {
 // --- HELPER FUNCTIONS ---
 
 function getStandardDeviation(array) {
-    if (array.length === 0) return 0;
+    if (!array || array.length === 0) return 0;
     const n = array.length;
     const mean = array.reduce((a, b) => a + b, 0) / n;
     const variance = array.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / n;
@@ -65,13 +65,65 @@ Deno.serve(async (req) => {
             })
         });
 
+        if (!tokenRes.ok) {
+            throw new Error(`Open Finance Auth Error: ${tokenRes.status} ${tokenRes.statusText}`);
+        }
+
         const tokenJson = await tokenRes.json();
         if (!tokenJson?.accessToken) {
             throw new Error("Failed to get access token from Open Finance");
         }
         const accessToken = tokenJson.accessToken;
 
-        // 2. Fetch Transactions
+        // 2. Fetch Accounts & Calculate Real Liquid Assets
+        let liquidAssets = 0;
+        try {
+            const accountsRes = await fetch(`${API_V2}/data/accounts`, {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    Accept: "application/json"
+                }
+            });
+
+            if (accountsRes.ok) {
+                const accountsData = await accountsRes.json();
+                const accounts = accountsData?.data || accountsData?.items || accountsData?.accounts || [];
+                
+                accounts.forEach((acc) => {
+                    const type = (acc.type || acc.accountType || "").toLowerCase();
+                    let balanceAmount = 0;
+                    
+                    if (Array.isArray(acc.balances)) {
+                        const available = acc.balances.find(b => b.balanceType === "interimAvailable" || b.type === "interimAvailable");
+                        const booked = acc.balances.find(b => b.balanceType === "closingBooked" || b.type === "closingBooked");
+                        const targetBal = available || booked;
+                        
+                        if (targetBal?.amount?.amount !== undefined) {
+                            balanceAmount = Number(targetBal.amount.amount);
+                        } else if (targetBal?.amount !== undefined) {
+                            balanceAmount = Number(targetBal.amount);
+                        }
+                    } else if (acc.balance) {
+                        balanceAmount = Number(acc.balance);
+                    }
+
+                    if (!isNaN(balanceAmount) && balanceAmount > 0) {
+                        // Distinguish checking/savings vs investment accounts (haircut applied for investments)
+                        if (type.includes('investment') || type.includes('securities')) {
+                            liquidAssets += (balanceAmount * 0.8);
+                        } else {
+                            liquidAssets += balanceAmount;
+                        }
+                    }
+                });
+            }
+        } catch (e) {
+            console.error("Failed to fetch/process accounts:", e);
+        }
+
+        liquidAssets = Math.max(0, liquidAssets); // Ensure non-negative
+
+        // 3. Fetch Transactions
         const txRes = await fetch(`${API_V2}/data/transactions`, {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
@@ -79,17 +131,24 @@ Deno.serve(async (req) => {
             }
         });
 
+        if (!txRes.ok) {
+            throw new Error(`Open Finance TX Error: ${txRes.status} ${txRes.statusText}`);
+        }
+
         const txData = await txRes.json();
         const transactions = txData?.data || txData?.items || txData?.transactions || [];
 
-        // 3. Process Transactions into Monthly History
+        // 4. Process Transactions into Monthly History
         const monthlyData = {};
         const today = new Date();
 
         transactions.forEach((tx) => {
-            const amount = Number(tx?.amount?.chargedAmount?.amount || 0);
-            const category = (tx?.category?.main || "").toLowerCase();
+            const amount = Number(tx?.amount?.chargedAmount?.amount || tx?.amount || 0);
+            if (isNaN(amount)) return;
+
+            const category = (tx?.category?.main || tx?.category || "").toLowerCase();
             const dateStr = tx?.creationDate || tx?.date || tx?.transactionDate; 
+            const txDesc = String(tx?.description || "").toLowerCase();
 
             let date = dateStr ? new Date(dateStr) : today;
             if (isNaN(date.getTime())) date = today;
@@ -116,7 +175,7 @@ Deno.serve(async (req) => {
                 currentMonth.expenses += absAmt;
                 
                 const isFixed = ["housing", "loan", "insurance", "transportation", "utilities", "rent", "fixed", "commitment"]
-                    .some((c) => category.includes(c) || String(tx?.description || '').toLowerCase().includes(c));
+                    .some((c) => category.includes(c) || txDesc.includes(c));
                 
                 if (isFixed) {
                     currentMonth.fixedExpenses += absAmt;
@@ -130,9 +189,9 @@ Deno.serve(async (req) => {
         // Sort history chronologically and take only the last 3 months
         let history = Object.values(monthlyData)
             .sort((a, b) => a.month.localeCompare(b.month))
-            .slice(-3); // Limit to last 3 months as per spec
+            .slice(-3);
 
-        // Calculate trends (comparing last month to the average of previous months)
+        // Calculate trends
         let trends = { income: 0, expenses: 0, dti: 0 };
         if (history.length >= 2) {
             const lastMonth = history[history.length - 1];
@@ -147,17 +206,16 @@ Deno.serve(async (req) => {
 
             trends.income = prevAvgIncome > 0 ? ((lastMonth.income - prevAvgIncome) / prevAvgIncome) * 100 : 0;
             trends.expenses = prevAvgExpenses > 0 ? ((lastMonth.expenses - prevAvgExpenses) / prevAvgExpenses) * 100 : 0;
-            trends.dti = currDti - prevDti; // Absolute percentage point change
+            trends.dti = currDti - prevDti;
         }
 
         if (history.length === 0) {
-            throw new Error("No transactions found for the given user in Open Finance.");
+            throw new Error("No valid transactions found for the given user in Open Finance.");
         }
 
-        const SESSION_KEY = Math.random() * 1000; // Zero-Knowledge Key
-        const liquidAssets = 136699; // Updated to match dashboard
+        const SESSION_KEY = Math.random() * 1000;
 
-        // 1. Shadow Vectorization
+        // 5. Shadow Vectorization
         const shadowHistory = history.map(m => ({
             incomeVec: toShadow(m.income, SESSION_KEY),
             fixedVec: toShadow(m.fixedExpenses, SESSION_KEY),
@@ -165,7 +223,7 @@ Deno.serve(async (req) => {
             netVec: toShadow(m.netFlow, SESSION_KEY)
         }));
 
-        // 2. Vector Reconstruction & Feature Engineering
+        // 6. Vector Reconstruction & Feature Engineering
         const avgIncome = fromShadow(
             shadowHistory.reduce((acc, h) => acc + h.incomeVec.m, 0) / history.length,
             shadowHistory.reduce((acc, h) => acc + h.incomeVec.p, 0) / history.length,
@@ -188,9 +246,7 @@ Deno.serve(async (req) => {
         const DTI = avgIncome > 0 ? avgFixedExpenses / avgIncome : 1;
         const runwayMonths = avgExpenses > 0 ? (liquidAssets / avgExpenses) : 12;
 
-        // 3. Built Financial Resilience Score (with Tiered DTI Logic)
-        
-        // DTI Tiers Scoring
+        // 7. Built Financial Resilience Score
         let scoreServiceability = 0;
         const dtiPerc = DTI * 100;
         if (dtiPerc <= 40) scoreServiceability = 80 + (40 - dtiPerc) * 0.5;
@@ -209,51 +265,46 @@ Deno.serve(async (req) => {
             (SCORING_WEIGHTS.VOLATILITY * scoreVolatility)
         );
 
-        // 4. Traffic Light Status & Gauge Sync
         let riskStatus = "ORANGE";
         if (finalScore >= 80) riskStatus = "GREEN";
         else if (finalScore < 55) riskStatus = "RED";
 
-        // BDI "Positive" Bonus (Architect's Rule)
-        const isBDIPositive = true; // Placeholder for real BDI check
-        if (isBDIPositive && finalScore < 100) finalScore = Math.min(100, finalScore + 5);
+        return Response.json({
+            success: true,
+            status: riskStatus,
+            score: finalScore,
+            report: {
+                score: finalScore,
+                status: riskStatus,
+                metrics: {
+                    dti: Math.round(dtiPerc),
+                    runwayMonths: parseFloat(runwayMonths.toFixed(1)),
+                    monthlyAverageIncome: Math.round(avgIncome),
+                    monthlyAverageExpenses: Math.round(avgExpenses),
+                    liquidAssets: Math.round(liquidAssets),
+                    trends: trends,
+                    history: history
+                }
+            },
+            metrics: {
+                totalIncome: Math.round(avgIncome),
+                totalExpenses: Math.round(avgExpenses),
+                fixedExpenses: Math.round(avgFixedExpenses),
+                lifestyleExpenses: Math.round(avgExpenses - avgFixedExpenses),
+                netCashFlow: Math.round(avgIncome - avgExpenses),
+                liquidAssets: Math.round(liquidAssets),
+                score: finalScore,
+                dti: Math.round(dtiPerc),
+                runway: parseFloat(runwayMonths.toFixed(1)),
+                trends: trends
+            }
+        });
 
-return Response.json({
-    success: true,
-    status: riskStatus,
-    score: finalScore,
-    report: {
-        score: finalScore,
-        status: riskStatus,
-        metrics: {
-            dti: Math.round(dtiPerc),
-            runwayMonths: parseFloat(runwayMonths.toFixed(1)),
-            monthlyAverageIncome: Math.round(avgIncome),
-            monthlyAverageExpenses: Math.round(avgExpenses),
-            liquidAssets: liquidAssets,
-            trends: trends,
-            history: history // Pass history for UI charts if needed
-        }
-    },
-    metrics: {
-        totalIncome: Math.round(avgIncome),
-        totalExpenses: Math.round(avgExpenses),
-        fixedExpenses: Math.round(avgFixedExpenses),
-        lifestyleExpenses: Math.round(avgExpenses - avgFixedExpenses),
-        netCashFlow: Math.round(avgIncome - avgExpenses),
-        liquidAssets: liquidAssets,
-        score: finalScore,
-        dti: Math.round(dtiPerc),
-        runway: parseFloat(runwayMonths.toFixed(1)),
-        trends: trends
+    } catch (error) {
+        console.error("loanLogicV2 Error:", error);
+        return Response.json(
+            { success: false, error: error.message },
+            { status: 500 }
+        );
     }
-});
-
-} catch (error) {
-    return Response.json(
-        { success: false, error: error.message },
-        { status: 500 }
-    );
-}
-
 });
