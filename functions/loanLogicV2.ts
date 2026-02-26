@@ -115,8 +115,8 @@ Deno.serve(async (req) => {
                 const absAmt = Math.abs(amount);
                 currentMonth.expenses += absAmt;
                 
-                const isFixed = ["housing", "loan", "insurance", "transportation", "utilities", "rent"]
-                    .some((c) => category.includes(c));
+                const isFixed = ["housing", "loan", "insurance", "transportation", "utilities", "rent", "fixed", "commitment"]
+                    .some((c) => category.includes(c) || tx?.description?.toLowerCase().includes(c));
                 
                 if (isFixed) {
                     currentMonth.fixedExpenses += absAmt;
@@ -127,7 +127,28 @@ Deno.serve(async (req) => {
             currentMonth.netFlow = currentMonth.income - currentMonth.expenses;
         });
 
-        let history = Object.values(monthlyData).sort((a, b) => a.month.localeCompare(b.month));
+        // Sort history chronologically and take only the last 3 months
+        let history = Object.values(monthlyData)
+            .sort((a, b) => a.month.localeCompare(b.month))
+            .slice(-3); // Limit to last 3 months as per spec
+
+        // Calculate trends (comparing last month to the average of previous months)
+        let trends = { income: 0, expenses: 0, dti: 0 };
+        if (history.length >= 2) {
+            const lastMonth = history[history.length - 1];
+            const previousMonths = history.slice(0, -1);
+            
+            const prevAvgIncome = previousMonths.reduce((sum, m) => sum + m.income, 0) / previousMonths.length;
+            const prevAvgExpenses = previousMonths.reduce((sum, m) => sum + m.expenses, 0) / previousMonths.length;
+            const prevAvgFixed = previousMonths.reduce((sum, m) => sum + m.fixedExpenses, 0) / previousMonths.length;
+            
+            const prevDti = prevAvgIncome > 0 ? (prevAvgFixed / prevAvgIncome) * 100 : 100;
+            const currDti = lastMonth.income > 0 ? (lastMonth.fixedExpenses / lastMonth.income) * 100 : 100;
+
+            trends.income = prevAvgIncome > 0 ? ((lastMonth.income - prevAvgIncome) / prevAvgIncome) * 100 : 0;
+            trends.expenses = prevAvgExpenses > 0 ? ((lastMonth.expenses - prevAvgExpenses) / prevAvgExpenses) * 100 : 0;
+            trends.dti = currDti - prevDti; // Absolute percentage point change
+        }
 
         if (history.length === 0) {
             throw new Error("No transactions found for the given user in Open Finance.");
@@ -209,7 +230,9 @@ return Response.json({
             runwayMonths: parseFloat(runwayMonths.toFixed(1)),
             monthlyAverageIncome: Math.round(avgIncome),
             monthlyAverageExpenses: Math.round(avgExpenses),
-            liquidAssets: liquidAssets
+            liquidAssets: liquidAssets,
+            trends: trends,
+            history: history // Pass history for UI charts if needed
         }
     },
     metrics: {
@@ -221,7 +244,8 @@ return Response.json({
         liquidAssets: liquidAssets,
         score: finalScore,
         dti: Math.round(dtiPerc),
-        runway: parseFloat(runwayMonths.toFixed(1))
+        runway: parseFloat(runwayMonths.toFixed(1)),
+        trends: trends
     }
 });
 
