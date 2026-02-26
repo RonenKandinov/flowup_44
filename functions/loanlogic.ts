@@ -1,5 +1,7 @@
 Deno.serve(async (req) => {
   try {
+
+    const base44 = req.base44;
     const API_ROOT = "https://api.open-finance.ai";
     const API_V2 = "https://api.open-finance.ai/v2";
     const API_KEY = Deno.env.get("OPEN_FINANCE_API_KEY");
