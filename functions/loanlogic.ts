@@ -1,18 +1,14 @@
 Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
-
     const API_ROOT = "https://api.open-finance.ai";
     const API_V2 = "https://api.open-finance.ai/v2";
     const API_KEY = Deno.env.get("OPEN_FINANCE_API_KEY");
     const API_SECRET = Deno.env.get("OPEN_FINANCE_API_SECRET");
 
-    const body = await req.json().catch(() => ({}));
+    const body = await req.json();
     const userId = body?.userId || "ronenk2424@gmail.com";
 
-    // ===============================
-    // 1️⃣ Get Access Token
-    // ===============================
+    // 1️⃣ קבלת Access Token
     const tokenRes = await fetch(`${API_ROOT}/oauth/token`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -24,20 +20,12 @@ Deno.serve(async (req) => {
     });
 
     const tokenJson = await tokenRes.json();
-
     if (!tokenJson?.accessToken) {
-      return Response.json({
-        success: false,
-        error: "Failed to get access token",
-        raw: tokenJson
-      }, { status: 500 });
+      throw new Error("Failed to get access token");
     }
-
     const accessToken = tokenJson.accessToken;
 
-    // ===============================
-    // 2️⃣ Fetch Transactions
-    // ===============================
+    // 2️⃣ משיכת עסקאות (Transactions)
     const txRes = await fetch(`${API_V2}/data/transactions`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -46,139 +34,70 @@ Deno.serve(async (req) => {
     });
 
     const txData = await txRes.json();
+    const transactions = txData?.data || txData?.items || txData?.transactions || [];
 
-    const transactions =
-      txData?.data ||
-      txData?.items ||
-      txData?.transactions ||
-      [];
-
-    if (!Array.isArray(transactions)) {
-      throw new Error("Invalid transactions response");
-    }
-
+    // 3️⃣ עיבוד נתונים ולוגיקה פיננסית
     let income = 0;
     let fixed = 0;
     let lifestyle = 0;
-    let savedTransactions = 0;
 
-    // ===============================
-    // 3️⃣ Ingestion + Calculation
-    // ===============================
-    for (const tx of transactions) {
+    transactions.forEach((tx) => {
+      const amount = Number(tx?.amount?.chargedAmount?.amount || 0);
+      const category = (tx?.category?.main || "").toLowerCase();
 
-      const amount = Number(
-        tx?.amount?.chargedAmount?.amount || 0
-      );
-
-      const category =
-        (tx?.category?.main || "").toLowerCase();
-
-      // ---------------------------
-      // 💾 Save Transaction if new
-      // ---------------------------
-      const existing = await base44.asServiceRole
-        .entities.OpenFinanceTransaction
-        .filter({ transaction_id: tx.id });
-
-      if (existing.length === 0) {
-        await base44.asServiceRole
-          .entities.OpenFinanceTransaction
-          .create({
-            transaction_id: tx.id,
-            account_id: tx.accountId || "unknown",
-            connection_id: "auto_sync",
-            amount,
-            currency: tx?.amount?.chargedAmount?.currency || "ILS",
-            date: tx?.bookingDate || new Date().toISOString(),
-            description: tx?.description || "",
-            category: tx?.category?.main || "",
-            status: tx?.status || "booked"
-          });
-
-        savedTransactions++;
-      }
-
-      // ---------------------------
-      // 📊 Financial Calculation
-      // ---------------------------
       if (amount > 0) {
-        income += amount;
-      }
-
-      if (amount < 0) {
+        income += amount; // הכנסות
+      } else {
         const absAmt = Math.abs(amount);
-
-        const isFixed = [
-          "housing",
-          "loan",
-          "insurance",
-          "transportation"
-        ].some((c) => category.includes(c));
+        // זיהוי הוצאות קבועות (Fixed)
+        const isFixed = ["housing", "loan", "insurance", "transportation", "utilities", "rent"]
+          .some((c) => category.includes(c));
 
         if (isFixed) fixed += absAmt;
-        else lifestyle += absAmt;
+        else lifestyle += absAmt; // הוצאות בילוי ופנאי
       }
-    }
+    });
 
     const totalExpenses = fixed + lifestyle;
     const netCashFlow = income - totalExpenses;
     const dti = income > 0 ? (fixed / income) * 100 : 100;
 
-    // ===============================
-    // 4️⃣ Underwriting Logic
-    // ===============================
+    // 4️⃣ לוגיקת החיתום המדויקת (התאמה למחוג בדאשבורד)
     let status = "GREEN";
+    let statusColor = "#10B981"; // צבע ירוק
 
-    if (netCashFlow < 0) status = "RED";
-    else if (dti >= 60) status = "RED";
-    else if (dti >= 40) status = "ORANGE";
+    // יישום מדרגות ה-DTI של רונן
+    if (dti >= 57 || netCashFlow < 0) {
+      status = "RED";
+      statusColor = "#EF4444";
+    } else if (dti >= 40) {
+      status = "ORANGE";
+      statusColor = "#F59E0B";
+    }
 
-    const rawScore =
-      100 -
-      (dti * 1.5) -
-      (netCashFlow < 0 ? 30 : 0);
+    // חישוב הציון (Score) - שיקלול של DTI ונזילות
+    let rawScore = 100 - (dti * 1.2);
+    if (netCashFlow < 0) rawScore -= 20;
+    
+    const finalScore = Math.max(0, Math.min(100, Math.round(rawScore)));
 
-    const financialStrengthScore = Math.max(
-      0,
-      Math.min(100, Math.round(rawScore))
-    );
-
-    // ===============================
-    // 5️⃣ Save Snapshot
-    // ===============================
-    await base44.asServiceRole.entities.FinancialSnapshot.create({
-      user_id: userId,
-      total_income: Math.round(income),
-      fixed_expenses: Math.round(fixed),
-      lifestyle_expenses: Math.round(lifestyle),
-      total_expenses: Math.round(totalExpenses),
-      net_cash_flow: Math.round(netCashFlow),
-      dti: parseFloat(dti.toFixed(1)),
-      status,
-      financial_strength_score: financialStrengthScore,
-      created_at: new Date().toISOString()
-    });
-
-    // ===============================
-    // 6️⃣ Response
-    // ===============================
+    // 5️⃣ החזרת התוצאה לפרונטנד
     return Response.json({
       success: true,
-      savedTransactions,
+      score: finalScore,
+      status,
+      color: statusColor,
       metrics: {
         totalIncome: Math.round(income),
         fixedExpenses: Math.round(fixed),
         lifestyleExpenses: Math.round(lifestyle),
         totalExpenses: Math.round(totalExpenses),
         netCashFlow: Math.round(netCashFlow),
-        dti: parseFloat(dti.toFixed(1)),
-        status
+        dti: parseFloat(dti.toFixed(2))
       },
       analysis: {
-        loanEligibility: status === "GREEN",
-        safetyMargin: Math.round(netCashFlow),
-        financialStrengthScore
+        loanEligibility: status !== "RED",
+        monthlySurplus: Math.round(netCashFlow)
       }
     });
 
