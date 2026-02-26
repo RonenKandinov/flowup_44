@@ -38,40 +38,102 @@ function getStandardDeviation(array) {
     return Math.sqrt(variance);
 }
 
-function generateMockHistory() {
-    const history = [];
-    const today = new Date();
-    const baseIncome = 35399; // Updated to match dashboard
-    const baseFixed = 8500;   // Updated to match dashboard
-    const baseFlexible = 4000;
-    
-    for (let i = 0; i < 12; i++) {
-        const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        const incomeVar = (Math.random() - 0.5) * 2000;
-        const expenseVar = (Math.random() - 0.5) * 1500;
-        
-        const income = baseIncome + incomeVar;
-        const totalExpenses = baseFixed + baseFlexible + expenseVar;
-        
-        history.push({
-            month: monthKey,
-            income: Math.round(income),
-            expenses: Math.round(totalExpenses),
-            fixedExpenses: baseFixed,
-            flexibleExpenses: Math.round(baseFlexible + expenseVar),
-            netFlow: Math.round(income - totalExpenses)
-        });
-    }
-    return history.sort((a, b) => a.month.localeCompare(b.month));
-}
-
 // --- MAIN EDGE FUNCTION ---
 
 Deno.serve(async (req) => {
     try {
+        const body = await req.json().catch(() => ({}));
+        const userId = body?.userId || "ronenk2424@gmail.com";
+
+        const API_ROOT = "https://api.open-finance.ai";
+        const API_V2 = "https://api.open-finance.ai/v2";
+        const API_KEY = Deno.env.get("OPEN_FINANCE_API_KEY");
+        const API_SECRET = Deno.env.get("OPEN_FINANCE_API_SECRET");
+
+        if (!API_KEY || !API_SECRET) {
+            throw new Error("Missing Open Finance API keys");
+        }
+
+        // 1. Get Access Token
+        const tokenRes = await fetch(`${API_ROOT}/oauth/token`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                userId,
+                clientId: API_KEY,
+                clientSecret: API_SECRET
+            })
+        });
+
+        const tokenJson = await tokenRes.json();
+        if (!tokenJson?.accessToken) {
+            throw new Error("Failed to get access token from Open Finance");
+        }
+        const accessToken = tokenJson.accessToken;
+
+        // 2. Fetch Transactions
+        const txRes = await fetch(`${API_V2}/data/transactions`, {
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+                Accept: "application/json"
+            }
+        });
+
+        const txData = await txRes.json();
+        const transactions = txData?.data || txData?.items || txData?.transactions || [];
+
+        // 3. Process Transactions into Monthly History
+        const monthlyData = {};
+        const today = new Date();
+
+        transactions.forEach((tx) => {
+            const amount = Number(tx?.amount?.chargedAmount?.amount || 0);
+            const category = (tx?.category?.main || "").toLowerCase();
+            const dateStr = tx?.creationDate || tx?.date || tx?.transactionDate; 
+
+            let date = dateStr ? new Date(dateStr) : today;
+            if (isNaN(date.getTime())) date = today;
+
+            const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+            if (!monthlyData[monthKey]) {
+                monthlyData[monthKey] = {
+                    month: monthKey,
+                    income: 0,
+                    expenses: 0,
+                    fixedExpenses: 0,
+                    flexibleExpenses: 0,
+                    netFlow: 0
+                };
+            }
+
+            const currentMonth = monthlyData[monthKey];
+
+            if (amount > 0) {
+                currentMonth.income += amount;
+            } else {
+                const absAmt = Math.abs(amount);
+                currentMonth.expenses += absAmt;
+                
+                const isFixed = ["housing", "loan", "insurance", "transportation", "utilities", "rent"]
+                    .some((c) => category.includes(c));
+                
+                if (isFixed) {
+                    currentMonth.fixedExpenses += absAmt;
+                } else {
+                    currentMonth.flexibleExpenses += absAmt;
+                }
+            }
+            currentMonth.netFlow = currentMonth.income - currentMonth.expenses;
+        });
+
+        let history = Object.values(monthlyData).sort((a, b) => a.month.localeCompare(b.month));
+
+        if (history.length === 0) {
+            throw new Error("No transactions found for the given user in Open Finance.");
+        }
+
         const SESSION_KEY = Math.random() * 1000; // Zero-Knowledge Key
-        const history = generateMockHistory();
         const liquidAssets = 136699; // Updated to match dashboard
 
         // 1. Shadow Vectorization
