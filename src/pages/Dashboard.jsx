@@ -160,7 +160,7 @@ export default function Dashboard() {
       risk_level: 'green',
       risk_day: null
   };
-  const snapshot = localData?.snapshot || snapshots?.[0] || (isAdmin ? emptySnapshot : undefined);
+  const snapshot = localData?.snapshot || snapshots?.[0] || (isAdmin || newLoanMetrics ? emptySnapshot : undefined);
   const forecastData = localData?.forecastData || generateForecastFromTransactions(transactions);
   const currentEngineData = localData?.engineData || engineData;
 

@@ -13,11 +13,12 @@ export const useLoanMetrics = () => {
         try {
             // 1. Session Caching Strategy (V3 Key for pilot schema)
             const cachedData = sessionStorage.getItem('loanMetricsCacheV3');
-            if (!force && cachedData) {
-                setMetrics(JSON.parse(cachedData));
-                setIsLoading(false);
-                return;
-            }
+            // Disable caching temporarily to ensure fresh Open Finance data is displayed
+            // if (!force && cachedData) {
+            //     setMetrics(JSON.parse(cachedData));
+            //     setIsLoading(false);
+            //     return;
+            // }
 
             // 2. Native Fetch Implementation (via SDK Wrapper for Environment Routing)
             // Note: Using SDK to ensure correct routing within the Base44 environment
