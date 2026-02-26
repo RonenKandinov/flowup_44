@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
                 currentMonth.expenses += absAmt;
                 
                 const isFixed = ["housing", "loan", "insurance", "transportation", "utilities", "rent", "fixed", "commitment"]
-                    .some((c) => category.includes(c) || tx?.description?.toLowerCase().includes(c));
+                    .some((c) => category.includes(c) || String(tx?.description || '').toLowerCase().includes(c));
                 
                 if (isFixed) {
                     currentMonth.fixedExpenses += absAmt;
