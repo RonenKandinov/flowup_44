@@ -135,24 +135,39 @@ Deno.serve(async (req) => {
         const isBDIPositive = true; // Placeholder for real BDI check
         if (isBDIPositive && finalScore < 100) finalScore = Math.min(100, finalScore + 5);
 
-        // 5. Final Report Construction
-        return Response.json({
-            success: true,
-            status: riskStatus,
-            score: finalScore,
-            metrics: {
-                totalIncome: Math.round(avgIncome),
-                totalExpenses: Math.round(avgExpenses),
-                fixedExpenses: Math.round(avgFixedExpenses),
-                lifestyleExpenses: Math.round(avgExpenses - avgFixedExpenses),
-                netCashFlow: Math.round(avgIncome - avgExpenses),
-                liquidAssets: liquidAssets,
-                dti: Math.round(dtiPerc),
-                runway: parseFloat(runwayMonths.toFixed(1))
-            }
-        });
-
-    } catch (error) {
-        return Response.json({ success: false, error: error.message }, { status: 500 });
+return Response.json({
+    success: true,
+    status: riskStatus,
+    score: finalScore,
+    report: {
+        score: finalScore,
+        status: riskStatus,
+        metrics: {
+            dti: Math.round(dtiPerc),
+            runwayMonths: parseFloat(runwayMonths.toFixed(1)),
+            monthlyAverageIncome: Math.round(avgIncome),
+            monthlyAverageExpenses: Math.round(avgExpenses),
+            liquidAssets: liquidAssets
+        }
+    },
+    metrics: {
+        totalIncome: Math.round(avgIncome),
+        totalExpenses: Math.round(avgExpenses),
+        fixedExpenses: Math.round(avgFixedExpenses),
+        lifestyleExpenses: Math.round(avgExpenses - avgFixedExpenses),
+        netCashFlow: Math.round(avgIncome - avgExpenses),
+        liquidAssets: liquidAssets,
+        score: finalScore,
+        dti: Math.round(dtiPerc),
+        runway: parseFloat(runwayMonths.toFixed(1))
     }
+});
+
+} catch (error) {
+    return Response.json(
+        { success: false, error: error.message },
+        { status: 500 }
+    );
+}
+
 });
