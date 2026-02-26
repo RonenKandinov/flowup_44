@@ -1,12 +1,14 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react';
 
 export default function StatCard({ 
   title, 
   value, 
   icon: Icon, 
   color = 'cyan',
-  delay = 0 
+  delay = 0,
+  trend = null
 }) {
   const colorStyles = {
     cyan: {
@@ -58,10 +60,23 @@ export default function StatCard({
         )}
       </div>
       
-      <div className="flex items-baseline">
-        <p className={`text-sm sm:text-base md:text-2xl font-bold ${styles.text} tracking-tight truncate`}>
-          {value}
-        </p>
+      <div className="flex flex-col">
+        <div className="flex items-baseline">
+            <p className={`text-sm sm:text-base md:text-2xl font-bold ${styles.text} tracking-tight truncate`}>
+            {value}
+            </p>
+        </div>
+        
+        {trend !== null && trend !== undefined && (
+            <div className={`flex items-center text-[10px] md:text-xs mt-1 font-medium ${
+                Math.abs(trend) < 1 ? 'text-slate-400' : 
+                (color === 'red' ? (trend > 0 ? 'text-red-400' : 'text-emerald-400') : (trend > 0 ? 'text-emerald-400' : 'text-red-400'))
+            }`}>
+                {Math.abs(trend) < 1 ? <Minus className="w-3 h-3 mr-1" /> : (trend > 0 ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />)}
+                <span dir="ltr">{Math.abs(trend).toFixed(1)}%</span>
+                <span className="text-slate-500 ml-1 font-normal text-[9px] md:text-[10px] mr-1 hidden sm:inline">ממוצע 3 חודשים</span>
+            </div>
+        )}
       </div>
     </motion.div>
   );
