@@ -31,7 +31,14 @@ export default function Dashboard() {
   const [isStorageLoading, setIsStorageLoading] = useState(true);
   
   const { sync, data: loanLogicData, isLoading: isSyncing, metrics: loanMetrics } = useTransactionSync();
-  const { metrics: newLoanMetrics, isLoading: isLoanMetricsLoading, error: loanMetricsError, refetch: refetchLoanMetrics } = useLoanMetrics();
+  
+  // Fetch user data
+  const { data: user, isLoading: isUserLoading } = useQuery({
+    queryKey: ['user'],
+    queryFn: () => base44.auth.me().catch(() => null),
+  });
+
+  const { metrics: newLoanMetrics, isLoading: isLoanMetricsLoading, error: loanMetricsError, refetch: refetchLoanMetrics } = useLoanMetrics(user?.id);
   const queryClient = useQueryClient();
 
   // Load from Local Storage on mount
@@ -64,12 +71,6 @@ export default function Dashboard() {
     };
     loadFromStorage();
   }, []);
-
-  // Fetch user data for Admin bypass
-  const { data: user, isLoading: isUserLoading } = useQuery({
-    queryKey: ['user'],
-    queryFn: () => base44.auth.me().catch(() => null),
-  });
 
   const isAdmin = user?.role === 'admin';
 
