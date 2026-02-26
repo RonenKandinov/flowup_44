@@ -550,18 +550,20 @@ export default function Dashboard() {
                     trainingFund={0}
                 />
                 <StatCard
-                  title="סך הכנסות"
+                  title="ממוצע הכנסות (3 חודשים)"
                   value={`₪${Math.round(newLoanMetrics ? newLoanMetrics.totalIncome : (loanLogicData ? loanMetrics.totalIncome : (currentEngineData?.totalIncome ?? currentMonthStats?.income ?? snapshot.total_income ?? 0))).toLocaleString('he-IL')}`}
                   icon={TrendingUp}
                   color="green"
                   delay={0.1}
+                  trend={newLoanMetrics?.trends?.income}
                 />
                 <StatCard
-                  title="סך הוצאות"
+                  title="ממוצע הוצאות (3 חודשים)"
                   value={`₪${Math.round(newLoanMetrics ? newLoanMetrics.totalExpenses : (loanLogicData ? loanMetrics.totalExpenses : (currentEngineData?.totalExpenses ?? currentMonthStats?.expenses ?? snapshot.total_expenses ?? 0))).toLocaleString('he-IL')}`}
                   icon={TrendingDown}
                   color="red"
                   delay={0.2}
+                  trend={newLoanMetrics?.trends?.expenses}
                 />
               </div>
 
