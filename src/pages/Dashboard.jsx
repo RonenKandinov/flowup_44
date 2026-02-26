@@ -583,7 +583,8 @@ export default function Dashboard() {
                     riskDay={newLoanMetrics ? newLoanMetrics.riskDay : null}
                     whatIfAmount={whatIfAmount}
                     engineData={null}
-                    isScore={!!newLoanMetrics} 
+                    isScore={!!newLoanMetrics}
+                    dtiTrend={newLoanMetrics?.trends?.dti} 
                   />
                 </motion.div>
 
