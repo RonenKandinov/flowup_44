@@ -1,11 +1,13 @@
 Deno.serve(async (req) => {
   try {
+    const base44 = createClientFromRequest(req);
+
     const API_ROOT = "https://api.open-finance.ai";
     const API_V2 = "https://api.open-finance.ai/v2";
     const API_KEY = Deno.env.get("OPEN_FINANCE_API_KEY");
     const API_SECRET = Deno.env.get("OPEN_FINANCE_API_SECRET");
 
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const userId = body?.userId || "ronenk2424@gmail.com";
 
     // ===============================
@@ -51,36 +53,20 @@ Deno.serve(async (req) => {
       txData?.transactions ||
       [];
 
-    if (!Array.isArray(transactions) || transactions.length === 0) {
-      return Response.json({
-        success: true,
-        message: "No transactions found",
-        metrics: {
-          totalIncome: 0,
-          fixedExpenses: 0,
-          lifestyleExpenses: 0,
-          totalExpenses: 0,
-          netCashFlow: 0,
-          dti: 100,
-          status: "RED"
-        },
-        analysis: {
-          loanEligibility: false,
-          safetyMargin: 0,
-          financialStrengthScore: 0
-        }
-      });
+    if (!Array.isArray(transactions)) {
+      throw new Error("Invalid transactions response");
     }
-
-    // ===============================
-    // 3️⃣ Financial Calculation
-    // ===============================
 
     let income = 0;
     let fixed = 0;
     let lifestyle = 0;
+    let savedTransactions = 0;
 
-    transactions.forEach((tx) => {
+    // ===============================
+    // 3️⃣ Ingestion + Calculation
+    // ===============================
+    for (const tx of transactions) {
+
       const amount = Number(
         tx?.amount?.chargedAmount?.amount || 0
       );
@@ -88,8 +74,35 @@ Deno.serve(async (req) => {
       const category =
         (tx?.category?.main || "").toLowerCase();
 
+      // ---------------------------
+      // 💾 Save Transaction if new
+      // ---------------------------
+      const existing = await base44.asServiceRole
+        .entities.OpenFinanceTransaction
+        .filter({ transaction_id: tx.id });
+
+      if (existing.length === 0) {
+        await base44.asServiceRole
+          .entities.OpenFinanceTransaction
+          .create({
+            transaction_id: tx.id,
+            account_id: tx.accountId || "unknown",
+            connection_id: "auto_sync",
+            amount,
+            currency: tx?.amount?.chargedAmount?.currency || "ILS",
+            date: tx?.bookingDate || new Date().toISOString(),
+            description: tx?.description || "",
+            category: tx?.category?.main || "",
+            status: tx?.status || "booked"
+          });
+
+        savedTransactions++;
+      }
+
+      // ---------------------------
+      // 📊 Financial Calculation
+      // ---------------------------
       if (amount > 0) {
-        // CREDIT
         income += amount;
       }
 
@@ -106,7 +119,7 @@ Deno.serve(async (req) => {
         if (isFixed) fixed += absAmt;
         else lifestyle += absAmt;
       }
-    });
+    }
 
     const totalExpenses = fixed + lifestyle;
     const netCashFlow = income - totalExpenses;
@@ -115,14 +128,13 @@ Deno.serve(async (req) => {
     // ===============================
     // 4️⃣ Underwriting Logic
     // ===============================
-
     let status = "GREEN";
 
     if (netCashFlow < 0) status = "RED";
     else if (dti >= 60) status = "RED";
     else if (dti >= 40) status = "ORANGE";
 
-    let rawScore =
+    const rawScore =
       100 -
       (dti * 1.5) -
       (netCashFlow < 0 ? 30 : 0);
@@ -133,11 +145,27 @@ Deno.serve(async (req) => {
     );
 
     // ===============================
-    // 5️⃣ Response
+    // 5️⃣ Save Snapshot
     // ===============================
+    await base44.asServiceRole.entities.FinancialSnapshot.create({
+      user_id: userId,
+      total_income: Math.round(income),
+      fixed_expenses: Math.round(fixed),
+      lifestyle_expenses: Math.round(lifestyle),
+      total_expenses: Math.round(totalExpenses),
+      net_cash_flow: Math.round(netCashFlow),
+      dti: parseFloat(dti.toFixed(1)),
+      status,
+      financial_strength_score: financialStrengthScore,
+      created_at: new Date().toISOString()
+    });
 
+    // ===============================
+    // 6️⃣ Response
+    // ===============================
     return Response.json({
       success: true,
+      savedTransactions,
       metrics: {
         totalIncome: Math.round(income),
         fixedExpenses: Math.round(fixed),
