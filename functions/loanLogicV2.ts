@@ -89,39 +89,69 @@ Deno.serve(async (req) => {
                 const accountsData = await accountsRes.json();
                 const accounts = accountsData?.data || accountsData?.items || accountsData?.accounts || [];
                 
+                console.log(`[Liquid Assets] Processing ${accounts.length} accounts`);
+                
                 accounts.forEach((acc) => {
                     const type = (acc.type || acc.accountType || "").toLowerCase();
                     let balanceAmount = 0;
                     
-                    if (Array.isArray(acc.balances)) {
-                        const available = acc.balances.find(b => b.balanceType === "interimAvailable" || b.type === "interimAvailable");
-                        const booked = acc.balances.find(b => b.balanceType === "closingBooked" || b.type === "closingBooked");
-                        const targetBal = available || booked;
+                    // Multiple extraction paths for different API response formats
+                    if (Array.isArray(acc.balances) && acc.balances.length > 0) {
+                        // Path 1: Standard balances array
+                        const available = acc.balances.find(b => 
+                            b.balanceType === "interimAvailable" || 
+                            b.type === "interimAvailable" ||
+                            b.balanceType === "available"
+                        );
+                        const booked = acc.balances.find(b => 
+                            b.balanceType === "closingBooked" || 
+                            b.type === "closingBooked" ||
+                            b.balanceType === "booked"
+                        );
+                        const targetBal = available || booked || acc.balances[0];
                         
+                        // Extract amount from nested structures
                         if (targetBal?.amount?.amount !== undefined) {
                             balanceAmount = Number(targetBal.amount.amount);
                         } else if (targetBal?.amount !== undefined) {
                             balanceAmount = Number(targetBal.amount);
+                        } else if (targetBal?.value !== undefined) {
+                            balanceAmount = Number(targetBal.value);
                         }
-                    } else if (acc.balance) {
-                        balanceAmount = Number(acc.balance);
+                    } else if (acc.balance !== undefined) {
+                        // Path 2: Direct balance field
+                        if (typeof acc.balance === 'object' && acc.balance?.amount !== undefined) {
+                            balanceAmount = Number(acc.balance.amount);
+                        } else {
+                            balanceAmount = Number(acc.balance);
+                        }
+                    } else if (acc.currentBalance !== undefined) {
+                        // Path 3: currentBalance field
+                        balanceAmount = Number(acc.currentBalance);
+                    } else if (acc.availableBalance !== undefined) {
+                        // Path 4: availableBalance field
+                        balanceAmount = Number(acc.availableBalance);
                     }
 
-                    if (!isNaN(balanceAmount) && balanceAmount > 0) {
-                        // Distinguish checking/savings vs investment accounts (haircut applied for investments)
-                        if (type.includes('investment') || type.includes('securities')) {
+                    if (!isNaN(balanceAmount) && balanceAmount !== 0) {
+                        console.log(`[Account] Type: ${type}, Balance: ${balanceAmount}`);
+                        
+                        // Apply haircut for investment accounts
+                        if (type.includes('investment') || type.includes('securities') || type.includes('תיק')) {
                             liquidAssets += (balanceAmount * 0.8);
                         } else {
                             liquidAssets += balanceAmount;
                         }
                     }
                 });
+                
+                console.log(`[Liquid Assets] Total calculated: ${liquidAssets}`);
             }
         } catch (e) {
             console.error("Failed to fetch/process accounts:", e);
         }
 
-        liquidAssets = Math.max(0, liquidAssets); // Ensure non-negative
+        liquidAssets = Math.max(0, liquidAssets);
 
         // 3. Fetch Transactions
         const txRes = await fetch(`${API_V2}/data/transactions`, {
@@ -174,8 +204,20 @@ Deno.serve(async (req) => {
                 const absAmt = Math.abs(amount);
                 currentMonth.expenses += absAmt;
                 
-                const isFixed = ["housing", "loan", "insurance", "transportation", "utilities", "rent", "fixed", "commitment"]
-                    .some((c) => category.includes(c) || txDesc.includes(c));
+                // Enhanced fixed expense detection with Hebrew keywords
+                const fixedKeywords = [
+                    // English
+                    "housing", "loan", "insurance", "transportation", "utilities", "rent", "fixed", "commitment",
+                    "mortgage", "lease", "subscription", "installment", "payment plan",
+                    // Hebrew
+                    "הלוואה", "משכנתא", "ביטוח", "שכירות", "דירה", "חיוב", "תשלום קבוע",
+                    "מנוי", "ארנונה", "חשמל", "מים", "גז", "ועד בית", "טלפון", "אינטרנט",
+                    "החזר", "תשלומים", "מס", "היטל", "אגרה"
+                ];
+                
+                const isFixed = fixedKeywords.some((keyword) => 
+                    category.includes(keyword) || txDesc.includes(keyword)
+                );
                 
                 if (isFixed) {
                     currentMonth.fixedExpenses += absAmt;
