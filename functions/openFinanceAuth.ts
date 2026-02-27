@@ -15,20 +15,22 @@ export default Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { action, psuId } = body; 
-    const userId = psuId; // Mapping for consistency with base snippet
+    const { action, psuId, providerId } = body; 
+    const userId = psuId;
 
     // --- INIT CONNECTION ---
     if (action === 'init_connection') {
-        // Using the direct auth capability shown in the base snippet (userId + creds = token)
-        // We simulate the auth flow by redirecting back immediately
+        if (!providerId) {
+            return Response.json({ error: "providerId is required" }, { status: 400 });
+        }
+        
         const origin = req.headers.get("origin");
-        // We return a URL that the frontend will redirect to, closing the loop
-        const connectUrl = `${origin}/?callback=true&code=direct_auth_simulation`;
+        const connectUrl = `${origin}/?callback=true&code=direct_auth_simulation&provider=${providerId}`;
         
         return Response.json({ 
             success: true, 
-            connectUrl 
+            connectUrl,
+            providerId
         });
     }
 
@@ -37,8 +39,12 @@ export default Deno.serve(async (req) => {
         if (!userId) {
             return Response.json({ error: "userId (psuId) is required" }, { status: 400 });
         }
+        
+        if (!providerId) {
+            return Response.json({ error: "providerId is required" }, { status: 400 });
+        }
 
-        // 🔑 Get Token (Using the exact logic from the provided base)
+        // 🔑 Get Token
         const tokenRes = await fetch(`${API_ROOT}/oauth/token`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -59,9 +65,9 @@ export default Deno.serve(async (req) => {
         }
 
         const accessToken = tokenJson.accessToken;
-        const connectionId = `conn_${userId}_${Date.now()}`;
+        const connectionId = `conn_${providerId}_${userId}_${Date.now()}`;
 
-        // 💾 Save Token & Connection (Base44 Logic)
+        // 💾 Save Token & Connection
         
         // 1. Save Token
         await base44.entities.OpenFinanceToken.create({
@@ -70,8 +76,11 @@ export default Deno.serve(async (req) => {
             expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
         });
 
-        // 2. Save/Update Connection
-        const existing = await base44.entities.OpenFinanceConnection.filter({ psu_id: userId });
+        // 2. Save/Update Connection per provider
+        const existing = await base44.entities.OpenFinanceConnection.filter({ 
+            psu_id: userId,
+            provider_id: providerId
+        });
         
         if (existing.length > 0) {
             await base44.entities.OpenFinanceConnection.update(existing[0].id, {
@@ -83,16 +92,21 @@ export default Deno.serve(async (req) => {
              await base44.entities.OpenFinanceConnection.create({
                 connection_id: connectionId,
                 psu_id: userId,
-                provider_id: 'mizrahi',
+                provider_id: providerId,
                 status: 'ACTIVE',
                 last_synced_at: new Date().toISOString(),
-                metadata: { type: 'checking', bank: 'mizrahi' }
+                metadata: { 
+                    type: 'banking', 
+                    provider: providerId,
+                    connected_at: new Date().toISOString()
+                }
             });
         }
 
         return Response.json({ 
             success: true, 
-            connectionId 
+            connectionId,
+            providerId
         });
     }
 
