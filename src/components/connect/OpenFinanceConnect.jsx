@@ -4,31 +4,57 @@ import { Building2, ShieldCheck, Lock, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
+import { getSupportedProviders } from '@/components/config/openFinanceProviders';
 
 export default function OpenFinanceConnect({ onConnected, inline = false }) {
   const [status, setStatus] = useState('idle'); // idle, connecting, analyzing, success
+  const [selectedProvider, setSelectedProvider] = useState(null);
   const [progress, setProgress] = useState(0);
 
-  const handleConnect = async () => {
+  const handleConnect = async (providerId) => {
     setStatus('connecting');
+    setSelectedProvider(providerId);
     setProgress(10);
 
     try {
       const user = await base44.auth.me();
       if (!user) {
-          // If no user, mock one for the sandbox to allow testing
           console.warn("User not authenticated, proceeding with mock context");
       }
 
-      // 1. Simulate Connection
+      // 1. Init Connection with Provider
       const progressInterval = setInterval(() => {
-        setProgress(prev => Math.min(prev + 5, 90));
+        setProgress(prev => Math.min(prev + 5, 45));
       }, 200);
 
-      // 2. Fetch Data Directly from Underwriting Engine (loanLogicV2)
-      // This bypasses the complex OAuth flow for the "Secure Connect" button as requested
+      const initResponse = await base44.functions.invoke("openFinanceAuth", { 
+          action: 'init_connection',
+          psuId: user?.email || 'ronenk2424@gmail.com',
+          providerId
+      });
+
+      if (!initResponse.data?.success) {
+          throw new Error(initResponse.data?.error || "Failed to initiate connection");
+      }
+
+      setProgress(50);
+
+      // 2. Finalize Connection
+      const finalizeResponse = await base44.functions.invoke("openFinanceAuth", { 
+          action: 'finalize_connection',
+          psuId: user?.email || 'ronenk2424@gmail.com',
+          providerId
+      });
+
+      if (!finalizeResponse.data?.success) {
+          throw new Error(finalizeResponse.data?.error || "Failed to finalize connection");
+      }
+
+      setProgress(70);
+
+      // 3. Fetch Financial Data from Underwriting Engine
       const response = await base44.functions.invoke("loanLogicV2", { 
-          userId: user?.id || 'ronenk2424@gmail.com'
+          userId: user?.email || 'ronenk2424@gmail.com'
       });
       
       clearInterval(progressInterval);
@@ -37,20 +63,19 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
       const data = response.data;
       if (!data.success) throw new Error(data.error || "Failed to fetch data");
 
-      // 3. Transform Data for Dashboard
+      // 4. Transform Data for Dashboard
       setStatus('analyzing');
       
       setTimeout(() => {
         setStatus('success');
         
-        // Construct the data object expected by Dashboard.js -> handleDataParsed
         const dashboardData = {
             transactions: data.transactions || [],
             snapshot: {
                 current_balance: data.metrics.netCashFlow,
                 total_income: data.metrics.totalIncome,
                 total_expenses: data.metrics.totalExpenses,
-                projected_eom_balance: data.metrics.netCashFlow, // Approximation
+                projected_eom_balance: data.metrics.netCashFlow,
                 risk_level: data.status.toLowerCase(),
                 risk_day: data.riskDay,
                 avg_daily_spending: data.metrics.totalExpenses / 30,
@@ -62,7 +87,9 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
                 riskDay: data.riskDay,
                 projectedEOM: data.metrics.netCashFlow,
                 metrics: data.metrics,
-                smartInsights: [] // Can be populated if API returns them
+                smartInsights: [],
+                providerId,
+                connectionId: finalizeResponse.data.connectionId
             },
             isSynced: true
         };
@@ -75,8 +102,9 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
 
     } catch (error) {
       console.error("Open Finance Error:", error);
-      toast.error("Connection failed: " + error.message);
+      toast.error(`Connection failed (${providerId}): ${error.message}`);
       setStatus('idle');
+      setSelectedProvider(null);
       setProgress(0);
     }
   };
@@ -102,22 +130,32 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
             חבר את חשבונך באופן מאובטח באמצעות Open Finance לקבלת ניתוח חיתום מיידי.
           </p>
 
-          <div className="grid grid-cols-2 gap-2 mb-6 opacity-70">
-            {['poalim', 'leumi', 'discount', 'mizrahi'].map(bank => (
-              <div key={bank} className="bg-slate-800/50 rounded-lg p-2 flex items-center justify-center border border-slate-700">
-                <div className="w-full h-6 bg-slate-700/50 rounded flex items-center justify-center text-[10px] text-slate-500 font-mono">
-                  {bank.toUpperCase()}
+          <div className="grid grid-cols-2 gap-2 mb-6">
+            {getSupportedProviders().map(provider => (
+              <Button
+                key={provider.id}
+                onClick={() => handleConnect(provider.id)}
+                variant="outline"
+                className="bg-slate-800/50 hover:bg-slate-700 rounded-lg p-3 flex items-center justify-center border border-slate-700 hover:border-cyan-500 transition-all"
+              >
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-xl">{provider.logo}</span>
+                  <span className="text-[10px] text-slate-400 font-medium">{provider.displayName}</span>
                 </div>
-              </div>
+              </Button>
             ))}
           </div>
 
+          <div className="text-center text-xs text-slate-500 mb-4">
+            או
+          </div>
+
           <Button 
-            onClick={handleConnect}
+            onClick={() => handleConnect('mizrahi')}
             className="w-full bg-blue-600 hover:bg-blue-500 text-white h-12 rounded-xl text-base shadow-lg shadow-blue-900/20"
           >
             <Lock className="w-4 h-4 mr-2" />
-            התחבר מאובטח
+            התחבר מאובטח (מזרחי)
           </Button>
           
           <div className="flex items-center justify-center gap-2 mt-4 text-[10px] text-slate-500">
@@ -144,7 +182,7 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
           </div>
           
           <h3 className="text-lg font-medium text-white mb-1">
-            {status === 'connecting' ? 'מתחבר לבנק...' : 'מנתח תזרים...'}
+            {status === 'connecting' ? `מתחבר ל${selectedProvider?.toUpperCase() || 'בנק'}...` : 'מנתח תזרים...'}
           </h3>
           <p className="text-sm text-slate-400">
             {status === 'connecting' 
