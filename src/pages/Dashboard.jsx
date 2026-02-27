@@ -596,8 +596,8 @@ export default function Dashboard() {
                     className="order-4 lg:order-2 relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-auto"
                 >
                     <FutureCake 
-                        fixedExpenses={loanLogicData ? loanMetrics.totalFixedExpenses : (currentEngineData?.expenseAnalysis?.fixed || 0)}
-                        flexExpenses={loanLogicData ? loanMetrics.totalLifestyleExpenses : (currentEngineData?.expenseAnalysis?.flex || 0)}
+                        fixedExpenses={newLoanMetrics ? newLoanMetrics.fixedExpenses : (currentEngineData?.expenseAnalysis?.fixed || 0)}
+                        flexExpenses={newLoanMetrics ? newLoanMetrics.lifestyleExpenses : (currentEngineData?.expenseAnalysis?.flex || 0)}
                         taxRefundPotential={0}
                     />
                 </motion.div>
