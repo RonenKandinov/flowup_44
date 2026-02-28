@@ -154,6 +154,20 @@ export default function Dashboard() {
       .sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [shadowEntries]);
 
+  // Fetch AI Insights from server
+  useEffect(() => {
+      const txns = localData?.transactions || transactions;
+      if (txns && txns.length > 0) {
+          base44.functions.invoke('insightEngine', { transactions: txns })
+              .then(res => {
+                  if (res.data?.success && res.data?.insights) {
+                      setServerInsights(res.data.insights);
+                  }
+              })
+              .catch(err => console.error("Failed to fetch server insights", err));
+      }
+  }, [localData?.transactions, transactions]);
+
   // Use local data if exists, otherwise use saved data. Admins get a blank slate bypass.
   const emptySnapshot = {
       current_balance: 0,
