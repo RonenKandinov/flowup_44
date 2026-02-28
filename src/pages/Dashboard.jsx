@@ -29,9 +29,11 @@ export default function Dashboard() {
   const [localData, setLocalData] = useState(null);
   const [engineData, setEngineData] = useState(null);
   const [isStorageLoading, setIsStorageLoading] = useState(true);
+  const [simulatedMetrics, setSimulatedMetrics] = useState(null);
   
   const { sync, data: loanLogicData, isLoading: isSyncing, metrics: loanMetrics } = useTransactionSync();
-  const { metrics: newLoanMetrics, isLoading: isLoanMetricsLoading, error: loanMetricsError, refetch: refetchLoanMetrics } = useLoanMetrics();
+  const { metrics: originalLoanMetrics, isLoading: isLoanMetricsLoading, error: loanMetricsError, refetch: refetchLoanMetrics } = useLoanMetrics();
+  const newLoanMetrics = simulatedMetrics || originalLoanMetrics;
   const queryClient = useQueryClient();
 
   // Load from Local Storage on mount
@@ -612,8 +614,8 @@ export default function Dashboard() {
                 {/* WhatIfSimulator: Mobile 4, Desktop 4 (Bottom Right) */}
                 <div className="order-4 lg:order-4 h-auto">
                     <WhatIfSimulator
-                        onSimulate={handleWhatIfSimulate}
-                        currentBalance={snapshot.current_balance}
+                        onSimulate={(metrics) => setSimulatedMetrics(metrics)}
+                        baseMetrics={originalLoanMetrics}
                     />
                 </div>
               </div>
