@@ -493,7 +493,7 @@ export default function Dashboard() {
             <h1 className="text-3xl font-bold text-white tracking-tight">
               FlowUp
             </h1>
-            <p className="text-slate-500 text-xs mt-1 tracking-wide uppercase">FutureFlow Dashboard</p>
+            <p className="text-slate-500 text-xs mt-1 tracking-wide uppercase">מנוע חיתום לעסקים (B2B)</p>
           </div>
           
           {hasData && (
