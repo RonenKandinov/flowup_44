@@ -493,7 +493,7 @@ export default function Dashboard() {
             <h1 className="text-3xl font-bold text-white tracking-tight">
               FlowUp
             </h1>
-            <p className="text-slate-500 text-xs mt-1 tracking-wide uppercase">מנוע חיתום לעסקים (B2B)</p>
+            <p className="text-slate-500 text-xs mt-1 tracking-wide uppercase">FutureFlow Dashboard</p>
           </div>
           
           {hasData && (
@@ -567,7 +567,7 @@ export default function Dashboard() {
                     trainingFund={0}
                 />
                 <StatCard
-                  title="ממוצע הכנסות עסק (3 חודשים)"
+                  title="ממוצע הכנסות (3 חודשים)"
                   value={`₪${Math.round(newLoanMetrics ? newLoanMetrics.totalIncome : (loanLogicData ? loanMetrics.totalIncome : (currentEngineData?.totalIncome ?? currentMonthStats?.income ?? snapshot.total_income ?? 0))).toLocaleString('he-IL')}`}
                   icon={TrendingUp}
                   color="green"
@@ -575,7 +575,7 @@ export default function Dashboard() {
                   trend={newLoanMetrics?.trends?.income}
                 />
                 <StatCard
-                  title="ממוצע הוצאות עסק (3 חודשים)"
+                  title="ממוצע הוצאות (3 חודשים)"
                   value={`₪${Math.round(newLoanMetrics ? newLoanMetrics.totalExpenses : (loanLogicData ? loanMetrics.totalExpenses : (currentEngineData?.totalExpenses ?? currentMonthStats?.expenses ?? snapshot.total_expenses ?? 0))).toLocaleString('he-IL')}`}
                   icon={TrendingDown}
                   color="red"
