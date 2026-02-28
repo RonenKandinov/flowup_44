@@ -17,16 +17,10 @@ export default function WhatIfSimulator({ onSimulate, baseMetrics }) {
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationResult, setSimulationResult] = useState(null);
 
-  // Standard Loan
-  const [loanPayment, setLoanPayment] = useState('');
-
-  // Lifestyle Pivot
-  const [pivotPayment, setPivotPayment] = useState('');
-  const [reductionPercentage, setReductionPercentage] = useState([20]);
-
-  // Closing Tool
-  const [balloonPayment, setBalloonPayment] = useState('');
-  const [futureSavings, setFutureSavings] = useState('');
+  // Inputs for scenarios
+  const [loanAmount, setLoanAmount] = useState('');
+  const [annualRate, setAnnualRate] = useState('');
+  const [termMonths, setTermMonths] = useState('');
 
   useEffect(() => {
     const checkScreen = () => {
