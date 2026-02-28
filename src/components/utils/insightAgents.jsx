@@ -54,8 +54,8 @@ export const runFiscalAgent = (transactions) => {
         const annualCredit = (insuranceTotal * 12) * 0.25;
         insights.push({
             type: 'tax_refund',
-            title: 'החזרי מס על ביטוחים',
-            description: `תשלומי הביטוח שלך מזכים ב-25% החזר מס. שווי שנתי מוערך: ${Math.round(annualCredit)} ₪.`,
+            title: 'איתור "הון חבוי": זיכוי ביטוחים',
+            description: `תשלומי ביטוח מזכים בהחזר מס ופוטנציאל לכפילויות. ניתן להגדיל את ההון הפנוי בשווי שנתי מוערך של כ-${Math.round(annualCredit)} ₪.`,
             monthlySavings: annualCredit / 12,
             annualImpact: annualCredit,
             icon: 'Shield'
