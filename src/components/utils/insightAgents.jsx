@@ -406,8 +406,8 @@ export const runLifestyleAgent = (transactions) => {
         
         insights.push({
             type: 'lifestyle',
-            title: '🍔 הוצאות מסעדות ובילויים',
-            description: `הוצאת ₪${diningTotal.toLocaleString()} על אוכל בחוץ החודש (${diningCount} עסקאות). בישול בבית פעמיים בשבוע יחסוך לך כ-₪${potentialSavings}.`,
+            title: 'בניית מתווה הלוואה אופטימלי',
+            description: `הלקוח יכול לעמוד בהחזר חודשי של כ-${potentialSavings} ₪ במסלול בלון/72 תשלומים, תוך הסטת 30% מהוצאות הלייף-סטייל הגמישות שלו (כרגע מוציא ₪${diningTotal.toLocaleString()}).`,
             monthlySavings: potentialSavings,
             annualImpact: potentialSavings * 12,
             icon: 'Utensils'
