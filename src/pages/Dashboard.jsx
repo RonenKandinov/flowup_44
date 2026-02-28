@@ -567,7 +567,7 @@ export default function Dashboard() {
                     trainingFund={0}
                 />
                 <StatCard
-                  title="ממוצע הכנסות (3 חודשים)"
+                  title="ממוצע הכנסות עסק (3 חודשים)"
                   value={`₪${Math.round(newLoanMetrics ? newLoanMetrics.totalIncome : (loanLogicData ? loanMetrics.totalIncome : (currentEngineData?.totalIncome ?? currentMonthStats?.income ?? snapshot.total_income ?? 0))).toLocaleString('he-IL')}`}
                   icon={TrendingUp}
                   color="green"
