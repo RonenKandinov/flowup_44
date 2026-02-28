@@ -29,7 +29,7 @@ export default function Dashboard() {
   const [engineData, setEngineData] = useState(null);
   const [isStorageLoading, setIsStorageLoading] = useState(true);
   const [simulatedMetrics, setSimulatedMetrics] = useState(null);
-  const [serverInsights, setServerInsights] = useState([]);
+  const [serverInsights, setServerInsights] = useState(null);
   
   const { sync, data: loanLogicData, isLoading: isSyncing, metrics: loanMetrics } = useTransactionSync();
   const { metrics: originalLoanMetrics, isLoading: isLoanMetricsLoading, error: loanMetricsError, refetch: refetchLoanMetrics } = useLoanMetrics();
@@ -622,7 +622,7 @@ export default function Dashboard() {
                 {/* InsightsAgent: Mobile 3, Desktop 3 (Bottom Left) */}
                 <div className="order-3 lg:order-3 space-y-4">
                      <div className="h-auto">
-                        <InsightsAgent insights={serverInsights.length > 0 ? serverInsights : (currentEngineData?.smartInsights || [])} />
+                        <InsightsAgent analysis={serverInsights} />
                      </div>
                 </div>
 

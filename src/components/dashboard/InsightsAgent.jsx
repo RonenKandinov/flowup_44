@@ -1,38 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, Sparkles, X, ChevronRight, ChevronDown, ChevronUp, AlertTriangle, TrendingUp, Shield, Copy, Phone, Tv, Wallet, Heart, GraduationCap, Coffee, Dumbbell, RefreshCw, BrainCircuit, Utensils } from 'lucide-react';
+import { ChevronDown, ChevronUp, AlertTriangle, BrainCircuit, Activity, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-// Icon Mapper
-const getIcon = (iconName) => {
-    const icons = {
-        'AlertTriangle': AlertTriangle,
-        'TrendingUp': TrendingUp,
-        'Shield': Shield,
-        'Copy': Copy,
-        'Phone': Phone,
-        'Tv': Tv,
-        'Wallet': Wallet,
-        'Heart': Heart,
-        'GraduationCap': GraduationCap,
-        'Coffee': Coffee,
-        'Dumbbell': Dumbbell,
-        'BrainCircuit': BrainCircuit,
-        'Utensils': Utensils
-        };
-        return icons[iconName] || Bot;
-        };
-
-export default function InsightsAgent({ insights = [] }) {
+export default function InsightsAgent({ analysis }) {
     const [isOpen, setIsOpen] = useState(true);
-    const [dismissedCount, setDismissedCount] = useState(0);
     const [isMobile, setIsMobile] = useState(false);
 
     useEffect(() => {
         const checkMobile = () => {
             const mobile = window.innerWidth < 768;
             setIsMobile(mobile);
-            if (mobile) setIsOpen(false); // Default closed on mobile
+            if (mobile) setIsOpen(false);
             else setIsOpen(true);
         };
         checkMobile();
@@ -40,84 +19,36 @@ export default function InsightsAgent({ insights = [] }) {
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
-    // If no real insights, use educational tips
-    const hasRealInsights = insights.length > 0;
-    const educationalTips = [
-        {
-            type: 'info',
-            title: 'טיפ לחיסכון: כלל ה-50/30/20',
-            description: 'נסה לחלק את ההכנסה: 50% להוצאות קבועות, 30% לרצונות אישיים, ו-20% לחיסכון והשקעה.',
-            icon: 'Wallet',
-            monthlySavings: 0,
-            annualImpact: 0
-        },
-        {
-            type: 'info',
-            title: 'טיפ להשקעה: ריבית דריבית',
-            description: 'התחלה מוקדמת של חיסכון, אפילו בסכומים קטנים, מאפשרת לאפקט הריבית דריבית להגדיל את ההון משמעותית לאורך זמן.',
-            icon: 'TrendingUp',
-            monthlySavings: 0,
-            annualImpact: 0
-        },
-        {
-            type: 'info',
-            title: 'בדיקת ביטוחים שנתית',
-            description: 'מומלץ לבדוק פעם בשנה את תיק הביטוחים ב"הר הביטוח" כדי למנוע כפל ביטוחים ותשלומים מיותרים.',
-            icon: 'Shield',
-            monthlySavings: 0,
-            annualImpact: 0
-        }
-    ];
-
-    // Use tips if no insights, otherwise use insights
-    const displayInsights = hasRealInsights ? insights : educationalTips;
-    const activeInsights = displayInsights.slice(dismissedCount);
-
-    if (activeInsights.length === 0) {
+    if (!analysis || typeof analysis !== 'object' || Array.isArray(analysis)) {
         return (
             <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 flex flex-col items-center justify-center text-center h-full min-h-[200px]">
                 <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center mb-3">
-                    <CheckCircle className="w-6 h-6 text-emerald-500" />
+                    <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
                 </div>
-                <h3 className="text-white font-medium">עברנו על הכל!</h3>
-                <p className="text-slate-500 text-sm mt-1 mb-4">הסוכן ממשיך לעקוב ויעדכן כשיהיה משהו חדש.</p>
-                
-                <Button 
-                    variant="ghost" 
-                    size="sm"
-                    className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-950/30"
-                    onClick={() => setDismissedCount(0)}
-                >
-                    <RefreshCw className="w-4 h-4 ml-2" />
-                    צפה בתובנות שוב
-                </Button>
+                <h3 className="text-white font-medium">האנליסט מעבד נתונים...</h3>
+                <p className="text-slate-500 text-sm mt-1">מנתח יכולת החזר והתחייבויות קשיחות.</p>
             </div>
         );
     }
 
-    const currentInsight = activeInsights[0];
-    const Icon = getIcon(currentInsight.icon);
-
     return (
         <div className="relative h-full">
-            {/* Main Card */}
-            <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-cyan-500/20 rounded-xl overflow-hidden shadow-lg shadow-cyan-900/5 h-full flex flex-col">
-                {/* Header - Clickable on Mobile */}
+            <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-indigo-500/20 rounded-xl overflow-hidden shadow-lg shadow-indigo-900/5 h-full flex flex-col">
                 <div 
                     className={`px-4 py-3 border-b border-slate-800/60 bg-slate-900/50 flex justify-between items-center ${isMobile ? 'cursor-pointer hover:bg-slate-800' : ''}`}
                     onClick={() => isMobile && setIsOpen(!isOpen)}
                 >
                     <div className="flex items-center gap-2">
                         <div className="relative">
-                            <div className="absolute inset-0 bg-cyan-500 blur-sm opacity-20 animate-pulse rounded-full" />
-                            <Bot className="w-5 h-5 text-cyan-400 relative z-10" />
+                            <div className="absolute inset-0 bg-indigo-500 blur-sm opacity-20 animate-pulse rounded-full" />
+                            <BrainCircuit className="w-5 h-5 text-indigo-400 relative z-10" />
                         </div>
-                        <span className="text-sm font-semibold text-slate-200">FlowUp AI Agent</span>
+                        <span className="text-sm font-semibold text-slate-200">AI Credit Analyst</span>
                     </div>
                     
                     <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono text-cyan-500 bg-cyan-950/30 px-2 py-0.5 rounded-full border border-cyan-900/30">
-                            {activeInsights.length} {hasRealInsights ? 'תובנות' : 'טיפים'}
+                        <span className="text-[10px] font-mono text-indigo-400 bg-indigo-950/30 px-2 py-0.5 rounded-full border border-indigo-900/30" dir="ltr">
+                            DTI: {analysis.structural_dti}%
                         </span>
                         {isMobile && (
                             isOpen ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />
@@ -125,7 +56,6 @@ export default function InsightsAgent({ insights = [] }) {
                     </div>
                 </div>
 
-                {/* Content */}
                 <AnimatePresence>
                     {isOpen && (
                         <motion.div 
@@ -134,117 +64,72 @@ export default function InsightsAgent({ insights = [] }) {
                             exit={isMobile ? { height: 0, opacity: 0 } : false}
                             className="overflow-hidden flex-1 flex flex-col"
                         >
-                            <div className="p-5 flex-1 flex flex-col relative">
-                                <AnimatePresence mode="wait">
-                                    <motion.div
-                                        key={currentInsight.title + dismissedCount}
-                                        initial={{ opacity: 0, x: 20 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        exit={{ opacity: 0, x: -20 }}
-                                        className="flex-1"
-                                    >
-                                        {currentInsight.type === 'strategic_brain' ? (
-                                            // Special UI for Strategic Brain
-                                            <div className="mb-4">
-                                                <div className="flex items-center gap-3 mb-3">
-                                                    <div className="p-2 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                                                        <BrainCircuit className="w-5 h-5" />
-                                                    </div>
-                                                    <h3 className="text-lg font-bold text-indigo-100 leading-tight">
-                                                        {currentInsight.title}
-                                                    </h3>
-                                                </div>
-                                                <div className="bg-indigo-950/30 rounded-xl p-4 border border-indigo-500/20 relative overflow-hidden">
-                                                    <div className="absolute top-0 right-0 w-20 h-20 bg-indigo-500/10 blur-2xl rounded-full pointer-events-none" />
-                                                    <p className="text-slate-300 text-sm leading-relaxed relative z-10">
-                                                        {currentInsight.description}
-                                                    </p>
-                                                    {currentInsight.actionItem && (
-                                                        <div className="mt-3 flex items-start gap-2 relative z-10">
-                                                            <div className="mt-1 w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
-                                                            <p className="text-indigo-300 text-sm font-medium">
-                                                                {currentInsight.actionItem}
-                                                            </p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            // Standard UI for other insights
-                                            <div className="flex items-start gap-4 mb-4">
-                                                <div className={`p-3 rounded-xl shrink-0 ${
-                                                    currentInsight.type === 'tax_refund' ? 'bg-emerald-500/10 text-emerald-400' :
-                                                    currentInsight.type === 'money_leak' ? 'bg-amber-500/10 text-amber-400' :
-                                                    currentInsight.type === 'lifestyle' ? 'bg-pink-500/10 text-pink-400' :
-                                                    'bg-cyan-500/10 text-cyan-400'
-                                                }`}>
-                                                    <Icon className="w-6 h-6" />
-                                                </div>
-                                                <div>
-                                                    <h3 className="text-lg font-bold text-white leading-tight mb-1">
-                                                        {currentInsight.title}
-                                                    </h3>
-                                                    <p className="text-slate-400 text-sm leading-relaxed">
-                                                        {currentInsight.description}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Impact Stats */}
-                                        {(currentInsight.monthlySavings > 0 || currentInsight.annualImpact > 0) && (
-                                            <div className="grid grid-cols-2 gap-3 mb-4">
-                                                <div className="bg-slate-800/40 rounded-lg p-3 border border-slate-800">
-                                                    <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">פוטנציאל חיסכון</p>
-                                                    <p className="text-emerald-400 font-mono font-bold">
-                                                        ₪{Math.round(currentInsight.annualImpact || currentInsight.monthlySavings * 12).toLocaleString()}
-                                                        <span className="text-[10px] text-slate-600 font-sans mr-1">/שנה</span>
-                                                    </p>
-                                                </div>
-                                                <div className="bg-slate-800/40 rounded-lg p-3 border border-slate-800">
-                                                    <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">סוג תובנה</p>
-                                                    <p className="text-slate-300 text-sm font-medium">
-                                                        {currentInsight.type === 'tax_refund' ? 'החזר מס' :
-                                                        currentInsight.type === 'money_leak' ? 'דליפת כסף' : 
-                                                        currentInsight.type === 'lifestyle' ? 'סגנון חיים' : 'התראה'}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </motion.div>
-                                </AnimatePresence>
-
-                                {/* Actions */}
-                                <div className="mt-auto pt-4 flex gap-3">
-                                    <Button 
-                                        className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/50 shadow-sm"
-                                        onClick={() => setDismissedCount(prev => prev + 1)}
-                                    >
-                                        הבנתי, תודה
-                                    </Button>
+                            <div className="p-4 flex-1 flex flex-col space-y-4 overflow-y-auto max-h-[400px] custom-scrollbar text-left" dir="ltr">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-1.5">
+                                        <Activity className="w-4 h-4 text-indigo-400" />
+                                        <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Risk Assessment</h4>
+                                    </div>
+                                    <p className="text-sm text-slate-400 leading-relaxed bg-slate-800/30 p-3 rounded-lg border border-slate-700/50">
+                                        {analysis.risk_assessment}
+                                    </p>
                                 </div>
+
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="bg-slate-800/40 p-2.5 rounded-lg border border-slate-700/50">
+                                        <p className="text-[10px] text-slate-500 mb-0.5">Structural DTI</p>
+                                        <p className="text-sm font-mono text-white">{analysis.structural_dti}%</p>
+                                    </div>
+                                    <div className="bg-slate-800/40 p-2.5 rounded-lg border border-slate-700/50">
+                                        <p className="text-[10px] text-slate-500 mb-0.5">Adjusted DTI</p>
+                                        <p className="text-sm font-mono text-emerald-400">{analysis.adjusted_dti}%</p>
+                                    </div>
+                                    <div className="bg-slate-800/40 p-2.5 rounded-lg border border-slate-700/50">
+                                        <p className="text-[10px] text-slate-500 mb-0.5">Liquidity Buffer</p>
+                                        <p className="text-sm font-mono text-white">{analysis.liquidity_buffer_months} mo</p>
+                                    </div>
+                                    <div className="bg-slate-800/40 p-2.5 rounded-lg border border-slate-700/50">
+                                        <p className="text-[10px] text-slate-500 mb-0.5">Volatility Score</p>
+                                        <p className="text-sm font-mono text-amber-400">{analysis.volatility_score}/10</p>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div className="flex items-center gap-2 mb-1.5">
+                                        <FileText className="w-4 h-4 text-indigo-400" />
+                                        <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Approval Rationale</h4>
+                                    </div>
+                                    <p className="text-sm text-slate-400 leading-relaxed bg-slate-800/30 p-3 rounded-lg border border-slate-700/50">
+                                        {analysis.approval_rationale}
+                                    </p>
+                                </div>
+                                
+                                <div className="bg-indigo-900/20 p-3 rounded-lg border border-indigo-500/20">
+                                    <p className="text-[10px] text-indigo-300 uppercase tracking-wider mb-1">Recommended Structure</p>
+                                    <p className="text-sm text-indigo-100 font-medium">{analysis.recommended_structure}</p>
+                                </div>
+
+                                {analysis.risk_flags && analysis.risk_flags.length > 0 && (
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <AlertTriangle className="w-4 h-4 text-red-400" />
+                                            <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Risk Flags</h4>
+                                        </div>
+                                        <ul className="space-y-1.5">
+                                            {analysis.risk_flags.map((flag, idx) => (
+                                                <li key={idx} className="text-xs text-red-200/80 bg-red-950/20 px-2 py-1.5 rounded flex items-start gap-2">
+                                                    <span className="text-red-500 mt-0.5">•</span>
+                                                    <span>{flag}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
                             </div>
                         </motion.div>
                     )}
                 </AnimatePresence>
-
-                {/* Progress Indicators (Only show if open) */}
-                {isOpen && (
-                    <div className="px-5 pb-4 flex gap-1 justify-center">
-                        {displayInsights.map((_, idx) => (
-                            <div 
-                                key={idx}
-                                className={`h-1 rounded-full transition-all duration-300 ${
-                                    idx === dismissedCount ? 'w-6 bg-cyan-500' : 
-                                    idx < dismissedCount ? 'w-2 bg-slate-700' : 'w-2 bg-slate-800'
-                                }`}
-                            />
-                        ))}
-                    </div>
-                )}
             </div>
         </div>
     );
 }
-
-import { CheckCircle } from 'lucide-react';
