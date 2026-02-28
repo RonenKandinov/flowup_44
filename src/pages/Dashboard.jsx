@@ -575,7 +575,7 @@ export default function Dashboard() {
                   trend={newLoanMetrics?.trends?.income}
                 />
                 <StatCard
-                  title="ממוצע הוצאות (3 חודשים)"
+                  title="ממוצע הוצאות עסק (3 חודשים)"
                   value={`₪${Math.round(newLoanMetrics ? newLoanMetrics.totalExpenses : (loanLogicData ? loanMetrics.totalExpenses : (currentEngineData?.totalExpenses ?? currentMonthStats?.expenses ?? snapshot.total_expenses ?? 0))).toLocaleString('he-IL')}`}
                   icon={TrendingDown}
                   color="red"
