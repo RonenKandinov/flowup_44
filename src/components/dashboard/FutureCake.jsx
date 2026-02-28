@@ -21,10 +21,14 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
   }, []);
 
   // 1. Preview Mode Logic (Empty State)
-  const isPreviewMode = fixedExpenses === 0 && flexExpenses === 0;
+  const safeFixed = Number(fixedExpenses) || 0;
+  const safeFlex = Number(flexExpenses) || 0;
+  const safeTax = Number(taxRefundPotential) || 0;
 
-  const flexPercentage = !isPreviewMode && (fixedExpenses + flexExpenses > 0) 
-      ? Math.round((flexExpenses / (fixedExpenses + flexExpenses)) * 100) 
+  const isPreviewMode = safeFixed === 0 && safeFlex === 0;
+
+  const flexPercentage = !isPreviewMode && (safeFixed + safeFlex > 0) 
+      ? Math.round((safeFlex / (safeFixed + safeFlex)) * 100) 
       : 40;
 
   const chartData = isPreviewMode 
@@ -33,15 +37,15 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
         { name: 'הוצאות משתנות', value: 4000, color: '#14b8a6', icon: <Zap className="w-5 h-5" />, type: 'flex' }
       ]
     : [
-        { name: 'הוצאות קשיחות', value: fixedExpenses, color: '#ec4899', icon: <Anchor className="w-5 h-5" />, type: 'fixed' },
-        { name: 'הוצאות משתנות', value: flexExpenses, color: '#14b8a6', icon: <Zap className="w-5 h-5" />, type: 'flex' },
+        { name: 'הוצאות קשיחות', value: safeFixed, color: '#ec4899', icon: <Anchor className="w-5 h-5" />, type: 'fixed' },
+        { name: 'הוצאות משתנות', value: safeFlex, color: '#14b8a6', icon: <Zap className="w-5 h-5" />, type: 'flex' },
       ];
 
   // 2. Add Tax Segment if exists (The Saderan Layer)
-  if (!isPreviewMode && taxRefundPotential > 0) {
+  if (!isPreviewMode && safeTax > 0) {
       chartData.push({
           name: 'החזרי מס (פוטנציאל)',
-          value: taxRefundPotential,
+          value: safeTax,
           color: '#F59E0B', // Amber/Gold for found money
           icon: <Sparkles className="w-4 h-4" />,
           type: 'tax',
@@ -50,7 +54,7 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
   }
 
   const activeItem = activeIndex !== null ? chartData[activeIndex] : null;
-  const totalExpenses = (isPreviewMode ? 10000 : fixedExpenses + flexExpenses);
+  const totalExpenses = (isPreviewMode ? 10000 : safeFixed + safeFlex);
 
   // Custom Tooltip
   const CustomTooltip = ({ active, payload }) => {
