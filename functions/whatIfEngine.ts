@@ -48,60 +48,63 @@ Deno.serve(async (req) => {
 
         let simulatedMetrics = { ...baseMetrics };
         let message = "";
+        let simulatedPayment = 0;
+        let isBlocked = false;
 
-        if (scenario === 'standard_loan') {
-            const loanPayment = Number(params?.loanPayment || 0);
-            simulatedMetrics.fixedExpenses += loanPayment;
-            simulatedMetrics.totalExpenses += loanPayment;
+        const loanAmount = Number(params?.loanAmount || 0);
+        const annualRate = Number(params?.annualRate || 0);
+        const termMonths = Number(params?.termMonths || 0);
+
+        function calculateSpitzer(L, annualInterest, n) {
+            if (L <= 0 || n <= 0) return 0;
+            const i = (annualInterest / 100) / 12;
+            if (i === 0) return L / n;
+            return L * ((i * Math.pow(1 + i, n)) / (Math.pow(1 + i, n) - 1));
+        }
+
+        if (scenario === 'standard_loan' || scenario === 'extended_loan') {
+            simulatedPayment = calculateSpitzer(loanAmount, annualRate, termMonths);
+            
+            simulatedMetrics.fixedExpenses += simulatedPayment;
+            simulatedMetrics.totalExpenses += simulatedPayment;
             simulatedMetrics.netCashFlow = simulatedMetrics.totalIncome - simulatedMetrics.totalExpenses;
             simulatedMetrics.runway = simulatedMetrics.totalExpenses > 0 
                 ? (simulatedMetrics.liquidAssets / simulatedMetrics.totalExpenses) 
                 : 12;
             
             message = simulatedMetrics.netCashFlow < 0 
-                ? `החזר רגיל מכניס את הלקוח לסיכון תזרימי. חסר ${Math.abs(Math.round(simulatedMetrics.netCashFlow))} ₪ בחודש.`
-                : "הלקוח עומד בהחזר בהצלחה לאורך כל החודש.";
+                ? `ההחזר (₪${Math.round(simulatedPayment)}) מכניס לסיכון תזרימי. חסר ₪${Math.abs(Math.round(simulatedMetrics.netCashFlow))} בחודש.`
+                : `מאושר. ההחזר החודשי (₪${Math.round(simulatedPayment)}) משאיר את הלקוח ירוק.`;
 
-        } else if (scenario === 'lifestyle_pivot') {
-            const reductionPercentage = Number(params?.reductionPercentage || 0);
-            const flexibleExpenses = baseMetrics.totalExpenses - baseMetrics.fixedExpenses;
-            const reductionAmount = flexibleExpenses * (reductionPercentage / 100);
-            const loanPayment = Number(params?.loanPayment || 0);
-
-            simulatedMetrics.totalExpenses = baseMetrics.totalExpenses - reductionAmount + loanPayment;
-            simulatedMetrics.fixedExpenses += loanPayment;
-            simulatedMetrics.lifestyleExpenses = flexibleExpenses - reductionAmount;
-            simulatedMetrics.netCashFlow = simulatedMetrics.totalIncome - simulatedMetrics.totalExpenses;
-            simulatedMetrics.runway = simulatedMetrics.totalExpenses > 0 
-                ? (simulatedMetrics.liquidAssets / simulatedMetrics.totalExpenses) 
-                : 12;
-
-            if (simulatedMetrics.netCashFlow >= 0) {
-                message = `בצמצום מבוקר של ${reductionPercentage}% מהוצאות הפנאי, הלקוח עומד בהחזר ההלוואה בביטחון של 90%.`;
+        } else if (scenario === 'balloon_loan') {
+            if (simulatedMetrics.liquidAssets < loanAmount) {
+                isBlocked = true;
+                message = "BLOCKED: Insufficient liquid assets to cover principal (חסר הון נזיל לכיסוי הקרן).";
             } else {
-                message = `גם לאחר צמצום של ${reductionPercentage}%, עדיין קיים פער תזרימי.`;
-            }
-
-        } else if (scenario === 'closing_tool') {
-            const monthlyPayment = Number(params?.monthlyPayment || 0);
-            const futureSavings = Number(params?.futureSavings || 0);
-            
-            simulatedMetrics.fixedExpenses += monthlyPayment;
-            simulatedMetrics.totalExpenses += monthlyPayment;
-            simulatedMetrics.liquidAssets += futureSavings;
-            simulatedMetrics.netCashFlow = simulatedMetrics.totalIncome - simulatedMetrics.totalExpenses;
-            simulatedMetrics.runway = simulatedMetrics.totalExpenses > 0 
-                ? (simulatedMetrics.liquidAssets / simulatedMetrics.totalExpenses) 
-                : 12;
-
-            if (simulatedMetrics.netCashFlow >= 0 || simulatedMetrics.runway >= 36) {
-                 message = `מקור הכסף לסגירה מכסה את הבלון. יתרת המזומנים נשמרת יציבה לאורך התקופה.`;
-            } else {
-                 message = `זהירות: הזרמת ההון העתידית לא מספיקה לייצוב התזרים לאורך זמן.`;
+                simulatedPayment = (loanAmount * (annualRate / 100)) / 12;
+                simulatedMetrics.fixedExpenses += simulatedPayment;
+                simulatedMetrics.totalExpenses += simulatedPayment;
+                simulatedMetrics.netCashFlow = simulatedMetrics.totalIncome - simulatedMetrics.totalExpenses;
+                simulatedMetrics.runway = simulatedMetrics.totalExpenses > 0 
+                    ? (simulatedMetrics.liquidAssets / simulatedMetrics.totalExpenses) 
+                    : 12;
+                message = `APPROVED (Smart Logic): ההחזר החודשי הוא ₪${Math.round(simulatedPayment)} בלבד, מבוסס על הון קיים.`;
             }
         }
 
         const { finalScore, riskStatus, dtiPerc } = calculateScore(simulatedMetrics);
+        
+        if (isBlocked) {
+            simulatedMetrics.score = 0;
+            simulatedMetrics.dti = Math.round(dtiPerc);
+            return Response.json({
+                success: true,
+                status: "RED",
+                score: 0,
+                metrics: simulatedMetrics,
+                message
+            });
+        }
         simulatedMetrics.score = finalScore;
         simulatedMetrics.dti = Math.round(dtiPerc);
 
