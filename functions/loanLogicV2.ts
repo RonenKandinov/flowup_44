@@ -352,20 +352,27 @@ ${JSON.stringify(limitedExpenses)}
                 const absAmt = Math.abs(amount);
                 currentMonth.expenses += absAmt;
                 
-                // Enhanced fixed expense detection with Hebrew keywords
-                const fixedKeywords = [
-                    // English
-                    "housing", "loan", "insurance", "transportation", "utilities", "rent", "fixed", "commitment",
-                    "mortgage", "lease", "subscription", "installment", "payment plan",
-                    // Hebrew
-                    "הלוואה", "משכנתא", "ביטוח", "שכירות", "דירה", "חיוב", "תשלום קבוע",
-                    "מנוי", "ארנונה", "חשמל", "מים", "גז", "ועד בית", "טלפון", "אינטרנט",
-                    "החזר", "תשלומים", "מס", "היטל", "אגרה"
-                ];
-                
-                const isFixed = fixedKeywords.some((keyword) => 
-                    category.includes(keyword) || txDesc.includes(keyword)
-                );
+                const key = `${txDesc}|${category}`;
+                let isFixed = false;
+
+                if (aiClassifications[key] !== undefined) {
+                    isFixed = aiClassifications[key];
+                } else {
+                    // Fallback to keywords if AI classification failed or missed this item
+                    const fixedKeywords = [
+                        // English
+                        "housing", "loan", "insurance", "transportation", "utilities", "rent", "fixed", "commitment",
+                        "mortgage", "lease", "subscription", "installment", "payment plan",
+                        // Hebrew
+                        "הלוואה", "משכנתא", "ביטוח", "שכירות", "דירה", "חיוב", "תשלום קבוע",
+                        "מנוי", "ארנונה", "חשמל", "מים", "גז", "ועד בית", "טלפון", "אינטרנט",
+                        "החזר", "תשלומים", "מס", "היטל", "אגרה"
+                    ];
+                    
+                    isFixed = fixedKeywords.some((keyword) => 
+                        category.includes(keyword) || txDesc.includes(keyword)
+                    );
+                }
                 
                 if (isFixed) {
                     currentMonth.fixedExpenses += absAmt;
