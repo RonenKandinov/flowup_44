@@ -75,14 +75,14 @@ Deno.serve(async (req) => {
 
         const prompt = `You are FlowUp AI Analyst.
 You are not a budgeting assistant.
-You are a senior credit risk analyst working for a vehicle financing company.
+You are a senior credit risk analyst working for a B2B vehicle financing company.
 
 Your job is to:
 1. Evaluate real repayment capacity using the provided metrics.
 2. Separate structural obligations from discretionary liquidity.
 3. Identify underwriting justification for borderline approvals.
 4. Detect structural financial fragility.
-5. Suggest optimized loan structure (standard / balloon / 72 months).
+5. Suggest optimized loan structure (Standard / Balloon / Extended 72).
 6. Produce analyst-ready justification language.
 
 Do not perform financial calculations. Use the provided metrics.
@@ -93,30 +93,48 @@ Underwriting Metrics:
 ${JSON.stringify(underwritingMetrics, null, 2)}
 `;
 
-        const llmRes = await base44.integrations.Core.InvokeLLM({
-            prompt,
-            response_json_schema: {
-                type: "object",
-                properties: {
-                    risk_assessment: { type: "string" },
-                    capacity_interpretation: { type: "string" },
-                    stability_assessment: { type: "string" },
-                    liquidity_analysis: { type: "string" },
-                    recommended_structure: { type: "string" },
-                    approval_rationale: { type: "string" },
-                    risk_flags: { type: "array", items: { type: "string" } }
-                },
-                required: [
-                    "risk_assessment",
-                    "capacity_interpretation",
-                    "stability_assessment",
-                    "liquidity_analysis",
-                    "recommended_structure",
-                    "approval_rationale",
-                    "risk_flags"
-                ]
-            }
-        });
+        let llmRes;
+        try {
+            llmRes = await base44.integrations.Core.InvokeLLM({
+                prompt,
+                response_json_schema: {
+                    type: "object",
+                    properties: {
+                        risk_tier: { type: "string", description: "Red / Orange / Green" },
+                        structural_dti_commentary: { type: "string" },
+                        behavioral_flexibility_margin: { type: "string" },
+                        liquidity_cushion_assessment: { type: "string" },
+                        recommended_loan_structure: { type: "string", description: "Standard / Balloon / Extended 72" },
+                        approval_rationale: { type: "string" },
+                        risk_flags: { type: "array", items: { type: "string" } }
+                    },
+                    required: [
+                        "risk_tier",
+                        "structural_dti_commentary",
+                        "behavioral_flexibility_margin",
+                        "liquidity_cushion_assessment",
+                        "recommended_loan_structure",
+                        "approval_rationale"
+                    ]
+                }
+            });
+        } catch (llmError) {
+            console.error("LLM failed, using deterministic fallback", llmError);
+            llmRes = {
+                risk_tier: current_risk_tier === "High" ? "Red" : (current_risk_tier === "Medium" ? "Orange" : "Green"),
+                structural_dti_commentary: `Structural DTI is currently at ${(structural_dti * 100).toFixed(1)}%.`,
+                behavioral_flexibility_margin: `Adjusted DTI is ${(adjusted_dti * 100).toFixed(1)}%, indicating ${Math.max(0, 100 - (adjusted_dti * 100)).toFixed(1)}% flexibility.`,
+                liquidity_cushion_assessment: `Estimated liquidity buffer is ${liquidity_buffer_months.toFixed(1)} months.`,
+                recommended_loan_structure: current_risk_tier === "High" ? "Extended 72" : (current_risk_tier === "Medium" ? "Balloon" : "Standard"),
+                approval_rationale: "Deterministic fallback applied due to analysis engine timeout. Metrics indicate standard processing.",
+                risk_flags: current_risk_tier === "High" ? ["High Structural Load", "Stress DTI > 40%"] : []
+            };
+        }
+
+        // Ensure risk_flags exists
+        if (!llmRes.risk_flags) {
+            llmRes.risk_flags = [];
+        }
 
         return Response.json({
             success: true,

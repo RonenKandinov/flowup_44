@@ -65,16 +65,6 @@ export default function InsightsAgent({ analysis }) {
                             className="overflow-hidden flex-1 flex flex-col"
                         >
                             <div className="p-4 flex-1 flex flex-col space-y-4 overflow-y-auto max-h-[400px] custom-scrollbar text-left" dir="ltr">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-1.5">
-                                        <Activity className="w-4 h-4 text-indigo-400" />
-                                        <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Risk Assessment</h4>
-                                    </div>
-                                    <p className="text-sm text-slate-400 leading-relaxed bg-slate-800/30 p-3 rounded-lg border border-slate-700/50">
-                                        {analysis.risk_assessment}
-                                    </p>
-                                </div>
-
                                 <div className="grid grid-cols-2 gap-2">
                                     <div className="bg-slate-800/40 p-2.5 rounded-lg border border-slate-700/50">
                                         <p className="text-[10px] text-slate-500 mb-0.5">Structural DTI</p>
@@ -96,23 +86,23 @@ export default function InsightsAgent({ analysis }) {
 
                                 <div>
                                     <div className="flex items-center gap-2 mb-1.5">
-                                        <FileText className="w-4 h-4 text-indigo-400" />
-                                        <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Capacity Interpretation</h4>
-                                    </div>
-                                    <p className="text-sm text-slate-400 leading-relaxed bg-slate-800/30 p-3 rounded-lg border border-slate-700/50">
-                                        {analysis.capacity_interpretation}
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <div className="flex items-center gap-2 mb-1.5">
                                         <Activity className="w-4 h-4 text-indigo-400" />
-                                        <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Stability & Liquidity</h4>
+                                        <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Risk Tier: <span className={analysis.risk_tier === 'Red' ? 'text-red-400' : analysis.risk_tier === 'Orange' ? 'text-orange-400' : 'text-emerald-400'}>{analysis.risk_tier || 'Unknown'}</span></h4>
                                     </div>
-                                    <p className="text-sm text-slate-400 leading-relaxed bg-slate-800/30 p-3 rounded-lg border border-slate-700/50">
-                                        <span className="block mb-2">{analysis.stability_assessment}</span>
-                                        <span>{analysis.liquidity_analysis}</span>
-                                    </p>
+                                    <div className="space-y-3 mt-3">
+                                        <div className="bg-slate-800/30 p-3 rounded-lg border border-slate-700/50">
+                                            <p className="text-[10px] text-slate-500 uppercase mb-1">Structural DTI</p>
+                                            <p className="text-sm text-slate-300 leading-relaxed">{analysis.structural_dti_commentary || "N/A"}</p>
+                                        </div>
+                                        <div className="bg-slate-800/30 p-3 rounded-lg border border-slate-700/50">
+                                            <p className="text-[10px] text-slate-500 uppercase mb-1">Flexibility Margin</p>
+                                            <p className="text-sm text-slate-300 leading-relaxed">{analysis.behavioral_flexibility_margin || "N/A"}</p>
+                                        </div>
+                                        <div className="bg-slate-800/30 p-3 rounded-lg border border-slate-700/50">
+                                            <p className="text-[10px] text-slate-500 uppercase mb-1">Liquidity Cushion</p>
+                                            <p className="text-sm text-slate-300 leading-relaxed">{analysis.liquidity_cushion_assessment || "N/A"}</p>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div>
@@ -121,13 +111,13 @@ export default function InsightsAgent({ analysis }) {
                                         <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Approval Rationale</h4>
                                     </div>
                                     <p className="text-sm text-slate-400 leading-relaxed bg-slate-800/30 p-3 rounded-lg border border-slate-700/50">
-                                        {analysis.approval_rationale}
+                                        {analysis.approval_rationale || "N/A"}
                                     </p>
                                 </div>
                                 
                                 <div className="bg-indigo-900/20 p-3 rounded-lg border border-indigo-500/20">
                                     <p className="text-[10px] text-indigo-300 uppercase tracking-wider mb-1">Recommended Structure</p>
-                                    <p className="text-sm text-indigo-100 font-medium">{analysis.recommended_structure}</p>
+                                    <p className="text-sm text-indigo-100 font-medium">{analysis.recommended_loan_structure || "Standard"}</p>
                                 </div>
 
                                 {analysis.risk_flags && analysis.risk_flags.length > 0 && (
