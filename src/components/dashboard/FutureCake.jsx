@@ -33,7 +33,7 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
 
   const chartData = isPreviewMode 
     ? [
-        { name: 'הוצאות קשיחות', value: 6000, color: '#ec4899', icon: <Anchor className="w-5 h-5" />, type: 'fixed' },
+        { name: 'הוצאות קבועות', value: 6000, color: '#ec4899', icon: <Anchor className="w-5 h-5" />, type: 'fixed' },
         { name: 'הוצאות משתנות', value: 4000, color: '#14b8a6', icon: <Zap className="w-5 h-5" />, type: 'flex' }
       ]
     : [
