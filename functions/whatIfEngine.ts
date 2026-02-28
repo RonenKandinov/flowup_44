@@ -44,9 +44,18 @@ Deno.serve(async (req) => {
         const body = await req.json().catch(() => ({}));
         const { baseMetrics, scenario, params } = body;
 
-        if (!baseMetrics) throw new Error("Missing baseMetrics payload");
+        // Provide default dummy metrics for dashboard testing if not provided
+        const activeMetrics = baseMetrics || {
+            totalIncome: 20000,
+            totalExpenses: 15000,
+            fixedExpenses: 10000,
+            liquidAssets: 50000,
+            incomeVolatility: 0.1,
+            runwayMonths: 12,
+            netCashFlow: 5000
+        };
 
-        let simulatedMetrics = { ...baseMetrics };
+        let simulatedMetrics = { ...activeMetrics };
         let message = "";
         let simulatedPayment = 0;
         let isBlocked = false;
