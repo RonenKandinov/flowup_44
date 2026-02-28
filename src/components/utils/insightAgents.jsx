@@ -326,6 +326,24 @@ export const runTrendAgent = (transactions) => {
         });
     }
 
+    // Future Stability Assessment
+    const avgExpense = expenses.reduce((sum, t) => sum + t.debit, 0) / (expenses.length || 1);
+    const stdDev = Math.sqrt(expenses.reduce((sum, t) => sum + Math.pow(t.debit - avgExpense, 2), 0) / (expenses.length || 1));
+    const stabilityRatio = stdDev / (avgExpense || 1);
+    
+    const stabilityDesc = stabilityRatio < 1.0 
+        ? "הלקוח מראה חסינות גבוהה לשינויים בתזרים עקב דפוסי הוצאה קבועים. מאפשר אישור עסקה ברווחיות גבוהה במינימום סיכון."
+        : "קיימת תנודתיות גבוהה בהוצאות הלקוח. הלקוח רגיש לזעזועים תזרימיים ויש לבחון את כושר ההחזר בזהירות.";
+
+    insights.push({
+        type: 'info',
+        title: 'הערכת יציבות עתידית',
+        description: stabilityDesc,
+        impact: 0,
+        monthlySavings: 0,
+        icon: 'TrendingUp'
+    });
+
     return insights;
 };
 
