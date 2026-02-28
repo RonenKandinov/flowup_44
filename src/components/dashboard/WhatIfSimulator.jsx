@@ -61,36 +61,29 @@ export default function WhatIfSimulator({ onSimulate, baseMetrics }) {
 
   useEffect(() => {
       if (!baseMetrics) return;
-      if (activeTab === 'standard_loan') {
-          if (loanPayment && !isNaN(loanPayment)) {
-              debouncedSimulate('standard_loan', { loanPayment: Number(loanPayment) });
+      const amount = Number(loanAmount);
+      const rate = Number(annualRate);
+      const term = Number(termMonths);
+
+      if (amount > 0 && rate > 0) {
+          if (activeTab === 'balloon_loan') {
+              debouncedSimulate('balloon_loan', { loanAmount: amount, annualRate: rate, termMonths: term });
+          } else if (term > 0) {
+              debouncedSimulate(activeTab, { loanAmount: amount, annualRate: rate, termMonths: term });
           } else {
               setSimulationResult(null);
               if (onSimulate) onSimulate(null);
           }
-      } else if (activeTab === 'lifestyle_pivot') {
-          if (pivotPayment && !isNaN(pivotPayment)) {
-              debouncedSimulate('lifestyle_pivot', { loanPayment: Number(pivotPayment), reductionPercentage: reductionPercentage[0] });
-          } else {
-              setSimulationResult(null);
-              if (onSimulate) onSimulate(null);
-          }
-      } else if (activeTab === 'closing_tool') {
-           if (balloonPayment && !isNaN(balloonPayment)) {
-              debouncedSimulate('closing_tool', { monthlyPayment: Number(balloonPayment), futureSavings: Number(futureSavings || 0) });
-          } else {
-              setSimulationResult(null);
-              if (onSimulate) onSimulate(null);
-          }
+      } else {
+          setSimulationResult(null);
+          if (onSimulate) onSimulate(null);
       }
-  }, [activeTab, loanPayment, pivotPayment, reductionPercentage, balloonPayment, futureSavings, baseMetrics]);
+  }, [activeTab, loanAmount, annualRate, termMonths, baseMetrics]);
 
   const handleReset = () => {
-    setLoanPayment('');
-    setPivotPayment('');
-    setReductionPercentage([20]);
-    setBalloonPayment('');
-    setFutureSavings('');
+    setLoanAmount('');
+    setAnnualRate('');
+    setTermMonths('');
     setSimulationResult(null);
     if (onSimulate) onSimulate(null);
   };
