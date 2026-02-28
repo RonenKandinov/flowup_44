@@ -126,8 +126,8 @@ export const runLiquidityAgent = (transactions) => {
 
             insights.push({
                 type: 'money_leak',
-                title: `⚠️ כפילות ב${category.label}`,
-                description: `מצאנו חיובים ל-${servicesNames}. בחר אחד וחסוך כסף.`,
+                title: `איתור "הון חבוי": כפילות ב${category.label}`,
+                description: `זיהוי מנויים שאינם מנוצלים / כפולים (${servicesNames}). ניתן להגדיל את כושר ההחזר על ידי ביטול.`,
                 monthlySavings: potentialSavings,
                 annualImpact: potentialSavings * 12,
                 safeToSpendImpact: Math.round(potentialSavings / 30),
