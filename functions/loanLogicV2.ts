@@ -212,48 +212,10 @@ Deno.serve(async (req) => {
                 
                 accounts.forEach((acc) => {
                     const type = (acc.type || acc.accountType || "").toLowerCase();
-                    let balanceAmount = 0;
-                    
-                    // Multiple extraction paths for different API response formats
-                    if (Array.isArray(acc.balances) && acc.balances.length > 0) {
-                        // Path 1: Standard balances array
-                        const available = acc.balances.find(b => 
-                            b.balanceType === "interimAvailable" || 
-                            b.type === "interimAvailable" ||
-                            b.balanceType === "available"
-                        );
-                        const booked = acc.balances.find(b => 
-                            b.balanceType === "closingBooked" || 
-                            b.type === "closingBooked" ||
-                            b.balanceType === "booked"
-                        );
-                        const targetBal = available || booked || acc.balances[0];
-                        
-                        // Extract amount from nested structures
-                        if (targetBal?.amount?.amount !== undefined) {
-                            balanceAmount = Number(targetBal.amount.amount);
-                        } else if (targetBal?.amount !== undefined) {
-                            balanceAmount = Number(targetBal.amount);
-                        } else if (targetBal?.value !== undefined) {
-                            balanceAmount = Number(targetBal.value);
-                        }
-                    } else if (acc.balance !== undefined) {
-                        // Path 2: Direct balance field
-                        if (typeof acc.balance === 'object' && acc.balance?.amount !== undefined) {
-                            balanceAmount = Number(acc.balance.amount);
-                        } else {
-                            balanceAmount = Number(acc.balance);
-                        }
-                    } else if (acc.currentBalance !== undefined) {
-                        // Path 3: currentBalance field
-                        balanceAmount = Number(acc.currentBalance);
-                    } else if (acc.availableBalance !== undefined) {
-                        // Path 4: availableBalance field
-                        balanceAmount = Number(acc.availableBalance);
-                    }
+                    const { balance: balanceAmount, path } = extractBalance(acc);
 
-                    if (!isNaN(balanceAmount) && balanceAmount !== 0) {
-                        console.log(`[Account] Type: ${type}, Balance: ${balanceAmount}`);
+                    if (balanceAmount !== 0) {
+                        console.log(`[Account QA] Type: ${type || 'unknown'}, Extracted Balance: ${balanceAmount}, Extraction Path: ${path}`);
                         
                         // Apply haircut for investment accounts
                         if (type.includes('investment') || type.includes('securities') || type.includes('תיק')) {
@@ -261,6 +223,8 @@ Deno.serve(async (req) => {
                         } else {
                             liquidAssets += balanceAmount;
                         }
+                    } else {
+                        console.warn(`[Account QA Warning] Zero or undetermined balance for account type: ${type || 'unknown'}. Path: ${path}`);
                     }
                 });
                 
