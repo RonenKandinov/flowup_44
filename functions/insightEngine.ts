@@ -18,8 +18,8 @@ const runFiscalAgent = (transactions) => {
             
             insights.push({
                 type: 'tax_refund',
-                title: 'איתור "הון חבוי": החזרי מס צפויים',
-                description: `פוטנציאל להגדלת הנטו הפנוי: זיכוי מס של כ-${Math.round(refund)} ₪ בגין תרומות לפי סעיף 46 ל${tx.description}. מומלץ להנחות את הלקוח להגיש בקשה.`,
+                title: 'פוטנציאל שיפור קיבולת החזר: זיכוי מס תרומות',
+                description: `זוהה פוטנציאל לשיפור תזרים המזומנים בסך של כ-${Math.round(refund)} ₪ בגין סעיף 46. יש לדרוש מהלקוח מימוש זכאות להקטנת סיכון האשראי.`,
                 monthlySavings: refund / 12,
                 annualImpact: refund,
                 icon: 'Heart'
@@ -42,8 +42,8 @@ const runFiscalAgent = (transactions) => {
         const annualCredit = (insuranceTotal * 12) * 0.25;
         insights.push({
             type: 'tax_refund',
-            title: 'איתור "הון חבוי": זיכוי ביטוחים',
-            description: `תשלומי ביטוח מזכים בהחזר מס ופוטנציאל לכפילויות. ניתן להגדיל את ההון הפנוי בשווי שנתי מוערך של כ-${Math.round(annualCredit)} ₪.`,
+            title: 'פוטנציאל שיפור קיבולת החזר: זיכוי ביטוחים',
+            description: `זוהתה כרית ביטחון פוטנציאלית בסך שנתי מוערך של כ-${Math.round(annualCredit)} ₪ בגין החזרי מס על תשלומי ביטוח. נתון זה מהווה חיזוק ליציבות הפיננסית בטווח הארוך.`,
             monthlySavings: annualCredit / 12,
             annualImpact: annualCredit,
             icon: 'Shield'
@@ -54,8 +54,8 @@ const runFiscalAgent = (transactions) => {
         const creditPointValueYear = 2904;
         insights.push({
             type: 'tax_refund',
-            title: 'נקודות זיכוי לאקדמאים',
-            description: 'סטודנטים ובוגרים זכאים לנקודות זיכוי במס בשווי אלפי שקלים בשנה.',
+            title: 'פוטנציאל שיפור קיבולת החזר: תואר אקדמי',
+            description: 'קיים פוטנציאל משמעותי להגדלת ההכנסה הפנויה באמצעות מימוש נקודות זיכוי במס לאקדמאים. מהווה גורם מפחית סיכון.',
             monthlySavings: creditPointValueYear / 12,
             annualImpact: creditPointValueYear,
             icon: 'GraduationCap'
@@ -108,8 +108,8 @@ const runLiquidityAgent = (transactions) => {
 
             insights.push({
                 type: 'money_leak',
-                title: `איתור "הון חבוי": כפילות ב${category.label}`,
-                description: `זיהוי מנויים שאינם מנוצלים / כפולים (${servicesNames}). ניתן להגדיל את כושר ההחזר על ידי ביטול.`,
+                title: `פוטנציאל שיפור קיבולת החזר: ${category.label}`,
+                description: `זוהו התחייבויות חופפות (${servicesNames}). ייעול מבנה ההוצאות עשוי לשפר את מדד ה-DTI ולהגדיל את כושר ההחזר ב-₪${potentialSavings} לחודש.`,
                 monthlySavings: potentialSavings,
                 annualImpact: potentialSavings * 12,
                 safeToSpendImpact: Math.round(potentialSavings / 30),
@@ -144,8 +144,8 @@ const runLiquidityAgent = (transactions) => {
                     const amount = monthGroup[0].debit;
                     insights.push({
                         type: 'money_leak',
-                        title: '⚠️ חיוב כפול חשוד',
-                        description: `חיוב של ₪${amount} הופיע ${monthGroup.length} פעמים החודש ב-'${desc1}'.`,
+                        title: 'התראת סיכון: פגם תזרימי',
+                        description: `זוהתה שחיקת נזילות מיותרת: חיוב של ₪${amount} הופיע ${monthGroup.length} פעמים החודש ב-'${desc1}'. פגיעה ישירה בקיבולת ההחזר הפנויה.`,
                         monthlySavings: amount * (monthGroup.length - 1),
                         annualImpact: amount * (monthGroup.length - 1) * 12,
                         safeToSpendImpact: Math.round((amount * (monthGroup.length - 1)) / 30),
@@ -191,8 +191,8 @@ const runSubscriptionAgent = (transactions) => {
                 const diff = lastAmount - avg;
                 insights.push({
                     type: 'alert',
-                    title: `📈 קפיצה בחיוב: ${name}`,
-                    description: `חריגה של ${percent}% בחיוב האחרון (₪${lastAmount}).`,
+                    title: `תנודתיות בהתחייבויות: ${name}`,
+                    description: `חריגה של ${percent}% בהוצאה קבועה (₪${lastAmount}). התנודתיות מהווה משקולת סיכון על תזרים המזומנים החזוי.`,
                     monthlySavings: diff,
                     annualImpact: diff * 12,
                     safeToSpendImpact: Math.round(diff / 30),
@@ -212,27 +212,27 @@ const runSubscriptionAgent = (transactions) => {
 
                 if (telecom.some(t => name.includes(t))) {
                     isSubscription = true;
-                    actionDesc = 'לקוחות משלמים בממוצע 30% פחות. שווה להתקשר למיקוח.';
+                    actionDesc = 'התייעלות בהוצאות תקשורת עשויה להפחית עומס תזרימי שוטף.';
                     iconType = 'Phone';
                 } else if (insurance.some(i => name.includes(i))) {
                     isSubscription = true;
-                    actionDesc = 'מומלץ לבדוק כפל ביטוחים באתר "הר הביטוח".';
+                    actionDesc = 'בחינת כפילויות ביטוח עשויה לחשוף הון נזיל פנוי להחזר.';
                     iconType = 'Shield';
                 } else if (media.some(m => name.toUpperCase().includes(m))) {
                     isSubscription = true;
-                    actionDesc = 'האם המנוי בשימוש? שקול חבילה משפחתית או ביטול.';
+                    actionDesc = 'ביטול מנויי מדיה לא נחוצים צפוי לשפר את מקדם השירות לחוב.';
                     iconType = 'Tv';
                 } else if (gym.some(g => name.includes(g))) {
                     isSubscription = true;
-                    actionDesc = 'האם אתם מתמידים? אם לא, חבל על התשלום הקבוע.';
+                    actionDesc = 'צמצום התחייבויות לשירותי כושר מהווה רזרבה תזרימית לשעת דחק.';
                     iconType = 'Dumbbell';
                 }
 
                 if (isSubscription) {
                     insights.push({
                         type: 'money_leak',
-                        title: `איתור "הון חבוי": מנוי ${name}`,
-                        description: `זיהוי פוטנציאל למיקוח או מנוי לא מנוצל. ${actionDesc}`,
+                        title: `פוטנציאל שיפור קיבולת החזר: הוצאה קבועה (${name})`,
+                        description: `זוהתה נזילות חבויה בסך ₪${avg} לחודש. ${actionDesc}`,
                         monthlySavings: avg,
                         annualImpact: avg * 12,
                         safeToSpendImpact: Math.round(avg / 30),
@@ -259,8 +259,8 @@ const runTrendAgent = (transactions) => {
             if (!isIgnored) {
                 insights.push({
                     type: 'alert',
-                    title: 'הוצאה חריגה זוהתה',
-                    description: `הוצאה של ₪${t.debit.toLocaleString()} ב-${t.description}. האם זה היה מתוכנן?`,
+                    title: 'התראת סיכון: תנודתיות חריגה בתזרים',
+                    description: `הוצאה לא שגרתית בסך ₪${t.debit.toLocaleString()} ב-${t.description}. אירועים מסוג זה מגבילים את יכולת חיזוי ה-DTI.`,
                     impact: t.debit,
                     monthlySavings: 0,
                     icon: 'AlertTriangle'
@@ -281,8 +281,8 @@ const runTrendAgent = (transactions) => {
     if (weekendSpending > 1500) {
          insights.push({
             type: 'info',
-            title: 'דפוס סופ"ש',
-            description: `הוצאת ₪${weekendSpending.toLocaleString()} בסופי שבוע האחרונים.`,
+            title: 'דפוס הוצאות מחזורי (סופ"ש)',
+            description: `זוהתה ריכוזיות הוצאות בסך ₪${weekendSpending.toLocaleString()} בסופי שבוע. מצביע על תנודתיות קצרת-טווח בנזילות.`,
             impact: weekendSpending,
             monthlySavings: weekendSpending * 0.2,
             icon: 'Coffee'
@@ -294,8 +294,8 @@ const runTrendAgent = (transactions) => {
     const stabilityRatio = stdDev / (avgExpense || 1);
     
     const stabilityDesc = stabilityRatio < 1.0 
-        ? "הלקוח מראה חסינות גבוהה לשינויים בתזרים עקב דפוסי הוצאה קבועים. מאפשר אישור עסקה ברווחיות גבוהה במינימום סיכון."
-        : "קיימת תנודתיות גבוהה בהוצאות הלקוח. הלקוח רגיש לזעזועים תזרימיים ויש לבחון את כושר ההחזר בזהירות.";
+        ? "פרופיל סיכון נמוך: תנודתיות הוצאות נמוכה מעידה על יציבות תזרימית. הסתברות כשל (PD) נמוכה. מומלץ לאשר מתווה הלוואה ארוך טווח במינוף סטנדרטי."
+        : "פרופיל סיכון גבוה: שונות הוצאות גבוהה מצביעה על שבירות פיננסית. יש להקשיח תנאי חיתום. מומלץ לדרוש בטוחות נוספות או להגביל לתקופת מימון קצרה / מסלול בלון.";
 
     insights.push({
         type: 'info',
@@ -336,8 +336,8 @@ const runLifestyleAgent = (transactions) => {
         
         insights.push({
             type: 'lifestyle',
-            title: 'בניית מתווה הלוואה אופטימלי',
-            description: `הלקוח יכול לעמוד בהחזר חודשי של כ-${potentialSavings} ₪ במסלול בלון/72 תשלומים, תוך הסטת 30% מהוצאות הלייף-סטייל הגמישות שלו (כרגע מוציא ₪${diningTotal.toLocaleString()}).`,
+            title: 'הערכת כושר החזר משוערכת',
+            description: `ניתוח הוצאות גמישות מצביע על יכולת ספיגה של החזר בסך ₪${potentialSavings} לחודש. מומלץ מתווה מימון מדורג (בלון / 72 חודשים) תוך שעבוד הרכב כבטוחה, לאור הוצאה קיימת בסך ₪${diningTotal.toLocaleString()} בתחומי צריכה משתנה.`,
             monthlySavings: potentialSavings,
             annualImpact: potentialSavings * 12,
             icon: 'Utensils'
@@ -370,13 +370,13 @@ const runStrategicBrainAgent = (insights) => {
 
     const topLeakName = getTopLeakName();
 
-    let title = "סיכום מצב אסטרטגי לאנליסט";
+    let title = "הערכת אנליסט אשראי";
     let summary = "";
     let actionItem = "";
     let mood = "neutral"; 
 
     if (totalPotentialSavings > 2000) {
-        title = "נמצא הון חבוי משמעותי";
+        title = "הערכת אנליסט אשראי: פוטנציאל שיפור קיבולת";
         mood = "happy";
         
         const refundTotal = taxRefunds.reduce((sum, i) => sum + (i.annualImpact || 0), 0);
@@ -389,38 +389,30 @@ const runStrategicBrainAgent = (insights) => {
         else if (donationRefund) refundSource = "תרומות (סעיף 46)";
         else refundSource = "החזרי מס";
 
-        if (refundTotal > 1000 && quickWins > 100) {
-            summary = `הגדלת הנטו הפנוי: פוטנציאל של ₪${Math.round(totalPotentialSavings).toLocaleString()} שניתן להחזיר. החזרי מס מ${refundSource} (₪${Math.round(refundTotal)}) וביטול חיובים מיותרים${topLeakName ? ` כמו ${topLeakName}` : ''} (₪${Math.round(quickWins)}/חודש).`;
-            actionItem = `ניתן להגדיל את כושר ההחזר ב-₪${Math.round(quickWins)} על ידי עצירת חיובים כפולים.`;
-        } else if (refundTotal > 0) {
-            summary = `הכסף הגדול נמצא בהחזרי המס מ${refundSource} (₪${Math.round(refundTotal)}).`;
-            actionItem = "הנחה את הלקוח להגיש בקשה להחזר מס לשיפור פרופיל הלקוח.";
-        } else {
-             summary = `אופטימיזציה: פוטנציאל חיסכון של ₪${Math.round(totalPotentialSavings)} בשנה על ידי ביטול תשלומים קיימים${topLeakName ? ` (במיוחד ב${topLeakName})` : ''}.`;
-             actionItem = "הגדלת כושר החזר ע\"י קיצוץ הכפילויות והמנויים.";
-        }
+        summary = `זוהה מרווח ביטחון תזרימי פוטנציאלי בסך ₪${Math.round(totalPotentialSavings).toLocaleString()} שנתית. מקורות: ${refundSource} (₪${Math.round(refundTotal)}) וייעול התחייבויות${topLeakName ? ` (${topLeakName})` : ''} (₪${Math.round(quickWins)}/חודש). הקצאת אשראי זו נתמכת בכושר ספיגה עודף.`;
+        actionItem = "מומלץ להחתים את הלקוח על התחייבות לייעול הוצאות כתנאי לאישור/שיפור תנאי הריבית.";
     } 
     else if (moneyLeaks.length >= 1) {
-        title = "זיהוי חיובים כפולים/מיותרים";
+        title = "הערכת אנליסט אשראי: דליפת נזילות";
         mood = "urgent";
         const leakCountText = moneyLeaks.length > 1 ? `${moneyLeaks.length} מקורות` : "מקור אחד";
-        summary = `נמצאו ${leakCountText} לדליפת כסף${topLeakName ? ` (בעיקר ב${topLeakName})` : ''}. מצטבר ל-₪${Math.round(quickWins * 12)} בשנה.`;
-        actionItem = "ניתן לשפר את ה-DTI אם הלקוח יבטל חיובים אלו.";
+        summary = `זוהתה שחיקת הון חוזר כתוצאה מ-${leakCountText}${topLeakName ? ` (בעיקר ${topLeakName})` : ''}. ההשפעה השנתית נאמדת ב-₪${Math.round(quickWins * 12)}. פגיעה ישירה ב-DTI.`;
+        actionItem = "ניתן לשפר את יחס שירות החוב (DSR) במידה ויבוטלו התחייבויות משניות אלו.";
     }
     else if (lifestyle.length > 0) {
-        title = "הצעת מתווה הלוואה אופטימלי";
+        title = "הערכת אנליסט אשראי: רגישות להוצאות גמישות";
         mood = "neutral";
         const diningInsight = lifestyle.find(i => i.type === 'lifestyle');
         const focusArea = diningInsight ? "המסעדות והבילויים" : "ההוצאות המשתנות";
         
-        summary = `ההוצאות הקבועות תקינות. מומלץ להסיט חלק מ${focusArea} לטובת החזר חודשי של הלוואה ארוכת טווח.`;
-        actionItem = "השתמש בסימולטור הלייף-סטייל לבחינת כושר החזר.";
+        summary = `מבנה ההוצאות הקשיחות תקין. קיימת גמישות מבנית ב${focusArea} המאפשרת הקצאת אשראי למימון רכב.`;
+        actionItem = "בניית מתווה הלוואה רגיש לתזרים, שקילת שערוך בטוחות או בלוני הון.";
     }
     else {
-        title = "המצב יציב";
+        title = "הערכת אנליסט אשראי: פרופיל יציב";
         mood = "happy";
-        summary = "לא זוהו דליפות חריגות, כפילויות או החזרי מס. התזרים מתנהל בצורה מאוזנת ורגילה.";
-        actionItem = "ניתן להמשיך לחיתום לפי המדדים הרגילים.";
+        summary = "תזרים המזומנים החזוי מציג עקביות וללא חריגות מהותיות. מקדם היציבות תומך במתן אשראי ברמת הסיכון הבסיסית.";
+        actionItem = "מאושר לחיתום. יש ליישם מטריצת תמחור סטנדרטית מבוססת LTV ו-DTI.";
     }
 
     return {
