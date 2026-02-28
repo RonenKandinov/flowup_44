@@ -46,6 +46,7 @@ Deno.serve(async (req) => {
 
         // Provide default dummy metrics for dashboard testing if not provided
         const activeMetrics = {
+            ...(baseMetrics || {}),
             totalIncome: baseMetrics?.totalIncome ?? 20000,
             totalExpenses: baseMetrics?.totalExpenses ?? 15000,
             fixedExpenses: baseMetrics?.totalFixedExpenses ?? baseMetrics?.fixedExpenses ?? 10000,
