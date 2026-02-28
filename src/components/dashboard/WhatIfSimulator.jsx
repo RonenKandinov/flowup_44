@@ -132,86 +132,65 @@ export default function WhatIfSimulator({ onSimulate, baseMetrics }) {
             <div className="pt-4">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="grid w-full grid-cols-3 bg-slate-900/50 h-auto">
-                  <TabsTrigger value="standard_loan" className="text-[10px] py-2 whitespace-normal leading-tight">מסלול רגיל</TabsTrigger>
-                  <TabsTrigger value="lifestyle_pivot" className="text-[10px] py-2 whitespace-normal leading-tight">לייף-סטייל</TabsTrigger>
-                  <TabsTrigger value="closing_tool" className="text-[10px] py-2 whitespace-normal leading-tight">מסלול בלון</TabsTrigger>
+                  <TabsTrigger value="standard_loan" className="text-[10px] py-2 whitespace-normal leading-tight">רגיל</TabsTrigger>
+                  <TabsTrigger value="extended_loan" className="text-[10px] py-2 whitespace-normal leading-tight">פריסה ארוכה</TabsTrigger>
+                  <TabsTrigger value="balloon_loan" className="text-[10px] py-2 whitespace-normal leading-tight">בלון</TabsTrigger>
                 </TabsList>
 
                 {/* Standard Loan */}
                 <TabsContent value="standard_loan" className="space-y-3 mt-4">
                   <div className="text-[11px] text-slate-400 mb-2 border-r-2 border-indigo-500 pr-2">
-                      הזנת החזר חודשי חדש לתזרים האמיתי לבחינת יציבות.
+                      מוצר בסיסי (שפיצר) ל-24 עד 60 חודשים. מטרתו: עלות ריבית כוללת נמוכה.
                   </div>
                   <div>
-                    <Label className="text-slate-400 text-xs mb-1.5 block">החזר חודשי צפוי</Label>
-                    <Input
-                      type="number"
-                      placeholder="₪0.00"
-                      value={loanPayment}
-                      onChange={(e) => setLoanPayment(e.target.value)}
-                      className="bg-slate-900/50 border-slate-700 text-white focus:border-indigo-500 h-9"
-                      dir="ltr"
-                    />
+                    <Label className="text-slate-400 text-xs mb-1.5 block">סכום ההלוואה (₪)</Label>
+                    <Input type="number" placeholder="₪0.00" value={loanAmount} onChange={(e) => setLoanAmount(e.target.value)} className="bg-slate-900/50 border-slate-700 text-white focus:border-indigo-500 h-9" dir="ltr" />
+                  </div>
+                  <div>
+                    <Label className="text-slate-400 text-xs mb-1.5 block">ריבית שנתית (%)</Label>
+                    <Input type="number" placeholder="%" value={annualRate} onChange={(e) => setAnnualRate(e.target.value)} className="bg-slate-900/50 border-slate-700 text-white focus:border-indigo-500 h-9" dir="ltr" />
+                  </div>
+                  <div>
+                    <Label className="text-slate-400 text-xs mb-1.5 block">תקופה בחודשים (24-60)</Label>
+                    <Input type="number" placeholder="חודשים" value={termMonths} onChange={(e) => setTermMonths(e.target.value)} className="bg-slate-900/50 border-slate-700 text-white focus:border-indigo-500 h-9" dir="ltr" />
                   </div>
                 </TabsContent>
 
-                {/* Lifestyle Pivot */}
-                <TabsContent value="lifestyle_pivot" className="space-y-4 mt-4">
+                {/* Extended Loan */}
+                <TabsContent value="extended_loan" className="space-y-3 mt-4">
                   <div className="text-[11px] text-slate-400 mb-2 border-r-2 border-indigo-500 pr-2">
-                      בדיקת היתכנות על ידי צמצום הוצאות גמישות ווולט/פנאי.
+                      פריסה ארוכה (שפיצר) ל-60 עד 84 חודשים. מטרתו: הקטנת הנטל החודשי.
                   </div>
                   <div>
-                    <Label className="text-slate-400 text-xs mb-1.5 block">החזר חודשי צפוי</Label>
-                    <Input
-                      type="number"
-                      placeholder="₪0.00"
-                      value={pivotPayment}
-                      onChange={(e) => setPivotPayment(e.target.value)}
-                      className="bg-slate-900/50 border-slate-700 text-white focus:border-indigo-500 h-9"
-                      dir="ltr"
-                    />
+                    <Label className="text-slate-400 text-xs mb-1.5 block">סכום ההלוואה (₪)</Label>
+                    <Input type="number" placeholder="₪0.00" value={loanAmount} onChange={(e) => setLoanAmount(e.target.value)} className="bg-slate-900/50 border-slate-700 text-white focus:border-indigo-500 h-9" dir="ltr" />
                   </div>
-                  <div className="pt-2 bg-slate-900/30 p-3 rounded-lg border border-slate-800">
-                    <Label className="text-slate-300 text-xs flex justify-between mb-3">
-                        <span>צמצום הוצאות פנאי</span>
-                        <span className="text-indigo-400 font-bold">{reductionPercentage[0]}%</span>
-                    </Label>
-                    <Slider 
-                        value={reductionPercentage} 
-                        onValueChange={setReductionPercentage} 
-                        max={100} 
-                        step={5} 
-                        className="my-2"
-                    />
+                  <div>
+                    <Label className="text-slate-400 text-xs mb-1.5 block">ריבית שנתית (%)</Label>
+                    <Input type="number" placeholder="%" value={annualRate} onChange={(e) => setAnnualRate(e.target.value)} className="bg-slate-900/50 border-slate-700 text-white focus:border-indigo-500 h-9" dir="ltr" />
+                  </div>
+                  <div>
+                    <Label className="text-slate-400 text-xs mb-1.5 block">תקופה בחודשים (60-84)</Label>
+                    <Input type="number" placeholder="חודשים" value={termMonths} onChange={(e) => setTermMonths(e.target.value)} className="bg-slate-900/50 border-slate-700 text-white focus:border-indigo-500 h-9" dir="ltr" />
                   </div>
                 </TabsContent>
 
-                {/* Closing Tool (Balloon) */}
-                <TabsContent value="closing_tool" className="space-y-3 mt-4">
+                {/* Balloon Loan */}
+                <TabsContent value="balloon_loan" className="space-y-3 mt-4">
                   <div className="text-[11px] text-slate-400 mb-2 border-r-2 border-indigo-500 pr-2">
-                      הלוואת גישור עם החזר חודשי נמוך ופירעון ממקור חיסכון עתידי.
+                      מסלול ריבית בלבד (12-36 חודשים). מטרתו: גמישות תזרימית מקסימלית למי שיש הון נזיל.
                   </div>
                   <div>
-                    <Label className="text-slate-400 text-xs mb-1.5 block">החזר חודשי (ריבית)</Label>
-                    <Input
-                      type="number"
-                      placeholder="₪0.00"
-                      value={balloonPayment}
-                      onChange={(e) => setBalloonPayment(e.target.value)}
-                      className="bg-slate-900/50 border-slate-700 text-white focus:border-indigo-500 h-9"
-                      dir="ltr"
-                    />
+                    <Label className="text-slate-400 text-xs mb-1.5 block">סכום ההלוואה (₪)</Label>
+                    <Input type="number" placeholder="₪0.00" value={loanAmount} onChange={(e) => setLoanAmount(e.target.value)} className="bg-slate-900/50 border-slate-700 text-white focus:border-indigo-500 h-9" dir="ltr" />
                   </div>
                   <div>
-                    <Label className="text-slate-400 text-xs mb-1.5 block">הזרמת הון עתידית צפויה (₪)</Label>
-                    <Input
-                      type="number"
-                      placeholder="₪0.00"
-                      value={futureSavings}
-                      onChange={(e) => setFutureSavings(e.target.value)}
-                      className="bg-slate-900/50 border-slate-700 text-white focus:border-indigo-500 h-9"
-                      dir="ltr"
-                    />
+                    <Label className="text-slate-400 text-xs mb-1.5 block">ריבית שנתית (%)</Label>
+                    <Input type="number" placeholder="%" value={annualRate} onChange={(e) => setAnnualRate(e.target.value)} className="bg-slate-900/50 border-slate-700 text-white focus:border-indigo-500 h-9" dir="ltr" />
+                  </div>
+                  <div>
+                    <Label className="text-slate-400 text-xs mb-1.5 block">תקופה בחודשים (12-36)</Label>
+                    <Input type="number" placeholder="חודשים" value={termMonths} onChange={(e) => setTermMonths(e.target.value)} className="bg-slate-900/50 border-slate-700 text-white focus:border-indigo-500 h-9" dir="ltr" />
                   </div>
                 </TabsContent>
               </Tabs>
