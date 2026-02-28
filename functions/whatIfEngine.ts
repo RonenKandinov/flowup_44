@@ -116,6 +116,8 @@ Deno.serve(async (req) => {
         }
         simulatedMetrics.score = finalScore;
         simulatedMetrics.dti = Math.round(dtiPerc);
+        simulatedMetrics.totalFixedExpenses = Math.round(simulatedMetrics.fixedExpenses);
+        simulatedMetrics.totalLifestyleExpenses = Math.round(simulatedMetrics.totalExpenses - simulatedMetrics.fixedExpenses);
 
         // if there's negative net cash flow, status forces to RED (for the sake of the WhatIf logic)
         const finalRiskStatus = simulatedMetrics.netCashFlow < 0 ? "RED" : riskStatus;
