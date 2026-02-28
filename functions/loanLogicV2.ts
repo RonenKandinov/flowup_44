@@ -275,12 +275,31 @@ Deno.serve(async (req) => {
                 const limitedExpenses = expensesToClassify.slice(0, 100); // Prevent payload overload
                 
                 const prompt = `You are a financial underwriting classification engine.
-Classify the following transactions into one of two categories: FIXED or FLEXIBLE.
-Guidelines:
-- FIXED includes rent, mortgage, loans, insurance, utilities, subscriptions, telecom, education, health plans, recurring installments.
-- FLEXIBLE includes restaurants, entertainment, shopping, travel, leisure, irregular purchases.
-- If transaction appears monthly and similar amount, classify as FIXED.
-- If unclear, lean toward FLEXIBLE.
+
+Your goal is to classify expenses as FIXED or FLEXIBLE for credit risk analysis.
+
+Definitions:
+
+FIXED:
+- Contractual or recurring obligations
+- Monthly or periodic payments
+- Housing, loans, insurance, utilities, telecom
+- Education fees, health plans
+- Taxes and government payments
+- Subscriptions and memberships
+- Any payment that would damage credit score if unpaid
+
+FLEXIBLE:
+- Discretionary or lifestyle spending
+- Food outside home, shopping, entertainment
+- Travel, gifts, leisure
+- One-time or irregular purchases
+
+Rules:
+- If a transaction appears regularly and in similar amount -> classify as FIXED.
+- If unclear -> classify as FLEXIBLE.
+- Be conservative but realistic.
+- Return JSON only.
 
 Transactions:
 ${JSON.stringify(limitedExpenses)}
