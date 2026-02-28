@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
 import { processAndForecast } from '../utils/forecastingLogic';
 import { detectBankFromHeader, parseCSVRow, getBankDisplayName } from '../utils/bankParsers';
-import { sanitizeTransaction } from '../utils/sanitizer';
 // import { FiscalAgent } from '../protocol/core/fiscalAgent'; // Protocol moved to Dashboard level
 import * as XLSX from 'xlsx';
 
@@ -16,7 +15,7 @@ export default function CSVUploader({ onDataParsed, onClose, inline = false }) {
   const [fileName, setFileName] = useState('');
   const [detectedBank, setDetectedBank] = useState('');
 
-  const parseCSVForDatabase = (content) => {
+  const parseCSVForDatabase = async (content) => {
     // Clean BOM and normalize line endings
     const cleanedContent = content.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     const lines = cleanedContent.split('\n').filter(line => line.trim());
@@ -209,17 +208,28 @@ export default function CSVUploader({ onDataParsed, onClose, inline = false }) {
       };
 
       // 1. Sanitize (Clean Data)
-      const sanitized = sanitizeTransaction(rawTransaction);
+      // Will be bulk-sanitized via server
       
       // 2. Sign with Millennium Protocol (Attach Hidden Shadow Metadata)
       // Moved to Dashboard level for separation of concerns
-      // const secured = FiscalAgent.signTransaction(sanitized);
+      // const secured = FiscalAgent.signTransaction(rawTransaction);
 
-      transactions.push(sanitized);
+      transactions.push(rawTransaction);
       diagnostics.parsedRows.push({ lineNum: i, date: parsed.date, amount });
     }
 
-    if (transactions.length === 0) {
+    // Call server to sanitize transactions in bulk
+    let finalTransactions = transactions;
+    try {
+        const res = await base44.functions.invoke('dataSanitizer', { action: 'sanitize_transactions', transactions });
+        if (res.data?.success && res.data.transactions) {
+            finalTransactions = res.data.transactions;
+        }
+    } catch (e) {
+        console.error("Sanitization failed", e);
+    }
+
+    if (finalTransactions.length === 0) {
       // Build comprehensive error report
       const errorReport = `
 🔍 ניתוח מפורט של הקובץ:
@@ -253,9 +263,9 @@ ${diagnostics.skippedLines.length > diagnostics.failedRows.length ? '- רוב ה
     }
 
     // Sort by date and return with totals
-    const sortedTransactions = transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
+    const sortedTransactions = finalTransactions.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    console.log(`✅ הצלחה! פרסרתי ${transactions.length} עסקאות מתוך ${diagnostics.totalLines} שורות`);
+    console.log(`✅ הצלחה! פרסרתי ${finalTransactions.length} עסקאות מתוך ${diagnostics.totalLines} שורות`);
 
     return {
       transactions: sortedTransactions,
@@ -328,7 +338,7 @@ ${diagnostics.skippedLines.length > diagnostics.failedRows.length ? '- רוב ה
       }
 
       // Parse CSV for database storage
-      const parsedData = parseCSVForDatabase(content);
+      const parsedData = await parseCSVForDatabase(content);
       
       // Secure Storage: Explicitly clear raw content reference
       // content variable will be garbage collected when function scope ends
