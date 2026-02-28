@@ -29,8 +29,8 @@ export const runFiscalAgent = (transactions) => {
             
             insights.push({
                 type: 'tax_refund',
-                title: 'נמצא כסף שמגיע לך!',
-                description: `זיהיתי תרומה בסך ${Math.round(amount)} ₪ ל${tx.description}. מגיע לך החזר מס של ${Math.round(refund)} ₪.`,
+                title: 'איתור "הון חבוי": החזרי מס צפויים',
+                description: `פוטנציאל להגדלת הנטו הפנוי: זיכוי מס של כ-${Math.round(refund)} ₪ בגין תרומות לפי סעיף 46 ל${tx.description}. מומלץ להנחות את הלקוח להגיש בקשה.`,
                 monthlySavings: refund / 12, // For consistent UI sorting
                 annualImpact: refund,
                 icon: 'Heart'
