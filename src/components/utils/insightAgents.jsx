@@ -257,8 +257,8 @@ export const runSubscriptionAgent = (transactions) => {
                 if (isSubscription) {
                     insights.push({
                         type: 'money_leak',
-                        title: `🔔 מנוי חודשי: ${name}`,
-                        description: actionDesc,
+                        title: `איתור "הון חבוי": מנוי ${name}`,
+                        description: `זיהוי פוטנציאל למיקוח או מנוי לא מנוצל. ${actionDesc}`,
                         monthlySavings: avg,
                         annualImpact: avg * 12,
                         safeToSpendImpact: Math.round(avg / 30),
