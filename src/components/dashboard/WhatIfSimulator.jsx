@@ -46,7 +46,11 @@ export default function WhatIfSimulator({ onSimulate, baseMetrics }) {
         });
         if (res.data?.success) {
             setSimulationResult(res.data);
-            if (onSimulate) onSimulate(res.data.metrics);
+            if (onSimulate) onSimulate({ 
+                ...res.data.metrics, 
+                status: res.data.status,
+                score: res.data.score
+            });
         } else {
             toast.error(res.data?.error || 'שגיאה בסימולציה');
         }
