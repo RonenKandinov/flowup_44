@@ -38,6 +38,125 @@ function getStandardDeviation(array) {
     return Math.sqrt(variance);
 }
 
+// --- QUALITY ASSURANCE & EXTRACTION ---
+function extractBalance(acc) {
+    let balance = 0;
+    let extractionPath = 'none';
+    let rawValues = {};
+
+    try {
+        if (!acc || typeof acc !== 'object') return { balance: 0, path: 'invalid_account_obj' };
+
+        // 1. Array of balances (Standard Open Banking)
+        if (Array.isArray(acc.balances) && acc.balances.length > 0) {
+            rawValues.balances = acc.balances;
+            
+            // Priority 1: interimAvailable or available
+            let targetBal = acc.balances.find(b => 
+                b.balanceType === "interimAvailable" || 
+                b.type === "interimAvailable" ||
+                b.balanceType === "available" ||
+                b.type === "available"
+            );
+            
+            // Priority 2: closingBooked or booked
+            if (!targetBal) {
+                targetBal = acc.balances.find(b => 
+                    b.balanceType === "closingBooked" || 
+                    b.type === "closingBooked" ||
+                    b.balanceType === "booked" ||
+                    b.type === "booked"
+                );
+            }
+            
+            // Fallback: first element
+            if (!targetBal) targetBal = acc.balances[0];
+
+            if (targetBal) {
+                if (targetBal?.amount?.amount !== undefined) {
+                    balance = Number(targetBal.amount.amount);
+                    extractionPath = 'balances[].amount.amount';
+                } else if (targetBal?.amount !== undefined) {
+                    balance = Number(targetBal.amount);
+                    extractionPath = 'balances[].amount';
+                } else if (targetBal?.value !== undefined) {
+                    balance = Number(targetBal.value);
+                    extractionPath = 'balances[].value';
+                }
+            }
+        } 
+        // 2. Direct balance object/value
+        else if (acc.balance !== undefined) {
+            rawValues.balance = acc.balance;
+            if (typeof acc.balance === 'object' && acc.balance !== null) {
+                if (acc.balance.amount !== undefined) {
+                    balance = Number(acc.balance.amount);
+                    extractionPath = 'balance.amount';
+                } else if (acc.balance.value !== undefined) {
+                    balance = Number(acc.balance.value);
+                    extractionPath = 'balance.value';
+                }
+            } else {
+                balance = Number(acc.balance);
+                extractionPath = 'balance';
+            }
+        } 
+        // 3. currentBalance
+        else if (acc.currentBalance !== undefined) {
+            rawValues.currentBalance = acc.currentBalance;
+            balance = Number(acc.currentBalance);
+            extractionPath = 'currentBalance';
+        } 
+        // 4. availableBalance
+        else if (acc.availableBalance !== undefined) {
+            rawValues.availableBalance = acc.availableBalance;
+            balance = Number(acc.availableBalance);
+            extractionPath = 'availableBalance';
+        }
+
+        // Edge case handling: NaN or Null
+        if (isNaN(balance) || balance === null) {
+            console.warn(`[QA Warning] Balance evaluated to NaN/null. Raw:`, JSON.stringify(rawValues));
+            balance = 0;
+            extractionPath += '_failed_nan';
+        }
+        
+    } catch (err) {
+        console.error(`[QA Error] Extraction crashed: ${err.message}`, acc);
+        balance = 0;
+        extractionPath = 'error_catch';
+    }
+
+    return { balance, path: extractionPath };
+}
+
+// --- UNIT TESTS (Run on load) ---
+function runBalanceExtractionTests() {
+    const testCases = [
+        { name: "OB format 1", data: { balances: [{ balanceType: "interimAvailable", amount: { amount: "100.5" } }] }, expected: 100.5 },
+        { name: "OB format 2", data: { balances: [{ type: "closingBooked", amount: 200 }] }, expected: 200 },
+        { name: "Direct balance obj", data: { balance: { amount: "300" } }, expected: 300 },
+        { name: "Direct balance num", data: { balance: 400 }, expected: 400 },
+        { name: "currentBalance", data: { currentBalance: "500" }, expected: 500 },
+        { name: "availableBalance", data: { availableBalance: 600 }, expected: 600 },
+        { name: "Empty/Invalid", data: {}, expected: 0 },
+        { name: "Corrupted amount", data: { balance: "N/A" }, expected: 0 },
+    ];
+    
+    let passed = 0;
+    testCases.forEach(tc => {
+        const result = extractBalance(tc.data);
+        if (result.balance === tc.expected) {
+            passed++;
+        } else {
+            console.error(`[Test Failed] ${tc.name}: Expected ${tc.expected}, got ${result.balance} (Path: ${result.path})`);
+        }
+    });
+    console.log(`[QA Tests] ${passed}/${testCases.length} balance extraction unit tests passed.`);
+}
+// Execute tests
+runBalanceExtractionTests();
+
 // --- MAIN EDGE FUNCTION ---
 
 Deno.serve(async (req) => {
