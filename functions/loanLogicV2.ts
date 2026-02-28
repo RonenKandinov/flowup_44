@@ -255,6 +255,71 @@ Deno.serve(async (req) => {
         const monthlyData = {};
         const today = new Date();
 
+        // --- HYBRID AI CLASSIFICATION PRE-PROCESSING ---
+        const uniqueExpensesMap = new Map();
+        transactions.forEach((tx) => {
+            const amount = Number(tx?.amount?.chargedAmount?.amount || tx?.amount || 0);
+            if (isNaN(amount) || amount >= 0) return;
+            const category = (tx?.category?.main || tx?.category || "").toLowerCase();
+            const txDesc = String(tx?.description || "").toLowerCase();
+            const key = `${txDesc}|${category}`;
+            if (!uniqueExpensesMap.has(key)) {
+                uniqueExpensesMap.set(key, { desc: txDesc, category });
+            }
+        });
+
+        let aiClassifications = {};
+        if (uniqueExpensesMap.size > 0) {
+            try {
+                const expensesToClassify = Array.from(uniqueExpensesMap.values()).map((e, idx) => ({ id: idx, ...e }));
+                const limitedExpenses = expensesToClassify.slice(0, 100); // Prevent payload overload
+                
+                const prompt = `You are a financial underwriting classification engine.
+Classify the following transactions into one of two categories: FIXED or FLEXIBLE.
+Guidelines:
+- FIXED includes rent, mortgage, loans, insurance, utilities, subscriptions, telecom, education, health plans, recurring installments.
+- FLEXIBLE includes restaurants, entertainment, shopping, travel, leisure, irregular purchases.
+- If transaction appears monthly and similar amount, classify as FIXED.
+- If unclear, lean toward FLEXIBLE.
+
+Transactions:
+${JSON.stringify(limitedExpenses)}
+`;
+                
+                const llmRes = await base44.integrations.Core.InvokeLLM({
+                    prompt,
+                    response_json_schema: {
+                        type: "object",
+                        properties: {
+                            classifications: {
+                                type: "array",
+                                items: {
+                                    type: "object",
+                                    properties: {
+                                        id: { type: "number" },
+                                        classification: { type: "string", enum: ["FIXED", "FLEXIBLE"] }
+                                    },
+                                    required: ["id", "classification"]
+                                }
+                            }
+                        },
+                        required: ["classifications"]
+                    }
+                });
+                
+                if (llmRes && llmRes.classifications) {
+                    llmRes.classifications.forEach(c => {
+                        const exp = limitedExpenses.find(e => e.id === c.id);
+                        if (exp) {
+                            aiClassifications[`${exp.desc}|${exp.category}`] = c.classification === "FIXED";
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error("AI Classification failed, falling back to keywords:", err.message);
+            }
+        }
+
         transactions.forEach((tx) => {
             const amount = Number(tx?.amount?.chargedAmount?.amount || tx?.amount || 0);
             if (isNaN(amount)) return;
