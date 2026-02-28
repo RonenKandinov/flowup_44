@@ -27,6 +27,12 @@ Deno.serve(async (req) => {
                 success: true, 
                 transaction: { ...payload.transaction, description: sanitizeText(payload.transaction.description) } 
             });
+        } else if (payload.action === 'sanitize_transactions') {
+            const sanitizedTxns = payload.transactions.map(tx => ({ 
+                ...tx, 
+                description: sanitizeText(tx.description) 
+            }));
+            return Response.json({ success: true, transactions: sanitizedTxns });
         }
 
         return Response.json({ error: 'Invalid action' }, { status: 400 });
