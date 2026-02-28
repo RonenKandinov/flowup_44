@@ -289,7 +289,7 @@ export const processAndForecast = (inputData, assets = null) => {
             rawScore: Math.round(rawForecast),
             avgDailySpending: Math.round(avgDailySpending),
             graphPoints,
-            smartInsights: runAgents(allTransactions),
+            smartInsights: [], // Insights are now generated server-side for modularity
             expenseAnalysis: { 
                 fixed: Math.round(fixedExpenses), 
                 flex: Math.round(flexExpenses),
