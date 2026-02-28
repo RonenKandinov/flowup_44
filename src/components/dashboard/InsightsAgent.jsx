@@ -43,12 +43,12 @@ export default function InsightsAgent({ analysis }) {
                             <div className="absolute inset-0 bg-indigo-500 blur-sm opacity-20 animate-pulse rounded-full" />
                             <BrainCircuit className="w-5 h-5 text-indigo-400 relative z-10" />
                         </div>
-                        <span className="text-sm font-semibold text-slate-200">AI Credit Analyst</span>
+                        <span className="text-sm font-semibold text-slate-200">FlowUp AI Analyst</span>
                     </div>
                     
                     <div className="flex items-center gap-2">
                         <span className="text-[10px] font-mono text-indigo-400 bg-indigo-950/30 px-2 py-0.5 rounded-full border border-indigo-900/30" dir="ltr">
-                            DTI: {analysis.structural_dti}%
+                            DTI: {analysis.metrics?.structural_dti || 0}%
                         </span>
                         {isMobile && (
                             isOpen ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />
@@ -78,20 +78,41 @@ export default function InsightsAgent({ analysis }) {
                                 <div className="grid grid-cols-2 gap-2">
                                     <div className="bg-slate-800/40 p-2.5 rounded-lg border border-slate-700/50">
                                         <p className="text-[10px] text-slate-500 mb-0.5">Structural DTI</p>
-                                        <p className="text-sm font-mono text-white">{analysis.structural_dti}%</p>
+                                        <p className="text-sm font-mono text-white">{analysis.metrics?.structural_dti || 0}%</p>
                                     </div>
                                     <div className="bg-slate-800/40 p-2.5 rounded-lg border border-slate-700/50">
                                         <p className="text-[10px] text-slate-500 mb-0.5">Adjusted DTI</p>
-                                        <p className="text-sm font-mono text-emerald-400">{analysis.adjusted_dti}%</p>
+                                        <p className="text-sm font-mono text-emerald-400">{analysis.metrics?.adjusted_dti || 0}%</p>
                                     </div>
                                     <div className="bg-slate-800/40 p-2.5 rounded-lg border border-slate-700/50">
                                         <p className="text-[10px] text-slate-500 mb-0.5">Liquidity Buffer</p>
-                                        <p className="text-sm font-mono text-white">{analysis.liquidity_buffer_months} mo</p>
+                                        <p className="text-sm font-mono text-white">{analysis.metrics?.liquidity_buffer_months || 0} mo</p>
                                     </div>
                                     <div className="bg-slate-800/40 p-2.5 rounded-lg border border-slate-700/50">
-                                        <p className="text-[10px] text-slate-500 mb-0.5">Volatility Score</p>
-                                        <p className="text-sm font-mono text-amber-400">{analysis.volatility_score}/10</p>
+                                        <p className="text-[10px] text-slate-500 mb-0.5">Income Volatility</p>
+                                        <p className="text-sm font-mono text-amber-400">{analysis.metrics?.income_volatility || 0}</p>
                                     </div>
+                                </div>
+
+                                <div>
+                                    <div className="flex items-center gap-2 mb-1.5">
+                                        <FileText className="w-4 h-4 text-indigo-400" />
+                                        <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Capacity Interpretation</h4>
+                                    </div>
+                                    <p className="text-sm text-slate-400 leading-relaxed bg-slate-800/30 p-3 rounded-lg border border-slate-700/50">
+                                        {analysis.capacity_interpretation}
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <div className="flex items-center gap-2 mb-1.5">
+                                        <Activity className="w-4 h-4 text-indigo-400" />
+                                        <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Stability & Liquidity</h4>
+                                    </div>
+                                    <p className="text-sm text-slate-400 leading-relaxed bg-slate-800/30 p-3 rounded-lg border border-slate-700/50">
+                                        <span className="block mb-2">{analysis.stability_assessment}</span>
+                                        <span>{analysis.liquidity_analysis}</span>
+                                    </p>
                                 </div>
 
                                 <div>
