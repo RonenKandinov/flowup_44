@@ -7,7 +7,6 @@
  */
 
 import { detectBankFromHeader, parseCSVRow } from './bankParsers';
-import { runAgents } from './insightAgents';
 import { runMonteCarlo } from './riskEngine';
 
 // Safe number conversion utility
