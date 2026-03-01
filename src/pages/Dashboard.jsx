@@ -29,7 +29,6 @@ export default function Dashboard() {
   const [engineData, setEngineData] = useState(null);
   const [isStorageLoading, setIsStorageLoading] = useState(true);
   const [simulatedMetrics, setSimulatedMetrics] = useState(null);
-  const [serverInsights, setServerInsights] = useState(null);
   
   const { sync, data: loanLogicData, isLoading: isSyncing, metrics: loanMetrics } = useTransactionSync();
   const { metrics: originalLoanMetrics, isLoading: isLoanMetricsLoading, error: loanMetricsError, refetch: refetchLoanMetrics } = useLoanMetrics();
