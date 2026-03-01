@@ -79,9 +79,9 @@ ${JSON.stringify(underwritingMetrics, null, 2)}
             console.error("LLM failed, using deterministic fallback", llmError);
             llmRes = {
                 risk_tier: current_risk_tier === "High" ? "Red" : (current_risk_tier === "Medium" ? "Orange" : "Green"),
-                structural_dti_commentary: `Structural DTI is currently at ${(structural_dti * 100).toFixed(1)}%.`,
-                behavioral_flexibility_margin: `Adjusted DTI is ${(adjusted_dti * 100).toFixed(1)}%, indicating ${Math.max(0, 100 - (adjusted_dti * 100)).toFixed(1)}% flexibility.`,
-                liquidity_cushion_assessment: `Estimated liquidity buffer is ${liquidity_buffer_months.toFixed(1)} months.`,
+                structural_dti_commentary: `Structural DTI is currently at ${underwritingMetrics.structural_dti}%.`,
+                behavioral_flexibility_margin: `Adjusted DTI is ${underwritingMetrics.adjusted_dti}%, indicating ${Math.max(0, 100 - underwritingMetrics.adjusted_dti).toFixed(1)}% flexibility.`,
+                liquidity_cushion_assessment: `Estimated liquidity buffer is ${underwritingMetrics.liquidity_buffer_months} months.`,
                 recommended_loan_structure: current_risk_tier === "High" ? "Extended 72" : (current_risk_tier === "Medium" ? "Balloon" : "Standard"),
                 approval_rationale: "Deterministic fallback applied due to analysis engine timeout. Metrics indicate standard processing.",
                 risk_flags: current_risk_tier === "High" ? ["High Structural Load", "Stress DTI > 40%"] : []
