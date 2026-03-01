@@ -154,19 +154,19 @@ export default function Dashboard() {
   }, [shadowEntries]);
 
   // Fetch AI Insights from server using React Query to avoid infinite loops
-  const txnsForInsights = localData?.transactions || transactions;
+  const metricsForInsights = newLoanMetrics || (loanLogicData ? loanMetrics : null);
   
   const { data: serverInsightsData, isLoading: isInsightsLoading, error: insightsError } = useQuery({
-    queryKey: ['ai-insights', txnsForInsights?.length, txnsForInsights?.[0]?.date],
+    queryKey: ['ai-insights', JSON.stringify(metricsForInsights)],
     queryFn: async () => {
-        if (!txnsForInsights || txnsForInsights.length === 0) return { error: "No transactions" };
-        const res = await base44.functions.invoke('insightEngine', { transactions: txnsForInsights });
+        if (!metricsForInsights) return { error: "No risk metrics available" };
+        const res = await base44.functions.invoke('insightEngine', { metrics: metricsForInsights });
         if (res.data?.success && res.data?.insights) {
             return res.data.insights;
         }
         return { error: "Failed to generate insights" };
     },
-    enabled: !!(txnsForInsights && txnsForInsights.length > 0 && hasData),
+    enabled: !!(metricsForInsights && hasData),
     staleTime: 1000 * 60 * 60, // Cache for 1 hour to prevent re-fetching on focus
     refetchOnWindowFocus: false, // Don't refetch on window focus
   });
