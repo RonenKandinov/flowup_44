@@ -627,7 +627,7 @@ export default function Dashboard() {
                 {/* InsightsAgent: Mobile 3, Desktop 3 (Bottom Left) */}
                 <div className="order-3 lg:order-3 space-y-4">
                      <div className="h-auto">
-                        <InsightsAgent analysis={serverInsights} />
+                        <InsightsAgent analysis={serverInsights} isLoading={isInsightsLoading} />
                      </div>
                 </div>
 
