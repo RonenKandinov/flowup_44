@@ -81,7 +81,7 @@ export default function Dashboard() {
     enabled: !!user?.id,
     queryFn: async () => {
         const conns = await base44.entities.OpenFinanceConnection.filter({ psu_id: user.id, status: 'ACTIVE' }, '-created_date', 1);
-        return conns[0];
+        return conns[0] || null;
     }
   });
 
