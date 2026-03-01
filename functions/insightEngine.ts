@@ -9,67 +9,24 @@ Deno.serve(async (req) => {
         }
 
         const body = await req.json();
-        const transactions = body?.transactions || [];
+        const inputMetrics = body?.metrics;
 
-        if (!Array.isArray(transactions) || transactions.length === 0) {
-            return Response.json({ success: false, error: "Valid transactions array required" });
+        if (!inputMetrics) {
+            return Response.json({ success: false, error: "Valid metrics object required from Risk Core" });
         }
 
-        const processedTransactions = transactions.slice(0, 150).map(t => {
-            const amount = t.debit !== undefined ? -t.debit : (t.credit !== undefined ? t.credit : t.amount);
-            return {
-                date: t.date ? new Date(t.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-                amount: amount,
-                desc: String(t.description || ""),
-            };
-        });
-
-        // Calculate underwriting metrics
-        let totalIncome = 0;
-        let totalExpenses = 0;
-        let fixedExpenses = 0;
+        // Translate the Risk Snapshot (from loanLogicV2) into the Underwriting Metrics structure
+        const current_risk_tier = inputMetrics.score < 55 ? "High" : (inputMetrics.score < 80 ? "Medium" : "Low");
         
-        const FIXED_KEYWORDS = ['שכר דירה', 'משכנתא', 'ארנונה', 'חשמל', 'מים', 'גז', 'ביטוח', 'הלוואה'];
-        
-        processedTransactions.forEach(t => {
-            if (t.amount > 0) {
-                totalIncome += t.amount;
-            } else {
-                const expense = Math.abs(t.amount);
-                totalExpenses += expense;
-                if (FIXED_KEYWORDS.some(k => t.desc.includes(k))) {
-                    fixedExpenses += expense;
-                }
-            }
-        });
-
-        const dates = processedTransactions.map(t => new Date(t.date).getTime()).filter(d => !isNaN(d));
-        let monthsSpan = 1;
-        if (dates.length > 0) {
-            const minDate = Math.min(...dates);
-            const maxDate = Math.max(...dates);
-            monthsSpan = Math.max(1, (maxDate - minDate) / (1000 * 60 * 60 * 24 * 30));
-        }
-
-        const avg_monthly_income = totalIncome / monthsSpan;
-        const avg_monthly_expenses = totalExpenses / monthsSpan;
-        const structural_fixed_load = fixedExpenses / monthsSpan;
-        
-        const structural_dti = avg_monthly_income > 0 ? (structural_fixed_load / avg_monthly_income) : 0;
-        const adjusted_dti = avg_monthly_income > 0 ? (avg_monthly_expenses / avg_monthly_income) : 0;
-        const liquidity_buffer_months = avg_monthly_expenses > 0 ? ((totalIncome - totalExpenses) / avg_monthly_expenses) : 0;
-        const stress_dti_after_10pct_income_drop = (avg_monthly_income * 0.9) > 0 ? (structural_fixed_load / (avg_monthly_income * 0.9)) : 0;
-        const current_risk_tier = structural_dti > 0.4 ? "High" : (structural_dti > 0.25 ? "Medium" : "Low");
-
         const underwritingMetrics = {
-            avg_monthly_income: Math.round(avg_monthly_income),
-            avg_monthly_expenses: Math.round(avg_monthly_expenses),
-            structural_fixed_load: Math.round(structural_fixed_load),
-            structural_dti: Number((structural_dti * 100).toFixed(1)),
-            adjusted_dti: Number((adjusted_dti * 100).toFixed(1)),
-            liquidity_buffer_months: Number(liquidity_buffer_months.toFixed(1)),
-            income_volatility: 0.15,
-            stress_dti_after_10pct_income_drop: Number((stress_dti_after_10pct_income_drop * 100).toFixed(1)),
+            avg_monthly_income: inputMetrics.totalIncome || 0,
+            avg_monthly_expenses: inputMetrics.totalExpenses || 0,
+            structural_fixed_load: inputMetrics.fixedExpenses || 0,
+            structural_dti: inputMetrics.dti || 0,
+            adjusted_dti: inputMetrics.totalIncome > 0 ? Number(((inputMetrics.totalExpenses / inputMetrics.totalIncome) * 100).toFixed(1)) : 0,
+            liquidity_buffer_months: inputMetrics.runway || 0,
+            income_volatility: 0.15, // Currently fixed in legacy logic, could be derived if needed
+            stress_dti_after_10pct_income_drop: inputMetrics.totalIncome > 0 ? Number(((inputMetrics.fixedExpenses / (inputMetrics.totalIncome * 0.9)) * 100).toFixed(1)) : 0,
             current_risk_tier
         };
 
