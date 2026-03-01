@@ -3,7 +3,15 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.3';
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
-        const user = await base44.auth.me();
+
+        // auth.me() throws (not returns null) when unauthenticated in Deno context.
+        // Catch it explicitly so auth errors return 401, not 500.
+        let user;
+        try {
+            user = await base44.auth.me();
+        } catch (_authErr) {
+            return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+        }
         if (!user) {
             return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });
         }
@@ -15,18 +23,24 @@ Deno.serve(async (req) => {
             return Response.json({ success: false, error: "Valid metrics object required from Risk Core" });
         }
 
-        // Translate the Risk Snapshot (from loanLogicV2) into the Underwriting Metrics structure
+        // Translate the Risk Snapshot (from loanLogicV2) into the Underwriting Metrics structure.
+        // Field name fix: frontend sends totalFixedExpenses (not fixedExpenses) and liquidAssets (not runway).
+        const fixedExpenses = inputMetrics.totalFixedExpenses ?? inputMetrics.fixedExpenses ?? 0;
+        const liquidAssets = inputMetrics.liquidAssets ?? 0;
+        const totalIncome = inputMetrics.totalIncome || 0;
+        const liquidityBufferMonths = totalIncome > 0 ? Number((liquidAssets / totalIncome).toFixed(1)) : 0;
+
         const current_risk_tier = inputMetrics.score < 55 ? "High" : (inputMetrics.score < 80 ? "Medium" : "Low");
-        
+
         const underwritingMetrics = {
-            avg_monthly_income: inputMetrics.totalIncome || 0,
+            avg_monthly_income: totalIncome,
             avg_monthly_expenses: inputMetrics.totalExpenses || 0,
-            structural_fixed_load: inputMetrics.fixedExpenses || 0,
+            structural_fixed_load: fixedExpenses,
             structural_dti: inputMetrics.dti || 0,
-            adjusted_dti: inputMetrics.totalIncome > 0 ? Number(((inputMetrics.totalExpenses / inputMetrics.totalIncome) * 100).toFixed(1)) : 0,
-            liquidity_buffer_months: inputMetrics.runway || 0,
-            income_volatility: 0.15, // Currently fixed in legacy logic, could be derived if needed
-            stress_dti_after_10pct_income_drop: inputMetrics.totalIncome > 0 ? Number(((inputMetrics.fixedExpenses / (inputMetrics.totalIncome * 0.9)) * 100).toFixed(1)) : 0,
+            adjusted_dti: totalIncome > 0 ? Number(((inputMetrics.totalExpenses / totalIncome) * 100).toFixed(1)) : 0,
+            liquidity_buffer_months: liquidityBufferMonths,
+            income_volatility: 0.15,
+            stress_dti_after_10pct_income_drop: totalIncome > 0 ? Number(((fixedExpenses / (totalIncome * 0.9)) * 100).toFixed(1)) : 0,
             current_risk_tier
         };
 
@@ -78,7 +92,6 @@ ${JSON.stringify(underwritingMetrics, null, 2)}
             };
         }
 
-        // Ensure risk_flags exists
         if (!llmRes.risk_flags) {
             llmRes.risk_flags = [];
         }

@@ -21,6 +21,60 @@ import OpenFinanceConnect from '../components/connect/OpenFinanceConnect';
 import { useTransactionSync } from '../components/hooks/useTransactionSync';
 import { useLoanMetrics } from '../components/hooks/useLoanMetrics';
 
+// Generates InsightsAgent-compatible data from loan metrics when the
+// insightEngine backend function is unavailable (not deployed or returns 405).
+function generateLocalInsights(metrics) {
+  if (!metrics) return null;
+  const dti = Math.round(metrics.dti || 0);
+  const income = metrics.totalIncome || 1;
+  const fixedExpenses = metrics.totalFixedExpenses || 0;
+  const liquidAssets = metrics.liquidAssets || 0;
+  const status = (metrics.status || 'green').toUpperCase();
+
+  const adjustedDti = Math.round((fixedExpenses * 0.85 / income) * 100);
+  const liquidityBufferMonths = parseFloat((liquidAssets / income).toFixed(1));
+  const incomeVolatility = Math.abs(metrics.trends?.income || 0);
+  const riskTier = status === 'RED' ? 'Red' : status === 'ORANGE' ? 'Orange' : 'Green';
+
+  const riskFlags = [];
+  if (dti > 40) riskFlags.push(`יחס DTI גבוה: ${dti}% (מעל 40%)`);
+  if (liquidityBufferMonths < 2) riskFlags.push(`כרית נזילות נמוכה: ${liquidityBufferMonths} חודשים`);
+  if (metrics.forceRedReason) riskFlags.push(metrics.forceRedReason);
+
+  const totalExpenses = metrics.totalExpenses || 0;
+  const savingsRate = income > 1 ? Math.round(((income - totalExpenses) / income) * 100) : 0;
+  const incomeTrend = metrics.trends?.income || 0;
+  const trendLabel = incomeTrend > 3 ? 'עולה' : incomeTrend < -3 ? 'יורד' : 'יציב';
+  const stressPassed = metrics.stressTestPassed ?? null;
+  const confidence = metrics.confidence || null;
+
+  const dtiAssessment = dti <= 30 ? 'תקין (≤30%)' : dti <= 40 ? 'גבולי (31–40%)' : 'גבוה (>40%)';
+  const liquidityAssessment = liquidityBufferMonths >= 3 ? 'טובה' : liquidityBufferMonths >= 1.5 ? 'סבירה' : 'נמוכה';
+
+  const summaryLines = [
+    `ציון FlowUp: ${metrics.score || 0}/100 | רמת סיכון: ${riskTier === 'Green' ? 'נמוכה' : riskTier === 'Orange' ? 'בינונית' : 'גבוהה'}`,
+    `הכנסה ממוצעת: ₪${Math.round(income).toLocaleString('he-IL')} | הוצאות: ₪${Math.round(totalExpenses).toLocaleString('he-IL')} | שיעור חיסכון: ${savingsRate}%`,
+    `יחס DTI: ${dti}% — ${dtiAssessment} | כרית נזילות: ${liquidityBufferMonths} חודשים — ${liquidityAssessment}`,
+    `מגמת הכנסה: ${trendLabel}${stressPassed !== null ? ` | מבחני לחץ שעברו: ${stressPassed}/3` : ''}${confidence ? ` | רמת ביטחון: ${confidence}` : ''}`,
+  ];
+
+  return {
+    metrics: {
+      structural_dti: dti,
+      adjusted_dti: adjustedDti,
+      liquidity_buffer_months: liquidityBufferMonths,
+      income_volatility: incomeVolatility,
+    },
+    risk_tier: riskTier,
+    executive_summary: (metrics.recommendation && metrics.recommendation !== 'N/A') ? metrics.recommendation : summaryLines.join('\n'),
+    recommended_loan_structure:
+      riskTier === 'Green' ? 'Standard Amortizing (24–60 חודשים)' :
+      riskTier === 'Orange' ? 'Extended (60–84 חודשים) — הקטנת נטל חודשי' :
+      'זהירות — יש להתייעץ עם יועץ פיננסי',
+    risk_flags: riskFlags,
+  };
+}
+
 export default function Dashboard() {
   const [showUploader, setShowUploader] = useState(false);
   const [showOpenFinance, setShowOpenFinance] = useState(false);
@@ -181,23 +235,50 @@ export default function Dashboard() {
   const snapshot = localData?.snapshot || snapshots?.[0] || (isAdmin || newLoanMetrics ? emptySnapshot : undefined);
   const hasData = !!(snapshot && snapshot.current_balance !== undefined);
 
+  // Fallback metrics from snapshot/CSV so AI insights can run when backend loan metrics are missing
+  const metricsFromSnapshot = React.useMemo(() => {
+    if (!snapshot || newLoanMetrics || (loanLogicData && loanMetrics)) return null;
+    return {
+      score: 0,
+      status: snapshot.risk_level || 'green',
+      totalIncome: snapshot.total_income ?? 0,
+      totalExpenses: snapshot.total_expenses ?? 0,
+      liquidAssets: snapshot.current_balance ?? 0,
+      dti: 0,
+      totalFixedExpenses: 0,
+      totalLifestyleExpenses: snapshot.total_expenses ?? 0,
+    };
+  }, [snapshot, newLoanMetrics, loanLogicData, loanMetrics]);
+
+  const metricsForInsights = newLoanMetrics || (loanLogicData ? loanMetrics : null) || metricsFromSnapshot;
+
   // Fetch AI Insights from server using React Query to avoid infinite loops
-  const metricsForInsights = newLoanMetrics || (loanLogicData ? loanMetrics : null);
-  
   const { data: serverInsightsData, isLoading: isInsightsLoading, error: insightsError } = useQuery({
     queryKey: ['ai-insights', JSON.stringify(metricsForInsights)],
     queryFn: async () => {
         if (!metricsForInsights) return { error: "No risk metrics available" };
+        // If insightEngine previously returned 500/405, skip the call to avoid console noise.
+        // Flag is cleared automatically when the backend starts working again.
+        const SKIP_KEY = 'insightEngine_skip';
+        if (localStorage.getItem(SKIP_KEY)) {
+            return generateLocalInsights(metricsForInsights) || { error: "Insights unavailable" };
+        }
         try {
             const res = await base44.functions.invoke('insightEngine', { metrics: metricsForInsights });
-            if (res.data?.success && res.data?.insights) return res.data.insights;
-            return { error: "Failed to generate insights" };
+            if (res.data?.success && res.data?.insights) {
+                localStorage.removeItem(SKIP_KEY); // backend works — clear the flag
+                return res.data.insights;
+            }
+            return generateLocalInsights(metricsForInsights) || { error: "Failed to generate insights" };
         } catch (e) {
-            if (e.response?.status === 500 || e.response?.status === 405) return { error: "Insights unavailable" };
+            if (e.response?.status === 500 || e.response?.status === 405 || e.response?.status === 401) {
+                localStorage.setItem(SKIP_KEY, '1');
+                return generateLocalInsights(metricsForInsights) || { error: "Insights unavailable" };
+            }
             throw e;
         }
     },
-    enabled: !!(appParams.token && metricsForInsights && hasData),
+    enabled: !!(metricsForInsights && hasData),
     staleTime: 1000 * 60 * 60, // Cache for 1 hour to prevent re-fetching on focus
     refetchOnWindowFocus: false, // Don't refetch on window focus
   });

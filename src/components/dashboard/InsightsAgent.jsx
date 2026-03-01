@@ -166,7 +166,7 @@ function Section({ title, children }) {
     return (
         <div className="bg-slate-800/30 p-3 rounded-lg border border-slate-700/50">
             <p className="text-[10px] text-slate-500 uppercase mb-1">{title}</p>
-            <p className="text-sm text-slate-300 leading-relaxed">{children}</p>
+            <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-line">{children}</p>
         </div>
     );
 }
