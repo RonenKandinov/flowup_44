@@ -1,0 +1,10 @@
+---
+description: Reuse existing code and avoid breaking changes
+globs:
+---
+
+# Reuse and safety
+
+- **No duplicate:** Before adding or creating anything, search for existing logic, components, or config. Reuse and extend; do not copy.
+- **Minimum change:** After each prompt, make the smallest set of edits that achieve the goal. Do not refactor unrelated code or change behavior that wasn’t requested.
+- **Don’t break:** Ensure the app still runs and key flows work after changes. Prefer additive changes over removals or rewrites unless explicitly asked.

@@ -1,0 +1,14 @@
+---
+description: Basic project layout and entry points for navigation
+globs: 
+---
+
+# FlowUp_base – navigation
+
+- **Entry:** `index.html` → `src/main.jsx` (React + Vite)
+- **Config:** `vite.config.js` (Vite + @base44/vite-plugin, React)
+- **Source:** `src/` – components, api, lib, routes; UI in `src/components`
+- **Env:** `src/lib/app-params.js` reads Base44 config (appId, appBaseUrl, functionsVersion)
+- **Run:** `npm run dev` – dev server; `npm run build` then `npm run preview` for production
+
+Use this to find where to add or change code; prefer existing patterns and folders.

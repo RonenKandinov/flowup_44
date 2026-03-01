@@ -1,10 +1,10 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Building2, ShieldCheck, Lock, ArrowLeft, Eye, Zap } from 'lucide-react';
+import { Building2, ShieldCheck, Lock, Upload, Eye, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import OpenFinanceConnect from '@/components/connect/OpenFinanceConnect';
 
-export default function EmptyState({ onDataParsed }) {
+export default function EmptyState({ onDataParsed, onUploadCSV }) {
   const features = [
     { icon: Zap, text: 'חיתום חכם מבוסס תזרים (Traffic Light)' },
     { icon: Eye, text: 'מנוע תובנות לאיתור הון חבוי' },
@@ -17,9 +17,22 @@ export default function EmptyState({ onDataParsed }) {
       animate={{ opacity: 1, y: 0 }}
       className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center"
     >
-      <div className="mb-8 w-full max-w-md">
+      <div className="mb-6 w-full max-w-md">
         <OpenFinanceConnect onConnected={onDataParsed} />
       </div>
+      {onUploadCSV && (
+        <>
+          <p className="text-slate-500 text-sm mb-2">או</p>
+          <Button
+            variant="outline"
+            className="mb-8 bg-slate-800/50 border-slate-600 text-slate-200 hover:bg-slate-700"
+            onClick={onUploadCSV}
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            העלה קובץ CSV / אקסל
+          </Button>
+        </>
+      )}
 
       {/* Features */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 w-full max-w-3xl mt-8">

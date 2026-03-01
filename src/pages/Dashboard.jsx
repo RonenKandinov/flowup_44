@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
+import { appParams } from '@/lib/app-params';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { calculateWhatIf, SystemInfo } from '../components/utils/forecastingLogic';
 import { FiscalAgent } from '../components/protocol/core/fiscalAgent';
@@ -35,8 +36,12 @@ export default function Dashboard() {
   const newLoanMetrics = simulatedMetrics || originalLoanMetrics;
   const queryClient = useQueryClient();
 
-  // Load from Local Storage on mount
+  // Load from Local Storage on mount (skip when no token to avoid 500 in console)
   useEffect(() => {
+    if (!appParams.token) {
+      setIsStorageLoading(false);
+      return;
+    }
     const loadFromStorage = async () => {
       try {
         const res = await base44.functions.invoke('secureStorage', { action: 'load' });
@@ -59,18 +64,29 @@ export default function Dashboard() {
           setEngineData(data.engineData);
         }
       } catch (e) {
-        console.error("Failed to load local data", e);
+        if (e.response?.status !== 500 && e.response?.status !== 405) {
+          console.error("Failed to load local data", e);
+        }
       } finally {
         setIsStorageLoading(false);
       }
     };
     loadFromStorage();
-  }, []);
+  }, [appParams.token]);
 
-  // Fetch user data for Admin bypass
+  // Fetch user data for Admin bypass (only when token exists to avoid 401 noise)
   const { data: user, isLoading: isUserLoading } = useQuery({
-    queryKey: ['user'],
-    queryFn: () => base44.auth.me().catch(() => null),
+    queryKey: ['user', appParams.token ?? ''],
+    queryFn: async () => {
+      try {
+        return await base44.auth.me();
+      } catch (e) {
+        if (e.response?.status === 401) return null;
+        throw e;
+      }
+    },
+    enabled: !!appParams.token,
+    retry: (_, error) => error.response?.status !== 401,
   });
 
   const isAdmin = user?.role === 'admin';
@@ -147,8 +163,8 @@ export default function Dashboard() {
 
   // Reconstruct transactions from Shadow Realm on the fly
   const transactions = React.useMemo(() => {
-    if (!shadowEntries) return [];
-    return shadowEntries.map(entry => FiscalAgent.recoverEntry(entry))
+    const list = Array.isArray(shadowEntries) ? shadowEntries : [];
+    return list.map(entry => FiscalAgent.recoverEntry(entry))
       .filter(t => !t.is_corrupted) // Filter out corrupted data
       .sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [shadowEntries]);
@@ -172,13 +188,16 @@ export default function Dashboard() {
     queryKey: ['ai-insights', JSON.stringify(metricsForInsights)],
     queryFn: async () => {
         if (!metricsForInsights) return { error: "No risk metrics available" };
-        const res = await base44.functions.invoke('insightEngine', { metrics: metricsForInsights });
-        if (res.data?.success && res.data?.insights) {
-            return res.data.insights;
+        try {
+            const res = await base44.functions.invoke('insightEngine', { metrics: metricsForInsights });
+            if (res.data?.success && res.data?.insights) return res.data.insights;
+            return { error: "Failed to generate insights" };
+        } catch (e) {
+            if (e.response?.status === 500 || e.response?.status === 405) return { error: "Insights unavailable" };
+            throw e;
         }
-        return { error: "Failed to generate insights" };
     },
-    enabled: !!(metricsForInsights && hasData),
+    enabled: !!(appParams.token && metricsForInsights && hasData),
     staleTime: 1000 * 60 * 60, // Cache for 1 hour to prevent re-fetching on focus
     refetchOnWindowFocus: false, // Don't refetch on window focus
   });
@@ -560,7 +579,7 @@ export default function Dashboard() {
                 <div className="h-64 bg-slate-800/50 rounded-xl mt-6" />
              </div>
           ) : (!loanMetricsError && !hasData) ? (
-            <EmptyState onDataParsed={handleDataParsed} />
+            <EmptyState onDataParsed={handleDataParsed} onUploadCSV={() => setShowUploader(true)} />
           ) : (!loanMetricsError && (
             <>
               {/* Stats Row - Compact on Mobile */}

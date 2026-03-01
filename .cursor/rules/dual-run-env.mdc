@@ -1,0 +1,10 @@
+---
+description: Keep code runnable locally and on Base44 for partner
+globs:
+---
+
+# Dual run environment
+
+- **Local (Cursor):** Every change must leave the project runnable locally (e.g. `npm run dev` in Cursor) without breaking the app.
+- **Base44 (partner):** The same codebase must remain runnable for your partner who works with Base44 (same repo, no env-specific breakage). Avoid changes that only work in one environment or that remove/alter Base44 integration unless explicitly requested.
+- When in doubt, prefer additive or conditional behavior (e.g. feature flags, env checks) over replacing or removing shared flows.

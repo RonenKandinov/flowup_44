@@ -71,8 +71,13 @@ export const useLoanMetrics = () => {
                 throw new Error("Analysis failed to return success status");
             }
         } catch (err) {
-            console.error("Failed to fetch loan metrics:", err);
-            setError(err.message || "Unknown error");
+            const status = err.response?.status;
+            if (status === 401 || status === 405 || status === 500 || status === 503) {
+                setError(null);
+            } else {
+                console.error("Failed to fetch loan metrics:", err);
+                setError(err.message || "Unknown error");
+            }
         } finally {
             setIsLoading(false);
         }

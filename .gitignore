@@ -28,3 +28,7 @@ dist-ssr
 *.sw?
 
 .env
+
+# User-requested: local prompt and pic folder
+prompt.txt
+pic/

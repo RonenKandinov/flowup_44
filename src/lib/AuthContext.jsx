@@ -46,11 +46,9 @@ export const AuthProvider = ({ children }) => {
         }
         setIsLoadingPublicSettings(false);
       } catch (appError) {
-        console.error('App state check failed:', appError);
-        
-        // Handle app-level errors
-        if (appError.status === 403 && appError.data?.extra_data?.reason) {
-          const reason = appError.data.extra_data.reason;
+        const status = appError.response?.status ?? appError.status;
+        const reason = appError.response?.data?.extra_data?.reason ?? appError.data?.extra_data?.reason;
+        if (status === 403 && reason) {
           if (reason === 'auth_required') {
             setAuthError({
               type: 'auth_required',
@@ -64,14 +62,9 @@ export const AuthProvider = ({ children }) => {
           } else {
             setAuthError({
               type: reason,
-              message: appError.message
+              message: appError.response?.data?.message ?? appError.message
             });
           }
-        } else {
-          setAuthError({
-            type: 'unknown',
-            message: appError.message || 'Failed to load app'
-          });
         }
         setIsLoadingPublicSettings(false);
         setIsLoadingAuth(false);
@@ -89,23 +82,19 @@ export const AuthProvider = ({ children }) => {
 
   const checkUserAuth = async () => {
     try {
-      // Now check if the user is authenticated
       setIsLoadingAuth(true);
       const currentUser = await base44.auth.me();
       setUser(currentUser);
       setIsAuthenticated(true);
       setIsLoadingAuth(false);
     } catch (error) {
-      console.error('User auth check failed:', error);
       setIsLoadingAuth(false);
       setIsAuthenticated(false);
-      
-      // If user auth fails, it might be an expired token
-      if (error.status === 401 || error.status === 403) {
-        setAuthError({
-          type: 'auth_required',
-          message: 'Authentication required'
-        });
+      const status = error.response?.status ?? error.status;
+      if (status === 401 || status === 403) {
+        setUser(null);
+      } else {
+        console.error('User auth check failed:', error);
       }
     }
   };

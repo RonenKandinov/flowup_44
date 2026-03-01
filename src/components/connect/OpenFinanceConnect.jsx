@@ -5,8 +5,10 @@ import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import { getSupportedProviders } from '@/components/config/openFinanceProviders';
+import { useAuth } from '@/lib/AuthContext';
 
 export default function OpenFinanceConnect({ onConnected, inline = false }) {
+  const { navigateToLogin } = useAuth();
   const [status, setStatus] = useState('idle'); // idle, connecting, analyzing, success
   const [selectedProvider, setSelectedProvider] = useState(null);
   const [progress, setProgress] = useState(0);
@@ -101,8 +103,16 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
       }, 800);
 
     } catch (error) {
-      console.error("Open Finance Error:", error);
-      toast.error(`Connection failed (${providerId}): ${error.message}`);
+      const statusCode = error.response?.status;
+      if (statusCode === 401 || statusCode === 503) {
+        toast.error('נדרש להתחבר תחילה כדי לחבר את חשבון הבנק.');
+        navigateToLogin();
+      } else if (statusCode === 405) {
+        toast.error('פונקציית החיבור אינה זמינה כרגע (שרת לא מוגדר). פנה למנהל המערכת.');
+      } else {
+        console.error("Open Finance Error:", error);
+        toast.error(`Connection failed (${providerId}): ${error.message}`);
+      }
       setStatus('idle');
       setSelectedProvider(null);
       setProgress(0);
