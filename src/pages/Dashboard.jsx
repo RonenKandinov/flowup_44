@@ -473,8 +473,6 @@ export default function Dashboard() {
     }
   };
 
-  const hasData = snapshot && snapshot.current_balance !== undefined;
-
   if (isStorageLoading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
