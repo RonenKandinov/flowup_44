@@ -65,8 +65,7 @@ Deno.serve(async (req) => {
     // 4️⃣ לוגיקת החיתום המדויקת (התאמה למחוג בדאשבורד)
     let status = "GREEN";
     let statusColor = "#10B981"; // צבע ירוק
-
-    // יישום מדרגות ה-DTI של רונן
+ 
     if (dti >= 57 || netCashFlow < 0) {
       status = "RED";
       statusColor = "#EF4444";
