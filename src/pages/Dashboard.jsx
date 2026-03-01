@@ -153,27 +153,25 @@ export default function Dashboard() {
       .sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [shadowEntries]);
 
-  // Fetch AI Insights from server
-  useEffect(() => {
-      const txns = localData?.transactions || transactions;
-      if (txns && txns.length > 0) {
-          setServerInsights(null); // Set to loading state
-          base44.functions.invoke('insightEngine', { transactions: txns })
-              .then(res => {
-                  if (res.data?.success && res.data?.insights) {
-                      setServerInsights(res.data.insights);
-                  } else {
-                      setServerInsights({ error: "Failed to generate insights" });
-                  }
-              })
-              .catch(err => {
-                  console.error("Failed to fetch server insights", err);
-                  setServerInsights({ error: "Network error" });
-              });
-      } else if (txns && txns.length === 0 && hasData) {
-          setServerInsights({ error: "No transactions available for analysis" });
-      }
-  }, [localData?.transactions, transactions, hasData]);
+  // Fetch AI Insights from server using React Query to avoid infinite loops
+  const txnsForInsights = localData?.transactions || transactions;
+  
+  const { data: serverInsightsData, isLoading: isInsightsLoading, error: insightsError } = useQuery({
+    queryKey: ['ai-insights', txnsForInsights?.length, txnsForInsights?.[0]?.date],
+    queryFn: async () => {
+        if (!txnsForInsights || txnsForInsights.length === 0) return { error: "No transactions" };
+        const res = await base44.functions.invoke('insightEngine', { transactions: txnsForInsights });
+        if (res.data?.success && res.data?.insights) {
+            return res.data.insights;
+        }
+        return { error: "Failed to generate insights" };
+    },
+    enabled: !!(txnsForInsights && txnsForInsights.length > 0 && hasData),
+    staleTime: 1000 * 60 * 60, // Cache for 1 hour to prevent re-fetching on focus
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+  });
+
+  const serverInsights = serverInsightsData || (insightsError ? { error: "Network error" } : null);
 
   // Use local data if exists, otherwise use saved data. Admins get a blank slate bypass.
   const emptySnapshot = {
