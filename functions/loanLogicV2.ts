@@ -402,10 +402,10 @@ ${JSON.stringify(limitedExpenses)}
             currentMonth.netFlow = currentMonth.income - currentMonth.expenses;
         });
 
-        // Sort history chronologically and take only the last 3 months
+        // Sort history chronologically and take only the last 6 months
         let history = Object.values(monthlyData)
             .sort((a, b) => a.month.localeCompare(b.month))
-            .slice(-3);
+            .slice(-6);
 
         // Calculate trends
         let trends = { income: 0, expenses: 0, dti: 0 };
