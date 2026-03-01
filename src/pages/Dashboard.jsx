@@ -158,15 +158,23 @@ export default function Dashboard() {
   useEffect(() => {
       const txns = localData?.transactions || transactions;
       if (txns && txns.length > 0) {
+          setServerInsights(null); // Set to loading state
           base44.functions.invoke('insightEngine', { transactions: txns })
               .then(res => {
                   if (res.data?.success && res.data?.insights) {
                       setServerInsights(res.data.insights);
+                  } else {
+                      setServerInsights({ error: "Failed to generate insights" });
                   }
               })
-              .catch(err => console.error("Failed to fetch server insights", err));
+              .catch(err => {
+                  console.error("Failed to fetch server insights", err);
+                  setServerInsights({ error: "Network error" });
+              });
+      } else if (txns && txns.length === 0 && hasData) {
+          setServerInsights({ error: "No transactions available for analysis" });
       }
-  }, [localData?.transactions, transactions]);
+  }, [localData?.transactions, transactions, hasData]);
 
   // Use local data if exists, otherwise use saved data. Admins get a blank slate bypass.
   const emptySnapshot = {
