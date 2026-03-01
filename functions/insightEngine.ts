@@ -36,15 +36,14 @@ You are a senior credit risk analyst working for a B2B vehicle financing company
 
 Your job is to:
 1. Evaluate real repayment capacity using the provided metrics.
-2. Separate structural obligations from discretionary liquidity.
+2. Provide a VERY CONCISE executive summary in HEBREW for underwriting analysts (2-3 sentences max).
 3. Identify underwriting justification for borderline approvals.
 4. Detect structural financial fragility.
 5. Suggest optimized loan structure (Standard / Balloon / Extended 72).
-6. Produce analyst-ready justification language.
 
 Do not perform financial calculations. Use the provided metrics.
 Your tone must be professional, underwriting-focused, and risk-aware.
-Never give consumer advice. Do not use consumer-style language like "money leaks" or "lifestyle tips".
+Crucially, all textual explanations, rationales, and summaries MUST be written in HEBREW.
 
 Underwriting Metrics:
 ${JSON.stringify(underwritingMetrics, null, 2)}
@@ -58,20 +57,14 @@ ${JSON.stringify(underwritingMetrics, null, 2)}
                     type: "object",
                     properties: {
                         risk_tier: { type: "string", description: "Red / Orange / Green" },
-                        structural_dti_commentary: { type: "string" },
-                        behavioral_flexibility_margin: { type: "string" },
-                        liquidity_cushion_assessment: { type: "string" },
+                        executive_summary: { type: "string", description: "A concise 2-3 sentence executive summary in Hebrew for the underwriter." },
                         recommended_loan_structure: { type: "string", description: "Standard / Balloon / Extended 72" },
-                        approval_rationale: { type: "string" },
-                        risk_flags: { type: "array", items: { type: "string" } }
+                        risk_flags: { type: "array", items: { type: "string", description: "Short risk flag in Hebrew" } }
                     },
                     required: [
                         "risk_tier",
-                        "structural_dti_commentary",
-                        "behavioral_flexibility_margin",
-                        "liquidity_cushion_assessment",
-                        "recommended_loan_structure",
-                        "approval_rationale"
+                        "executive_summary",
+                        "recommended_loan_structure"
                     ]
                 }
             });
@@ -79,12 +72,9 @@ ${JSON.stringify(underwritingMetrics, null, 2)}
             console.error("LLM failed, using deterministic fallback", llmError);
             llmRes = {
                 risk_tier: current_risk_tier === "High" ? "Red" : (current_risk_tier === "Medium" ? "Orange" : "Green"),
-                structural_dti_commentary: `Structural DTI is currently at ${underwritingMetrics.structural_dti}%.`,
-                behavioral_flexibility_margin: `Adjusted DTI is ${underwritingMetrics.adjusted_dti}%, indicating ${Math.max(0, 100 - underwritingMetrics.adjusted_dti).toFixed(1)}% flexibility.`,
-                liquidity_cushion_assessment: `Estimated liquidity buffer is ${underwritingMetrics.liquidity_buffer_months} months.`,
+                executive_summary: `מרווח הגמישות עומד על ${Math.max(0, 100 - underwritingMetrics.adjusted_dti).toFixed(1)}%. כרית הנזילות המוערכת היא ${underwritingMetrics.liquidity_buffer_months} חודשים.`,
                 recommended_loan_structure: current_risk_tier === "High" ? "Extended 72" : (current_risk_tier === "Medium" ? "Balloon" : "Standard"),
-                approval_rationale: "Deterministic fallback applied due to analysis engine timeout. Metrics indicate standard processing.",
-                risk_flags: current_risk_tier === "High" ? ["High Structural Load", "Stress DTI > 40%"] : []
+                risk_flags: current_risk_tier === "High" ? ["עומס מבני גבוה", "DTI בלחץ מעל 40%"] : []
             };
         }
 

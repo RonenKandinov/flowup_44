@@ -93,34 +93,30 @@ export default function InsightsAgent({ analysis, isLoading }) {
                                 <div className="grid grid-cols-2 gap-2">
                                     <MetricBox label="Structural DTI" value={`${analysis.metrics?.structural_dti ?? 0}%`} />
                                     <MetricBox label="Adjusted DTI" value={`${analysis.metrics?.adjusted_dti ?? 0}%`} color="text-emerald-400" />
-                                    <MetricBox label="Liquidity Buffer" value={`${analysis.metrics?.liquidity_buffer_months ?? 0} mo`} />
+                                    <MetricBox label="Liquidity Buffer" value={`${analysis.metrics?.liquidity_buffer_months ?? 0} חודשים`} />
                                     <MetricBox label="Income Volatility" value={analysis.metrics?.income_volatility ?? 0} color="text-amber-400" />
                                 </div>
 
                                 {/* Risk Tier */}
-                                <Section title="Risk Tier">
+                                <Section title="רמת סיכון">
                                     <span className={
                                         analysis.risk_tier === 'Red'
-                                            ? 'text-red-400'
+                                            ? 'text-red-400 font-bold'
                                             : analysis.risk_tier === 'Orange'
-                                                ? 'text-orange-400'
-                                                : 'text-emerald-400'
+                                                ? 'text-orange-400 font-bold'
+                                                : 'text-emerald-400 font-bold'
                                     }>
-                                        {analysis.risk_tier || 'Unknown'}
+                                        {analysis.risk_tier === 'Red' ? 'גבוהה (Red)' : analysis.risk_tier === 'Orange' ? 'בינונית (Orange)' : 'נמוכה (Green)'}
                                     </span>
                                 </Section>
 
-                                <CommentBox title="Structural DTI" text={analysis.structural_dti_commentary} />
-                                <CommentBox title="Flexibility Margin" text={analysis.behavioral_flexibility_margin} />
-                                <CommentBox title="Liquidity Cushion" text={analysis.liquidity_cushion_assessment} />
-
-                                <Section title="Approval Rationale">
-                                    {analysis.approval_rationale}
+                                <Section title="תקציר לאנליסט">
+                                    {analysis.executive_summary}
                                 </Section>
 
                                 <div className="bg-indigo-900/20 p-3 rounded-lg border border-indigo-500/20">
                                     <p className="text-[10px] text-indigo-300 uppercase tracking-wider mb-1">
-                                        Recommended Structure
+                                        מבנה הלוואה מומלץ
                                     </p>
                                     <p className="text-sm text-indigo-100 font-medium">
                                         {analysis.recommended_loan_structure || "Standard"}
@@ -132,7 +128,7 @@ export default function InsightsAgent({ analysis, isLoading }) {
                                         <div className="flex items-center gap-2 mb-2">
                                             <AlertTriangle className="w-4 h-4 text-red-400" />
                                             <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-                                                Risk Flags
+                                                דגלי סיכון
                                             </h4>
                                         </div>
                                         <ul className="space-y-1.5">
