@@ -153,6 +153,18 @@ export default function Dashboard() {
       .sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [shadowEntries]);
 
+  // Use local data if exists, otherwise use saved data. Admins get a blank slate bypass.
+  const emptySnapshot = {
+      current_balance: 0,
+      total_income: 0,
+      total_expenses: 0,
+      projected_eom_balance: 0,
+      risk_level: 'green',
+      risk_day: null
+  };
+  const snapshot = localData?.snapshot || snapshots?.[0] || (isAdmin || newLoanMetrics ? emptySnapshot : undefined);
+  const hasData = !!(snapshot && snapshot.current_balance !== undefined);
+
   // Fetch AI Insights from server using React Query to avoid infinite loops
   const metricsForInsights = newLoanMetrics || (loanLogicData ? loanMetrics : null);
   
@@ -173,16 +185,6 @@ export default function Dashboard() {
 
   const serverInsights = serverInsightsData || (insightsError ? { error: "Network error" } : null);
 
-  // Use local data if exists, otherwise use saved data. Admins get a blank slate bypass.
-  const emptySnapshot = {
-      current_balance: 0,
-      total_income: 0,
-      total_expenses: 0,
-      projected_eom_balance: 0,
-      risk_level: 'green',
-      risk_day: null
-  };
-  const snapshot = localData?.snapshot || snapshots?.[0] || (isAdmin || newLoanMetrics ? emptySnapshot : undefined);
   const forecastData = localData?.forecastData || generateForecastFromTransactions(transactions);
   const currentEngineData = localData?.engineData || engineData;
 
