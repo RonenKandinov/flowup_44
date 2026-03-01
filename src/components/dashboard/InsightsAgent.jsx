@@ -1,3 +1,5 @@
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp, AlertTriangle, BrainCircuit, Activity, FileText } from 'lucide-react';
 
 export default function InsightsAgent({ analysis, isLoading }) {
