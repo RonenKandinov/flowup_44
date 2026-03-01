@@ -31,6 +31,18 @@ export default function InsightsAgent({ analysis }) {
         );
     }
 
+    if (analysis.error) {
+        return (
+            <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 flex flex-col items-center justify-center text-center h-full min-h-[200px]">
+                <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center mb-3">
+                    <AlertTriangle className="w-6 h-6 text-slate-500" />
+                </div>
+                <h3 className="text-white font-medium">אין מספיק נתונים לניתוח</h3>
+                <p className="text-slate-500 text-sm mt-1">לא נמצאו מספיק תנועות שניתן לנתח בשלב זה.</p>
+            </div>
+        );
+    }
+
     return (
         <div className="relative h-full">
             <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-indigo-500/20 rounded-xl overflow-hidden shadow-lg shadow-indigo-900/5 h-full flex flex-col">
