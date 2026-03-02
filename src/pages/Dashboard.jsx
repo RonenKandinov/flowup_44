@@ -90,6 +90,21 @@ export default function Dashboard() {
     () => !!new URLSearchParams(window.location.search).get('of_callback')
   );
   
+  // Fetch user data for Admin bypass (only when token exists to avoid 401 noise)
+  const { data: user, isLoading: isUserLoading } = useQuery({
+    queryKey: ['user', appParams.token ?? ''],
+    queryFn: async () => {
+      try {
+        return await base44.auth.me();
+      } catch (e) {
+        if (e.response?.status === 401) return null;
+        throw e;
+      }
+    },
+    enabled: !!appParams.token,
+    retry: (_, error) => error.response?.status !== 401,
+  });
+
   const { sync, data: loanLogicData, isLoading: isSyncing, metrics: loanMetrics } = useTransactionSync();
   const { metrics: originalLoanMetrics, isLoading: isLoanMetricsLoading, error: loanMetricsError, refetch: refetchLoanMetrics } = useLoanMetrics(user?.email || user?.id);
   const newLoanMetrics = simulatedMetrics || originalLoanMetrics;
@@ -132,21 +147,6 @@ export default function Dashboard() {
     };
     loadFromStorage();
   }, [appParams.token]);
-
-  // Fetch user data for Admin bypass (only when token exists to avoid 401 noise)
-  const { data: user, isLoading: isUserLoading } = useQuery({
-    queryKey: ['user', appParams.token ?? ''],
-    queryFn: async () => {
-      try {
-        return await base44.auth.me();
-      } catch (e) {
-        if (e.response?.status === 401) return null;
-        throw e;
-      }
-    },
-    enabled: !!appParams.token,
-    retry: (_, error) => error.response?.status !== 401,
-  });
 
   const isAdmin = user?.role === 'admin';
 
