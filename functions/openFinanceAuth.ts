@@ -19,7 +19,7 @@ export default Deno.serve(async (req) => {
     const userId = psuId;
 
     // Helper: get a fresh access token for a given userId
-    async function getToken(uid: string): Promise<string> {
+    async function getToken(uid) {
       const res = await fetch(`${API_ROOT}/oauth/token`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
