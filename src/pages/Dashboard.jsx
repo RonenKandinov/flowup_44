@@ -85,6 +85,10 @@ export default function Dashboard() {
   const [engineData, setEngineData] = useState(null);
   const [isStorageLoading, setIsStorageLoading] = useState(true);
   const [simulatedMetrics, setSimulatedMetrics] = useState(null);
+  // True while processing /?of_callback=1 — shows an overlay so the UI doesn't feel frozen
+  const [isProcessingCallback, setIsProcessingCallback] = useState(
+    () => !!new URLSearchParams(window.location.search).get('of_callback')
+  );
   
   const { sync, data: loanLogicData, isLoading: isSyncing, metrics: loanMetrics } = useTransactionSync();
   const { metrics: originalLoanMetrics, isLoading: isLoanMetricsLoading, error: loanMetricsError, refetch: refetchLoanMetrics } = useLoanMetrics();
@@ -172,6 +176,7 @@ export default function Dashboard() {
 
         if (!connectionId) {
             toast.error('Connection session expired. Please try connecting again.');
+            setIsProcessingCallback(false);
             return;
         }
 
@@ -208,6 +213,7 @@ export default function Dashboard() {
             toast.error(`חיבור לבנק נכשל (${connectionStatus}). אנא נסה שוב.`, { id: 'of-toast' });
             localStorage.removeItem('of_pending_connection');
             localStorage.removeItem('of_pending_provider');
+            setIsProcessingCallback(false);
             return;
         }
 
@@ -249,10 +255,13 @@ export default function Dashboard() {
 
             await handleDataParsed(dashboardData);
             await refetchConnection();
+            refetchLoanMetrics(); // refresh useLoanMetrics with real data
+            setIsProcessingCallback(false);
 
         } catch (err) {
             console.error('Callback data fetch error:', err);
             toast.error('שגיאה במשיכת נתוני הבנק: ' + err.message, { id: 'of-toast' });
+            setIsProcessingCallback(false);
         }
     };
 
@@ -634,10 +643,16 @@ export default function Dashboard() {
     }
   };
 
-  if (isStorageLoading) {
+  if (isStorageLoading || isProcessingCallback) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-4">
+        <div className="w-10 h-10 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+        {isProcessingCallback && (
+          <div className="text-center">
+            <p className="text-white font-medium">מחבר את חשבון הבנק...</p>
+            <p className="text-slate-500 text-sm mt-1">בודק סטטוס חיבור ומושך נתונים</p>
+          </div>
+        )}
       </div>
     );
   }

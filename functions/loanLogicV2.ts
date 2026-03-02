@@ -344,7 +344,11 @@ ${JSON.stringify(limitedExpenses)}
             if (isNaN(amount)) return;
 
             const category = (tx?.category?.main || tx?.category || "").toLowerCase();
-            const dateStr = tx?.creationDate || tx?.date || tx?.transactionDate; 
+            // tx.date from Open Finance is an object {valueDate, bookingDate, transactionDate} — not a string
+            const txDateObj = tx?.date;
+            const dateStr = tx?.creationDate ||
+                (typeof txDateObj === 'string' ? txDateObj : (txDateObj?.valueDate || txDateObj?.bookingDate || txDateObj?.transactionDate)) ||
+                tx?.transactionDate;
             const txDesc = String(tx?.description || "").toLowerCase();
 
             let date = dateStr ? new Date(dateStr) : today;
@@ -374,7 +378,11 @@ ${JSON.stringify(limitedExpenses)}
                 const key = `${txDesc}|${category}`;
                 let isFixed = false;
 
-                if (aiClassifications[key] !== undefined) {
+                // Priority 1: use Open Finance's own classification (REGULAR_EXPENSE = fixed recurring)
+                const ofClassType = (tx?.classification?.type || "").toUpperCase();
+                if (ofClassType === "REGULAR_EXPENSE" || ofClassType === "REGULAR_INCOME") {
+                    isFixed = (ofClassType === "REGULAR_EXPENSE");
+                } else if (aiClassifications[key] !== undefined) {
                     isFixed = aiClassifications[key];
                 } else {
                     // Fallback to keywords if AI classification failed or missed this item

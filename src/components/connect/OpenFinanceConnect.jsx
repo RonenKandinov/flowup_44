@@ -29,10 +29,13 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
       setProgress(50);
 
       // 1. Create real Open Finance connection → get consent URL
+      // Pass redirectUrl from the browser so Open Finance always returns to the correct app URL
+      const redirectUrl = `${window.location.origin}/?of_callback=1`;
       const initResponse = await base44.functions.invoke("openFinanceAuth", {
           action: 'init_connection',
           psuId: user.email || user.id,
-          providerId
+          providerId,
+          redirectUrl
       });
 
       if (!initResponse.data?.success || !initResponse.data?.connectUrl) {
