@@ -1,12 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 
-export const useLoanMetrics = () => {
+export const useLoanMetrics = (userId) => {
     const [metrics, setMetrics] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
 
     const fetchMetrics = useCallback(async (force = false) => {
+        if (!userId) {
+            setIsLoading(false);
+            return;
+        }
         setIsLoading(true);
         setError(null);
 
@@ -23,8 +27,8 @@ export const useLoanMetrics = () => {
             // 2. Native Fetch Implementation (via SDK Wrapper for Environment Routing)
             // Note: Using SDK to ensure correct routing within the Base44 environment
             // effectively acting as a fetch wrapper to the Edge Function.
-            const response = await base44.functions.invoke('loanLogicV2', { 
-                userId: 'ronenk2424@gmail.com' 
+            const response = await base44.functions.invoke('loanLogicV2', {
+                userId
             });
             
             const data = response.data;
@@ -81,7 +85,7 @@ export const useLoanMetrics = () => {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [userId]);
 
     useEffect(() => {
         fetchMetrics();
