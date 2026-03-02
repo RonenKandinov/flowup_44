@@ -105,17 +105,30 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
 
           <div className="grid grid-cols-2 gap-2 mb-6">
             {getSupportedProviders().map(provider => (
-              <Button
-                key={provider.id}
-                onClick={() => handleConnect(provider.id)}
-                variant="outline"
-                className="bg-slate-800/50 hover:bg-slate-700 rounded-lg p-3 flex items-center justify-center border border-slate-700 hover:border-cyan-500 transition-all"
-              >
-                <div className="flex flex-col items-center gap-1">
-                  <span className="text-xl">{provider.logo}</span>
-                  <span className="text-[10px] text-slate-400 font-medium">{provider.displayName}</span>
+              provider.comingSoon ? (
+                <div
+                  key={provider.id}
+                  className="relative bg-slate-800/30 rounded-lg p-3 flex items-center justify-center border border-slate-700/50 opacity-50 cursor-not-allowed"
+                >
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-xl">{provider.logo}</span>
+                    <span className="text-[10px] text-slate-500 font-medium">{provider.displayName}</span>
+                  </div>
+                  <span className="absolute top-1 right-1 text-[8px] bg-slate-700 text-slate-400 px-1 rounded">בקרוב</span>
                 </div>
-              </Button>
+              ) : (
+                <Button
+                  key={provider.id}
+                  onClick={() => handleConnect(provider.id)}
+                  variant="outline"
+                  className="bg-slate-800/50 hover:bg-slate-700 rounded-lg p-3 flex items-center justify-center border border-slate-700 hover:border-cyan-500 transition-all"
+                >
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-xl">{provider.logo}</span>
+                    <span className="text-[10px] text-slate-400 font-medium">{provider.displayName}</span>
+                  </div>
+                </Button>
+              )
             ))}
           </div>
 

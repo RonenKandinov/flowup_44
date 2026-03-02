@@ -20,7 +20,8 @@ export const PROVIDERS = {
     color: '#0047BB',
     logo: '🏦',
     category: 'bank',
-    supported: true
+    supported: false,
+    comingSoon: true
   },
   mizrahi: {
     id: 'mizrahi',
@@ -64,8 +65,8 @@ export const getProviderById = (id) => PROVIDERS[id] || null;
 
 export const getAllProviders = () => Object.values(PROVIDERS);
 
-export const getSupportedProviders = () => 
-  Object.values(PROVIDERS).filter(p => p.supported);
+export const getSupportedProviders = () =>
+  Object.values(PROVIDERS).filter(p => p.supported || p.comingSoon);
 
 export const getProvidersByCategory = (category) => 
   Object.values(PROVIDERS).filter(p => p.category === category);
