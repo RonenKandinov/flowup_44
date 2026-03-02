@@ -20,6 +20,7 @@ import Disclaimer from '../components/dashboard/Disclaimer';
 import OpenFinanceConnect from '../components/connect/OpenFinanceConnect';
 import { useTransactionSync } from '../components/hooks/useTransactionSync';
 import { useLoanMetrics } from '../components/hooks/useLoanMetrics';
+import { toast } from 'sonner';
 
 // Generates InsightsAgent-compatible data from loan metrics when the
 // insightEngine backend function is unavailable (not deployed or returns 405).
@@ -155,48 +156,108 @@ export default function Dashboard() {
     }
   });
 
-  // Handle OAuth Callback
+  // Handle Open Finance OAuth Callback (user returns from bank consent)
   useEffect(() => {
     const handleCallback = async () => {
         const params = new URLSearchParams(window.location.search);
-        const code = params.get('code');
-        const callback = params.get('callback');
+        const ofCallback = params.get('of_callback');
 
-        if (callback && user) {
-            // Clean URL
-            window.history.replaceState({}, document.title, window.location.pathname);
-            
+        if (!ofCallback || !user) return;
+
+        // Clean the URL immediately so a refresh doesn't re-trigger
+        window.history.replaceState({}, document.title, window.location.pathname);
+
+        const connectionId = localStorage.getItem('of_pending_connection');
+        const psuId = user.email || user.id;
+
+        if (!connectionId) {
+            toast.error('Connection session expired. Please try connecting again.');
+            return;
+        }
+
+        toast.loading('בודק חיבור לבנק...', { id: 'of-toast' });
+
+        // Poll connection status until ACTIVE/COMPLETED or an error state
+        const READY_STATUSES = ['ACTIVE', 'COMPLETED', 'CONNECTED'];
+        const ERROR_STATUSES = ['ERROR', 'FETCHING_ERROR', 'EXPIRED', 'REJECTED', 'REVOKED'];
+        let connectionStatus = 'INACTIVE';
+        let attempts = 0;
+        const MAX_ATTEMPTS = 20; // 20 × 3 s = 60 s max polling
+
+        while (
+            !READY_STATUSES.includes(connectionStatus) &&
+            !ERROR_STATUSES.includes(connectionStatus) &&
+            attempts < MAX_ATTEMPTS
+        ) {
+            await new Promise(r => setTimeout(r, 3000));
             try {
-                // Determine if we have a real code or need to use a mock code for sandbox testing
-                // If code is missing in sandbox, we use 'mock_code' to allow the flow to complete
-                const authCode = code || 'mock_code';
-
-                toast.loading("Finalizing connection...", { id: "auth-toast" });
-
-                const { data } = await base44.functions.invoke("openFinanceAuth", {
-                    action: 'finalize_connection',
-                    code: authCode,
-                    psuId: user.id
+                const { data: statusData } = await base44.functions.invoke('openFinanceAuth', {
+                    action: 'check_status',
+                    connectionId,
+                    psuId
                 });
-
-                if (data.success) {
-                    toast.success("Bank Connected Successfully!", { id: "auth-toast" });
-                    await refetchConnection();
-                    // Trigger initial sync
-                    if (data.connectionId) {
-                        sync(data.connectionId, user.id);
-                    }
-                } else {
-                    toast.error("Connection Failed: " + (data.error || "Unknown error"), { id: "auth-toast" });
-                }
-            } catch (err) {
-                console.error("Callback Error", err);
-                toast.error("Connection Error", { id: "auth-toast" });
+                connectionStatus = statusData?.status || 'UNKNOWN';
+            } catch (e) {
+                console.error('Status check error:', e);
+                break;
             }
+            attempts++;
+        }
+
+        if (ERROR_STATUSES.includes(connectionStatus)) {
+            toast.error(`חיבור לבנק נכשל (${connectionStatus}). אנא נסה שוב.`, { id: 'of-toast' });
+            localStorage.removeItem('of_pending_connection');
+            localStorage.removeItem('of_pending_provider');
+            return;
+        }
+
+        // Fetch real financial data via loanLogicV2
+        try {
+            toast.loading('מושך נתוני בנק...', { id: 'of-toast' });
+
+            const response = await base44.functions.invoke('loanLogicV2', { userId: psuId });
+            const data = response.data;
+
+            if (!data?.success) throw new Error(data?.error || 'Failed to fetch bank data');
+
+            const dashboardData = {
+                transactions: data.transactions || [],
+                snapshot: {
+                    current_balance: data.metrics.liquidAssets,
+                    total_income: data.metrics.totalIncome,
+                    total_expenses: data.metrics.totalExpenses,
+                    projected_eom_balance: data.metrics.netCashFlow,
+                    risk_level: (data.status || 'GREEN').toLowerCase(),
+                    risk_day: null,
+                    avg_daily_spending: Math.round((data.metrics.totalExpenses || 0) / 30),
+                    liquid_assets: data.metrics.liquidAssets
+                },
+                engineData: {
+                    success: true,
+                    riskStatus: data.status,
+                    projectedEOM: data.metrics.netCashFlow,
+                    metrics: data.metrics,
+                    smartInsights: [],
+                    connectionId
+                },
+                isSynced: true
+            };
+
+            localStorage.removeItem('of_pending_connection');
+            localStorage.removeItem('of_pending_provider');
+            toast.success('חשבון הבנק חובר בהצלחה!', { id: 'of-toast' });
+
+            await handleDataParsed(dashboardData);
+            await refetchConnection();
+
+        } catch (err) {
+            console.error('Callback data fetch error:', err);
+            toast.error('שגיאה במשיכת נתוני הבנק: ' + err.message, { id: 'of-toast' });
         }
     };
 
     if (user) handleCallback();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // Fetch saved snapshot

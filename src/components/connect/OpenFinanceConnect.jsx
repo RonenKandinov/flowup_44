@@ -9,98 +9,48 @@ import { useAuth } from '@/lib/AuthContext';
 
 export default function OpenFinanceConnect({ onConnected, inline = false }) {
   const { navigateToLogin } = useAuth();
-  const [status, setStatus] = useState('idle'); // idle, connecting, analyzing, success
+  const [status, setStatus] = useState('idle'); // idle, connecting, redirecting, success
   const [selectedProvider, setSelectedProvider] = useState(null);
   const [progress, setProgress] = useState(0);
 
   const handleConnect = async (providerId) => {
     setStatus('connecting');
     setSelectedProvider(providerId);
-    setProgress(10);
+    setProgress(20);
 
     try {
       const user = await base44.auth.me();
       if (!user) {
-          console.warn("User not authenticated, proceeding with mock context");
-      }
-
-      // 1. Init Connection with Provider
-      const progressInterval = setInterval(() => {
-        setProgress(prev => Math.min(prev + 5, 45));
-      }, 200);
-
-      const initResponse = await base44.functions.invoke("openFinanceAuth", { 
-          action: 'init_connection',
-          psuId: user?.email || 'ronenk2424@gmail.com',
-          providerId
-      });
-
-      if (!initResponse.data?.success) {
-          throw new Error(initResponse.data?.error || "Failed to initiate connection");
+        toast.error('נדרש להתחבר תחילה כדי לחבר את חשבון הבנק.');
+        navigateToLogin();
+        return;
       }
 
       setProgress(50);
 
-      // 2. Finalize Connection
-      const finalizeResponse = await base44.functions.invoke("openFinanceAuth", { 
-          action: 'finalize_connection',
-          psuId: user?.email || 'ronenk2424@gmail.com',
+      // 1. Create real Open Finance connection → get consent URL
+      const initResponse = await base44.functions.invoke("openFinanceAuth", {
+          action: 'init_connection',
+          psuId: user.email || user.id,
           providerId
       });
 
-      if (!finalizeResponse.data?.success) {
-          throw new Error(finalizeResponse.data?.error || "Failed to finalize connection");
+      if (!initResponse.data?.success || !initResponse.data?.connectUrl) {
+          throw new Error(initResponse.data?.error || "Failed to initiate connection");
       }
 
-      setProgress(70);
+      const { connectUrl, connectionId } = initResponse.data;
 
-      // 3. Fetch Financial Data from Underwriting Engine
-      const response = await base44.functions.invoke("loanLogicV2", { 
-          userId: user?.email || 'ronenk2424@gmail.com'
-      });
-      
-      clearInterval(progressInterval);
-      setProgress(100);
+      // 2. Persist connectionId so the callback handler can use it after redirect
+      localStorage.setItem('of_pending_connection', connectionId);
+      localStorage.setItem('of_pending_provider', providerId || '');
 
-      const data = response.data;
-      if (!data.success) throw new Error(data.error || "Failed to fetch data");
+      setProgress(80);
+      setStatus('redirecting');
 
-      // 4. Transform Data for Dashboard
-      setStatus('analyzing');
-      
-      setTimeout(() => {
-        setStatus('success');
-        
-        const dashboardData = {
-            transactions: data.transactions || [],
-            snapshot: {
-                current_balance: data.metrics.netCashFlow,
-                total_income: data.metrics.totalIncome,
-                total_expenses: data.metrics.totalExpenses,
-                projected_eom_balance: data.metrics.netCashFlow,
-                risk_level: data.status.toLowerCase(),
-                risk_day: data.riskDay,
-                avg_daily_spending: data.metrics.totalExpenses / 30,
-                liquid_assets: data.metrics.liquidAssets
-            },
-            engineData: {
-                success: true,
-                riskStatus: data.status,
-                riskDay: data.riskDay,
-                projectedEOM: data.metrics.netCashFlow,
-                metrics: data.metrics,
-                smartInsights: [],
-                providerId,
-                connectionId: finalizeResponse.data.connectionId
-            },
-            isSynced: true
-        };
-
-        setTimeout(() => {
-             onConnected(dashboardData);
-        }, 1000);
-
-      }, 800);
+      // 3. Redirect user to real bank consent page
+      //    The user returns to /?of_callback=1 after completing consent.
+      window.location.href = connectUrl;
 
     } catch (error) {
       const statusCode = error.response?.status;
@@ -111,7 +61,7 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
         toast.error('פונקציית החיבור אינה זמינה כרגע (שרת לא מוגדר). פנה למנהל המערכת.');
       } else {
         console.error("Open Finance Error:", error);
-        toast.error(`Connection failed (${providerId}): ${error.message}`);
+        toast.error(`חיבור נכשל: ${error.message}`);
       }
       setStatus('idle');
       setSelectedProvider(null);
@@ -175,29 +125,31 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
         </motion.div>
       )}
 
-      {(status === 'connecting' || status === 'analyzing') && (
-        <motion.div 
+      {(status === 'connecting' || status === 'redirecting') && (
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="text-center w-full"
         >
           <div className="w-16 h-16 relative mx-auto mb-6">
             <div className="absolute inset-0 border-4 border-slate-800 rounded-full"></div>
-            <div 
+            <div
               className="absolute inset-0 border-4 border-blue-500 rounded-full border-t-transparent animate-spin"
             ></div>
             <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-blue-400">
               {progress}%
             </div>
           </div>
-          
+
           <h3 className="text-lg font-medium text-white mb-1">
-            {status === 'connecting' ? `מתחבר ל${selectedProvider?.toUpperCase() || 'בנק'}...` : 'מנתח תזרים...'}
+            {status === 'redirecting'
+              ? 'מפנה לעמוד הסכמה של הבנק...'
+              : `מתחבר ל${selectedProvider?.toUpperCase() || 'בנק'}...`}
           </h3>
           <p className="text-sm text-slate-400">
-            {status === 'connecting' 
-              ? 'יוצר ערוץ תקשורת מאובטח' 
-              : 'מפעיל מנוע חיתום חכם (Traffic Light)'}
+            {status === 'redirecting'
+              ? 'תועבר לבנק לאישור הגישה — חזור לאחר האישור'
+              : 'יוצר ערוץ תקשורת מאובטח'}
           </p>
         </motion.div>
       )}
