@@ -57,7 +57,10 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
 
     } catch (error) {
       const statusCode = error.response?.status;
-      if (statusCode === 401 || statusCode === 503) {
+      const msg = (error.message || '').toLowerCase();
+      const isAuthError = statusCode === 401 || statusCode === 503 ||
+        msg.includes('authentication') || msg.includes('unauthorized') || msg.includes('auth');
+      if (isAuthError) {
         toast.error('נדרש להתחבר תחילה כדי לחבר את חשבון הבנק.');
         navigateToLogin();
       } else if (statusCode === 405) {
