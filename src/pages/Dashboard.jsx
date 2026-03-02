@@ -166,13 +166,14 @@ export default function Dashboard() {
         const params = new URLSearchParams(window.location.search);
         const ofCallback = params.get('of_callback');
 
-        if (!ofCallback || !user) return;
+        if (!ofCallback) return;
 
         // Clean the URL immediately so a refresh doesn't re-trigger
         window.history.replaceState({}, document.title, window.location.pathname);
 
         const connectionId = localStorage.getItem('of_pending_connection');
-        const psuId = user.email || user.id;
+        // psuId: prefer stored value (set during connect, works for unauthenticated users)
+        const psuId = localStorage.getItem('of_psu_id') || user?.email || user?.id;
 
         if (!connectionId) {
             toast.error('Connection session expired. Please try connecting again.');
@@ -265,7 +266,8 @@ export default function Dashboard() {
         }
     };
 
-    if (user) handleCallback();
+    // Fire immediately — psuId comes from localStorage, no auth needed
+    handleCallback();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
