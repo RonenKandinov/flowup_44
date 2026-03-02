@@ -47,7 +47,7 @@ export default Deno.serve(async (req) => {
       const sixMonthsAgo = new Date(Date.now() - 183 * 24 * 60 * 60 * 1000)
         .toISOString().split('T')[0];
 
-      const connBody: Record<string, unknown> = {
+      const connBody = {
         startDate: sixMonthsAgo,
         redirectUrl,
         language: "he",
