@@ -92,7 +92,8 @@ export const generateUnderwritingReport = (metrics, insights, user) => {
         { s: { r: 15, c: 0 }, e: { r: 15, c: 1 } }
     ];
     ws1['!cols'] = [{ wch: 35 }, { wch: 35 }];
-    ws1['!views'] = [{ RTL: true }];
+    ws1['!dir'] = 'rtl';
+    ws1['!views'] = [{ RTL: true, rightToLeft: true }];
     XLSX.utils.book_append_sheet(wb, ws1, "החלטת אשראי");
 
     // --- Sheet 2: ניתוח פיננסי ---
@@ -127,7 +128,8 @@ export const generateUnderwritingReport = (metrics, insights, user) => {
         { s: { r: 12, c: 0 }, e: { r: 12, c: 1 } }
     ];
     ws2['!cols'] = [{ wch: 35 }, { wch: 35 }];
-    ws2['!views'] = [{ RTL: true }];
+    ws2['!dir'] = 'rtl';
+    ws2['!views'] = [{ RTL: true, rightToLeft: true }];
     XLSX.utils.book_append_sheet(wb, ws2, "ניתוח פיננסי");
 
     // --- Sheet 3: ניתוח אנליסט AI ---
@@ -135,8 +137,8 @@ export const generateUnderwritingReport = (metrics, insights, user) => {
         `המערכת מזהה רמת סיכון ${riskTier === 'Red' ? 'גבוהה' : riskTier === 'Orange' ? 'בינונית' : 'נמוכה'} עקב יחס שירות חוב של ${metrics.dti || 0}% ויכולת החזר ${riskTier === 'Red' ? 'מוגבלת' : 'סבירה'}.`;
     
     const sheet3Data = [
-        [{ v: "ניתוח אנליסט AI", t: 's', s: titleStyle }],
-        [{ v: "", t: 's', s: {} }],
+        [{ v: "ניתוח אנליסט AI", t: 's', s: titleStyle }, { v: "", t: 's', s: titleStyle }, { v: "", t: 's', s: titleStyle }, { v: "", t: 's', s: titleStyle }],
+        [{ v: "", t: 's', s: {} }, { v: "", t: 's', s: {} }, { v: "", t: 's', s: {} }, { v: "", t: 's', s: {} }],
         [{ 
             v: paragraph, 
             t: 's', 
@@ -144,7 +146,7 @@ export const generateUnderwritingReport = (metrics, insights, user) => {
                 alignment: { horizontal: "right", vertical: "top", wrapText: true },
                 font: { sz: 12 }
             } 
-        }]
+        }, { v: "", t: 's', s: {} }, { v: "", t: 's', s: {} }, { v: "", t: 's', s: {} }]
     ];
 
     const ws3 = XLSX.utils.aoa_to_sheet(sheet3Data);
@@ -153,7 +155,8 @@ export const generateUnderwritingReport = (metrics, insights, user) => {
         { s: { r: 2, c: 0 }, e: { r: 10, c: 3 } } // Merge a large area for the text
     ];
     ws3['!cols'] = [{ wch: 25 }, { wch: 25 }, { wch: 25 }, { wch: 25 }];
-    ws3['!views'] = [{ RTL: true }];
+    ws3['!dir'] = 'rtl';
+    ws3['!views'] = [{ RTL: true, rightToLeft: true }];
     XLSX.utils.book_append_sheet(wb, ws3, "ניתוח אנליסט AI");
 
     // Save the file
