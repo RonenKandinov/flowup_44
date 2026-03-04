@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle, Plus } from 'lucide-react';
+import { Upload, Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle, Plus, FileSpreadsheet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { generateUnderwritingReport } from '../components/utils/excelReportGenerator';
 import { base44 } from '@/api/base44Client';
 import { appParams } from '@/lib/app-params';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -680,6 +681,17 @@ export default function Dashboard() {
           </div>
           
           <div className="flex items-center gap-2">
+            {hasData && (
+              <Button
+                onClick={() => generateUnderwritingReport(metricsForInsights, serverInsights, user)}
+                variant="outline"
+                size="sm"
+                className="bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/40 hover:text-white transition-all h-8 px-3 rounded-md"
+              >
+                <FileSpreadsheet className="w-3 h-3 ml-1.5" />
+                <span className="text-[11px] font-medium">הפק דוח חיתום אשראי</span>
+              </Button>
+            )}
             <Button
               onClick={() => setShowOpenFinance(true)}
               variant="ghost"
