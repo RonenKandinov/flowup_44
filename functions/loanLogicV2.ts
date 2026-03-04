@@ -163,6 +163,7 @@ Deno.serve(async (req) => {
     try {
         const body = await req.json().catch(() => ({}));
         const userId = body?.userId || "ronenk2424@gmail.com";
+        const manualLiquidAssets = Number(body?.manualLiquidAssets || body?.metrics?.liquidAssets || body?.liquidAssets || 0);
 
         const API_ROOT = "https://api.open-finance.ai";
         const API_V2 = "https://api.open-finance.ai/v2";
@@ -195,7 +196,7 @@ Deno.serve(async (req) => {
         const accessToken = tokenJson.accessToken;
 
         // 2. Fetch Accounts & Calculate Real Liquid Assets
-        let liquidAssets = 0;
+        let liquidAssets = manualLiquidAssets;
         try {
             const accountsRes = await fetch(`${API_V2}/data/accounts`, {
                 headers: {
@@ -254,6 +255,7 @@ Deno.serve(async (req) => {
         // 4. Process Transactions into Monthly History
         const monthlyData = {};
         const today = new Date();
+        let investmentTransfers = 0;
 
         // --- HYBRID AI CLASSIFICATION PRE-PROCESSING ---
         const uniqueExpensesMap = new Map();
@@ -373,6 +375,19 @@ ${JSON.stringify(limitedExpenses)}
                 currentMonth.income += amount;
             } else {
                 const absAmt = Math.abs(amount);
+                
+                // Detect transfers to investments, savings, provident funds, training funds
+                const investmentKeywords = [
+                    "השקע", "ניירות ערך", "מניות", "קרן", "גמל", "השתלמות", "פיקדון", "חסכון", "קופת", 
+                    "מיטב", "אלטשולר", "הראל", "כלל", "מגדל", "פניקס", "פסגות", "ילין", "מור", "סחירות",
+                    "investment", "stock", "fund", "deposit", "saving", "broker", "crypto", "trade", "portfolio"
+                ];
+                
+                const isInvestmentTransfer = investmentKeywords.some(kw => category.includes(kw) || txDesc.includes(kw));
+                if (isInvestmentTransfer) {
+                    investmentTransfers += absAmt;
+                }
+
                 currentMonth.expenses += absAmt;
                 
                 const key = `${txDesc}|${category}`;
@@ -409,6 +424,9 @@ ${JSON.stringify(limitedExpenses)}
             }
             currentMonth.netFlow = currentMonth.income - currentMonth.expenses;
         });
+
+        // Add detected investment transfers to liquid assets
+        liquidAssets += investmentTransfers;
 
         // Sort history chronologically and take only the last 6 months
         let history = Object.values(monthlyData)
