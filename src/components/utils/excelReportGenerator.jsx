@@ -123,7 +123,7 @@ export const generateUnderwritingReport = (metrics, insights, user) => {
     ws2['!cols'] = [{ wch: 3 }, { wch: 25 }, { wch: 25 }, { wch: 25 }];
     ws2['!merges'] = [
         { s: { r: 0, c: 1 }, e: { r: 0, c: 3 } }, // כותרת
-        { s: { r: 2, c: 1 }, e: { r: 10, c: 3 } } // תיבת טקסט גדולה (שורות 2-10)
+        { s: { r: 2, c: 1 }, e: { r: 15, c: 3 } } // תיבת טקסט גדולה (שורות 2-15)
     ];
 
     XLSX.utils.book_append_sheet(wb, ws2, "ניתוח אנליסט AI");
