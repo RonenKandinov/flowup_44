@@ -466,23 +466,10 @@ ${JSON.stringify(limitedExpenses)}
         }));
 
         // 6. Vector Reconstruction & Feature Engineering
-        const avgIncome = fromShadow(
-            shadowHistory.reduce((acc, h) => acc + h.incomeVec.m, 0) / history.length,
-            shadowHistory.reduce((acc, h) => acc + h.incomeVec.p, 0) / history.length,
-            SESSION_KEY
-        );
-
-        const avgExpenses = fromShadow(
-            shadowHistory.reduce((acc, h) => acc + h.totalExpVec.m, 0) / history.length,
-            shadowHistory.reduce((acc, h) => acc + h.totalExpVec.p, 0) / history.length,
-            SESSION_KEY
-        );
-
-        const avgFixedExpenses = fromShadow(
-            shadowHistory.reduce((acc, h) => acc + h.fixedVec.m, 0) / history.length,
-            shadowHistory.reduce((acc, h) => acc + h.fixedVec.p, 0) / history.length,
-            SESSION_KEY
-        );
+        // Calculate deterministic averages directly from history to prevent fluctuating values
+        const avgIncome = history.reduce((acc, h) => acc + h.income, 0) / history.length;
+        const avgExpenses = history.reduce((acc, h) => acc + h.expenses, 0) / history.length;
+        const avgFixedExpenses = history.reduce((acc, h) => acc + h.fixedExpenses, 0) / history.length;
 
         const incomeVolatility = getStandardDeviation(history.map(m => m.income)) / (avgIncome || 1);
         const DTI = avgIncome > 0 ? avgFixedExpenses / avgIncome : 1;
