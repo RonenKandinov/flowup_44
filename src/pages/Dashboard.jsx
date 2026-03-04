@@ -327,7 +327,7 @@ export default function Dashboard() {
 
   // Fetch AI Insights from server using React Query to avoid infinite loops
   const { data: serverInsightsData, isLoading: isInsightsLoading, error: insightsError } = useQuery({
-    queryKey: ['ai-insights', JSON.stringify(metricsForInsights)],
+    queryKey: ['ai-insights-v2', JSON.stringify(metricsForInsights)],
     queryFn: async () => {
         if (!metricsForInsights) return { error: "No risk metrics available" };
         // If insightEngine previously returned 500/405, skip the call to avoid console noise.
