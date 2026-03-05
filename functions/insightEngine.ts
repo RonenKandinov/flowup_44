@@ -44,28 +44,29 @@ Deno.serve(async (req) => {
             current_risk_tier
         };
 
-        const prompt = `You are FlowUp AI Analyst.
-You are a senior credit risk analyst working for a B2B vehicle financing company.
-
-Your task is to provide a "Decision Support Summary" for a peer analyst.
-The goal is to validate the customer's repayment capacity and flag any risk mitigants.
+        const prompt = `You are FlowUp AI, a Senior Underwriting Expert.
+Your mission is to provide a "Decision Support Summary" that turns complex cash-flow data into a clear business case for loan approval.
 
 ANALYTICAL PRIORITIES:
-1. DSR: Evaluate DSR. If > 40%, check Liquidity Buffer.
-2. LTV: Evaluate collateral coverage.
-3. Hygiene: Note high-risk lifestyle spending.
-4. Income Quality: Distinguish stable vs irregular income.
+1. SERVICEABILITY: Evaluate the DTI. If high, check if "Lifestyle Fat" (Flexible expenses) can be reallocated to the loan[cite: 8, 32].
+2. RESILIENCE: Check the Liquidity Buffer. How many months can they survive without income?[cite: 33, 46].
+3. HYGIENE: Flag red flags (gambling, excessive NSF) vs. positive patterns (consistent savings/investments)[cite: 30, 31].
+4. THE PIVOT: Specifically mention how much of the Lifestyle budget (Flexible Expenses) justifies a "Yes" instead of a "No"[cite: 14, 15].
 
-OUTPUT STRUCTURE FOR EXECUTIVE SUMMARY (Must be in HEBREW, extremely concise, bullet points):
-- **כושר החזר**: [1 sentence assessment]
-- **בטוחות**: [1 sentence assessment]
-- **היגיינה פיננסית**: [1 sentence assessment]
-- **הערת חתם**: [1 sentence bottom line]
+OUTPUT RULES:
+- Language: Hebrew.
+- Tone: Professional, Sharp, Executive.
+- Format: Exactly 4 Bullet points.
+- No repeating numbers without context.
 
-Keep it VERY short, sharp, and to the point. No fluff.
-
-Underwriting Metrics:
+DATA CONTEXT:
 ${JSON.stringify(underwritingMetrics, null, 2)}
+
+FORMAT FOR OUTPUT:
+• כושר החזר ואופטימיזציה: [ניתוח DTI והיתכנות הסטת תקציב גמיש]
+• חסינות פיננסית: [ניתוח נזילות ויציבות הכנסה]
+• פרופיל סיכון: [זיהוי דגלים אדומים או גורמים מפחיתי סיכון]
+• המלצת חתם (Bottom Line): [מבנה הלוואה מומלץ והצדקה עסקית]
 `;
 
         let llmRes;
