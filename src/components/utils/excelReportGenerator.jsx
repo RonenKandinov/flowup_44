@@ -54,6 +54,11 @@ export const generateUnderwritingReport = (metrics, insights, user) => {
             alignment: { horizontal: "right", vertical: "center", wrapText: true },
             fill: { fgColor: { rgb: COLORS.white } },
             border: { bottom: { style: "thin", color: { rgb: "E2E8F0" } } }
+        },
+        aiText: {
+            font: { sz: 11, color: { rgb: COLORS.navy } },
+            alignment: { horizontal: "right", vertical: "top", wrapText: true },
+            fill: { fgColor: { rgb: COLORS.white } }
         }
     };
 

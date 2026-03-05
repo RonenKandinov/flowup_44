@@ -55,18 +55,19 @@ ANALYTICAL PRIORITIES:
 
 OUTPUT RULES:
 - Language: Hebrew.
-- Tone: Professional, Sharp, Executive.
+- Tone: Professional, Sharp, Executive. Suitable for a non-bank financing company analyst.
 - Format: Exactly 4 Bullet points.
+- DO NOT use markdown formatting like **bold** or *italics*. Use plain text only. No asterisks.
 - No repeating numbers without context.
 
 DATA CONTEXT:
 ${JSON.stringify(underwritingMetrics, null, 2)}
 
-FORMAT FOR OUTPUT:
-• כושר החזר ואופטימיזציה: [ניתוח DTI והיתכנות הסטת תקציב גמיש]
-• חסינות פיננסית: [ניתוח נזילות ויציבות הכנסה]
-• פרופיל סיכון: [זיהוי דגלים אדומים או גורמים מפחיתי סיכון]
-• המלצת חתם (Bottom Line): [מבנה הלוואה מומלץ והצדקה עסקית]
+FORMAT FOR OUTPUT (Use exactly these prefixes, without asterisks):
+- כושר החזר ואופטימיזציה: [ניתוח DTI והיתכנות הסטת תקציב גמיש]
+- חסינות פיננסית: [ניתוח נזילות ויציבות הכנסה]
+- פרופיל סיכון: [זיהוי דגלים אדומים או גורמים מפחיתי סיכון]
+- המלצת חתם (Bottom Line): [מבנה הלוואה מומלץ והצדקה עסקית]
 `;
 
         let llmRes;
