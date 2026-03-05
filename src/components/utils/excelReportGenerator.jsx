@@ -114,7 +114,7 @@ export const generateUnderwritingReport = (metrics, insights, user) => {
     const sheet2Data = [
         [{ v: "" }, { v: "ניתוח אנליסט AI מורחב", s: styles.mainTitle }, { v: "" }, { v: "" }],
         [],
-        [{ v: "" }, { v: insights?.executive_summary || "ניתוח מעמיק מזהה פוטנציאל החזר גבוה למרות יחס חוב נוכחי.", s: styles.aiText }, { v: "", s: styles.aiText }, { v: "", s: styles.aiText }]
+        [{ v: "" }, { v: (insights?.executive_summary || "ניתוח מעמיק מזהה פוטנציאל החזר גבוה למרות יחס חוב נוכחי.").replace(/\*\*/g, ''), s: styles.aiText }, { v: "", s: styles.aiText }, { v: "", s: styles.aiText }]
     ];
 
     const ws2 = XLSX.utils.aoa_to_sheet(sheet2Data);
