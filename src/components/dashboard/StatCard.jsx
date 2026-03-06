@@ -69,7 +69,7 @@ export default function StatCard({
         
         {trend !== null && trend !== undefined && (
             <div className={`flex items-center text-[10px] md:text-xs mt-1 font-medium ${trend.isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
-                {trend.isPositive ? <ArrowDownRight className="w-3 h-3 mr-1" /> : <ArrowUpRight className="w-3 h-3 mr-1" />}
+                {trend.isPositive ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />}
                 <span dir="ltr">{trend.value}</span>
             </div>
         )}
