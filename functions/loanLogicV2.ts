@@ -192,6 +192,7 @@ Deno.serve(async (req) => {
 
         // 2. Fetch Accounts & Calculate Real Liquid Assets
         let liquidAssets = manualLiquidAssets;
+        let liquidAssetsBreakdown = { cash: manualLiquidAssets, etf: 0, trainingFund: 0 };
         try {
             const accountsRes = await fetch(`${API_V2}/data/accounts`, {
                 headers: {
@@ -208,22 +209,34 @@ Deno.serve(async (req) => {
                 
                accounts.forEach((acc) => {
                     const type = (acc.type || acc.accountType || "").toLowerCase();
-                    // הוספת השורה הזו כדי שהמערכת תזהה את השם "Checking" או "ILY"
                     const name = (acc.name || acc.accountName || "").toLowerCase(); 
-                    const { balance: balanceAmount, path } = extractBalance(acc);
+                    
+                    // Fallback to extract balance directly if extractBalance fails
+                    let { balance: balanceAmount, path } = extractBalance(acc);
+                    
+                    if (balanceAmount === 0) {
+                        // Try to find balance in other common Open Finance fields
+                        if (acc.availableBalance !== undefined) balanceAmount = Number(acc.availableBalance);
+                        else if (acc.currentBalance !== undefined) balanceAmount = Number(acc.currentBalance);
+                        else if (acc.balance !== undefined && !isNaN(Number(acc.balance))) balanceAmount = Number(acc.balance);
+                        else if (acc.balance?.amount !== undefined) balanceAmount = Number(acc.balance.amount);
+                    }
 
                     if (balanceAmount !== 0) {
                         console.log(`[Account QA] Name: ${name}, Type: ${type}, Balance: ${balanceAmount}, Path: ${path}`);
                         
-                        // בדיקה לפי סוג חשבון או שם (תיק השקעות מול עובר ושב)
                         if (type.includes('investment') || type.includes('securities') || name.includes('תיק') || name.includes('השקעות')) {
+                            liquidAssetsBreakdown.etf += balanceAmount;
                             liquidAssets += (balanceAmount * 0.8);
+                        } else if (type.includes('training') || type.includes('provident') || name.includes('השתלמות') || name.includes('גמל')) {
+                            liquidAssetsBreakdown.trainingFund += balanceAmount;
+                            liquidAssets += (balanceAmount * 0.55);
                         } else {
-                            // כאן ייכנסו ה-6,367 ש"ח מחשבון הפועלים שלך
+                            liquidAssetsBreakdown.cash += balanceAmount;
                             liquidAssets += balanceAmount; 
                         }
                     } else {
-                        console.warn(`[Account QA Warning] Zero balance for: ${name || type}. Path: ${path}`);
+                        console.warn(`[Account QA Warning] Zero balance for: ${name || type}. Raw: ${JSON.stringify(acc)}`);
                     }
                 });
                 
@@ -384,6 +397,7 @@ ${JSON.stringify(limitedExpenses)}
                 const isInvestmentTransfer = investmentKeywords.some(kw => category.includes(kw) || txDesc.includes(kw));
                 if (isInvestmentTransfer) {
                     investmentTransfers += absAmt;
+                    liquidAssetsBreakdown.etf += absAmt;
                 }
 
                 currentMonth.expenses += absAmt;
@@ -523,6 +537,11 @@ ${JSON.stringify(limitedExpenses)}
                     monthlyAverageIncome: Math.round(avgIncome),
                     monthlyAverageExpenses: Math.round(avgExpenses),
                     liquidAssets: Math.round(liquidAssets),
+                    liquidAssetsBreakdown: {
+                        cash: Math.round(liquidAssetsBreakdown.cash),
+                        etf: Math.round(liquidAssetsBreakdown.etf),
+                        trainingFund: Math.round(liquidAssetsBreakdown.trainingFund)
+                    },
                     trends: trends,
                     history: history
                 }
@@ -534,6 +553,11 @@ ${JSON.stringify(limitedExpenses)}
                 lifestyleExpenses: Math.round(avgExpenses - avgFixedExpenses),
                 netCashFlow: Math.round(avgIncome - avgExpenses),
                 liquidAssets: Math.round(liquidAssets),
+                liquidAssetsBreakdown: {
+                    cash: Math.round(liquidAssetsBreakdown.cash),
+                    etf: Math.round(liquidAssetsBreakdown.etf),
+                    trainingFund: Math.round(liquidAssetsBreakdown.trainingFund)
+                },
                 score: finalScore,
                 dti: Math.round(dtiPerc),
                 runway: parseFloat(runwayMonths.toFixed(1)),
