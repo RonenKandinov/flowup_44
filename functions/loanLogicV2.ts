@@ -212,7 +212,7 @@ Deno.serve(async (req) => {
             console.log(`[Debug] Accounts API status: ${accountsRes.status}`);
             if (accountsRes.ok) {
                 const accountsData = await accountsRes.json();
-                debugAccountsData = accountsData;
+                debugAccountsData = accountsData?.data || accountsData?.items || accountsData?.accounts || [];
                 let rawAccounts = accountsData?.data || accountsData?.items || accountsData?.accounts || [];
                 
                 console.log(`[Debug] Raw accounts before filter:`, rawAccounts.length);
