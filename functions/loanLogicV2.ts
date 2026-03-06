@@ -230,6 +230,7 @@ Deno.serve(async (req) => {
 
                     if (balanceAmount !== 0) {
                         console.log(`[Account QA] Name: ${name}, Type: ${type}, Balance: ${balanceAmount}, Path: ${path}`);
+                        console.log(`[Account QA] Raw: ${JSON.stringify(acc)}`);
                         
                         if (type.includes('investment') || type.includes('securities') || name.includes('תיק') || name.includes('השקעות')) {
                             liquidAssetsBreakdown.etf += balanceAmount;
