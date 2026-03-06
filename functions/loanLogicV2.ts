@@ -447,6 +447,7 @@ ${JSON.stringify(limitedExpenses)}
                 if (isInvestmentTransfer) {
                     investmentTransfers += absAmt;
                     liquidAssetsBreakdown.etf += absAmt;
+                    console.log(`[Debug] Investment transfer found: ${txDesc} ${category} ${absAmt}`);
                 }
 
                 currentMonth.expenses += absAmt;
