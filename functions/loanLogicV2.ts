@@ -84,6 +84,12 @@ function extractBalance(acc) {
                 if (targetBal?.amount?.amount !== undefined) {
                     balance = Number(targetBal.amount.amount);
                     extractionPath = 'balances[].amount.amount';
+                } else if (targetBal?.balanceAmount?.amount !== undefined) {
+                    balance = Number(targetBal.balanceAmount.amount);
+                    extractionPath = 'balances[].balanceAmount.amount';
+                } else if (targetBal?.balanceAmount?.value !== undefined) {
+                    balance = Number(targetBal.balanceAmount.value);
+                    extractionPath = 'balances[].balanceAmount.value';
                 } else if (targetBal?.amount !== undefined) {
                     balance = Number(targetBal.amount);
                     extractionPath = 'balances[].amount';
