@@ -241,8 +241,6 @@ Deno.serve(async (req) => {
                             liquidAssetsBreakdown.cash += balanceAmount;
                             liquidAssets += balanceAmount; 
                         }
-                    } else {
-                        console.warn(`[Account QA Warning] Zero balance for: ${name || type}. Raw: ${JSON.stringify(acc)}`);
                     }
                 });
                 
