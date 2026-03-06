@@ -29,8 +29,16 @@ Deno.serve(async (req) => {
 
         const accountsData = await accountsRes.json();
         
+        const items = accountsData?.data || accountsData?.items || accountsData?.accounts || [];
         return Response.json({
-            accounts: accountsData
+            accounts: items.map(a => ({
+                accountNumber: a.accountNumber,
+                type: a.accountType || a.type,
+                balances: a.balances,
+                balance: a.balance,
+                currentBalance: a.currentBalance,
+                availableBalance: a.availableBalance
+            }))
         });
     } catch (e) {
         return Response.json({ error: e.message });
