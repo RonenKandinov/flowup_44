@@ -87,7 +87,7 @@ export default function LiquidAssetsCard({ cash, etf, trainingFund }) {
                             <AssetRow 
                                 label="השקעות סחירות" 
                                 amount={etf} 
-                                factor={75}
+                                factor={80}
                                 description="קרנות סל, מניות, אג״ח"
                                 liquidity="medium"
                             />
