@@ -623,7 +623,15 @@ ${JSON.stringify(limitedExpenses)}
                 runway: parseFloat(runwayMonths.toFixed(1)),
                 trends: trends
             },
-            debugAccountsData
+            debugAccountsData: accounts.map(a => ({
+                id: a.id,
+                accountNumber: a.accountNumber,
+                accountNo: a.accountNo,
+                name: a.name,
+                type: a.type,
+                product: a.product,
+                balance: extractBalance(a).balance
+            }))
         });
 
     } catch (error) {
