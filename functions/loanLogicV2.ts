@@ -211,8 +211,10 @@ Deno.serve(async (req) => {
                 const accountsData = await accountsRes.json();
                 let rawAccounts = accountsData?.data || accountsData?.items || accountsData?.accounts || [];
                 
+                console.log(`[Debug] Raw accounts before filter:`, JSON.stringify(rawAccounts.map(a => ({ accountNumber: a.accountNumber, id: a.id, name: a.name, balance: a.balance, currentBalance: a.currentBalance, availableBalance: a.availableBalance }))));
                 // Filter to only account ending in 24498
                 rawAccounts = rawAccounts.filter(acc => acc.accountNumber && String(acc.accountNumber).endsWith('24498'));
+                console.log(`[Debug] Raw accounts after filter:`, rawAccounts.length);
 
                 // Deduplicate accounts by accountNumber only
                 const uniqueAccountsMap = new Map();
