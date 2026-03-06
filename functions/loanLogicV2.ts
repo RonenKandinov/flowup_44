@@ -217,10 +217,13 @@ Deno.serve(async (req) => {
                 
                 console.log(`[Debug] Raw accounts before filter:`, rawAccounts.length);
                 // Filter to only account ending in 24498
-                rawAccounts = rawAccounts.filter(acc => {
+                const filteredAccounts = rawAccounts.filter(acc => {
                     const accNumStr = String(acc.accountNumber || acc.accountNo || acc.id || "");
                     return accNumStr.endsWith('24498');
                 });
+                if (filteredAccounts.length > 0) {
+                    rawAccounts = filteredAccounts;
+                }
                 console.log(`[Debug] Raw accounts after filter:`, rawAccounts.length);
 
                 // Deduplicate accounts by accountNumber only
