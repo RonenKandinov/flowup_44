@@ -212,7 +212,7 @@ Deno.serve(async (req) => {
             console.log(`[Debug] Accounts API status: ${accountsRes.status}`);
             if (accountsRes.ok) {
                 const accountsData = await accountsRes.json();
-                debugAccountsData = accountsData?.data || accountsData?.items || accountsData?.accounts || [];
+                debugAccountsData = accountsData;
                 let rawAccounts = accountsData?.data || accountsData?.items || accountsData?.accounts || [];
                 
                 console.log(`[Debug] Raw accounts before filter:`, rawAccounts.length);
@@ -225,6 +225,7 @@ Deno.serve(async (req) => {
                     rawAccounts = filteredAccounts;
                 }
                 console.log(`[Debug] Raw accounts after filter:`, rawAccounts.length);
+                console.log(`[Debug] Raw accounts sample:`, JSON.stringify(rawAccounts.slice(0, 2)));
 
                 // Deduplicate accounts by accountNumber only
                 const uniqueAccountsMap = new Map();
