@@ -200,7 +200,7 @@ Deno.serve(async (req) => {
         let liquidAssets = 0;
         let liquidAssetsBreakdown = { cash: 0, etf: 0, trainingFund: 0 };
         let debugAccountsData = [];
-        console.log(`[Debug] Starting to fetch accounts... v2`);
+        console.log(`[Debug] Starting to fetch accounts...`);
         try {
             const accountsRes = await fetch(`${API_V2}/data/accounts`, {
                 headers: {
@@ -212,19 +212,36 @@ Deno.serve(async (req) => {
             console.log(`[Debug] Accounts API status: ${accountsRes.status}`);
             if (accountsRes.ok) {
                 const accountsData = await accountsRes.json();
-                debugAccountsData = accountsData?.data || accountsData?.items || accountsData?.accounts || [];
+                debugAccountsData = accountsData;
                 let rawAccounts = accountsData?.data || accountsData?.items || accountsData?.accounts || [];
+                if (!rawAccounts.length && Array.isArray(accountsData)) {
+                    rawAccounts = accountsData;
+                }
                 
                 console.log(`[Debug] Raw accounts before filter:`, rawAccounts.length);
-                // Removed the hardcoded 24498 filter so it dynamically calculates liquid assets for all accounts returned by the API
-                console.log(`[Debug] Raw accounts to process:`, rawAccounts.length);
+                
+                // Filter to only account ending in 24498 as requested by user based on Excel
+                const filteredAccounts = rawAccounts.filter(acc => {
+                    const accNumStr = String(acc.accountNumber || acc.accountNo || acc.id || "");
+                    return accNumStr.endsWith('24498');
+                });
+                if (filteredAccounts.length > 0) {
+                    rawAccounts = filteredAccounts;
+                }
 
-                // Deduplicate accounts by accountNumber only
+                // Deduplicate accounts by ID to avoid losing sub-accounts (like checking vs credit limit) that share the same accountNumber
                 const uniqueAccountsMap = new Map();
                 rawAccounts.forEach(acc => {
-                    const key = acc.accountNumber;
-                    if (key && !uniqueAccountsMap.has(key)) {
+                    const key = acc.id || acc.accountId || acc.accountNumber;
+                    // If we already have this key, only overwrite if the new one has a valid balance and the old one doesn't
+                    if (!uniqueAccountsMap.has(key)) {
                         uniqueAccountsMap.set(key, acc);
+                    } else {
+                        const existingBal = extractBalance(uniqueAccountsMap.get(key)).balance;
+                        const newBal = extractBalance(acc).balance;
+                        if (existingBal === 0 && newBal !== 0) {
+                            uniqueAccountsMap.set(key, acc);
+                        }
                     }
                 });
                 const accounts = Array.from(uniqueAccountsMap.values());
@@ -249,8 +266,8 @@ Deno.serve(async (req) => {
                         else if (acc.balance?.amount !== undefined) balanceAmount = Number(acc.balance.amount);
                     }
 
-                    console.log(`[Account QA] Name: ${name}, Type: ${type}, Product: ${product}, CashAccountType: ${cashAccountType}, Balance: ${balanceAmount}, Path: ${path}`);
                     if (balanceAmount !== 0) {
+                        console.log(`[Account QA] Name: ${name}, Type: ${type}, Product: ${product}, CashAccountType: ${cashAccountType}, Balance: ${balanceAmount}, Path: ${path}`);
                         
                         const isOverdraft = type.includes('overdraft') || name.includes('overdraft') || name.includes('מינוס') || product.includes('מינוס');
                         const isInvestment = type.includes('investment') || type.includes('securities') || name.includes('תיק') || name.includes('השקעות') || name.includes('ניירות ערך') || name.includes('סחירות') || name.includes('מנייתי') || name.includes('מט"ח') || name.includes('ibi') || name.includes('meitav') || name.includes('excellence') || product.includes('השקעות') || product.includes('ניירות ערך');
@@ -436,6 +453,7 @@ ${JSON.stringify(limitedExpenses)}
                 if (isInvestmentTransfer) {
                     investmentTransfers += absAmt;
                     liquidAssetsBreakdown.etf += absAmt;
+                    console.log(`[Debug] Investment transfer found: ${txDesc} ${category} ${absAmt}`);
                 }
 
                 currentMonth.expenses += absAmt;
@@ -616,12 +634,7 @@ ${JSON.stringify(limitedExpenses)}
                 runway: parseFloat(runwayMonths.toFixed(1)),
                 trends: trends
             },
-            debugAccountsData: debugAccountsData.map(a => ({
-                accountNumber: a.accountNumber,
-                accountNo: a.accountNo,
-                id: a.id,
-                balance: extractBalance(a).balance
-            }))
+            debugAccountsData
         });
 
     } catch (error) {
