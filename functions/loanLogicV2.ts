@@ -245,6 +245,8 @@ Deno.serve(async (req) => {
                 });
                 
                 console.log(`[Liquid Assets] Total calculated: ${liquidAssets}`);
+                // Temporary debug
+                return Response.json({ debugAccounts: accounts.map(a => ({ name: a.name || a.accountName, type: a.type || a.accountType, extracted: extractBalance(a), raw: a })) });
             }
         } catch (e) {
             console.error("Failed to fetch/process accounts:", e);
