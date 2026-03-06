@@ -197,6 +197,7 @@ Deno.serve(async (req) => {
 
         // 2. Fetch Accounts & Calculate Real Liquid Assets
         let liquidAssets = manualLiquidAssets;
+        let liquidAssetsBreakdown = { cash: manualLiquidAssets, etf: 0, trainingFund: 0 };
         try {
             const accountsRes = await fetch(`${API_V2}/data/accounts`, {
                 headers: {
@@ -213,15 +214,21 @@ Deno.serve(async (req) => {
                 
                 accounts.forEach((acc) => {
                     const type = (acc.type || acc.accountType || "").toLowerCase();
+                    const name = (acc.name || acc.accountName || "").toLowerCase();
                     const { balance: balanceAmount, path } = extractBalance(acc);
 
                     if (balanceAmount !== 0) {
                         console.log(`[Account QA] Type: ${type || 'unknown'}, Extracted Balance: ${balanceAmount}, Extraction Path: ${path}`);
                         
                         // Apply haircut for investment accounts
-                        if (type.includes('investment') || type.includes('securities') || type.includes('תיק')) {
+                        if (type.includes('investment') || type.includes('securities') || name.includes('תיק') || name.includes('השקעות')) {
+                            liquidAssetsBreakdown.etf += balanceAmount;
                             liquidAssets += (balanceAmount * 0.8);
+                        } else if (type.includes('training') || type.includes('provident') || name.includes('השתלמות') || name.includes('גמל')) {
+                            liquidAssetsBreakdown.trainingFund += balanceAmount;
+                            liquidAssets += (balanceAmount * 0.55);
                         } else {
+                            liquidAssetsBreakdown.cash += balanceAmount;
                             liquidAssets += balanceAmount;
                         }
                     } else {
@@ -386,6 +393,7 @@ ${JSON.stringify(limitedExpenses)}
                 const isInvestmentTransfer = investmentKeywords.some(kw => category.includes(kw) || txDesc.includes(kw));
                 if (isInvestmentTransfer) {
                     investmentTransfers += absAmt;
+                    liquidAssetsBreakdown.etf += absAmt;
                 }
 
                 currentMonth.expenses += absAmt;
@@ -525,6 +533,11 @@ ${JSON.stringify(limitedExpenses)}
                     monthlyAverageIncome: Math.round(avgIncome),
                     monthlyAverageExpenses: Math.round(avgExpenses),
                     liquidAssets: Math.round(liquidAssets),
+                    liquidAssetsBreakdown: {
+                        cash: Math.round(liquidAssetsBreakdown.cash),
+                        etf: Math.round(liquidAssetsBreakdown.etf),
+                        trainingFund: Math.round(liquidAssetsBreakdown.trainingFund)
+                    },
                     trends: trends,
                     history: history
                 }
@@ -536,6 +549,11 @@ ${JSON.stringify(limitedExpenses)}
                 lifestyleExpenses: Math.round(avgExpenses - avgFixedExpenses),
                 netCashFlow: Math.round(avgIncome - avgExpenses),
                 liquidAssets: Math.round(liquidAssets),
+                liquidAssetsBreakdown: {
+                    cash: Math.round(liquidAssetsBreakdown.cash),
+                    etf: Math.round(liquidAssetsBreakdown.etf),
+                    trainingFund: Math.round(liquidAssetsBreakdown.trainingFund)
+                },
                 score: finalScore,
                 dti: Math.round(dtiPerc),
                 runway: parseFloat(runwayMonths.toFixed(1)),
