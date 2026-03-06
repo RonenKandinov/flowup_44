@@ -212,8 +212,11 @@ Deno.serve(async (req) => {
             console.log(`[Debug] Accounts API status: ${accountsRes.status}`);
             if (accountsRes.ok) {
                 const accountsData = await accountsRes.json();
-                debugAccountsData = accountsData?.data || accountsData?.items || accountsData?.accounts || [];
+                debugAccountsData = accountsData;
                 let rawAccounts = accountsData?.data || accountsData?.items || accountsData?.accounts || [];
+                if (!rawAccounts.length && Array.isArray(accountsData)) {
+                    rawAccounts = accountsData;
+                }
                 
                 console.log(`[Debug] Raw accounts before filter:`, rawAccounts.length);
                 // Filter to only account ending in 24498
@@ -225,6 +228,7 @@ Deno.serve(async (req) => {
                     rawAccounts = filteredAccounts;
                 }
                 console.log(`[Debug] Raw accounts after filter:`, rawAccounts.length);
+                console.log(`[Debug] Raw accounts sample:`, JSON.stringify(rawAccounts.slice(0, 2)));
 
                 // Deduplicate accounts by accountNumber only
                 const uniqueAccountsMap = new Map();
@@ -623,12 +627,7 @@ ${JSON.stringify(limitedExpenses)}
                 runway: parseFloat(runwayMonths.toFixed(1)),
                 trends: trends
             },
-            debugAccountsData: debugAccountsData.map(a => ({
-                accountNumber: a.accountNumber,
-                accountNo: a.accountNo,
-                id: a.id,
-                balance: extractBalance(a).balance
-            }))
+            debugAccountsData
         });
 
     } catch (error) {
