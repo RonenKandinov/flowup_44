@@ -200,7 +200,7 @@ Deno.serve(async (req) => {
         let liquidAssets = 0;
         let liquidAssetsBreakdown = { cash: 0, etf: 0, trainingFund: 0 };
         let debugAccountsData = [];
-        console.log(`[Debug] Starting to fetch accounts...`);
+        console.log(`[Debug] Starting to fetch accounts... v2`);
         try {
             const accountsRes = await fetch(`${API_V2}/data/accounts`, {
                 headers: {
@@ -212,27 +212,19 @@ Deno.serve(async (req) => {
             console.log(`[Debug] Accounts API status: ${accountsRes.status}`);
             if (accountsRes.ok) {
                 const accountsData = await accountsRes.json();
-                debugAccountsData = accountsData;
+                debugAccountsData = accountsData?.data || accountsData?.items || accountsData?.accounts || [];
                 let rawAccounts = accountsData?.data || accountsData?.items || accountsData?.accounts || [];
-                if (!rawAccounts.length && Array.isArray(accountsData)) {
-                    rawAccounts = accountsData;
-                }
                 
                 console.log(`[Debug] Raw accounts before filter:`, rawAccounts.length);
-                
-                // Let's log all accounts to see what we have
-                rawAccounts.forEach(a => {
-                    const bal = extractBalance(a).balance;
-                    if (bal !== 0) {
-                        console.log(`[Debug] Account ${a.accountNumber || a.id} (${a.type} / ${a.product}): ${bal}`);
-                    }
+                // Filter to only account ending in 24498
+                const filteredAccounts = rawAccounts.filter(acc => {
+                    const accNumStr = String(acc.accountNumber || acc.accountNo || acc.id || "");
+                    return accNumStr.endsWith('24498');
                 });
-
-                // Filter to only account ending in 24498 FOR TRANSACTIONS, but for liquid assets we might need all?
-                // Wait, the user wants liquid assets. Let's keep all accounts for liquid assets calculation.
-                // But we need to make sure we don't duplicate.
-                // Actually, let's just remove the filter for liquid assets.
-                // We will filter transactions later if needed.
+                if (filteredAccounts.length > 0) {
+                    rawAccounts = filteredAccounts;
+                }
+                console.log(`[Debug] Raw accounts after filter:`, rawAccounts.length);
 
                 // Deduplicate accounts by accountNumber only
                 const uniqueAccountsMap = new Map();
@@ -264,8 +256,8 @@ Deno.serve(async (req) => {
                         else if (acc.balance?.amount !== undefined) balanceAmount = Number(acc.balance.amount);
                     }
 
+                    console.log(`[Account QA] Name: ${name}, Type: ${type}, Product: ${product}, CashAccountType: ${cashAccountType}, Balance: ${balanceAmount}, Path: ${path}`);
                     if (balanceAmount !== 0) {
-                        console.log(`[Account QA] Name: ${name}, Type: ${type}, Product: ${product}, CashAccountType: ${cashAccountType}, Balance: ${balanceAmount}, Path: ${path}`);
                         
                         const isOverdraft = type.includes('overdraft') || name.includes('overdraft') || name.includes('מינוס') || product.includes('מינוס');
                         const isInvestment = type.includes('investment') || type.includes('securities') || name.includes('תיק') || name.includes('השקעות') || name.includes('ניירות ערך') || name.includes('סחירות') || name.includes('מנייתי') || name.includes('מט"ח') || name.includes('ibi') || name.includes('meitav') || name.includes('excellence') || product.includes('השקעות') || product.includes('ניירות ערך');
@@ -451,7 +443,6 @@ ${JSON.stringify(limitedExpenses)}
                 if (isInvestmentTransfer) {
                     investmentTransfers += absAmt;
                     liquidAssetsBreakdown.etf += absAmt;
-                    console.log(`[Debug] Investment transfer found: ${txDesc} ${category} ${absAmt}`);
                 }
 
                 currentMonth.expenses += absAmt;
@@ -632,7 +623,12 @@ ${JSON.stringify(limitedExpenses)}
                 runway: parseFloat(runwayMonths.toFixed(1)),
                 trends: trends
             },
-            debugAccountsData
+            debugAccountsData: debugAccountsData.map(a => ({
+                accountNumber: a.accountNumber,
+                accountNo: a.accountNo,
+                id: a.id,
+                balance: extractBalance(a).balance
+            }))
         });
 
     } catch (error) {
