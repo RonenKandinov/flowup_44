@@ -216,15 +216,8 @@ Deno.serve(async (req) => {
                 let rawAccounts = accountsData?.data || accountsData?.items || accountsData?.accounts || [];
                 
                 console.log(`[Debug] Raw accounts before filter:`, rawAccounts.length);
-                // Filter to only account ending in 24498
-                const filteredAccounts = rawAccounts.filter(acc => {
-                    const accNumStr = String(acc.accountNumber || acc.accountNo || acc.id || "");
-                    return accNumStr.endsWith('24498');
-                });
-                if (filteredAccounts.length > 0) {
-                    rawAccounts = filteredAccounts;
-                }
-                console.log(`[Debug] Raw accounts after filter:`, rawAccounts.length);
+                // Removed the hardcoded 24498 filter so it dynamically calculates liquid assets for all accounts returned by the API
+                console.log(`[Debug] Raw accounts to process:`, rawAccounts.length);
 
                 // Deduplicate accounts by accountNumber only
                 const uniqueAccountsMap = new Map();
