@@ -473,10 +473,25 @@ ${JSON.stringify(limitedExpenses)}
         // Add detected investment transfers to liquid assets
         liquidAssets += investmentTransfers;
 
-        // Sort history chronologically and take only the last 6 months
+        // Sort history chronologically
         let history = Object.values(monthlyData)
-            .sort((a, b) => a.month.localeCompare(b.month))
-            .slice(-6);
+            .sort((a, b) => a.month.localeCompare(b.month));
+
+        // Exclude current month if it's too empty (e.g., less than 20% of previous month's volume)
+        const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+        if (history.length > 0 && history[history.length - 1].month === currentMonthKey) {
+            const currentMonthData = history[history.length - 1];
+            if (history.length > 1) {
+                const prevMonthData = history[history.length - 2];
+                if ((currentMonthData.income + currentMonthData.expenses) < (prevMonthData.income + prevMonthData.expenses) * 0.2) {
+                    history.pop();
+                }
+            } else if (currentMonthData.income + currentMonthData.expenses < 1000) {
+                history.pop();
+            }
+        }
+
+        history = history.slice(-6);
 
         // Calculate trends
         let trends = { income: 0, expenses: 0, dti: 0 };
