@@ -276,6 +276,9 @@ Deno.serve(async (req) => {
             console.error("Failed to fetch/process accounts:", e);
         }
 
+        // Add manualLiquidAssets only to the final sum
+        liquidAssets += manualLiquidAssets;
+        liquidAssetsBreakdown.cash += manualLiquidAssets;
         liquidAssets = Math.max(0, liquidAssets);
 
         // 3. Fetch Transactions
@@ -386,13 +389,13 @@ ${JSON.stringify(limitedExpenses)}
             const amount = Number(tx?.amount?.chargedAmount?.amount || tx?.amount || 0);
             if (isNaN(amount)) return;
 
-            const category = (tx?.category?.main || tx?.category || "").toLowerCase();
+            const category = (tx?.category?.main || tx?.categoryName || tx?.category || "").toLowerCase();
             // tx.date from Open Finance is an object {valueDate, bookingDate, transactionDate} — not a string
             const txDateObj = tx?.date;
             const dateStr = tx?.creationDate ||
                 (typeof txDateObj === 'string' ? txDateObj : (txDateObj?.valueDate || txDateObj?.bookingDate || txDateObj?.transactionDate)) ||
                 tx?.transactionDate;
-            const txDesc = String(tx?.description || "").toLowerCase();
+            const txDesc = String(tx?.description || tx?.details || "").toLowerCase();
 
             let date = dateStr ? new Date(dateStr) : today;
             if (isNaN(date.getTime())) date = today;
