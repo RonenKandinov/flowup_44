@@ -206,21 +206,24 @@ Deno.serve(async (req) => {
                 
                 console.log(`[Liquid Assets] Processing ${accounts.length} accounts`);
                 
-                accounts.forEach((acc) => {
+               accounts.forEach((acc) => {
                     const type = (acc.type || acc.accountType || "").toLowerCase();
+                    // הוספת השורה הזו כדי שהמערכת תזהה את השם "Checking" או "ILY"
+                    const name = (acc.name || acc.accountName || "").toLowerCase(); 
                     const { balance: balanceAmount, path } = extractBalance(acc);
 
                     if (balanceAmount !== 0) {
-                        console.log(`[Account QA] Type: ${type || 'unknown'}, Extracted Balance: ${balanceAmount}, Extraction Path: ${path}`);
+                        console.log(`[Account QA] Name: ${name}, Type: ${type}, Balance: ${balanceAmount}, Path: ${path}`);
                         
-                        // Apply haircut for investment accounts
-                        if (type.includes('investment') || type.includes('securities') || type.includes('תיק')) {
+                        // בדיקה לפי סוג חשבון או שם (תיק השקעות מול עובר ושב)
+                        if (type.includes('investment') || type.includes('securities') || name.includes('תיק') || name.includes('השקעות')) {
                             liquidAssets += (balanceAmount * 0.8);
                         } else {
-                            liquidAssets += balanceAmount;
+                            // כאן ייכנסו ה-6,367 ש"ח מחשבון הפועלים שלך
+                            liquidAssets += balanceAmount; 
                         }
                     } else {
-                        console.warn(`[Account QA Warning] Zero or undetermined balance for account type: ${type || 'unknown'}. Path: ${path}`);
+                        console.warn(`[Account QA Warning] Zero balance for: ${name || type}. Path: ${path}`);
                     }
                 });
                 
