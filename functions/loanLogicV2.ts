@@ -209,9 +209,22 @@ Deno.serve(async (req) => {
 
             if (accountsRes.ok) {
                 const accountsData = await accountsRes.json();
-                const accounts = accountsData?.data || accountsData?.items || accountsData?.accounts || [];
+                const rawAccounts = accountsData?.data || accountsData?.items || accountsData?.accounts || [];
                 
-                console.log(`[Liquid Assets] Processing ${accounts.length} accounts`);
+                // Deduplicate accounts by accountNumber or id
+                const uniqueAccountsMap = new Map();
+                rawAccounts.forEach(acc => {
+                    const key = acc.accountNumber || acc.id || acc.accountId;
+                    if (key && !uniqueAccountsMap.has(key)) {
+                        uniqueAccountsMap.set(key, acc);
+                    } else if (!key) {
+                        // If no key, just add it with a random key so we don't lose it
+                        uniqueAccountsMap.set(Math.random().toString(), acc);
+                    }
+                });
+                const accounts = Array.from(uniqueAccountsMap.values());
+                
+                console.log(`[Liquid Assets] Processing ${accounts.length} unique accounts (from ${rawAccounts.length} raw)`);
                 
                accounts.forEach((acc) => {
                     const type = (acc.type || acc.accountType || "").toLowerCase();
@@ -245,19 +258,6 @@ Deno.serve(async (req) => {
                 });
                 
                 console.log(`[Liquid Assets] Total calculated: ${liquidAssets}`);
-                // Temporary debug
-                return Response.json({ 
-                    debugAccounts: accounts.map(a => {
-                        let { balance: balanceAmount, path } = extractBalance(a);
-                        if (balanceAmount === 0) {
-                            if (a.availableBalance !== undefined) balanceAmount = Number(a.availableBalance);
-                            else if (a.currentBalance !== undefined) balanceAmount = Number(a.currentBalance);
-                            else if (a.balance !== undefined && !isNaN(Number(a.balance))) balanceAmount = Number(a.balance);
-                            else if (a.balance?.amount !== undefined) balanceAmount = Number(a.balance.amount);
-                        }
-                        return { name: a.name || a.accountName, type: a.type || a.accountType, balanceAmount, path };
-                    }).filter(a => a.balanceAmount > 10000)
-                });
             }
         } catch (e) {
             console.error("Failed to fetch/process accounts:", e);
