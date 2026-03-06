@@ -199,7 +199,7 @@ Deno.serve(async (req) => {
         // 2. Fetch Accounts & Calculate Real Liquid Assets
         let liquidAssets = 0;
         let liquidAssetsBreakdown = { cash: 0, etf: 0, trainingFund: 0 };
-        let debugAccountsData = null;
+        let debugAccountsData = [];
         console.log(`[Debug] Starting to fetch accounts...`);
         try {
             const accountsRes = await fetch(`${API_V2}/data/accounts`, {
