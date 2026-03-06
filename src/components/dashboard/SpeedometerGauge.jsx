@@ -222,11 +222,10 @@ export default function SpeedometerGauge({
                   <span className="opacity-70">DTI: </span>
                   <span className={dti > 50 ? 'text-red-400' : dti > 35 ? 'text-orange-400' : 'text-emerald-400'}>{dti}%</span>
                 </div>
-                {dtiTrend !== null && Math.abs(dtiTrend) >= 0.1 && (
-                   <div className={`mt-1 flex items-center text-[10px] ${Math.abs(dtiTrend) < 1 ? 'text-slate-500' : (dtiTrend > 0 ? 'text-red-400' : 'text-emerald-400')}`}>
-                      {Math.abs(dtiTrend) < 1 ? <Minus className="w-3 h-3 mr-1" /> : (dtiTrend > 0 ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />)}
-                      <span dir="ltr">{Math.abs(dtiTrend).toFixed(1)}%</span>
-                      <span className="ml-1 opacity-70">מול ממוצע קודם</span>
+                {dtiTrend && (
+                   <div className={`mt-1 flex items-center text-[10px] ${dtiTrend.isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {dtiTrend.isPositive ? <ArrowDownRight className="w-3 h-3 mr-1" /> : <ArrowUpRight className="w-3 h-3 mr-1" />}
+                      <span dir="ltr">{dtiTrend.value}</span>
                    </div>
                 )}
              </div>
