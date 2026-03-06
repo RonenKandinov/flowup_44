@@ -199,6 +199,7 @@ Deno.serve(async (req) => {
         // 2. Fetch Accounts & Calculate Real Liquid Assets
         let liquidAssets = 0;
         let liquidAssetsBreakdown = { cash: 0, etf: 0, trainingFund: 0 };
+        let debugAccountsData = null;
         console.log(`[Debug] Starting to fetch accounts...`);
         try {
             const accountsRes = await fetch(`${API_V2}/data/accounts`, {
@@ -211,11 +212,15 @@ Deno.serve(async (req) => {
             console.log(`[Debug] Accounts API status: ${accountsRes.status}`);
             if (accountsRes.ok) {
                 const accountsData = await accountsRes.json();
+                debugAccountsData = accountsData;
                 let rawAccounts = accountsData?.data || accountsData?.items || accountsData?.accounts || [];
                 
-                console.log(`[Debug] Raw accounts before filter:`, JSON.stringify(rawAccounts.map(a => ({ accountNumber: a.accountNumber, id: a.id, name: a.name, balance: a.balance, currentBalance: a.currentBalance, availableBalance: a.availableBalance }))));
+                console.log(`[Debug] Raw accounts before filter:`, rawAccounts.length);
                 // Filter to only account ending in 24498
-                rawAccounts = rawAccounts.filter(acc => acc.accountNumber && String(acc.accountNumber).endsWith('24498'));
+                rawAccounts = rawAccounts.filter(acc => {
+                    const accNumStr = String(acc.accountNumber || acc.accountNo || acc.id || "");
+                    return accNumStr.endsWith('24498');
+                });
                 console.log(`[Debug] Raw accounts after filter:`, rawAccounts.length);
 
                 // Deduplicate accounts by accountNumber only
