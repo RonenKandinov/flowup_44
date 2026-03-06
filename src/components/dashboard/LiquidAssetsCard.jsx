@@ -9,7 +9,7 @@ export default function LiquidAssetsCard({ cash, etf, trainingFund }) {
     const [isOpen, setIsOpen] = useState(false);
 
     // Weighted Formula
-    const weightedTotal = (cash * 1.0) + (etf * 0.75) + (trainingFund * 0.55);
+    const weightedTotal = (cash * 1.0) + (etf * 0.80) + (trainingFund * 0.55);
 
     const formatCurrency = (amount) => 
         new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 }).format(amount);
