@@ -38,7 +38,6 @@ function getStandardDeviation(array) {
     return Math.sqrt(variance);
 }
 
-// --- QUALITY ASSURANCE & EXTRACTION ---
 function extractBalance(acc) {
     let balance = 0;
     let extractionPath = 'none';
@@ -47,11 +46,22 @@ function extractBalance(acc) {
     try {
         if (!acc || typeof acc !== 'object') return { balance: 0, path: 'invalid_account_obj' };
 
-        // 1. Array of balances (Standard Open Banking)
-        if (Array.isArray(acc.balances) && acc.balances.length > 0) {
+        // 1. Priority 1: Direct availableBalance (Common in Poalim/Open Finance Israel)
+        if (acc.availableBalance !== undefined) {
+            rawValues.availableBalance = acc.availableBalance;
+            balance = Number(acc.availableBalance);
+            extractionPath = 'availableBalance';
+        } 
+        // 2. Priority 2: Direct currentBalance
+        else if (acc.currentBalance !== undefined) {
+            rawValues.currentBalance = acc.currentBalance;
+            balance = Number(acc.currentBalance);
+            extractionPath = 'currentBalance';
+        } 
+        // 3. Priority 3: Array of balances (Standard Open Banking)
+        else if (Array.isArray(acc.balances) && acc.balances.length > 0) {
             rawValues.balances = acc.balances;
             
-            // Priority 1: interimAvailable or available
             let targetBal = acc.balances.find(b => 
                 b.balanceType === "interimAvailable" || 
                 b.type === "interimAvailable" ||
@@ -59,7 +69,6 @@ function extractBalance(acc) {
                 b.type === "available"
             );
             
-            // Priority 2: closingBooked or booked
             if (!targetBal) {
                 targetBal = acc.balances.find(b => 
                     b.balanceType === "closingBooked" || 
@@ -69,7 +78,6 @@ function extractBalance(acc) {
                 );
             }
             
-            // Fallback: first element
             if (!targetBal) targetBal = acc.balances[0];
 
             if (targetBal) {
@@ -85,7 +93,7 @@ function extractBalance(acc) {
                 }
             }
         } 
-        // 2. Direct balance object/value
+        // 4. Priority 4: Direct balance object/value
         else if (acc.balance !== undefined) {
             rawValues.balance = acc.balance;
             if (typeof acc.balance === 'object' && acc.balance !== null) {
@@ -100,18 +108,6 @@ function extractBalance(acc) {
                 balance = Number(acc.balance);
                 extractionPath = 'balance';
             }
-        } 
-        // 3. currentBalance
-        else if (acc.currentBalance !== undefined) {
-            rawValues.currentBalance = acc.currentBalance;
-            balance = Number(acc.currentBalance);
-            extractionPath = 'currentBalance';
-        } 
-        // 4. availableBalance
-        else if (acc.availableBalance !== undefined) {
-            rawValues.availableBalance = acc.availableBalance;
-            balance = Number(acc.availableBalance);
-            extractionPath = 'availableBalance';
         }
 
         // Edge case handling: NaN or Null
@@ -129,7 +125,6 @@ function extractBalance(acc) {
 
     return { balance, path: extractionPath };
 }
-
 // --- UNIT TESTS (Run on load) ---
 function runBalanceExtractionTests() {
     const testCases = [
