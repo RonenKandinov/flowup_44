@@ -760,26 +760,20 @@ export default function Dashboard() {
                     trainingFund={newLoanMetrics?.liquidAssetsBreakdown?.trainingFund ?? (loanLogicData ? loanMetrics?.liquidAssetsBreakdown?.trainingFund : 0)}
                 />
                 <StatCard
-                  title={`ממוצע הכנסות (${newLoanMetrics?.history?.length || 6} חודשים)`}
+                  title="ממוצע הכנסות (6 חודשים)"
                   value={`₪${Math.round(newLoanMetrics ? newLoanMetrics.totalIncome : (loanLogicData ? loanMetrics.totalIncome : (currentEngineData?.totalIncome ?? currentMonthStats?.income ?? snapshot.total_income ?? 0))).toLocaleString('he-IL')}`}
                   icon={TrendingUp}
                   color="green"
                   delay={0.1}
-                  trend={newLoanMetrics?.trends?.income ? {
-                      value: `${Math.abs(newLoanMetrics.trends.income).toFixed(1)}% ממוצע 3 חודשים`,
-                      isPositive: newLoanMetrics.trends.income > 0
-                  } : undefined}
+                  trend={newLoanMetrics?.trends?.income}
                 />
                 <StatCard
-                  title={`ממוצע הוצאות (${newLoanMetrics?.history?.length || 6} חודשים)`}
+                  title="ממוצע הוצאות (6 חודשים)"
                   value={`₪${Math.round(newLoanMetrics ? newLoanMetrics.totalExpenses : (loanLogicData ? loanMetrics.totalExpenses : (currentEngineData?.totalExpenses ?? currentMonthStats?.expenses ?? snapshot.total_expenses ?? 0))).toLocaleString('he-IL')}`}
                   icon={TrendingDown}
                   color="red"
                   delay={0.2}
-                  trend={newLoanMetrics?.trends?.expenses ? {
-                      value: `${Math.abs(newLoanMetrics.trends.expenses).toFixed(1)}% ממוצע 3 חודשים`,
-                      isPositive: newLoanMetrics.trends.expenses < 0
-                  } : undefined}
+                  trend={newLoanMetrics?.trends?.expenses}
                 />
               </div>
 
@@ -794,16 +788,13 @@ export default function Dashboard() {
                   <SpeedometerGauge
                     projectedBalance={simulatedMetrics ? simulatedMetrics.score : (newLoanMetrics ? newLoanMetrics.score : (snapshot.projected_eom_balance || 0))}
                     dti={simulatedMetrics ? simulatedMetrics.dti : (newLoanMetrics ? newLoanMetrics.dti : 0)}
-                    label={simulatedMetrics || newLoanMetrics ? "ציון חיתום (FLOWUP SCORE)" : "יתרה צפויה לסוף החודש"}
+                    label={simulatedMetrics || newLoanMetrics ? "ציון חיתום (FlowUp Score)" : "יתרה צפויה לסוף החודש"}
                     riskLevel={simulatedMetrics ? simulatedMetrics.status : (newLoanMetrics ? newLoanMetrics.status : (snapshot.risk_level || 'green'))}
                     riskDay={simulatedMetrics ? simulatedMetrics.riskDay : (newLoanMetrics ? newLoanMetrics.riskDay : null)}
                     whatIfAmount={whatIfAmount}
                     engineData={null}
                     isScore={!!(simulatedMetrics || newLoanMetrics)}
-                    dtiTrend={newLoanMetrics?.trends?.dti ? {
-                        value: `${Math.abs(newLoanMetrics.trends.dti).toFixed(1)}% מול ממוצע קודם`,
-                        isPositive: newLoanMetrics.trends.dti < 0
-                    } : undefined} 
+                    dtiTrend={newLoanMetrics?.trends?.dti} 
                   />
                 </motion.div>
 

@@ -9,7 +9,7 @@ export default function LiquidAssetsCard({ cash, etf, trainingFund }) {
     const [isOpen, setIsOpen] = useState(false);
 
     // Weighted Formula
-    const weightedTotal = (cash * 1.0) + (etf * 0.80) + (trainingFund * 0.55);
+    const weightedTotal = (cash * 1.0) + (etf * 0.75) + (trainingFund * 0.55);
 
     const formatCurrency = (amount) => 
         new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 }).format(amount);
@@ -87,7 +87,7 @@ export default function LiquidAssetsCard({ cash, etf, trainingFund }) {
                             <AssetRow 
                                 label="השקעות סחירות" 
                                 amount={etf} 
-                                factor={80}
+                                factor={75}
                                 description="קרנות סל, מניות, אג״ח"
                                 liquidity="medium"
                             />
