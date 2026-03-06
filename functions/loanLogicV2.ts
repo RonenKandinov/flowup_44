@@ -211,18 +211,15 @@ Deno.serve(async (req) => {
                 const accountsData = await accountsRes.json();
                 const rawAccounts = accountsData?.data || accountsData?.items || accountsData?.accounts || [];
                 
-                // Deduplicate accounts by accountNumber or id
+                // Deduplicate accounts by combining identifier and type
                 const uniqueAccountsMap = new Map();
                 rawAccounts.forEach(acc => {
-                    const key = acc.accountNumber || acc.id || acc.accountId;
-                    if (key && !uniqueAccountsMap.has(key)) {
+                    const accType = (acc.type || acc.accountType || 'unknown').toLowerCase();
+                    const baseKey = acc.accountNumber || acc.id || acc.accountId || acc.name || acc.accountName || 'unknown';
+                    const key = `${baseKey}_${accType}`;
+                    
+                    if (!uniqueAccountsMap.has(key)) {
                         uniqueAccountsMap.set(key, acc);
-                    } else if (!key) {
-                        // If no key, use account name + type as a fallback key
-                        const fallbackKey = `${acc.name || acc.accountName || 'unknown'}_${acc.type || acc.accountType || 'unknown'}`;
-                        if (!uniqueAccountsMap.has(fallbackKey)) {
-                            uniqueAccountsMap.set(fallbackKey, acc);
-                        }
                     }
                 });
                 const accounts = Array.from(uniqueAccountsMap.values());
@@ -247,15 +244,25 @@ Deno.serve(async (req) => {
                     if (balanceAmount !== 0) {
                         console.log(`[Account QA] Name: ${name}, Type: ${type}, Balance: ${balanceAmount}, Path: ${path}`);
                         
-                        if (type.includes('investment') || type.includes('securities') || name.includes('תיק') || name.includes('השקעות')) {
-                            liquidAssetsBreakdown.etf += balanceAmount;
-                            liquidAssets += (balanceAmount * 0.8);
-                        } else if (type.includes('training') || type.includes('provident') || name.includes('השתלמות') || name.includes('גמל')) {
-                            liquidAssetsBreakdown.trainingFund += balanceAmount;
-                            liquidAssets += (balanceAmount * 0.55);
+                        const isOverdraft = type.includes('overdraft') || name.includes('overdraft') || name.includes('מינוס');
+                        const isInvestment = type.includes('investment') || type.includes('securities') || name.includes('תיק') || name.includes('השקעות') || name.includes('ניירות ערך') || name.includes('סחירות') || name.includes('מנייתי') || name.includes('מט"ח') || name.includes('ibi') || name.includes('meitav') || name.includes('excellence');
+                        const isTrainingFund = type.includes('training') || type.includes('provident') || type.includes('pension') || name.includes('השתלמות') || name.includes('גמל') || name.includes('פנסיה') || name.includes('קופת');
+                        const isChecking = type.includes('checking') || type.includes('current') || name.includes('עו"ש') || name.includes('עובר ושב');
+
+                        let finalBalance = balanceAmount;
+                        if (isOverdraft) {
+                            finalBalance = -Math.abs(balanceAmount);
+                        }
+
+                        if (isInvestment) {
+                            liquidAssetsBreakdown.etf += finalBalance;
+                            liquidAssets += (finalBalance * 0.8);
+                        } else if (isTrainingFund) {
+                            liquidAssetsBreakdown.trainingFund += finalBalance;
+                            liquidAssets += (finalBalance * 0.55);
                         } else {
-                            liquidAssetsBreakdown.cash += balanceAmount;
-                            liquidAssets += balanceAmount; 
+                            liquidAssetsBreakdown.cash += finalBalance;
+                            liquidAssets += finalBalance; 
                         }
                     }
                 });
