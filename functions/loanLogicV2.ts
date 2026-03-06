@@ -218,8 +218,11 @@ Deno.serve(async (req) => {
                     if (key && !uniqueAccountsMap.has(key)) {
                         uniqueAccountsMap.set(key, acc);
                     } else if (!key) {
-                        // If no key, just add it with a random key so we don't lose it
-                        uniqueAccountsMap.set(Math.random().toString(), acc);
+                        // If no key, use account name + type as a fallback key
+                        const fallbackKey = `${acc.name || acc.accountName || 'unknown'}_${acc.type || acc.accountType || 'unknown'}`;
+                        if (!uniqueAccountsMap.has(fallbackKey)) {
+                            uniqueAccountsMap.set(fallbackKey, acc);
+                        }
                     }
                 });
                 const accounts = Array.from(uniqueAccountsMap.values());
