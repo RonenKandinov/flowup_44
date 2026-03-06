@@ -619,7 +619,8 @@ ${JSON.stringify(limitedExpenses)}
                 dti: Math.round(dtiPerc),
                 runway: parseFloat(runwayMonths.toFixed(1)),
                 trends: trends
-            }
+            },
+            debugAccountsData
         });
 
     } catch (error) {
