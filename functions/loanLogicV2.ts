@@ -229,6 +229,8 @@ Deno.serve(async (req) => {
                accounts.forEach((acc) => {
                     const type = (acc.type || acc.accountType || "").toLowerCase();
                     const name = (acc.name || acc.accountName || "").toLowerCase(); 
+                    const product = (acc.product || "").toLowerCase();
+                    const details = (acc.details || "").toLowerCase();
                     
                     // Fallback to extract balance directly if extractBalance fails
                     let { balance: balanceAmount, path } = extractBalance(acc);
@@ -242,12 +244,12 @@ Deno.serve(async (req) => {
                     }
 
                     if (balanceAmount !== 0) {
-                        console.log(`[Account QA] Name: ${name}, Type: ${type}, Balance: ${balanceAmount}, Path: ${path}`);
+                        console.log(`[Account QA] Name: ${name}, Type: ${type}, Product: ${product}, Balance: ${balanceAmount}, Path: ${path}`);
                         
-                        const isOverdraft = type.includes('overdraft') || name.includes('overdraft') || name.includes('מינוס');
-                        const isInvestment = type.includes('investment') || type.includes('securities') || name.includes('תיק') || name.includes('השקעות') || name.includes('ניירות ערך') || name.includes('סחירות') || name.includes('מנייתי') || name.includes('מט"ח') || name.includes('ibi') || name.includes('meitav') || name.includes('excellence');
-                        const isTrainingFund = type.includes('training') || type.includes('provident') || type.includes('pension') || name.includes('השתלמות') || name.includes('גמל') || name.includes('פנסיה') || name.includes('קופת');
-                        const isChecking = type.includes('checking') || type.includes('current') || name.includes('עו"ש') || name.includes('עובר ושב');
+                        const isOverdraft = type.includes('overdraft') || name.includes('overdraft') || name.includes('מינוס') || product.includes('מינוס');
+                        const isInvestment = type.includes('investment') || type.includes('securities') || name.includes('תיק') || name.includes('השקעות') || name.includes('ניירות ערך') || name.includes('סחירות') || name.includes('מנייתי') || name.includes('מט"ח') || name.includes('ibi') || name.includes('meitav') || name.includes('excellence') || product.includes('השקעות') || product.includes('ניירות ערך');
+                        const isTrainingFund = type.includes('training') || type.includes('provident') || type.includes('pension') || name.includes('השתלמות') || name.includes('גמל') || name.includes('פנסיה') || name.includes('קופת') || product.includes('השתלמות') || product.includes('גמל') || product.includes('פנסיה');
+                        const isChecking = type.includes('checking') || type.includes('current') || name.includes('עו"ש') || name.includes('עובר ושב') || product.includes('עו"ש') || product.includes('עובר ושב') || details.includes('עו"ש');
 
                         let finalBalance = balanceAmount;
                         if (isOverdraft) {
