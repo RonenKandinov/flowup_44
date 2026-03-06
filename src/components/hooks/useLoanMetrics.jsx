@@ -54,8 +54,8 @@ export const useLoanMetrics = (userId) => {
                     riskDay: null, // Deprecated in V3
                     totalIncome: report.metrics?.monthlyAverageIncome ?? metrics.totalIncome ?? 0,
                     totalExpenses: report.metrics?.monthlyAverageExpenses ?? metrics.totalExpenses ?? 0,
-                    totalFixedExpenses: metrics.fixedExpenses ?? 0,
-                    totalLifestyleExpenses: metrics.lifestyleExpenses ?? 0,
+                    totalFixedExpenses: report.metrics?.history ? (report.metrics.history.reduce((sum, h) => sum + (h.fixedExpenses || 0), 0) / report.metrics.history.length) : (metrics.fixedExpenses ?? 0),
+                    totalLifestyleExpenses: report.metrics?.history ? (report.metrics.history.reduce((sum, h) => sum + (h.flexibleExpenses || 0), 0) / report.metrics.history.length) : (metrics.lifestyleExpenses ?? 0),
                     liquidAssets: report.metrics?.liquidAssets ?? metrics.liquidAssets ?? 0,
                     liquidAssetsBreakdown: report.metrics?.liquidAssetsBreakdown ?? metrics.liquidAssetsBreakdown ?? { cash: 0, etf: 0, trainingFund: 0 },
                     
