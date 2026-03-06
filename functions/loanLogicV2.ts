@@ -197,8 +197,8 @@ Deno.serve(async (req) => {
         const accessToken = tokenJson.accessToken;
 
         // 2. Fetch Accounts & Calculate Real Liquid Assets
-        let liquidAssets = manualLiquidAssets;
-        let liquidAssetsBreakdown = { cash: manualLiquidAssets, etf: 0, trainingFund: 0 };
+        let liquidAssets = 0;
+        let liquidAssetsBreakdown = { cash: 0, etf: 0, trainingFund: 0 };
         try {
             const accountsRes = await fetch(`${API_V2}/data/accounts`, {
                 headers: {
@@ -209,16 +209,16 @@ Deno.serve(async (req) => {
 
             if (accountsRes.ok) {
                 const accountsData = await accountsRes.json();
-                const rawAccounts = accountsData?.data || accountsData?.items || accountsData?.accounts || [];
+                let rawAccounts = accountsData?.data || accountsData?.items || accountsData?.accounts || [];
                 
-                // Deduplicate accounts by combining identifier and type
+                // Filter to only account ending in 24498
+                rawAccounts = rawAccounts.filter(acc => acc.accountNumber && String(acc.accountNumber).endsWith('24498'));
+
+                // Deduplicate accounts by accountNumber only
                 const uniqueAccountsMap = new Map();
                 rawAccounts.forEach(acc => {
-                    const accType = (acc.type || acc.accountType || 'unknown').toLowerCase();
-                    const baseKey = acc.accountNumber || acc.id || acc.accountId || acc.name || acc.accountName || 'unknown';
-                    const key = `${baseKey}_${accType}`;
-                    
-                    if (!uniqueAccountsMap.has(key)) {
+                    const key = acc.accountNumber;
+                    if (key && !uniqueAccountsMap.has(key)) {
                         uniqueAccountsMap.set(key, acc);
                     }
                 });
