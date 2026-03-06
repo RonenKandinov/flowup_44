@@ -57,6 +57,7 @@ export const useLoanMetrics = (userId) => {
                     totalFixedExpenses: metrics.fixedExpenses ?? 0,
                     totalLifestyleExpenses: metrics.lifestyleExpenses ?? 0,
                     liquidAssets: report.metrics?.liquidAssets ?? metrics.liquidAssets ?? 0,
+                    liquidAssetsBreakdown: report.metrics?.liquidAssetsBreakdown ?? metrics.liquidAssetsBreakdown ?? { cash: 0, etf: 0, trainingFund: 0 },
                     
                     // New Pilot Fields
                     confidence: report.decision?.confidence || "Standard",

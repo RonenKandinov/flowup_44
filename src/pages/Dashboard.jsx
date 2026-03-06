@@ -755,9 +755,9 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-4 mb-4 md:mb-6">
                 {/* Replaced Balance StatCard with LiquidAssetsCard */}
                 <LiquidAssetsCard 
-                    cash={newLoanMetrics ? newLoanMetrics.liquidAssets : (loanLogicData ? loanMetrics.netCashflow : (snapshot.current_balance || 0))} 
-                    etf={0}
-                    trainingFund={0}
+                    cash={newLoanMetrics?.liquidAssetsBreakdown?.cash ?? (loanLogicData ? loanMetrics?.liquidAssetsBreakdown?.cash : (snapshot.current_balance || 0))} 
+                    etf={newLoanMetrics?.liquidAssetsBreakdown?.etf ?? (loanLogicData ? loanMetrics?.liquidAssetsBreakdown?.etf : 0)}
+                    trainingFund={newLoanMetrics?.liquidAssetsBreakdown?.trainingFund ?? (loanLogicData ? loanMetrics?.liquidAssetsBreakdown?.trainingFund : 0)}
                 />
                 <StatCard
                   title="ממוצע הכנסות (6 חודשים)"
