@@ -696,7 +696,7 @@ export default function Dashboard() {
                     <SelectItem value="all">כל החשבונות</SelectItem>
                     {originalLoanMetrics.availableAccounts.map(acc => (
                       <SelectItem key={acc.id} value={acc.id}>
-                        {acc.name} ({acc.number.slice(-4)})
+                        {acc.name} ({acc.number ? acc.number.slice(-4) : '****'})
                       </SelectItem>
                     ))}
                   </SelectContent>
