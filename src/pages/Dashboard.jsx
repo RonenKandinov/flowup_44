@@ -324,7 +324,7 @@ export default function Dashboard() {
       totalFixedExpenses: 0,
       totalLifestyleExpenses: snapshot.total_expenses ?? 0,
     };
-  }, [snapshot, newLoanMetrics, loanLogicData, loanMetrics]);
+  }, [snapshot, newLoanMetrics]);
 
   const metricsForInsights = newLoanMetrics || metricsFromSnapshot;
 
