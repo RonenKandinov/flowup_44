@@ -65,17 +65,6 @@ export default function StatCard({
             {value}
             </p>
         </div>
-        
-        {trend !== null && trend !== undefined && Math.abs(trend) >= 0.1 && (
-            <div className={`flex items-center text-[10px] md:text-xs mt-1 font-medium ${
-                Math.abs(trend) < 1 ? 'text-slate-400' : 
-                (color === 'red' ? (trend > 0 ? 'text-red-400' : 'text-emerald-400') : (trend > 0 ? 'text-emerald-400' : 'text-red-400'))
-            }`}>
-                {Math.abs(trend) < 1 ? <Minus className="w-3 h-3 mr-1" /> : (trend > 0 ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />)}
-                <span dir="ltr">{Math.abs(trend).toFixed(1)}%</span>
-                <span className="text-slate-500 ml-1 font-normal text-[9px] md:text-[10px] mr-1 hidden sm:inline">ממוצע 3 חודשים</span>
-            </div>
-        )}
       </div>
     </motion.div>
   );
