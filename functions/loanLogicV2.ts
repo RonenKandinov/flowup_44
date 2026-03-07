@@ -239,14 +239,34 @@ Deno.serve(async (req) => {
                 });
                 let accounts = Array.from(uniqueAccountsMap.values());
                 
-                // Extract available accounts for the UI dropdown, filtering out accounts with 0 balance
+                // Extract available accounts for the UI dropdown, filtering out accounts with 0 balance and fixing names
                 availableAccounts = accounts
                     .filter(a => extractBalance(a).balance !== 0)
-                    .map(a => ({
-                        id: a.id || a.accountId || a.accountNumber,
-                        name: a.name || a.accountName || "Unknown Account",
-                        number: a.accountNumber || a.accountNo || ""
-                    }));
+                    .map(a => {
+                        const type = (a.type || a.accountType || "").toLowerCase();
+                        const name = (a.name || a.accountName || "").toLowerCase(); 
+                        const product = (a.product || "").toLowerCase();
+                        const details = (a.details || "").toLowerCase();
+                        const cashAccountType = (a.cashAccountType || "").toLowerCase();
+                        
+                        let displayName = a.name || a.accountName || "חשבון בנק";
+                        
+                        const isOverdraft = type.includes('overdraft') || name.includes('overdraft') || name.includes('מינוס') || product.includes('מינוס');
+                        const isInvestment = type.includes('investment') || type.includes('securities') || name.includes('תיק') || name.includes('השקעות') || name.includes('ניירות ערך') || name.includes('סחירות') || name.includes('מנייתי') || name.includes('מט"ח') || name.includes('ibi') || name.includes('meitav') || name.includes('excellence') || product.includes('השקעות') || product.includes('ניירות ערך');
+                        const isTrainingFund = type.includes('training') || type.includes('provident') || type.includes('pension') || name.includes('השתלמות') || name.includes('גמל') || name.includes('פנסיה') || name.includes('קופת') || product.includes('השתלמות') || product.includes('גמל') || product.includes('פנסיה');
+                        const isChecking = type.includes('checking') || type.includes('current') || cashAccountType.includes('cacc') || name.includes('עו"ש') || name.includes('עובר ושב') || product.includes('עו"ש') || product.includes('עובר ושב') || details.includes('עו"ש');
+
+                        if (isChecking) displayName = "חשבון עו״ש";
+                        else if (isInvestment) displayName = "תיק השקעות";
+                        else if (isTrainingFund) displayName = "קופת גמל / השתלמות";
+                        else if (isOverdraft) displayName = "מסגרת אשראי";
+
+                        return {
+                            id: a.id || a.accountId || a.accountNumber,
+                            name: displayName,
+                            number: a.accountNumber || a.accountNo || ""
+                        };
+                    });
 
                 // Filter to targetAccountId if provided
                 if (targetAccountId) {
