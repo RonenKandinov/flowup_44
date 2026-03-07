@@ -275,10 +275,9 @@ Deno.serve(async (req) => {
                     activeTargetAccountId = availableAccounts[0].id;
                 }
 
-                // Filter to activeTargetAccountId if provided
-                if (activeTargetAccountId) {
-                    accounts = accounts.filter(acc => String(acc.id || acc.accountId || acc.accountNumber) === String(activeTargetAccountId));
-                }
+                // We DO NOT filter 'accounts' by activeTargetAccountId here, 
+                // so that liquid assets are calculated across ALL accounts (including ETF, training funds).
+                // Transactions will be filtered by activeTargetAccountId later.
                 
                 console.log(`[Liquid Assets] Processing ${accounts.length} unique accounts (from ${rawAccounts.length} raw)`);
                 
