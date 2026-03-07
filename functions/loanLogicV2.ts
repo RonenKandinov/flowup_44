@@ -239,12 +239,14 @@ Deno.serve(async (req) => {
                 });
                 let accounts = Array.from(uniqueAccountsMap.values());
                 
-                // Extract available accounts for the UI dropdown
-                availableAccounts = accounts.map(a => ({
-                    id: a.id || a.accountId || a.accountNumber,
-                    name: a.name || a.accountName || "Unknown Account",
-                    number: a.accountNumber || a.accountNo || ""
-                }));
+                // Extract available accounts for the UI dropdown, filtering out accounts with 0 balance
+                availableAccounts = accounts
+                    .filter(a => extractBalance(a).balance !== 0)
+                    .map(a => ({
+                        id: a.id || a.accountId || a.accountNumber,
+                        name: a.name || a.accountName || "Unknown Account",
+                        number: a.accountNumber || a.accountNo || ""
+                    }));
 
                 // Filter to targetAccountId if provided
                 if (targetAccountId) {
