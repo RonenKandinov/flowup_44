@@ -20,7 +20,6 @@ import CSVUploader from '../components/upload/CSVUploader'; // Kept for admin fa
 import EmptyState from '../components/dashboard/EmptyState';
 import Disclaimer from '../components/dashboard/Disclaimer';
 import OpenFinanceConnect from '../components/connect/OpenFinanceConnect';
-import { useTransactionSync } from '../components/hooks/useTransactionSync';
 import { useLoanMetrics } from '../components/hooks/useLoanMetrics';
 import { toast } from 'sonner';
 
