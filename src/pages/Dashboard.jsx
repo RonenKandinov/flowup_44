@@ -91,7 +91,7 @@ export default function Dashboard() {
   const [isProcessingCallback, setIsProcessingCallback] = useState(
     () => !!new URLSearchParams(window.location.search).get('of_callback')
   );
-  const [targetAccountId, setTargetAccountId] = useState('all');
+  const [targetAccountId, setTargetAccountId] = useState('');
   
   // Fetch user data for Admin bypass (only when token exists to avoid 401 noise)
   const { data: user, isLoading: isUserLoading } = useQuery({
@@ -109,7 +109,7 @@ export default function Dashboard() {
   });
 
   const { sync, data: loanLogicData, isLoading: isSyncing, metrics: loanMetrics } = useTransactionSync();
-  const { metrics: originalLoanMetrics, isLoading: isLoanMetricsLoading, error: loanMetricsError, refetch: refetchLoanMetrics } = useLoanMetrics(user?.email || user?.id, targetAccountId === 'all' ? null : targetAccountId);
+  const { metrics: originalLoanMetrics, isLoading: isLoanMetricsLoading, error: loanMetricsError, refetch: refetchLoanMetrics } = useLoanMetrics(user?.email || user?.id, targetAccountId || null);
   const newLoanMetrics = simulatedMetrics || originalLoanMetrics;
   const queryClient = useQueryClient();
 
@@ -227,7 +227,7 @@ export default function Dashboard() {
 
             const response = await base44.functions.invoke('loanLogicV2', { 
                 userId: psuId,
-                targetAccountId: targetAccountId === 'all' ? null : targetAccountId 
+                targetAccountId: targetAccountId || null 
             });
             const data = response.data;
 
@@ -688,12 +688,11 @@ export default function Dashboard() {
           <div className="flex items-center gap-2">
             {originalLoanMetrics?.availableAccounts?.length > 0 && (
               <div className="w-48">
-                <Select value={targetAccountId} onValueChange={setTargetAccountId}>
+                <Select value={targetAccountId || originalLoanMetrics.activeTargetAccountId || ''} onValueChange={setTargetAccountId}>
                   <SelectTrigger className="h-8 bg-slate-800/50 border-slate-700/50 text-xs">
-                    <SelectValue placeholder="כל החשבונות" />
+                    <SelectValue placeholder="בחר חשבון" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">כל החשבונות</SelectItem>
                     {originalLoanMetrics.availableAccounts.map(acc => (
                       <SelectItem key={acc.id} value={acc.id}>
                         {acc.name} ({acc.number ? acc.number.slice(-4) : '****'})
@@ -732,16 +731,7 @@ export default function Dashboard() {
               <Plus className="w-3 h-3 ml-1.5" />
               <span className="text-[11px] font-medium">חבר חשבון בנק</span>
             </Button>
-            {hasData && (
-              <Button
-                onClick={() => deleteDataMutation.mutate()}
-                variant="ghost"
-                size="sm"
-                className="text-red-400 hover:text-red-300 hover:bg-red-950/30 border border-transparent hover:border-red-900/30 rounded-lg h-9 w-9 p-0"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            )}
+
           </div>
         </div>
       </header>

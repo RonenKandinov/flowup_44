@@ -66,7 +66,8 @@ export const useLoanMetrics = (userId, targetAccountId = null) => {
                     // Trends from Backend
                     trends: report.metrics?.trends || metrics.trends || { income: 0, expenses: 0, dti: 0 },
                     history: report.metrics?.history || [],
-                    availableAccounts: data.availableAccounts || []
+                    availableAccounts: data.availableAccounts || [],
+                    activeTargetAccountId: data.activeTargetAccountId || null
                 };
 
                 setMetrics(transformedMetrics);

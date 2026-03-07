@@ -202,6 +202,7 @@ Deno.serve(async (req) => {
         let liquidAssetsBreakdown = { cash: 0, etf: 0, trainingFund: 0 };
         let debugAccountsData = [];
         let availableAccounts = [];
+        let activeTargetAccountId = targetAccountId;
         console.log(`[Debug] Starting to fetch accounts...`);
         try {
             const accountsRes = await fetch(`${API_V2}/data/accounts`, {
@@ -264,13 +265,19 @@ Deno.serve(async (req) => {
                         return {
                             id: a.id || a.accountId || a.accountNumber,
                             name: displayName,
-                            number: a.accountNumber || a.accountNo || ""
+                            number: a.accountNumber || a.accountNo || "",
+                            isChecking
                         };
-                    });
+                    })
+                    .filter(a => a.isChecking);
 
-                // Filter to targetAccountId if provided
-                if (targetAccountId) {
-                    accounts = accounts.filter(acc => String(acc.id || acc.accountId || acc.accountNumber) === String(targetAccountId));
+                if (!activeTargetAccountId && availableAccounts.length > 0) {
+                    activeTargetAccountId = availableAccounts[0].id;
+                }
+
+                // Filter to activeTargetAccountId if provided
+                if (activeTargetAccountId) {
+                    accounts = accounts.filter(acc => String(acc.id || acc.accountId || acc.accountNumber) === String(activeTargetAccountId));
                 }
                 
                 console.log(`[Liquid Assets] Processing ${accounts.length} unique accounts (from ${rawAccounts.length} raw)`);
@@ -345,10 +352,10 @@ Deno.serve(async (req) => {
         const txData = await txRes.json();
         let transactions = txData?.data || txData?.items || txData?.transactions || [];
 
-        if (targetAccountId) {
+        if (activeTargetAccountId) {
             transactions = transactions.filter(tx => {
                 const txAccId = String(tx.accountId || tx.account_id || tx.accountNumber || "");
-                return txAccId === String(targetAccountId);
+                return txAccId === String(activeTargetAccountId);
             });
         }
 
@@ -669,6 +676,7 @@ ${JSON.stringify(limitedExpenses)}
                 trends: trends
             },
             availableAccounts,
+            activeTargetAccountId,
             debugAccountsData
         });
 
