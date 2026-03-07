@@ -7,8 +7,7 @@ export default function StatCard({
   value, 
   icon: Icon, 
   color = 'cyan',
-  delay = 0,
-  trend = null
+  delay = 0
 }) {
   const colorStyles = {
     cyan: {
