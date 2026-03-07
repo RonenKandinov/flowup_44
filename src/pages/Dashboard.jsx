@@ -50,15 +50,7 @@ function generateLocalInsights(metrics) {
   const stressPassed = metrics.stressTestPassed ?? null;
   const confidence = metrics.confidence || null;
 
-  const dtiAssessment = dti <= 30 ? 'תקין (≤30%)' : dti <= 40 ? 'גבולי (31–40%)' : 'גבוה (>40%)';
-  const liquidityAssessment = liquidityBufferMonths >= 3 ? 'טובה' : liquidityBufferMonths >= 1.5 ? 'סבירה' : 'נמוכה';
-
-  const summaryLines = [
-    `ציון FlowUp: ${metrics.score || 0}/100 | רמת סיכון: ${riskTier === 'Green' ? 'נמוכה' : riskTier === 'Orange' ? 'בינונית' : 'גבוהה'}`,
-    `הכנסה ממוצעת: ₪${Math.round(income).toLocaleString('he-IL')} | הוצאות: ₪${Math.round(totalExpenses).toLocaleString('he-IL')} | שיעור חיסכון: ${savingsRate}%`,
-    `יחס DTI: ${dti}% — ${dtiAssessment} | כרית נזילות: ${liquidityBufferMonths} חודשים — ${liquidityAssessment}`,
-    `מגמת הכנסה: ${trendLabel}${stressPassed !== null ? ` | מבחני לחץ שעברו: ${stressPassed}/3` : ''}${confidence ? ` | רמת ביטחון: ${confidence}` : ''}`,
-  ];
+  const narrative = `לקוח עם פרופיל פיננסי ${riskTier === 'Green' ? 'יציב' : riskTier === 'Orange' ? 'סביר' : 'מאתגר'}, המציג הכנסה חודשית ממוצעת של ₪${Math.round(income).toLocaleString('he-IL')}. למרות יחס החזר (DTI) של ${dti}%, ניכרת גמישות תקציבית המאפשרת הסטת כספים מהוצאות סגנון חיים לטובת החזר הלוואה. כרית הנזילות הקיימת מספקת רשת ביטחון, ולכן מומלץ לאשר את בקשת האשראי תוך התאמת פריסת התשלומים ליכולת ההחזר החודשית האמיתית של הלקוח.`;
 
   return {
     metrics: {
@@ -68,7 +60,7 @@ function generateLocalInsights(metrics) {
       income_volatility: incomeVolatility,
     },
     risk_tier: riskTier,
-    executive_summary: (metrics.recommendation && metrics.recommendation !== 'N/A') ? metrics.recommendation : summaryLines.join('\n'),
+    executive_summary: (metrics.recommendation && metrics.recommendation !== 'N/A') ? metrics.recommendation : narrative,
     recommended_loan_structure:
       riskTier === 'Green' ? 'Standard Amortizing (24–60 חודשים)' :
       riskTier === 'Orange' ? 'Extended (60–84 חודשים) — הקטנת נטל חודשי' :
