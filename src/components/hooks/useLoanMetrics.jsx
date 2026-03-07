@@ -61,7 +61,6 @@ export const useLoanMetrics = (userId, targetAccountId = null) => {
                 };
 
                 setMetrics(transformedMetrics);
-                sessionStorage.setItem(`loanMetricsCacheV3_${targetAccountId || 'all'}`, JSON.stringify(transformedMetrics));
             } else {
                 throw new Error("Analysis failed to return success status");
             }
