@@ -693,12 +693,21 @@ export default function Dashboard() {
               </Button>
             )}
             <Button
+              onClick={() => refetchLoanMetrics()}
+              variant="ghost"
+              size="sm"
+              className="bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:bg-slate-700/50 hover:text-white transition-all h-8 px-3 rounded-md"
+            >
+              <RefreshCw className={`w-3 h-3 ml-1.5 ${isLoanMetricsLoading ? 'animate-spin' : ''}`} />
+              <span className="text-[11px] font-medium">רענן נתונים</span>
+            </Button>
+            <Button
               onClick={() => setShowOpenFinance(true)}
               variant="ghost"
               size="sm"
               className="bg-blue-600/20 border border-blue-500/40 text-blue-300 hover:bg-blue-600/40 hover:text-white transition-all h-8 px-3 rounded-md"
             >
-              <RefreshCw className={`w-3 h-3 ml-1.5 ${isSyncing ? 'animate-spin' : ''}`} />
+              <Plus className="w-3 h-3 ml-1.5" />
               <span className="text-[11px] font-medium">חבר חשבון בנק</span>
             </Button>
             {hasData && (
