@@ -164,6 +164,7 @@ Deno.serve(async (req) => {
     try {
         const body = await req.json().catch(() => ({}));
         const userId = body?.userId || "ronenk2424@gmail.com";
+        const targetAccountId = body?.targetAccountId;
         const manualLiquidAssets = Number(body?.manualLiquidAssets || body?.metrics?.liquidAssets || body?.liquidAssets || 0);
 
         const API_ROOT = "https://api.open-finance.ai";
@@ -200,6 +201,7 @@ Deno.serve(async (req) => {
         let liquidAssets = 0;
         let liquidAssetsBreakdown = { cash: 0, etf: 0, trainingFund: 0 };
         let debugAccountsData = [];
+        let availableAccounts = [];
         console.log(`[Debug] Starting to fetch accounts...`);
         try {
             const accountsRes = await fetch(`${API_V2}/data/accounts`, {
@@ -220,15 +222,6 @@ Deno.serve(async (req) => {
                 
                 console.log(`[Debug] Raw accounts before filter:`, rawAccounts.length);
                 
-                // Filter to only account ending in 24498 as requested by user based on Excel
-                const filteredAccounts = rawAccounts.filter(acc => {
-                    const accNumStr = String(acc.accountNumber || acc.accountNo || acc.id || "");
-                    return accNumStr.endsWith('24498');
-                });
-                if (filteredAccounts.length > 0) {
-                    rawAccounts = filteredAccounts;
-                }
-
                 // Deduplicate accounts by ID to avoid losing sub-accounts (like checking vs credit limit) that share the same accountNumber
                 const uniqueAccountsMap = new Map();
                 rawAccounts.forEach(acc => {
@@ -244,7 +237,19 @@ Deno.serve(async (req) => {
                         }
                     }
                 });
-                const accounts = Array.from(uniqueAccountsMap.values());
+                let accounts = Array.from(uniqueAccountsMap.values());
+                
+                // Extract available accounts for the UI dropdown
+                availableAccounts = accounts.map(a => ({
+                    id: a.id || a.accountId || a.accountNumber,
+                    name: a.name || a.accountName || "Unknown Account",
+                    number: a.accountNumber || a.accountNo || ""
+                }));
+
+                // Filter to targetAccountId if provided
+                if (targetAccountId) {
+                    accounts = accounts.filter(acc => String(acc.id || acc.accountId || acc.accountNumber) === String(targetAccountId));
+                }
                 
                 console.log(`[Liquid Assets] Processing ${accounts.length} unique accounts (from ${rawAccounts.length} raw)`);
                 
@@ -316,7 +321,14 @@ Deno.serve(async (req) => {
         }
 
         const txData = await txRes.json();
-        const transactions = txData?.data || txData?.items || txData?.transactions || [];
+        let transactions = txData?.data || txData?.items || txData?.transactions || [];
+
+        if (targetAccountId) {
+            transactions = transactions.filter(tx => {
+                const txAccId = String(tx.accountId || tx.account_id || tx.accountNumber || "");
+                return txAccId === String(targetAccountId);
+            });
+        }
 
         // 4. Process Transactions into Monthly History
         const monthlyData = {};
@@ -634,6 +646,7 @@ ${JSON.stringify(limitedExpenses)}
                 runway: parseFloat(runwayMonths.toFixed(1)),
                 trends: trends
             },
+            availableAccounts,
             debugAccountsData
         });
 

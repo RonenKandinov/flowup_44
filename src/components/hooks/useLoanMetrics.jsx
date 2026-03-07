@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 
-export const useLoanMetrics = (userId) => {
+export const useLoanMetrics = (userId, targetAccountId = null) => {
     const [metrics, setMetrics] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -12,7 +12,8 @@ export const useLoanMetrics = (userId) => {
 
         try {
             // 1. Session Caching Strategy (V3 Key for pilot schema)
-            const cachedData = sessionStorage.getItem('loanMetricsCacheV3');
+            const cacheKey = `loanMetricsCacheV3_${targetAccountId || 'all'}`;
+            const cachedData = sessionStorage.getItem(cacheKey);
             // Disable caching temporarily to ensure fresh Open Finance data is displayed
             // if (!force && cachedData) {
             //     setMetrics(JSON.parse(cachedData));
@@ -24,7 +25,8 @@ export const useLoanMetrics = (userId) => {
             // Note: Using SDK to ensure correct routing within the Base44 environment
             // effectively acting as a fetch wrapper to the Edge Function.
             const response = await base44.functions.invoke('loanLogicV2', {
-                userId: userId || "ronenk2424@gmail.com"
+                userId: userId || "ronenk2424@gmail.com",
+                targetAccountId
             });
             
             const data = response.data;
@@ -63,11 +65,12 @@ export const useLoanMetrics = (userId) => {
                     
                     // Trends from Backend
                     trends: report.metrics?.trends || metrics.trends || { income: 0, expenses: 0, dti: 0 },
-                    history: report.metrics?.history || []
+                    history: report.metrics?.history || [],
+                    availableAccounts: data.availableAccounts || []
                 };
 
                 setMetrics(transformedMetrics);
-                sessionStorage.setItem('loanMetricsCacheV3', JSON.stringify(transformedMetrics));
+                sessionStorage.setItem(`loanMetricsCacheV3_${targetAccountId || 'all'}`, JSON.stringify(transformedMetrics));
             } else {
                 throw new Error("Analysis failed to return success status");
             }
@@ -82,7 +85,7 @@ export const useLoanMetrics = (userId) => {
         } finally {
             setIsLoading(false);
         }
-    }, [userId]);
+    }, [userId, targetAccountId]);
 
     useEffect(() => {
         fetchMetrics();

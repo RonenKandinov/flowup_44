@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle, Plus, FileSpreadsheet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { generateUnderwritingReport } from '../components/utils/excelReportGenerator';
 import { base44 } from '@/api/base44Client';
 import { appParams } from '@/lib/app-params';
@@ -90,6 +91,7 @@ export default function Dashboard() {
   const [isProcessingCallback, setIsProcessingCallback] = useState(
     () => !!new URLSearchParams(window.location.search).get('of_callback')
   );
+  const [targetAccountId, setTargetAccountId] = useState('all');
   
   // Fetch user data for Admin bypass (only when token exists to avoid 401 noise)
   const { data: user, isLoading: isUserLoading } = useQuery({
@@ -107,7 +109,7 @@ export default function Dashboard() {
   });
 
   const { sync, data: loanLogicData, isLoading: isSyncing, metrics: loanMetrics } = useTransactionSync();
-  const { metrics: originalLoanMetrics, isLoading: isLoanMetricsLoading, error: loanMetricsError, refetch: refetchLoanMetrics } = useLoanMetrics(user?.email || user?.id);
+  const { metrics: originalLoanMetrics, isLoading: isLoanMetricsLoading, error: loanMetricsError, refetch: refetchLoanMetrics } = useLoanMetrics(user?.email || user?.id, targetAccountId === 'all' ? null : targetAccountId);
   const newLoanMetrics = simulatedMetrics || originalLoanMetrics;
   const queryClient = useQueryClient();
 
@@ -223,7 +225,10 @@ export default function Dashboard() {
         try {
             toast.loading('מושך נתוני בנק...', { id: 'of-toast' });
 
-            const response = await base44.functions.invoke('loanLogicV2', { userId: psuId });
+            const response = await base44.functions.invoke('loanLogicV2', { 
+                userId: psuId,
+                targetAccountId: targetAccountId === 'all' ? null : targetAccountId 
+            });
             const data = response.data;
 
             if (!data?.success) throw new Error(data?.error || 'Failed to fetch bank data');
@@ -681,6 +686,23 @@ export default function Dashboard() {
           </div>
           
           <div className="flex items-center gap-2">
+            {originalLoanMetrics?.availableAccounts?.length > 0 && (
+              <div className="w-48">
+                <Select value={targetAccountId} onValueChange={setTargetAccountId}>
+                  <SelectTrigger className="h-8 bg-slate-800/50 border-slate-700/50 text-xs">
+                    <SelectValue placeholder="כל החשבונות" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">כל החשבונות</SelectItem>
+                    {originalLoanMetrics.availableAccounts.map(acc => (
+                      <SelectItem key={acc.id} value={acc.id}>
+                        {acc.name} ({acc.number.slice(-4)})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             {hasData && (
               <Button
                 onClick={() => generateUnderwritingReport(metricsForInsights, serverInsights, user)}
