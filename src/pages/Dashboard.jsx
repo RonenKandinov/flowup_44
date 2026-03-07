@@ -20,6 +20,7 @@ import CSVUploader from '../components/upload/CSVUploader'; // Kept for admin fa
 import EmptyState from '../components/dashboard/EmptyState';
 import Disclaimer from '../components/dashboard/Disclaimer';
 import OpenFinanceConnect from '../components/connect/OpenFinanceConnect';
+import { useTransactionSync } from '../components/hooks/useTransactionSync';
 import { useLoanMetrics } from '../components/hooks/useLoanMetrics';
 import { toast } from 'sonner';
 
@@ -50,7 +51,15 @@ function generateLocalInsights(metrics) {
   const stressPassed = metrics.stressTestPassed ?? null;
   const confidence = metrics.confidence || null;
 
-  const narrative = `לקוח עם פרופיל פיננסי ${riskTier === 'Green' ? 'יציב' : riskTier === 'Orange' ? 'סביר' : 'מאתגר'}, המציג הכנסה חודשית ממוצעת של ₪${Math.round(income).toLocaleString('he-IL')}. למרות יחס החזר (DTI) של ${dti}%, ניכרת גמישות תקציבית המאפשרת הסטת כספים מהוצאות סגנון חיים לטובת החזר הלוואה. כרית הנזילות הקיימת מספקת רשת ביטחון, ולכן מומלץ לאשר את בקשת האשראי תוך התאמת פריסת התשלומים ליכולת ההחזר החודשית האמיתית של הלקוח.`;
+  const dtiAssessment = dti <= 30 ? 'תקין (≤30%)' : dti <= 40 ? 'גבולי (31–40%)' : 'גבוה (>40%)';
+  const liquidityAssessment = liquidityBufferMonths >= 3 ? 'טובה' : liquidityBufferMonths >= 1.5 ? 'סבירה' : 'נמוכה';
+
+  const summaryLines = [
+    `ציון FlowUp: ${metrics.score || 0}/100 | רמת סיכון: ${riskTier === 'Green' ? 'נמוכה' : riskTier === 'Orange' ? 'בינונית' : 'גבוהה'}`,
+    `הכנסה ממוצעת: ₪${Math.round(income).toLocaleString('he-IL')} | הוצאות: ₪${Math.round(totalExpenses).toLocaleString('he-IL')} | שיעור חיסכון: ${savingsRate}%`,
+    `יחס DTI: ${dti}% — ${dtiAssessment} | כרית נזילות: ${liquidityBufferMonths} חודשים — ${liquidityAssessment}`,
+    `מגמת הכנסה: ${trendLabel}${stressPassed !== null ? ` | מבחני לחץ שעברו: ${stressPassed}/3` : ''}${confidence ? ` | רמת ביטחון: ${confidence}` : ''}`,
+  ];
 
   return {
     metrics: {
@@ -60,7 +69,7 @@ function generateLocalInsights(metrics) {
       income_volatility: incomeVolatility,
     },
     risk_tier: riskTier,
-    executive_summary: (metrics.recommendation && metrics.recommendation !== 'N/A') ? metrics.recommendation : narrative,
+    executive_summary: (metrics.recommendation && metrics.recommendation !== 'N/A') ? metrics.recommendation : summaryLines.join('\n'),
     recommended_loan_structure:
       riskTier === 'Green' ? 'Standard Amortizing (24–60 חודשים)' :
       riskTier === 'Orange' ? 'Extended (60–84 חודשים) — הקטנת נטל חודשי' :
@@ -99,6 +108,7 @@ export default function Dashboard() {
     retry: (_, error) => error.response?.status !== 401,
   });
 
+  const { sync, data: loanLogicData, isLoading: isSyncing, metrics: loanMetrics } = useTransactionSync();
   const { metrics: originalLoanMetrics, isLoading: isLoanMetricsLoading, error: loanMetricsError, refetch: refetchLoanMetrics } = useLoanMetrics(user?.email || user?.id, targetAccountId || null);
   const newLoanMetrics = simulatedMetrics || originalLoanMetrics;
   const queryClient = useQueryClient();
@@ -305,7 +315,7 @@ export default function Dashboard() {
 
   // Fallback metrics from snapshot/CSV so AI insights can run when backend loan metrics are missing
   const metricsFromSnapshot = React.useMemo(() => {
-    if (!snapshot || newLoanMetrics) return null;
+    if (!snapshot || newLoanMetrics || (loanLogicData && loanMetrics)) return null;
     return {
       score: 0,
       status: snapshot.risk_level || 'green',
@@ -316,9 +326,9 @@ export default function Dashboard() {
       totalFixedExpenses: 0,
       totalLifestyleExpenses: snapshot.total_expenses ?? 0,
     };
-  }, [snapshot, newLoanMetrics]);
+  }, [snapshot, newLoanMetrics, loanLogicData, loanMetrics]);
 
-  const metricsForInsights = newLoanMetrics || metricsFromSnapshot;
+  const metricsForInsights = newLoanMetrics || (loanLogicData ? loanMetrics : null) || metricsFromSnapshot;
 
   // Fetch AI Insights from server using React Query to avoid infinite loops
   const { data: serverInsightsData, isLoading: isInsightsLoading, error: insightsError } = useQuery({
@@ -766,13 +776,13 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-4 mb-4 md:mb-6">
                 {/* Replaced Balance StatCard with LiquidAssetsCard */}
                 <LiquidAssetsCard 
-                    cash={newLoanMetrics?.liquidAssetsBreakdown?.cash ?? (snapshot.current_balance || 0)} 
-                    etf={newLoanMetrics?.liquidAssetsBreakdown?.etf ?? 0}
-                    trainingFund={newLoanMetrics?.liquidAssetsBreakdown?.trainingFund ?? 0}
+                    cash={newLoanMetrics?.liquidAssetsBreakdown?.cash ?? (loanLogicData ? loanMetrics?.liquidAssetsBreakdown?.cash : (snapshot.current_balance || 0))} 
+                    etf={newLoanMetrics?.liquidAssetsBreakdown?.etf ?? (loanLogicData ? loanMetrics?.liquidAssetsBreakdown?.etf : 0)}
+                    trainingFund={newLoanMetrics?.liquidAssetsBreakdown?.trainingFund ?? (loanLogicData ? loanMetrics?.liquidAssetsBreakdown?.trainingFund : 0)}
                 />
                 <StatCard
                   title="ממוצע הכנסות (6 חודשים)"
-                  value={`₪${Math.round(newLoanMetrics ? newLoanMetrics.totalIncome : (currentEngineData?.totalIncome ?? currentMonthStats?.income ?? snapshot.total_income ?? 0)).toLocaleString('he-IL')}`}
+                  value={`₪${Math.round(newLoanMetrics ? newLoanMetrics.totalIncome : (loanLogicData ? loanMetrics.totalIncome : (currentEngineData?.totalIncome ?? currentMonthStats?.income ?? snapshot.total_income ?? 0))).toLocaleString('he-IL')}`}
                   icon={TrendingUp}
                   color="green"
                   delay={0.1}
@@ -780,7 +790,7 @@ export default function Dashboard() {
                 />
                 <StatCard
                   title="ממוצע הוצאות (6 חודשים)"
-                  value={`₪${Math.round(newLoanMetrics ? newLoanMetrics.totalExpenses : (currentEngineData?.totalExpenses ?? currentMonthStats?.expenses ?? snapshot.total_expenses ?? 0)).toLocaleString('he-IL')}`}
+                  value={`₪${Math.round(newLoanMetrics ? newLoanMetrics.totalExpenses : (loanLogicData ? loanMetrics.totalExpenses : (currentEngineData?.totalExpenses ?? currentMonthStats?.expenses ?? snapshot.total_expenses ?? 0))).toLocaleString('he-IL')}`}
                   icon={TrendingDown}
                   color="red"
                   delay={0.2}
