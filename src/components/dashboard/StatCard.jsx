@@ -1,6 +1,5 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react';
 
 export default function StatCard({ 
   title, 
