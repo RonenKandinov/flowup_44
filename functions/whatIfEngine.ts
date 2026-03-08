@@ -87,14 +87,23 @@ Deno.serve(async (req) => {
                 : `מאושר. ההחזר החודשי (₪${Math.round(simulatedPayment)}) משאיר את הלקוח ירוק.`;
 
         } else if (scenario === 'balloon_loan') {
-            if (simulatedMetrics.liquidAssets < loanAmount) {
+            simulatedPayment = (loanAmount * (annualRate / 100)) / 12;
+            simulatedMetrics.fixedExpenses += simulatedPayment;
+            simulatedMetrics.totalExpenses += simulatedPayment;
+            simulatedMetrics.netCashFlow = simulatedMetrics.totalIncome - simulatedMetrics.totalExpenses;
+            
+            const projectedSavings = Math.max(0, simulatedMetrics.netCashFlow) * termMonths;
+            const totalAvailableAtEnd = simulatedMetrics.liquidAssets + projectedSavings;
+
+            if (totalAvailableAtEnd < loanAmount) {
                 isBlocked = true;
-                message = "BLOCKED: Insufficient liquid assets to cover principal (חסר הון נזיל לכיסוי הקרן).";
+                message = `BLOCKED: חסר הון לכיסוי הקרן. גם עם חיסכון צפוי של ₪${Math.round(projectedSavings)} (לפי ממוצע 6 חודשים), לא תגיע ל-₪${loanAmount}.`;
+            } else if (simulatedMetrics.liquidAssets < loanAmount) {
+                simulatedMetrics.runway = simulatedMetrics.totalExpenses > 0 
+                    ? (simulatedMetrics.liquidAssets / simulatedMetrics.totalExpenses) 
+                    : 12;
+                message = `APPROVED: אין מספיק הון כרגע, אך בהתבסס על היסטוריית החיסכון (6 חודשים אחרונים) תוכל לכסות את הקרן בסוף התקופה.`;
             } else {
-                simulatedPayment = (loanAmount * (annualRate / 100)) / 12;
-                simulatedMetrics.fixedExpenses += simulatedPayment;
-                simulatedMetrics.totalExpenses += simulatedPayment;
-                simulatedMetrics.netCashFlow = simulatedMetrics.totalIncome - simulatedMetrics.totalExpenses;
                 simulatedMetrics.runway = simulatedMetrics.totalExpenses > 0 
                     ? (simulatedMetrics.liquidAssets / simulatedMetrics.totalExpenses) 
                     : 12;
