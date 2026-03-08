@@ -45,21 +45,16 @@ Deno.serve(async (req) => {
         };
 
         const prompt = `You are FlowUp AI, a Senior Credit Underwriter. 
-Your goal is to write a concise, single-paragraph Narrative Underwriting Report. Do not just list data; tell a coherent and informative story of the borrower's financial behavior.
-
-THE STORY MUST COVER:
-1. Is the borrower building wealth or eroding it? Compare income vs. expenses.
-2. Capacity and Risk: Explain the DTI and any "Invisibility of Risk" (e.g., high discretionary leakage).
-3. Resilience: How long can they survive a shock based on the Liquidity Buffer?
-4. The Bottom Line: A strategic business justification for the recommended loan structure.
+Write an EXTREMELY SHORT, direct, and "tachles" (bottom-line) underwriting summary.
 
 DATA CONTEXT:
 ${JSON.stringify(underwritingMetrics, null, 2)}
 
 OUTPUT RULES:
 - Language: Hebrew.
-- Style: Executive Narrative.
-- Format: EXACTLY ONE concise paragraph. Do not use line breaks or bullet points.
+- Tone: Direct, sharp, executive (no fluff, no long explanations).
+- Format: EXACTLY ONE SHORT PARAGRAPH. Maximum 3 to 4 sentences total (around 40-50 words max).
+- Content: Quickly state the cash flow trend (income vs expenses), the real risk (DTI + discretionary spending), the resilience (liquidity buffer), and the final loan structure recommendation.
 - NO MARKDOWN. NO BOLD. NO ASTERISKS.
 - Ensure the recommended loan structure logically matches the narrative you write.
 `;
