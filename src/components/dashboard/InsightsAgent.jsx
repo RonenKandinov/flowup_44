@@ -111,7 +111,7 @@ export default function InsightsAgent({ analysis, isLoading }) {
                                 </Section>
 
                                 <Section title="תקציר לאנליסט">
-                                    {analysis.executive_summary?.replace(/\*\*/g, '')}
+                                    {analysis.narrative || analysis.executive_summary?.replace(/\*\*/g, '') || "אין תקציר זמין"}
                                 </Section>
 
                                 <div className="bg-indigo-900/20 p-3 rounded-lg border border-indigo-500/20">
