@@ -154,7 +154,14 @@ EXPECTED TONE:
                                 </Section>
 
                                 <Section title="תקציר לאנליסט">
-                                    {analysis.narrative || analysis.executive_summary?.replace(/\*\*/g, '') || "אין תקציר זמין"}
+                                    {isGeneratingNarrative ? (
+                                        <div className="flex items-center gap-2 text-slate-400">
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            <span>מייצר סיפור חיתום...</span>
+                                        </div>
+                                    ) : (
+                                        narrative || analysis.narrative || analysis.executive_summary?.replace(/\*\*/g, '') || "אין תקציר זמין"
+                                    )}
                                 </Section>
 
                                 <div className="bg-indigo-900/20 p-3 rounded-lg border border-indigo-500/20">
