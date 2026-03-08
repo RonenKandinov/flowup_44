@@ -36,7 +36,7 @@ function generateLocalInsights(metrics) {
 
   const adjustedDti = Math.round((fixedExpenses * 0.85 / income) * 100);
   const liquidityBufferMonths = parseFloat((liquidAssets / income).toFixed(1));
-  const incomeVolatility = Math.abs(metrics.trends?.income || 0);
+  const incomeVolatility = Number(Math.abs(metrics.trends?.income || 0).toFixed(1));
   const riskTier = status === 'RED' ? 'Red' : status === 'ORANGE' ? 'Orange' : 'Green';
 
   const riskFlags = [];
@@ -54,12 +54,13 @@ function generateLocalInsights(metrics) {
   const dtiAssessment = dti <= 30 ? 'תקין (≤30%)' : dti <= 40 ? 'גבולי (31–40%)' : 'גבוה (>40%)';
   const liquidityAssessment = liquidityBufferMonths >= 3 ? 'טובה' : liquidityBufferMonths >= 1.5 ? 'סבירה' : 'נמוכה';
 
-  const summaryLines = [
-    `ציון FlowUp: ${metrics.score || 0}/100 | רמת סיכון: ${riskTier === 'Green' ? 'נמוכה' : riskTier === 'Orange' ? 'בינונית' : 'גבוהה'}`,
-    `הכנסה ממוצעת: ₪${Math.round(income).toLocaleString('he-IL')} | הוצאות: ₪${Math.round(totalExpenses).toLocaleString('he-IL')} | שיעור חיסכון: ${savingsRate}%`,
-    `יחס DTI: ${dti}% — ${dtiAssessment} | כרית נזילות: ${liquidityBufferMonths} חודשים — ${liquidityAssessment}`,
-    `מגמת הכנסה: ${trendLabel}${stressPassed !== null ? ` | מבחני לחץ שעברו: ${stressPassed}/3` : ''}${confidence ? ` | רמת ביטחון: ${confidence}` : ''}`,
-  ];
+  const executiveSummary = `הלקוח מציג ציון חיתום של ${metrics.score || 0}/100, המשקף רמת סיכון ${riskTier === 'Green' ? 'נמוכה' : riskTier === 'Orange' ? 'בינונית' : 'גבוהה'}.
+
+הכנסתו הממוצעת עומדת על ₪${Math.round(income).toLocaleString('he-IL')} מול הוצאות של ₪${Math.round(totalExpenses).toLocaleString('he-IL')}, מה שגוזר שיעור חיסכון של ${savingsRate}%. מגמת ההכנסה מסתמנת כ${trendLabel}.
+
+מבחינת כושר החזר, יחס ה-DTI עומד על ${dti}% (${dtiAssessment}), וכרית הנזילות מספיקה ל-${liquidityBufferMonths} חודשים (${liquidityAssessment}).
+
+לאור הנתונים, ${riskTier === 'Green' ? 'ניתן לאשר את הבקשה בתנאים רגילים.' : riskTier === 'Orange' ? 'מומלץ לשקול פריסה ארוכה יותר להקטנת ההחזר החודשי.' : 'נדרשת זהירות רבה ובחינה מעמיקה לפני אישור.'}`;
 
   return {
     metrics: {
@@ -69,7 +70,8 @@ function generateLocalInsights(metrics) {
       income_volatility: incomeVolatility,
     },
     risk_tier: riskTier,
-    executive_summary: (metrics.recommendation && metrics.recommendation !== 'N/A') ? metrics.recommendation : summaryLines.join('\n'),
+    narrative: (metrics.recommendation && metrics.recommendation !== 'N/A') ? metrics.recommendation : executiveSummary,
+    executive_summary: executiveSummary,
     recommended_loan_structure:
       riskTier === 'Green' ? 'Standard Amortizing (24–60 חודשים)' :
       riskTier === 'Orange' ? 'Extended (60–84 חודשים) — הקטנת נטל חודשי' :
@@ -335,25 +337,15 @@ export default function Dashboard() {
     queryKey: ['ai-insights-v2', JSON.stringify(metricsForInsights)],
     queryFn: async () => {
         if (!metricsForInsights) return { error: "No risk metrics available" };
-        // If insightEngine previously returned 500/405, skip the call to avoid console noise.
-        // Flag is cleared automatically when the backend starts working again.
-        const SKIP_KEY = 'insightEngine_skip';
-        if (localStorage.getItem(SKIP_KEY)) {
-            return generateLocalInsights(metricsForInsights) || { error: "Insights unavailable" };
-        }
         try {
             const res = await base44.functions.invoke('insightEngine', { metrics: metricsForInsights });
             if (res.data?.success && res.data?.insights) {
-                localStorage.removeItem(SKIP_KEY); // backend works — clear the flag
                 return res.data.insights;
             }
             return generateLocalInsights(metricsForInsights) || { error: "Failed to generate insights" };
         } catch (e) {
-            if (e.response?.status === 500 || e.response?.status === 405 || e.response?.status === 401) {
-                localStorage.setItem(SKIP_KEY, '1');
-                return generateLocalInsights(metricsForInsights) || { error: "Insights unavailable" };
-            }
-            throw e;
+            console.error("insightEngine failed, using local insights", e);
+            return generateLocalInsights(metricsForInsights) || { error: "Insights unavailable" };
         }
     },
     enabled: !!(metricsForInsights && hasData),

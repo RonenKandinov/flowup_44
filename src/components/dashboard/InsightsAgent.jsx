@@ -94,7 +94,7 @@ export default function InsightsAgent({ analysis, isLoading }) {
                                     <MetricBox label="Structural DTI" value={`${analysis.metrics?.structural_dti ?? 0}%`} />
                                     <MetricBox label="Adjusted DTI" value={`${analysis.metrics?.adjusted_dti ?? 0}%`} color="text-emerald-400" />
                                     <MetricBox label="Liquidity Buffer" value={`${analysis.metrics?.liquidity_buffer_months ?? 0} חודשים`} />
-                                    <MetricBox label="Income Volatility" value={analysis.metrics?.income_volatility ?? 0} color="text-amber-400" />
+                                    <MetricBox label="Income Volatility" value={typeof analysis.metrics?.income_volatility === 'number' ? analysis.metrics.income_volatility.toFixed(1) + '%' : (analysis.metrics?.income_volatility ?? 0)} color="text-amber-400" />
                                 </div>
 
                                 {/* Risk Tier */}
