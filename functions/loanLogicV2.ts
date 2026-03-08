@@ -162,6 +162,7 @@ runBalanceExtractionTests();
 
 Deno.serve(async (req) => {
     try {
+        const base44 = createClientFromRequest(req);
         const body = await req.json().catch(() => ({}));
         const userId = body?.userId || "ronenk2424@gmail.com";
         const targetAccountId = body?.targetAccountId;
@@ -636,6 +637,54 @@ ${JSON.stringify(limitedExpenses)}
         if (finalScore >= 80) riskStatus = "GREEN";
         else if (finalScore < 55) riskStatus = "RED";
 
+        // 8. Generate Narrative Underwriting Report
+        let narrativeReport = "";
+        try {
+            const underwritingMetrics = {
+                dti: Math.round(dtiPerc),
+                runwayMonths: parseFloat(runwayMonths.toFixed(1)),
+                monthlyAverageIncome: Math.round(avgIncome),
+                monthlyAverageExpenses: Math.round(avgExpenses),
+                fixedExpenses: Math.round(avgFixedExpenses),
+                flexibleExpenses: Math.round(avgExpenses - avgFixedExpenses),
+                liquidAssets: Math.round(liquidAssets),
+                score: finalScore,
+                riskStatus: riskStatus,
+                trends: trends
+            };
+
+            const prompt = `You are FlowUp AI, a Senior Credit Underwriter. 
+Your goal is to write a Narrative Underwriting Report. Do not just list data; tell the story of the borrower's financial behavior.
+
+THE STORY STRUCTURE:
+1. THE CASH FLOW STORY: Is the borrower building wealth or eroding it? Compare the income stability vs. the "Lifestyle Burn". 
+2. THE CAPACITY PIVOT: If the DTI is low but the score is Red, explain the "Invisibility of Risk" (e.g., low fixed costs but high discretionary leakage).
+3. RESILIENCE FACTOR: How long can they survive a shock? Use the Liquidity Buffer to justify a "Safety Net".
+4. THE FINAL VERDICT: A strategic business justification for the loan structure.
+
+DATA CONTEXT:
+${JSON.stringify(underwritingMetrics, null, 2)}
+
+OUTPUT RULES:
+- Language: Hebrew.
+- Style: Executive Narrative. No bullet points within paragraphs.
+- Format: 4 Paragraphs. Double line break between them.
+- NO MARKDOWN. NO BOLD. NO ASTERISKS. 
+
+EXPECTED TONE:
+"הלקוח מציג פרופיל של ניצול הכנסה גבוה אך ללא צבירת הון..." vs "יציבות תזרימית מאפשרת ספיגת החזר חודשי נוסף למרות רמת הוצאות גמישה..."
+`;
+            
+            const llmRes = await base44.integrations.Core.InvokeLLM({
+                prompt: prompt
+            });
+            
+            narrativeReport = llmRes;
+        } catch (err) {
+            console.error("Failed to generate narrative report:", err);
+            narrativeReport = "לא ניתן היה לייצר דוח חיתום אוטומטי בשלב זה.";
+        }
+
         return Response.json({
             success: true,
             status: riskStatus,
@@ -643,6 +692,7 @@ ${JSON.stringify(limitedExpenses)}
             report: {
                 score: finalScore,
                 status: riskStatus,
+                narrative: narrativeReport,
                 metrics: {
                     dti: Math.round(dtiPerc),
                     runwayMonths: parseFloat(runwayMonths.toFixed(1)),
