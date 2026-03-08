@@ -123,24 +123,6 @@ export default function InsightsAgent({ analysis, isLoading }) {
                                     </p>
                                 </div>
 
-                                {analysis.risk_flags?.length > 0 && (
-                                    <div>
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <AlertTriangle className="w-4 h-4 text-red-400" />
-                                            <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-                                                דגלי סיכון
-                                            </h4>
-                                        </div>
-                                        <ul className="space-y-1.5">
-                                            {analysis.risk_flags.map((flag, idx) => (
-                                                <li key={idx} className="text-xs text-red-200/80 bg-red-950/20 px-2 py-1.5 rounded">
-                                                    {flag}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                )}
-
                             </div>
                         </motion.div>
                     )}

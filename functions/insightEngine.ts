@@ -45,25 +45,23 @@ Deno.serve(async (req) => {
         };
 
         const prompt = `You are FlowUp AI, a Senior Credit Underwriter. 
-Your goal is to write a Narrative Underwriting Report. Do not just list data; tell the story of the borrower's financial behavior.
+Your goal is to write a concise, single-paragraph Narrative Underwriting Report. Do not just list data; tell a coherent and informative story of the borrower's financial behavior.
 
-THE STORY STRUCTURE:
-1. THE CASH FLOW STORY: Is the borrower building wealth or eroding it? Compare the income stability vs. the "Lifestyle Burn". 
-2. THE CAPACITY PIVOT: If the DTI is low but the score is Red, explain the "Invisibility of Risk" (e.g., low fixed costs but high discretionary leakage).
-3. RESILIENCE FACTOR: How long can they survive a shock? Use the Liquidity Buffer to justify a "Safety Net".
-4. THE FINAL VERDICT: A strategic business justification for the loan structure.
+THE STORY MUST COVER:
+1. Is the borrower building wealth or eroding it? Compare income vs. expenses.
+2. Capacity and Risk: Explain the DTI and any "Invisibility of Risk" (e.g., high discretionary leakage).
+3. Resilience: How long can they survive a shock based on the Liquidity Buffer?
+4. The Bottom Line: A strategic business justification for the recommended loan structure.
 
 DATA CONTEXT:
 ${JSON.stringify(underwritingMetrics, null, 2)}
 
 OUTPUT RULES:
 - Language: Hebrew.
-- Style: Executive Narrative. No bullet points within paragraphs.
-- Format: 4 Paragraphs. Double line break between them.
-- NO MARKDOWN. NO BOLD. NO ASTERISKS. 
-
-EXPECTED TONE:
-"הלקוח מציג פרופיל של ניצול הכנסה גבוה אך ללא צבירת הון..." vs "יציבות תזרימית מאפשרת ספיגת החזר חודשי נוסף למרות רמת הוצאות גמישה..."
+- Style: Executive Narrative.
+- Format: EXACTLY ONE concise paragraph. Do not use line breaks or bullet points.
+- NO MARKDOWN. NO BOLD. NO ASTERISKS.
+- Ensure the recommended loan structure logically matches the narrative you write.
 `;
 
         let llmRes;
@@ -73,9 +71,8 @@ EXPECTED TONE:
                 response_json_schema: {
                     type: "object",
                     properties: {
-                        narrative: { type: "string", description: "The 4-paragraph narrative underwriting report in Hebrew." },
-                        recommended_loan_structure: { type: "string", description: "Standard / Balloon / Extended 72" },
-                        risk_flags: { type: "array", items: { type: "string", description: "Short risk flag in Hebrew" } }
+                        narrative: { type: "string", description: "A single, concise paragraph narrative underwriting report in Hebrew." },
+                        recommended_loan_structure: { type: "string", description: "Standard / Balloon / Extended 72" }
                     },
                     required: [
                         "narrative",
@@ -86,14 +83,9 @@ EXPECTED TONE:
         } catch (llmError) {
             console.error("LLM failed, using deterministic fallback", llmError);
             llmRes = {
-                narrative: `מרווח הגמישות עומד על ${Math.max(0, 100 - underwritingMetrics.adjusted_dti).toFixed(1)}%. כרית הנזילות המוערכת היא ${underwritingMetrics.liquidity_buffer_months} חודשים.`,
-                recommended_loan_structure: current_risk_tier === "Red" ? "Extended 72" : (current_risk_tier === "Orange" ? "Balloon" : "Standard"),
-                risk_flags: current_risk_tier === "Red" ? ["עומס מבני גבוה", "DTI בלחץ מעל 40%"] : []
+                narrative: `הלקוח מציג יחס החזר (DTI) של ${underwritingMetrics.adjusted_dti}%, עם כרית נזילות המספיקה ל-${underwritingMetrics.liquidity_buffer_months} חודשים. לאור רמת הסיכון (${current_risk_tier}), המלצת המערכת היא למבנה הלוואה ${current_risk_tier === "Red" ? "Extended 72" : (current_risk_tier === "Orange" ? "Balloon" : "Standard")}.`,
+                recommended_loan_structure: current_risk_tier === "Red" ? "Extended 72" : (current_risk_tier === "Orange" ? "Balloon" : "Standard")
             };
-        }
-
-        if (!llmRes.risk_flags) {
-            llmRes.risk_flags = [];
         }
         
         // Force the risk tier to match the calculated score logic

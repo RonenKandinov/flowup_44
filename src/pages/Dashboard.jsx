@@ -54,13 +54,7 @@ function generateLocalInsights(metrics) {
   const dtiAssessment = dti <= 30 ? 'תקין (≤30%)' : dti <= 40 ? 'גבולי (31–40%)' : 'גבוה (>40%)';
   const liquidityAssessment = liquidityBufferMonths >= 3 ? 'טובה' : liquidityBufferMonths >= 1.5 ? 'סבירה' : 'נמוכה';
 
-  const executiveSummary = `הלקוח מציג ציון חיתום של ${metrics.score || 0}/100, המשקף רמת סיכון ${riskTier === 'Green' ? 'נמוכה' : riskTier === 'Orange' ? 'בינונית' : 'גבוהה'}.
-
-הכנסתו הממוצעת עומדת על ₪${Math.round(income).toLocaleString('he-IL')} מול הוצאות של ₪${Math.round(totalExpenses).toLocaleString('he-IL')}, מה שגוזר שיעור חיסכון של ${savingsRate}%. מגמת ההכנסה מסתמנת כ${trendLabel}.
-
-מבחינת כושר החזר, יחס ה-DTI עומד על ${dti}% (${dtiAssessment}), וכרית הנזילות מספיקה ל-${liquidityBufferMonths} חודשים (${liquidityAssessment}).
-
-לאור הנתונים, ${riskTier === 'Green' ? 'ניתן לאשר את הבקשה בתנאים רגילים.' : riskTier === 'Orange' ? 'מומלץ לשקול פריסה ארוכה יותר להקטנת ההחזר החודשי.' : 'נדרשת זהירות רבה ובחינה מעמיקה לפני אישור.'}`;
+  const executiveSummary = `הלקוח מציג ציון חיתום של ${metrics.score || 0}/100, המשקף רמת סיכון ${riskTier === 'Green' ? 'נמוכה' : riskTier === 'Orange' ? 'בינונית' : 'גבוהה'}. הכנסתו הממוצעת עומדת על ₪${Math.round(income).toLocaleString('he-IL')} מול הוצאות של ₪${Math.round(totalExpenses).toLocaleString('he-IL')}, מה שגוזר שיעור חיסכון של ${savingsRate}%. מבחינת כושר החזר, יחס ה-DTI עומד על ${dti}% (${dtiAssessment}), וכרית הנזילות מספיקה ל-${liquidityBufferMonths} חודשים (${liquidityAssessment}). לאור הנתונים, ${riskTier === 'Green' ? 'ניתן לאשר את הבקשה בתנאים רגילים.' : riskTier === 'Orange' ? 'מומלץ לשקול פריסה ארוכה יותר להקטנת ההחזר החודשי.' : 'נדרשת זהירות רבה ובחינה מעמיקה לפני אישור.'}`;
 
   return {
     metrics: {
