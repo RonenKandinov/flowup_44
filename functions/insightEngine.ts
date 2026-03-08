@@ -44,30 +44,26 @@ Deno.serve(async (req) => {
             current_risk_tier
         };
 
-        const prompt = `You are FlowUp AI, a Senior Underwriting Expert.
-Your mission is to provide a "Decision Support Summary" that turns complex cash-flow data into a clear business case for loan approval.
+        const prompt = `You are FlowUp AI, a Senior Credit Underwriter. 
+Your goal is to write a Narrative Underwriting Report. Do not just list data; tell the story of the borrower's financial behavior.
 
-ANALYTICAL PRIORITIES:
-1. SERVICEABILITY: Evaluate the DTI. If high, check if "Lifestyle Fat" (Flexible expenses) can be reallocated to the loan[cite: 8, 32].
-2. RESILIENCE: Check the Liquidity Buffer. How many months can they survive without income?[cite: 33, 46].
-3. HYGIENE: Flag red flags (gambling, excessive NSF) vs. positive patterns (consistent savings/investments)[cite: 30, 31].
-4. THE PIVOT: Specifically mention how much of the Lifestyle budget (Flexible Expenses) justifies a "Yes" instead of a "No"[cite: 14, 15].
-
-OUTPUT RULES:
-- Language: Hebrew.
-- Tone: Professional, Sharp, Executive. Suitable for a non-bank financing company analyst.
-- Format: Exactly 4 Bullet points.
-- DO NOT use markdown formatting like **bold** or *italics*. Use plain text only. No asterisks.
-- No repeating numbers without context.
+THE STORY STRUCTURE:
+1. THE CASH FLOW STORY: Is the borrower building wealth or eroding it? Compare the income stability vs. the "Lifestyle Burn". 
+2. THE CAPACITY PIVOT: If the DTI is low but the score is Red, explain the "Invisibility of Risk" (e.g., low fixed costs but high discretionary leakage).
+3. RESILIENCE FACTOR: How long can they survive a shock? Use the Liquidity Buffer to justify a "Safety Net".
+4. THE FINAL VERDICT: A strategic business justification for the loan structure.
 
 DATA CONTEXT:
 ${JSON.stringify(underwritingMetrics, null, 2)}
 
-FORMAT FOR OUTPUT (Use exactly these prefixes, without asterisks):
-- כושר החזר ואופטימיזציה: [ניתוח DTI והיתכנות הסטת תקציב גמיש]
-- חסינות פיננסית: [ניתוח נזילות ויציבות הכנסה]
-- פרופיל סיכון: [זיהוי דגלים אדומים או גורמים מפחיתי סיכון]
-- המלצת חתם (Bottom Line): [מבנה הלוואה מומלץ והצדקה עסקית]
+OUTPUT RULES:
+- Language: Hebrew.
+- Style: Executive Narrative. No bullet points within paragraphs.
+- Format: 4 Paragraphs. Double line break between them.
+- NO MARKDOWN. NO BOLD. NO ASTERISKS. 
+
+EXPECTED TONE:
+"הלקוח מציג פרופיל של ניצול הכנסה גבוה אך ללא צבירת הון..." vs "יציבות תזרימית מאפשרת ספיגת החזר חודשי נוסף למרות רמת הוצאות גמישה..."
 `;
 
         let llmRes;
@@ -77,12 +73,12 @@ FORMAT FOR OUTPUT (Use exactly these prefixes, without asterisks):
                 response_json_schema: {
                     type: "object",
                     properties: {
-                        executive_summary: { type: "string", description: "Extremely concise bullet-point summary in Hebrew." },
+                        narrative: { type: "string", description: "The 4-paragraph narrative underwriting report in Hebrew." },
                         recommended_loan_structure: { type: "string", description: "Standard / Balloon / Extended 72" },
                         risk_flags: { type: "array", items: { type: "string", description: "Short risk flag in Hebrew" } }
                     },
                     required: [
-                        "executive_summary",
+                        "narrative",
                         "recommended_loan_structure"
                     ]
                 }
@@ -90,7 +86,7 @@ FORMAT FOR OUTPUT (Use exactly these prefixes, without asterisks):
         } catch (llmError) {
             console.error("LLM failed, using deterministic fallback", llmError);
             llmRes = {
-                executive_summary: `מרווח הגמישות עומד על ${Math.max(0, 100 - underwritingMetrics.adjusted_dti).toFixed(1)}%. כרית הנזילות המוערכת היא ${underwritingMetrics.liquidity_buffer_months} חודשים.`,
+                narrative: `מרווח הגמישות עומד על ${Math.max(0, 100 - underwritingMetrics.adjusted_dti).toFixed(1)}%. כרית הנזילות המוערכת היא ${underwritingMetrics.liquidity_buffer_months} חודשים.`,
                 recommended_loan_structure: current_risk_tier === "Red" ? "Extended 72" : (current_risk_tier === "Orange" ? "Balloon" : "Standard"),
                 risk_flags: current_risk_tier === "Red" ? ["עומס מבני גבוה", "DTI בלחץ מעל 40%"] : []
             };

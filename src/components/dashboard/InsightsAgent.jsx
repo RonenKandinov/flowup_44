@@ -1,53 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronUp, AlertTriangle, BrainCircuit, Activity, FileText, Loader2 } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
+import { ChevronDown, ChevronUp, AlertTriangle, BrainCircuit, Activity, FileText } from 'lucide-react';
 
 export default function InsightsAgent({ analysis, isLoading }) {
     const [isOpen, setIsOpen] = useState(true);
     const [isMobile, setIsMobile] = useState(false);
-    const [narrative, setNarrative] = useState('');
-    const [isGeneratingNarrative, setIsGeneratingNarrative] = useState(false);
-
-    useEffect(() => {
-        if (!analysis || analysis.error || isLoading) return;
-        
-        const generateNarrative = async () => {
-            setIsGeneratingNarrative(true);
-            try {
-                const prompt = `You are FlowUp AI, a Senior Credit Underwriter. 
-Your goal is to write a Narrative Underwriting Report. Do not just list data; tell the story of the borrower's financial behavior.
-
-THE STORY STRUCTURE:
-1. THE CASH FLOW STORY: Is the borrower building wealth or eroding it? Compare the income stability vs. the "Lifestyle Burn". 
-2. THE CAPACITY PIVOT: If the DTI is low but the score is Red, explain the "Invisibility of Risk" (e.g., low fixed costs but high discretionary leakage).
-3. RESILIENCE FACTOR: How long can they survive a shock? Use the Liquidity Buffer to justify a "Safety Net".
-4. THE FINAL VERDICT: A strategic business justification for the loan structure.
-
-DATA CONTEXT:
-${JSON.stringify(analysis, null, 2)}
-
-OUTPUT RULES:
-- Language: Hebrew.
-- Style: Executive Narrative. No bullet points within paragraphs.
-- Format: 4 Paragraphs. Double line break between them.
-- NO MARKDOWN. NO BOLD. NO ASTERISKS. 
-
-EXPECTED TONE:
-"הלקוח מציג פרופיל של ניצול הכנסה גבוה אך ללא צבירת הון..." vs "יציבות תזרימית מאפשרת ספיגת החזר חודשי נוסף למרות רמת הוצאות גמישה..."
-`;
-                const res = await base44.integrations.Core.InvokeLLM({ prompt });
-                setNarrative(res);
-            } catch (err) {
-                console.error("Failed to generate narrative:", err);
-                setNarrative("לא ניתן היה לייצר דוח חיתום אוטומטי בשלב זה.");
-            } finally {
-                setIsGeneratingNarrative(false);
-            }
-        };
-
-        generateNarrative();
-    }, [analysis, isLoading]);
 
     useEffect(() => {
         const checkMobile = () => {
@@ -154,14 +111,7 @@ EXPECTED TONE:
                                 </Section>
 
                                 <Section title="תקציר לאנליסט">
-                                    {isGeneratingNarrative ? (
-                                        <div className="flex items-center gap-2 text-slate-400">
-                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                            <span>מייצר סיפור חיתום...</span>
-                                        </div>
-                                    ) : (
-                                        narrative || analysis.narrative || analysis.executive_summary?.replace(/\*\*/g, '') || "אין תקציר זמין"
-                                    )}
+                                    {analysis.narrative || analysis.executive_summary?.replace(/\*\*/g, '') || "אין תקציר זמין"}
                                 </Section>
 
                                 <div className="bg-indigo-900/20 p-3 rounded-lg border border-indigo-500/20">
