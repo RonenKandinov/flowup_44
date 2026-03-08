@@ -84,8 +84,12 @@ EXPECTED TONE:
                 }
             });
         } catch (llmError) {
-            console.error("LLM failed", llmError);
-            return Response.json({ success: false, error: "Failed to generate insights from AI" }, { status: 500 });
+            console.error("LLM failed, using deterministic fallback", llmError);
+            llmRes = {
+                narrative: `מרווח הגמישות עומד על ${Math.max(0, 100 - underwritingMetrics.adjusted_dti).toFixed(1)}%. כרית הנזילות המוערכת היא ${underwritingMetrics.liquidity_buffer_months} חודשים.`,
+                recommended_loan_structure: current_risk_tier === "Red" ? "Extended 72" : (current_risk_tier === "Orange" ? "Balloon" : "Standard"),
+                risk_flags: current_risk_tier === "Red" ? ["עומס מבני גבוה", "DTI בלחץ מעל 40%"] : []
+            };
         }
 
         if (!llmRes.risk_flags) {
