@@ -273,7 +273,8 @@ Deno.serve(async (req) => {
                     .filter(a => a.isChecking);
 
                 if (!activeTargetAccountId && availableAccounts.length > 0) {
-                    activeTargetAccountId = availableAccounts[0].id;
+                    const preferredAccount = availableAccounts.find(a => a.number && a.number.endsWith('4498'));
+                    activeTargetAccountId = preferredAccount ? preferredAccount.id : availableAccounts[0].id;
                 }
 
                 // Filter to activeTargetAccountId if provided
