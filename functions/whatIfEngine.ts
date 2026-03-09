@@ -138,16 +138,15 @@ Deno.serve(async (req) => {
         let finalRiskStatus = riskStatus;
         let finalScoreValue = finalScore;
 
-        if (simulatedMetrics.netCashFlow < 0) {
-            if (simulatedMetrics.runway >= 6) {
-                finalRiskStatus = riskStatus === "GREEN" ? "ORANGE" : riskStatus;
-                finalScoreValue = Math.max(0, finalScore - 10); // Soft penalty
-            } else {
-                finalRiskStatus = "RED";
-                finalScoreValue = Math.min(finalScore, 40);
-            }
-        }
-
+       if (simulatedMetrics.netCashFlow < 0) {
+    if (simulatedMetrics.runway >= 6) {
+        finalRiskStatus = riskStatus === "GREEN" ? "ORANGE" : riskStatus;
+        finalScoreValue = Math.max(0, finalScore - 10);
+    } else {
+        finalRiskStatus = "RED";
+        finalScoreValue = Math.max(0, finalScore - 30);
+    }
+}
         return Response.json({
             success: true,
             status: finalRiskStatus,
