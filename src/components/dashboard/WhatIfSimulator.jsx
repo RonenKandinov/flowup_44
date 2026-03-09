@@ -243,6 +243,8 @@ export default function WhatIfSimulator({ onSimulate, baseMetrics }) {
                       <div className="flex items-start gap-2">
                           {simulationResult.status === 'RED' ? (
                               <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                          ) : simulationResult.status === 'ORANGE' ? (
+                              <AlertTriangle className="w-4 h-4 text-yellow-400 shrink-0 mt-0.5" />
                           ) : (
                               <CheckCircle className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
                           )}
