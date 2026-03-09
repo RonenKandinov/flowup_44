@@ -87,7 +87,7 @@ export default function InsightsAgent({ analysis, isLoading }) {
                             exit={isMobile ? { height: 0, opacity: 0 } : false}
                             className="overflow-hidden flex-1 flex flex-col"
                         >
-                            <div className="p-4 flex-1 flex flex-col space-y-4 overflow-y-auto max-h-[400px]">
+                            <div className="p-4 flex-1 flex flex-col space-y-4 overflow-y-auto">
 
                                 {/* Metrics */}
                                 <div className="grid grid-cols-2 gap-2">
