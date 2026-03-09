@@ -147,9 +147,9 @@ export default function WhatIfSimulator({ onSimulate, baseMetrics }) {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden"
+            className="overflow-hidden flex-1 flex flex-col"
           >
-            <div className="pt-4">
+            <div className="pt-4 flex-1 flex flex-col">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="grid w-full grid-cols-3 bg-slate-900/50 h-auto">
                   <TabsTrigger value="standard_loan" className="text-[10px] py-2 whitespace-normal leading-tight">רגיל</TabsTrigger>
