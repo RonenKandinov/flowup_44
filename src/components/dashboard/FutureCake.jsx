@@ -97,9 +97,9 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden"
+            className="overflow-hidden flex-1 flex flex-col"
           >
-            <div className="p-5 flex flex-col items-center justify-center min-h-[300px] relative">
+            <div className="p-5 flex flex-col items-center justify-center min-h-[300px] relative flex-1">
               <div className="w-full h-[220px] relative">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
