@@ -114,7 +114,7 @@ export default function WhatIfSimulator({ onSimulate, baseMetrics }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`relative rounded-xl p-5 border bg-slate-800/30 backdrop-blur-sm transition-all ${
+      className={`relative rounded-xl p-5 border bg-slate-800/30 backdrop-blur-sm transition-all h-full flex flex-col ${
         isActive ? 'border-indigo-500/40 shadow-sm shadow-indigo-500/10' : 'border-slate-700/30'
       }`}
     >
