@@ -82,9 +82,15 @@ Deno.serve(async (req) => {
                 ? (simulatedMetrics.liquidAssets / simulatedMetrics.totalExpenses) 
                 : 12;
             
-            message = simulatedMetrics.netCashFlow < 0 
-                ? `ההחזר (₪${Math.round(simulatedPayment)}) מכניס לסיכון תזרימי. חסר ₪${Math.abs(Math.round(simulatedMetrics.netCashFlow))} בחודש.`
-                : `מאושר. ההחזר החודשי (₪${Math.round(simulatedPayment)}) משאיר את הלקוח ירוק.`;
+            if (simulatedMetrics.netCashFlow < 0) {
+                if (simulatedMetrics.runway >= 6) {
+                    message = `ההחזר (₪${Math.round(simulatedPayment)}) יוצר גירעון תזרימי (₪${Math.abs(Math.round(simulatedMetrics.netCashFlow))}-), אך קיים באפר נזילות של ${simulatedMetrics.runway.toFixed(1)} חודשים.`;
+                } else {
+                    message = `ההחזר (₪${Math.round(simulatedPayment)}) מכניס לסיכון תזרימי. חסר ₪${Math.abs(Math.round(simulatedMetrics.netCashFlow))} בחודש, ובאפר הנזילות נמוך (${simulatedMetrics.runway.toFixed(1)} חודשים).`;
+                }
+            } else {
+                message = `מאושר. ההחזר החודשי (₪${Math.round(simulatedPayment)}) משאיר את הלקוח עם תזרים חיובי.`;
+            }
 
         } else if (scenario === 'balloon_loan') {
             simulatedPayment = (loanAmount * (annualRate / 100)) / 12;
