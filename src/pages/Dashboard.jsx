@@ -805,12 +805,12 @@ export default function Dashboard() {
                   />
                 </motion.div>
 
-                {/* Future Cake: Mobile 4 (Last), Desktop 2 (Top Right) */}
+                {/* Future Cake: Mobile 2, Desktop 2 (Top Right) */}
                 <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.1 }}
-                    className="order-4 lg:order-2 relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-full w-full"
+                    className="order-2 lg:order-2 relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-full w-full"
                 >
                     <FutureCake 
                         fixedExpenses={newLoanMetrics ? (newLoanMetrics.totalFixedExpenses ?? newLoanMetrics.fixedExpenses ?? 0) : (currentEngineData?.expenseAnalysis?.fixed || 0)}
