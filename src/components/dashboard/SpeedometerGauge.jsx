@@ -206,7 +206,7 @@ export default function SpeedometerGauge({
       
       {/* Balance Display */}
       <div className="text-center mt-2 md:mt-4 w-full relative z-10">
-        <p className="text-[10px] md:text-xs text-slate-400 mb-1 md:mb-2 uppercase tracking-wide">{label || "יתרה צפויה לסוף החודש"}</p>
+        <p className="text-[10px] md:text-xs text-slate-400 mb-1 md:mb-2 uppercase tracking-wide">{isScore ? "סטטוס אישור מימון" : (label || "יתרה צפויה לסוף החודש")}</p>
         <motion.p 
           key={adjustedBalance}
           initial={{ scale: 0.9, opacity: 0 }}
@@ -215,9 +215,28 @@ export default function SpeedometerGauge({
         >
           {isScore ? `${adjustedBalance}/100` : `₪${adjustedBalance.toLocaleString('he-IL')}`}
         </motion.p>
+
+        {isScore && (
+          <div className="mt-2 text-sm font-semibold">
+            {statusColor === 'green' && <span className="text-green-400">העסקה ניתנת לאישור במסלול רגיל</span>}
+            {statusColor === 'yellow' && <span className="text-yellow-400">ניתן לאשר במסלול 72 חודשים או בלון</span>}
+            {statusColor === 'red' && <span className="text-red-400">נדרש שינוי מבנה העסקה</span>}
+          </div>
+        )}
+
+        {isScore && statusColor !== 'green' && (
+          <div className="mt-4 text-xs text-slate-300 bg-slate-800/50 p-3 rounded-lg text-right border border-slate-700/50">
+            <p className="font-semibold mb-1 text-slate-200">כדי להגיע לירוק ניתן:</p>
+            <ul className="list-disc list-inside pr-2 space-y-1 text-slate-400">
+              <li>להוסיף מקדמה</li>
+              <li>לפרוס ל-72 חודשים</li>
+              <li>לבחור במסלול בלון</li>
+            </ul>
+          </div>
+        )}
         
         {isScore && dti !== undefined && (
-             <div className="mt-2 text-xs font-medium text-slate-500 flex flex-col items-center">
+             <div className="mt-4 pt-3 border-t border-slate-700/50 text-xs font-medium text-slate-500 flex flex-col items-center">
                 <div>
                   <span className="opacity-70">DTI: </span>
                   <span className={dti > 50 ? 'text-red-400' : dti > 35 ? 'text-orange-400' : 'text-emerald-400'}>{dti}%</span>
