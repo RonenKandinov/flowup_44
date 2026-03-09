@@ -74,7 +74,7 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
   };
 
   return (
-    <div className="w-full bg-slate-800/40 rounded-xl border border-slate-700/40 overflow-hidden" dir="rtl">
+    <div className="w-full h-full flex flex-col bg-slate-800/40 rounded-xl border border-slate-700/40 overflow-hidden" dir="rtl">
       {/* Header */}
       <div 
         className={`px-5 py-4 border-b border-slate-700/40 transition-colors flex items-center justify-between ${!isDesktop ? 'cursor-pointer hover:bg-slate-800/50' : ''}`}
