@@ -135,13 +135,23 @@ Deno.serve(async (req) => {
         simulatedMetrics.totalFixedExpenses = Math.round(simulatedMetrics.fixedExpenses);
         simulatedMetrics.totalLifestyleExpenses = Math.round(simulatedMetrics.totalExpenses - simulatedMetrics.fixedExpenses);
 
-        // if there's negative net cash flow, status forces to RED (for the sake of the WhatIf logic)
-        const finalRiskStatus = simulatedMetrics.netCashFlow < 0 ? "RED" : riskStatus;
+        let finalRiskStatus = riskStatus;
+        let finalScoreValue = finalScore;
+
+        if (simulatedMetrics.netCashFlow < 0) {
+            if (simulatedMetrics.runway >= 6) {
+                finalRiskStatus = riskStatus === "GREEN" ? "ORANGE" : riskStatus;
+                finalScoreValue = Math.max(0, finalScore - 10); // Soft penalty
+            } else {
+                finalRiskStatus = "RED";
+                finalScoreValue = Math.min(finalScore, 40);
+            }
+        }
 
         return Response.json({
             success: true,
             status: finalRiskStatus,
-            score: finalRiskStatus === "RED" ? Math.min(finalScore, 40) : finalScore,
+            score: finalScoreValue,
             metrics: simulatedMetrics,
             message
         });
