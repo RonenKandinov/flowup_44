@@ -48,7 +48,7 @@ export default function InsightsAgent({ analysis, isLoading }) {
     }
 
     return (
-        <div className="relative h-full">
+        <div className="relative h-full w-full">
             <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-indigo-500/20 rounded-xl overflow-hidden shadow-lg shadow-indigo-900/5 h-full flex flex-col">
 
                 {/* Header */}
