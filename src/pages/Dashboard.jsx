@@ -759,7 +759,7 @@ export default function Dashboard() {
           ) : (!loanMetricsError && (
             <>
               {/* Stats Row - Compact on Mobile */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-4 mb-4 md:mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-4 mb-4 md:mb-6 items-stretch">
                 {/* Replaced Balance StatCard with LiquidAssetsCard */}
                 <LiquidAssetsCard 
                     cash={newLoanMetrics?.liquidAssetsBreakdown?.cash ?? (loanLogicData ? loanMetrics?.liquidAssetsBreakdown?.cash : (snapshot.current_balance || 0))} 
