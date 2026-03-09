@@ -785,12 +785,12 @@ export default function Dashboard() {
               </div>
 
               {/* Main Dashboard Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 items-stretch">
                 {/* Speedometer: Mobile 1, Desktop 1 (Top Left) */}
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="order-1 lg:order-1 relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-auto min-h-[240px]"
+                  className="order-1 lg:order-1 relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-full min-h-[240px]"
                 >
                   <SpeedometerGauge
                     projectedBalance={simulatedMetrics ? simulatedMetrics.score : (newLoanMetrics ? newLoanMetrics.score : (snapshot.projected_eom_balance || 0))}
@@ -810,7 +810,7 @@ export default function Dashboard() {
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.1 }}
-                    className="order-4 lg:order-2 relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-auto"
+                    className="order-4 lg:order-2 relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-full w-full"
                 >
                     <FutureCake 
                         fixedExpenses={newLoanMetrics ? (newLoanMetrics.totalFixedExpenses ?? newLoanMetrics.fixedExpenses ?? 0) : (currentEngineData?.expenseAnalysis?.fixed || 0)}
@@ -820,14 +820,12 @@ export default function Dashboard() {
                 </motion.div>
 
                 {/* InsightsAgent: Mobile 3, Desktop 3 (Bottom Left) */}
-                <div className="order-3 lg:order-3 space-y-4">
-                     <div className="h-auto">
-                        <InsightsAgent analysis={serverInsights} isLoading={isInsightsLoading} />
-                     </div>
+                <div className="order-3 lg:order-3 h-full w-full">
+                    <InsightsAgent analysis={serverInsights} isLoading={isInsightsLoading} />
                 </div>
 
                 {/* WhatIfSimulator: Mobile 4, Desktop 4 (Bottom Right) */}
-                <div className="order-4 lg:order-4 h-auto">
+                <div className="order-4 lg:order-4 h-full w-full">
                     <WhatIfSimulator
                         onSimulate={(metrics) => setSimulatedMetrics(metrics)}
                         baseMetrics={originalLoanMetrics}
