@@ -92,6 +92,22 @@ export default function WhatIfSimulator({ onSimulate, baseMetrics }) {
     if (onSimulate) onSimulate(null);
   };
 
+  const estimatedPayment = useMemo(() => {
+    const amount = Number(loanAmount);
+    const rate = Number(annualRate);
+    const term = Number(termMonths);
+
+    if (!amount || !rate || !term) return 0;
+
+    if (activeTab === 'balloon_loan') {
+      return (amount * (rate / 100)) / 12;
+    } else {
+      const i = (rate / 100) / 12;
+      if (i === 0) return amount / term;
+      return amount * ((i * Math.pow(1 + i, term)) / (Math.pow(1 + i, term) - 1));
+    }
+  }, [loanAmount, annualRate, termMonths, activeTab]);
+
   const isActive = simulationResult !== null;
 
   return (
