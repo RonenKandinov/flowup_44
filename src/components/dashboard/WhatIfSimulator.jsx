@@ -215,6 +215,13 @@ export default function WhatIfSimulator({ onSimulate, baseMetrics }) {
                 </TabsContent>
               </Tabs>
 
+              {estimatedPayment > 0 && (
+                  <div className="mt-4 p-4 bg-slate-900/60 rounded-xl border border-indigo-500/20 flex flex-col items-center justify-center">
+                      <span className="text-xs text-slate-400 mb-1">החזר חודשי משוער</span>
+                      <span className="text-2xl font-bold text-white">₪{Math.round(estimatedPayment).toLocaleString('he-IL')}</span>
+                  </div>
+              )}
+
               {/* Status Message */}
               {isSimulating && (
                   <div className="mt-4 flex items-center justify-center p-3 bg-slate-900/30 rounded-lg">
