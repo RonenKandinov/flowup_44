@@ -51,7 +51,7 @@ export default function LiquidAssetsCard({ cash, etf, trainingFund }) {
         <motion.div 
             layout
             onClick={() => setIsOpen(!isOpen)}
-            className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl overflow-hidden cursor-pointer hover:border-slate-700 transition-all group"
+            className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl overflow-hidden cursor-pointer hover:border-slate-700 transition-all group h-full flex flex-col"
         >
             <div className="p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
