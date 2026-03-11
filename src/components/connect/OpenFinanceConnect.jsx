@@ -132,19 +132,7 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
             ))}
           </div>
 
-          <div className="text-center text-xs text-slate-500 mb-4">
-            או
-          </div>
-
-          <Button
-            onClick={() => handleConnect('mizrahi')}
-            className="w-full bg-blue-600 hover:bg-blue-500 text-white h-12 rounded-xl text-base shadow-lg shadow-blue-900/20"
-          >
-            <Lock className="w-4 h-4 mr-2" />
-            התחבר מאובטח (מזרחי)
-          </Button>
-
-          <div className="flex items-center justify-center gap-2 mt-4 text-[10px] text-slate-500">
+          <div className="flex items-center justify-center gap-2 mt-6 text-[10px] text-slate-500">
             <ShieldCheck className="w-3 h-3" />
             <span>מוצפן בתקן AES-256 (Zero-Knowledge)</span>
           </div>

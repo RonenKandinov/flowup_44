@@ -66,7 +66,7 @@ export default function Home() {
             <span>הדור הבא של חיתום אשראי</span>
           </div>
           
-          <h1 className="text-5xl md:text-7xl font-bold text-white leading-tight tracking-tight">
+          <h1 className="text-4xl md:text-5xl font-bold text-white leading-tight tracking-tight">
             FlowUp <br/>
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">
               FutureFlow
