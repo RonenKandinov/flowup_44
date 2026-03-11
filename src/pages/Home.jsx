@@ -127,7 +127,9 @@ export default function Home() {
               </div>
             ) : (
               <>
-                <OpenFinanceConnect inline={true} onConnected={() => navigate(createPageUrl('Dashboard'))} />
+                <div className="p-8">
+                  <OpenFinanceConnect inline={false} onConnected={() => navigate(createPageUrl('Dashboard'))} />
+                </div>
                 <div className="pb-6 px-6 flex items-center justify-center gap-2 text-xs text-slate-500 bg-slate-900/50">
                   <Lock className="w-3.5 h-3.5" />
                   <span>הנתונים שלך מוצפנים ונשמרים בפרטיות מלאה</span>
