@@ -84,7 +84,7 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
 
   const containerClass = inline
     ? "w-full max-w-md mx-auto bg-slate-900 rounded-2xl border border-slate-700 overflow-hidden mt-10 p-6"
-    : "flex flex-col items-center justify-center w-full max-w-md";
+    : "flex flex-col items-center justify-center w-full";
 
   return (
     <div className={containerClass}>
@@ -103,7 +103,7 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
             חבר את חשבונך באופן מאובטח באמצעות Open Finance לקבלת ניתוח חיתום מיידי.
           </p>
 
-          <div className="grid grid-cols-2 gap-2 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
             {getSupportedProviders().map(provider => (
               provider.comingSoon ? (
                 <div
