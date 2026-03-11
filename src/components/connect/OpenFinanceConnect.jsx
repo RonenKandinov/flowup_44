@@ -83,7 +83,7 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
   };
 
   const containerClass = inline
-    ? "w-full max-w-md mx-auto bg-slate-900 rounded-2xl border border-slate-700 overflow-hidden mt-10 p-6"
+    ? "w-full max-w-md mx-auto bg-slate-800 rounded-2xl border border-slate-600 overflow-hidden mt-10 p-6"
     : "flex flex-col items-center justify-center w-full";
 
   return (
@@ -108,20 +108,20 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
               provider.comingSoon ? (
                 <div
                   key={provider.id}
-                  className="relative bg-slate-800/30 rounded-lg p-3 flex items-center justify-center border border-slate-700/50 opacity-50 cursor-not-allowed"
+                  className="relative bg-slate-700/30 rounded-lg p-3 flex items-center justify-center border border-slate-600/50 opacity-50 cursor-not-allowed"
                 >
                   <div className="flex flex-col items-center gap-1">
                     <span className="text-xl">{provider.logo}</span>
-                    <span className="text-[10px] text-slate-500 font-medium">{provider.displayName}</span>
+                    <span className="text-[10px] text-slate-400 font-medium">{provider.displayName}</span>
                   </div>
-                  <span className="absolute top-1 right-1 text-[8px] bg-slate-700 text-slate-400 px-1 rounded">בקרוב</span>
+                  <span className="absolute top-1 right-1 text-[8px] bg-slate-600 text-slate-300 px-1 rounded">בקרוב</span>
                 </div>
               ) : (
                 <Button
                   key={provider.id}
                   onClick={() => handleConnect(provider.id)}
                   variant="outline"
-                  className="bg-slate-800/50 hover:bg-slate-700 rounded-lg p-3 flex items-center justify-center border border-slate-700 hover:border-cyan-500 transition-all"
+                  className="bg-slate-700/50 hover:bg-slate-600 rounded-lg p-3 flex items-center justify-center border border-slate-600 hover:border-cyan-500 transition-all"
                 >
                   <div className="flex flex-col items-center gap-1">
                     <span className="text-xl">{provider.logo}</span>
