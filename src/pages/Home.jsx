@@ -43,7 +43,7 @@ export default function Home() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 relative overflow-hidden" dir="rtl">
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 relative overflow-hidden" dir="rtl">
       {/* Background pattern */}
       <div className="fixed inset-0 opacity-30 pointer-events-none">
         <div className="absolute inset-0" style={{
@@ -106,7 +106,7 @@ export default function Home() {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="w-full max-w-md mx-auto lg:mx-0 lg:mr-auto"
         >
-          <div className="bg-slate-800/80 backdrop-blur-xl rounded-3xl border border-slate-700 shadow-2xl shadow-blue-900/20 overflow-hidden">
+          <div className="bg-slate-900/80 backdrop-blur-xl rounded-3xl border border-slate-800 shadow-2xl shadow-blue-900/20 overflow-hidden">
             
             {activeConnection ? (
               <div className="p-8 text-center">
@@ -130,7 +130,7 @@ export default function Home() {
                 <div className="p-8">
                   <OpenFinanceConnect inline={false} onConnected={() => navigate(createPageUrl('Dashboard'))} />
                 </div>
-                <div className="pb-6 px-6 flex items-center justify-center gap-2 text-xs text-slate-400 bg-slate-800/50">
+                <div className="pb-6 px-6 flex items-center justify-center gap-2 text-xs text-slate-500 bg-slate-900/50">
                   <Lock className="w-3.5 h-3.5" />
                   <span>הנתונים שלך מוצפנים ונשמרים בפרטיות מלאה</span>
                 </div>
