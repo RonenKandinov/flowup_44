@@ -20,7 +20,8 @@ export const PROVIDERS = {
     color: '#0047BB',
     logo: '🏦',
     category: 'bank',
-    supported: true
+    supported: false,
+    comingSoon: true
   },
   mizrahi: {
     id: 'mizrahi',
