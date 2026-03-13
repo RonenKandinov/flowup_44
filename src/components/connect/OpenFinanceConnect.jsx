@@ -144,6 +144,23 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
             התחבר מאובטח (מזרחי)
           </Button>
 
+          <div className="flex gap-2 mt-3 w-full">
+            <Button
+              onClick={() => handleConnect('mizrahi_sandbox')}
+              variant="outline"
+              className="flex-1 bg-slate-800/50 border-slate-700 text-slate-300 hover:bg-slate-700 h-10 text-xs"
+            >
+              מזרחי Sandbox
+            </Button>
+            <Button
+              onClick={() => handleConnect('leumi_sandbox')}
+              variant="outline"
+              className="flex-1 bg-slate-800/50 border-slate-700 text-slate-300 hover:bg-slate-700 h-10 text-xs"
+            >
+              לאומי Sandbox
+            </Button>
+          </div>
+
           <div className="flex items-center justify-center gap-2 mt-4 text-[10px] text-slate-500">
             <ShieldCheck className="w-3 h-3" />
             <span>מוצפן בתקן AES-256 (Zero-Knowledge)</span>
