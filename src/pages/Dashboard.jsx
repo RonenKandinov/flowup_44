@@ -211,8 +211,13 @@ export default function Dashboard() {
             localStorage.removeItem('of_pending_connection');
             localStorage.removeItem('of_pending_provider');
             setIsProcessingCallback(false);
+            // Clean the URL on error
+            window.history.replaceState({}, document.title, window.location.pathname);
             return;
         }
+
+        // Clean the URL once the connection is active
+        window.history.replaceState({}, document.title, window.location.pathname);
 
         // Fetch real financial data via loanLogicV2
         try {
