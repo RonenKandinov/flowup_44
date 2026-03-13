@@ -44,8 +44,7 @@ export default Deno.serve(async (req) => {
       // 2. Create real connection — 6 months history, redirect back to app after consent
       // Prefer the redirectUrl sent by the frontend (window.location.origin) so it always points
       // back to the correct app URL regardless of what headers base44 forwards.
-      const origin = req.headers.get("origin") || "https://app.base44.app";
-      const redirectUrl = bodyRedirectUrl || `${origin}/?of_callback=1`;
+      const redirectUrl = bodyRedirectUrl;
       const sixMonthsAgo = new Date(Date.now() - 183 * 24 * 60 * 60 * 1000)
         .toISOString().split('T')[0];
 
