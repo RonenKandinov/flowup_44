@@ -1,4 +1,34 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.3';
+import { z } from 'npm:zod';
+
+function withValidation(schema, handler) {
+    return async (req) => {
+        if (req.method !== 'GET' && req.method !== 'HEAD') {
+            try {
+                const body = await req.clone().json();
+                const validation = schema.safeParse(body);
+                if (!validation.success) {
+                    return Response.json({ 
+                        success: false, 
+                        error: "Payload validation failed", 
+                        details: validation.error.issues 
+                    }, { status: 400 });
+                }
+            } catch (e) {
+                // Ignore empty bodies
+            }
+        }
+        return handler(req);
+    };
+}
+
+const loanLogicSchema = z.object({
+    userId: z.string().optional(),
+    targetAccountId: z.string().nullable().optional(),
+    manualLiquidAssets: z.union([z.number(), z.string()]).optional(),
+    metrics: z.any().optional(),
+    liquidAssets: z.union([z.number(), z.string()]).optional()
+}).passthrough();
 
 // --- CONFIGURATION ---
 const SCORING_WEIGHTS = {
@@ -160,7 +190,7 @@ runBalanceExtractionTests();
 
 // --- MAIN EDGE FUNCTION ---
 
-Deno.serve(async (req) => {
+Deno.serve(withValidation(loanLogicSchema, async (req) => {
     try {
         const base44 = createClientFromRequest(req);
         const body = await req.json().catch(() => ({}));
@@ -689,4 +719,4 @@ ${JSON.stringify(limitedExpenses)}
             { status: 500 }
         );
     }
-});
+}));

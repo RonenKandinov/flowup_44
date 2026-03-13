@@ -1,6 +1,38 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.3';
+import { z } from 'npm:zod';
 
-Deno.serve(async (req) => {
+function withValidation(schema, handler) {
+    return async (req) => {
+        if (req.method !== 'GET' && req.method !== 'HEAD') {
+            try {
+                const body = await req.clone().json();
+                const validation = schema.safeParse(body);
+                if (!validation.success) {
+                    return Response.json({ 
+                        success: false, 
+                        error: "Payload validation failed", 
+                        details: validation.error.issues 
+                    }, { status: 400 });
+                }
+            } catch (e) {
+                // Ignore empty bodies
+            }
+        }
+        return handler(req);
+    };
+}
+
+const insightSchema = z.object({
+    metrics: z.object({
+        totalIncome: z.number().optional(),
+        totalExpenses: z.number().optional(),
+        liquidAssets: z.number().optional(),
+        score: z.number().optional(),
+        dti: z.number().optional()
+    }).passthrough().optional()
+}).passthrough();
+
+Deno.serve(withValidation(insightSchema, async (req) => {
     try {
         const base44 = createClientFromRequest(req);
 
@@ -103,4 +135,4 @@ OUTPUT RULES:
         console.error("insightEngine Error:", e);
         return Response.json({ success: false, error: e.message }, { status: 500 });
     }
-});
+}));

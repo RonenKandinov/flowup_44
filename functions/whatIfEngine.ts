@@ -1,4 +1,40 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.3';
+import { z } from 'npm:zod';
+
+function withValidation(schema, handler) {
+    return async (req) => {
+        if (req.method !== 'GET' && req.method !== 'HEAD') {
+            try {
+                const body = await req.clone().json();
+                const validation = schema.safeParse(body);
+                if (!validation.success) {
+                    return Response.json({ 
+                        success: false, 
+                        error: "Payload validation failed", 
+                        details: validation.error.issues 
+                    }, { status: 400 });
+                }
+            } catch (e) {
+                // Ignore empty bodies
+            }
+        }
+        return handler(req);
+    };
+}
+
+const whatIfSchema = z.object({
+    baseMetrics: z.object({
+        totalIncome: z.number().optional(),
+        totalExpenses: z.number().optional(),
+        liquidAssets: z.number().optional()
+    }).passthrough().optional(),
+    scenario: z.string().optional(),
+    params: z.object({
+        loanAmount: z.union([z.number(), z.string()]).optional(),
+        annualRate: z.union([z.number(), z.string()]).optional(),
+        termMonths: z.union([z.number(), z.string()]).optional()
+    }).passthrough().optional()
+}).passthrough();
 
 const SCORING_WEIGHTS = {
     STABILITY: 0.35,
@@ -39,7 +75,7 @@ function calculateScore(metrics) {
     return { finalScore, riskStatus, dtiPerc };
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withValidation(whatIfSchema, async (req) => {
     try {
         const body = await req.json().catch(() => ({}));
         const { baseMetrics, scenario, params } = body;
@@ -158,4 +194,4 @@ Deno.serve(async (req) => {
     } catch (error) {
         return Response.json({ success: false, error: error.message }, { status: 500 });
     }
-});
+}));
