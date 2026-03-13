@@ -167,9 +167,6 @@ export default function Dashboard() {
 
         if (!ofCallback) return;
 
-        // Clean the URL immediately so a refresh doesn't re-trigger
-        window.history.replaceState({}, document.title, window.location.pathname);
-
         const connectionId = localStorage.getItem('of_pending_connection');
         // psuId: prefer stored value (set during connect, works for unauthenticated users)
         const psuId = localStorage.getItem('of_psu_id') || user?.email || user?.id;
