@@ -52,7 +52,7 @@ export default Deno.serve(async (req) => {
         startDate: sixMonthsAgo,
         redirectUrl,
         language: "he",
-        includeFakeProviders: false,
+        includeFakeProviders:true,
         refreshData: true,
       };
       if (providerId) connBody.providerIds = [providerId];
