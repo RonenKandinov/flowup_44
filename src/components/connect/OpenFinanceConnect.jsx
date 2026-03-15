@@ -146,14 +146,14 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
 
           <div className="flex gap-2 mt-3 w-full">
             <Button
-              onClick={() => handleConnect('fake_mizrahi')}
+              onClick={() => handleConnect('mizrahi_sandbox')}
               variant="outline"
               className="flex-1 bg-slate-800/50 border-slate-700 text-slate-300 hover:bg-slate-700 h-10 text-xs"
             >
               מזרחי Sandbox
             </Button>
             <Button
-              onClick={() => handleConnect('fake_leumi')}
+              onClick={() => handleConnect('leumi_sandbox')}
               variant="outline"
               className="flex-1 bg-slate-800/50 border-slate-700 text-slate-300 hover:bg-slate-700 h-10 text-xs"
             >
