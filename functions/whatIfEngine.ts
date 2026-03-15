@@ -155,28 +155,6 @@ Deno.serve(withValidation(whatIfSchema, async (req) => {
 
         const { finalScore, riskStatus, dtiPerc } = calculateScore(simulatedMetrics);
         
-        // Dynamic Loan Structuring Engine
-        const disposableIncome = Math.max(0, activeMetrics.totalIncome - activeMetrics.fixedExpenses);
-        const maxAffordablePayment = disposableIncome * 0.60;
-        
-        function calculateMaxLoan(pmt, annualInterest, n) {
-            if (pmt <= 0 || n <= 0) return 0;
-            const i = (annualInterest / 100) / 12;
-            if (i === 0) return pmt * n;
-            return pmt * ((1 - Math.pow(1 + i, -n)) / i);
-        }
-
-        const rateToUse = Number(params?.annualRate || 8);
-        
-        const loanOptions = [36, 60, 72].map(term => {
-            const maxLoan = calculateMaxLoan(maxAffordablePayment, rateToUse, term);
-            return {
-                termMonths: term,
-                maxLoan: Math.round(maxLoan),
-                estimatedPayment: Math.round(maxAffordablePayment)
-            };
-        });
-        
         if (isBlocked) {
             simulatedMetrics.score = 0;
             simulatedMetrics.dti = Math.round(dtiPerc);
@@ -185,8 +163,7 @@ Deno.serve(withValidation(whatIfSchema, async (req) => {
                 status: "RED",
                 score: 0,
                 metrics: simulatedMetrics,
-                message,
-                loanOptions
+                message
             });
         }
         simulatedMetrics.score = finalScore;
@@ -211,8 +188,7 @@ Deno.serve(withValidation(whatIfSchema, async (req) => {
             status: finalRiskStatus,
             score: finalScoreValue,
             metrics: simulatedMetrics,
-            message,
-            loanOptions
+            message
         });
 
     } catch (error) {
