@@ -307,10 +307,10 @@ Deno.serve(withValidation(loanLogicSchema, async (req) => {
                     activeTargetAccountId = preferredAccount ? preferredAccount.id : availableAccounts[0].id;
                 }
 
-                // Filter to activeTargetAccountId if provided
-                if (activeTargetAccountId) {
-                    accounts = accounts.filter(acc => String(acc.id || acc.accountId || acc.accountNumber) === String(activeTargetAccountId));
-                }
+                // REMOVED: Filtering accounts by activeTargetAccountId so we can process all accounts for liquid assets
+                // if (activeTargetAccountId) {
+                //     accounts = accounts.filter(acc => String(acc.id || acc.accountId || acc.accountNumber) === String(activeTargetAccountId));
+                // }
                 
                 console.log(`[Liquid Assets] Processing ${accounts.length} unique accounts (from ${rawAccounts.length} raw)`);
                 
@@ -351,7 +351,7 @@ Deno.serve(withValidation(loanLogicSchema, async (req) => {
                         } else if (isTrainingFund) {
                             liquidAssetsBreakdown.trainingFund += finalBalance;
                             liquidAssets += (finalBalance * 0.55);
-                        } else {
+                        } else if (isChecking) {
                             liquidAssetsBreakdown.cash += finalBalance;
                             liquidAssets += finalBalance; 
                         }
@@ -519,7 +519,11 @@ ${JSON.stringify(limitedExpenses)}
                 const investmentKeywords = [
                     "השקע", "ניירות ערך", "מניות", "קרן", "גמל", "השתלמות", "פיקדון", "חסכון", "קופת", 
                     "מיטב", "אלטשולר", "הראל", "כלל", "מגדל", "פניקס", "פסגות", "ילין", "מור", "סחירות",
-                    "investment", "stock", "fund", "deposit", "saving", "broker", "crypto", "trade", "portfolio"
+                    "investment", "stock", "fund", "deposit", "saving", "broker", "crypto", "trade", "portfolio",
+                    "פפר", "pepper", "interactive", "ibkr", "טרייד", "בלנדר", "טריא", "tarya", "blender", 
+                    "ביטקוין", "bitcoin", "binance", "בינאנס", "קריפטו", "kraken", "etoro", "אקסלנס", 
+                    "excellence", "ibi", "אי.בי.אי", "דש", "dash", "הלמן", "אלדובי", "אנליסט", "analyst", 
+                    "פוליסה", "policy", "חיסכון", "pension", "פנסיה", "provident", "mutual fund", "etf", "סל", "מדד", "index", "bux"
                 ];
                 
                 const isInvestmentTransfer = investmentKeywords.some(kw => category.includes(kw) || txDesc.includes(kw));
