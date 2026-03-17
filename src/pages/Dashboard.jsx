@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle, Plus, FileSpreadsheet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -16,10 +16,11 @@ import LiquidAssetsCard from '../components/dashboard/LiquidAssetsCard'; // New 
 import WhatIfSimulator from '../components/dashboard/WhatIfSimulator';
 import FutureCake from '../components/dashboard/FutureCake';
 import InsightsAgent from '../components/dashboard/InsightsAgent'; // New
-import CSVUploader from '../components/upload/CSVUploader'; // Kept for admin fallback if needed
 import EmptyState from '../components/dashboard/EmptyState';
 import Disclaimer from '../components/dashboard/Disclaimer';
 import OpenFinanceConnect from '../components/connect/OpenFinanceConnect';
+
+const CSVUploader = lazy(() => import('../components/upload/CSVUploader'));
 import { useTransactionSync } from '../components/hooks/useTransactionSync';
 import { useLoanMetrics } from '../components/hooks/useLoanMetrics';
 import { toast } from 'sonner';
