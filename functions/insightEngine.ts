@@ -76,15 +76,22 @@ Deno.serve(withValidation(insightSchema, async (req) => {
             current_risk_tier
         };
 
-        const prompt = `You are a Senior Credit Risk Analyst specializing in cash-flow based underwriting.
-        Your role is NOT to summarize financial data. Your role is to identify hidden risk signals and misleading stability patterns that traditional credit models (e.g., DTI, averages) fail to capture.
+        const prompt = `You are a Senior Credit Risk Analyst specializing in cash-flow underwriting.
+        Your job is to challenge the decision, not describe the data.
 
-        Focus on:
-        - Cash flow stability (not just averages)
-        - Income volatility and consistency over time
-        - Mismatch between income and expenses
-        - Liquidity buffer (in months) and resilience to income shocks
-        - Detection of "false stability" (cases where averages look fine but reality is unstable)
+        You must identify ONE dominant risk signal that could realistically cause repayment failure.
+        Do NOT list multiple risks. Focus on the single most critical weakness.
+
+        Core analysis principles:
+        - Stability > averages
+        - Consistency > totals
+        - Survival capacity > income level
+
+        You are specifically looking for:
+        - False stability (good averages hiding unstable reality)
+        - Income that does not consistently cover expenses
+        - Low resilience to income shocks (low liquidity buffer)
+        - Structural weaknesses that increase default probability
 
         Security Constraints (Non-Negotiable):
         - Encryption & Sanitization: You are processing data that has been pre-sanitized (PII removed) and encrypted. Do not attempt to guess or hallucinate identity details. If a field looks like ciphertext, ignore its literal content and use the provided metrics object as the sole source of truth.
@@ -95,13 +102,28 @@ Deno.serve(withValidation(insightSchema, async (req) => {
         ${JSON.stringify(underwritingMetrics, null, 2)}
 
         OUTPUT RULES:
-        - Language: Hebrew.
-        - Tone: Direct, sharp, executive (no fluff, no long explanations).
-        - Format: EXACTLY ONE SHORT PARAGRAPH. Maximum 3 to 4 sentences total (around 40-50 words max).
-        - Content: Identify the most critical risk signal (the one that could cause default). Explain why standard metrics might be misleading in this case. Translate the data into real-world repayment risk. Avoid repeating raw numbers unless necessary.
+        - Language: Hebrew
+        - Maximum 3 sentences
+        - No numbers unless absolutely necessary
+        - No repetition of raw metrics
+        - No generic phrasing
         - NO MARKDOWN. NO BOLD. NO ASTERISKS.
-        - Ensure the recommended loan structure logically matches the narrative you write.
-        `;
+
+        STRUCTURE:
+        - Start with the core risk (clear and direct)
+        - Explain why standard metrics may mislead here
+        - Translate into real repayment risk
+
+        CRITICAL:
+        - If the client looks "fine" on the surface, explicitly say why that is misleading
+        - The narrative MUST justify the recommended loan structure
+
+        LOAN STRUCTURE LOGIC:
+        - "Extended 72" → unstable / high risk / low resilience
+        - "Balloon" → moderate instability or timing mismatch
+        - "Standard" → stable and consistent
+
+        Your output must feel like it challenges the analyst’s intuition.`;
 
         let llmRes;
         try {
