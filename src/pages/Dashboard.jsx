@@ -838,10 +838,12 @@ export default function Dashboard() {
       {/* Upload/Connect Modal */}
       <AnimatePresence>
         {showUploader && (
-          <CSVUploader
-            onDataParsed={handleDataParsed}
-            onClose={() => setShowUploader(false)}
-          />
+          <Suspense fallback={<div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center"><div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" /></div>}>
+            <CSVUploader
+              onDataParsed={handleDataParsed}
+              onClose={() => setShowUploader(false)}
+            />
+          </Suspense>
         )}
         {showOpenFinance && (
           <motion.div
