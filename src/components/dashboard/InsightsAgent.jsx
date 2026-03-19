@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronUp, AlertTriangle, BrainCircuit, Activity, FileText } from 'lucide-react';
+import { ChevronDown, ChevronUp, AlertTriangle, BrainCircuit, Activity, FileText, CheckCircle2, XCircle, Zap } from 'lucide-react';
 
 export default function InsightsAgent({ analysis, isLoading }) {
     const [isOpen, setIsOpen] = useState(true);
@@ -17,7 +17,6 @@ export default function InsightsAgent({ analysis, isLoading }) {
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
-    // ✅ Loading state אמיתי
     if (isLoading) {
         return (
             <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 flex flex-col items-center justify-center text-center h-full min-h-[200px]">
@@ -25,27 +24,33 @@ export default function InsightsAgent({ analysis, isLoading }) {
                     <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
                 </div>
                 <h3 className="text-white font-medium">האנליסט מעבד נתונים...</h3>
-                <p className="text-slate-500 text-sm mt-1">
-                    מנתח יכולת החזר והתחייבויות קשיחות.
-                </p>
+                <p className="text-slate-500 text-sm mt-1">מנתח התנהלות פיננסית וסיכונים.</p>
             </div>
         );
     }
 
-    // ✅ Empty / Error state
-    if (!analysis || analysis.error) {
+    if (!analysis || analysis.error || !analysis.analyst_recommendation) {
         return (
             <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 flex flex-col items-center justify-center text-center h-full min-h-[200px]">
                 <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center mb-3">
                     <AlertTriangle className="w-6 h-6 text-slate-500" />
                 </div>
                 <h3 className="text-white font-medium">אין מספיק נתונים לניתוח</h3>
-                <p className="text-slate-500 text-sm mt-1">
-                    לא נמצאו מספיק תנועות שניתן לנתח בשלב זה.
-                </p>
+                <p className="text-slate-500 text-sm mt-1">לא נמצאו מספיק תנועות שניתן לנתח בשלב זה.</p>
             </div>
         );
     }
+
+    const {
+        narrative,
+        risk_tier,
+        metrics,
+        second_chance_analysis,
+        analyst_recommendation,
+        behaviorSignals
+    } = analysis;
+
+    const { recommendation, options, key_risks, strengths, what_to_improve } = analyst_recommendation;
 
     return (
         <div className="relative h-full w-full">
@@ -68,7 +73,7 @@ export default function InsightsAgent({ analysis, isLoading }) {
 
                     <div className="flex items-center gap-2">
                         <span className="text-[10px] font-mono text-indigo-400 bg-indigo-950/30 px-2 py-0.5 rounded-full border border-indigo-900/30">
-                            DTI: {analysis.metrics?.structural_dti ?? 0}%
+                            DTI: {metrics?.dti ?? 0}%
                         </span>
                         {isMobile && (
                             isOpen
@@ -89,91 +94,109 @@ export default function InsightsAgent({ analysis, isLoading }) {
                         >
                             <div className="p-4 flex-1 flex flex-col space-y-4 overflow-y-auto">
 
-                                {/* Metrics */}
-                                <div className="grid grid-cols-2 gap-2">
-                                    <MetricBox label="Structural DTI" value={`${analysis.metrics?.structural_dti ?? 0}%`} />
-                                    <MetricBox label="Adjusted DTI" value={`${analysis.metrics?.adjusted_dti ?? 0}%`} color="text-emerald-400" />
-                                    <MetricBox label="Liquidity Buffer" value={`${analysis.metrics?.liquidity_buffer_months ?? 0} חודשים`} />
-                                    <MetricBox label="Income Volatility" value={typeof analysis.metrics?.income_volatility === 'number' ? analysis.metrics.income_volatility.toFixed(1) + '%' : (analysis.metrics?.income_volatility ?? 0)} color="text-amber-400" />
-                                </div>
-
-                                {/* Risk Tier & Classification */}
-                                <div className="grid grid-cols-2 gap-2">
-                                    <Section title="רמת סיכון">
-                                        <span className={
-                                            analysis.risk_tier === 'Red'
-                                                ? 'text-red-400 font-bold'
-                                                : analysis.risk_tier === 'Orange'
-                                                    ? 'text-orange-400 font-bold'
-                                                    : 'text-emerald-400 font-bold'
-                                        }>
-                                            {analysis.risk_tier === 'Red' ? 'גבוהה (Red)' : analysis.risk_tier === 'Orange' ? 'בינונית (Orange)' : 'נמוכה (Green)'}
-                                        </span>
-                                    </Section>
-                                    
-                                    {analysis.behavioral_classification && (
-                                        <Section title="סיווג התנהגותי">
-                                            <span className={
-                                                analysis.behavioral_classification === 'Hidden Gem' ? 'text-emerald-400 font-bold' :
-                                                analysis.behavioral_classification === 'Hidden Risk' ? 'text-amber-400 font-bold' :
-                                                analysis.behavioral_classification === 'High Risk' ? 'text-red-400 font-bold' :
-                                                'text-blue-400 font-bold'
-                                            }>
-                                                {analysis.behavioral_classification === 'Hidden Gem' ? 'פוטנציאל חבוי (Hidden Gem)' :
-                                                 analysis.behavioral_classification === 'Hidden Risk' ? 'סיכון חבוי (Hidden Risk)' :
-                                                 analysis.behavioral_classification === 'High Risk' ? 'סיכון גבוה' : 'יציב'}
-                                            </span>
-                                        </Section>
-                                    )}
-                                </div>
-
-                                {analysis.classification_reason && (
-                                    <div className={`p-3 rounded-lg border ${
-                                        analysis.behavioral_classification === 'Hidden Gem' ? 'bg-emerald-900/20 border-emerald-500/20' :
-                                        analysis.behavioral_classification === 'Hidden Risk' ? 'bg-amber-900/20 border-amber-500/20' :
-                                        'bg-slate-800/30 border-slate-700/50'
-                                    }`}>
-                                        <div className="flex items-center gap-2 mb-1">
-                                            {analysis.behavioral_classification === 'Hidden Gem' && <Activity className="w-4 h-4 text-emerald-400" />}
-                                            {analysis.behavioral_classification === 'Hidden Risk' && <AlertTriangle className="w-4 h-4 text-amber-400" />}
-                                            <p className="text-[10px] text-slate-400 uppercase">תובנת אנליסט</p>
+                                {/* Decision Banner */}
+                                <div className={`p-3 rounded-lg border flex items-center justify-between ${
+                                    recommendation.decision === 'APPROVE' ? 'bg-emerald-900/20 border-emerald-500/30' :
+                                    recommendation.decision === 'REVIEW' ? 'bg-amber-900/20 border-amber-500/30' :
+                                    'bg-red-900/20 border-red-500/30'
+                                }`}>
+                                    <div className="flex items-center gap-3">
+                                        {recommendation.decision === 'APPROVE' ? <CheckCircle2 className="w-6 h-6 text-emerald-400" /> :
+                                         recommendation.decision === 'REVIEW' ? <AlertTriangle className="w-6 h-6 text-amber-400" /> :
+                                         <XCircle className="w-6 h-6 text-red-400" />}
+                                        <div>
+                                            <p className="text-[10px] text-slate-400 uppercase font-bold">המלצת מערכת</p>
+                                            <p className={`text-base font-bold ${
+                                                recommendation.decision === 'APPROVE' ? 'text-emerald-400' :
+                                                recommendation.decision === 'REVIEW' ? 'text-amber-400' :
+                                                'text-red-400'
+                                            }`}>
+                                                {recommendation.decision === 'APPROVE' ? 'אישור' :
+                                                 recommendation.decision === 'REVIEW' ? 'בחינה נוספת' : 'דחייה'}
+                                            </p>
                                         </div>
-                                        <p className="text-sm text-slate-300 leading-relaxed">{analysis.classification_reason}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-[10px] text-slate-400 uppercase">רמת ביטחון</p>
+                                        <p className="text-xs font-mono text-slate-300">{recommendation.confidence}</p>
+                                    </div>
+                                </div>
+
+                                {/* Second Chance Banner */}
+                                {second_chance_analysis?.eligible && (
+                                    <div className="bg-indigo-900/30 border border-indigo-500/30 p-3 rounded-lg flex items-start gap-3">
+                                        <Zap className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-xs font-bold text-indigo-300">הזדמנות שנייה (Second Chance)</p>
+                                            <p className="text-xs text-indigo-200/80 mt-1">הלקוח קיבל שדרוג בדירוג הסיכון בזכות התנהלות פיננסית חיובית המפצה על נתונים יבשים חלשים.</p>
+                                        </div>
                                     </div>
                                 )}
 
-                                <Section title="תקציר מורחב (כולל המלצת חיתום)">
-                                    {analysis.narrative || analysis.executive_summary?.replace(/\*\*/g, '') || "אין תקציר זמין"}
+                                {/* Metrics */}
+                                <div className="grid grid-cols-2 gap-2">
+                                    <MetricBox label="יחס הוצאות/הכנסות" value={`${metrics?.expense_to_income_ratio ?? 0}%`} />
+                                    <MetricBox label="נזילות" value={`${metrics?.liquidity_months ?? 0} חודשים`} />
+                                </div>
+
+                                <Section title="תקציר מורחב">
+                                    {narrative}
                                 </Section>
 
-                                {analysis.payment_suggestions && analysis.payment_suggestions.length > 0 && (
+                                {/* Strengths & Risks */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {strengths?.length > 0 && (
+                                        <div className="bg-emerald-900/10 border border-emerald-500/20 rounded-lg p-3">
+                                            <p className="text-[10px] text-emerald-400/80 uppercase font-bold mb-2">נקודות חוזק</p>
+                                            <ul className="space-y-1">
+                                                {strengths.map((s, i) => (
+                                                    <li key={i} className="text-xs text-emerald-200/90 flex items-center gap-1.5">
+                                                        <div className="w-1 h-1 rounded-full bg-emerald-400" />
+                                                        {s}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+                                    {key_risks?.length > 0 && (
+                                        <div className="bg-red-900/10 border border-red-500/20 rounded-lg p-3">
+                                            <p className="text-[10px] text-red-400/80 uppercase font-bold mb-2">סיכונים מרכזיים</p>
+                                            <ul className="space-y-1">
+                                                {key_risks.map((r, i) => (
+                                                    <li key={i} className="text-xs text-red-200/90 flex items-center gap-1.5">
+                                                        <div className="w-1 h-1 rounded-full bg-red-400" />
+                                                        {r}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Options */}
+                                {options && options.length > 0 && (
                                     <details className="group bg-slate-800/30 rounded-lg border border-slate-700/50">
                                         <summary className="flex items-center justify-between p-3 cursor-pointer list-none">
                                             <span className="text-[10px] text-slate-400 uppercase font-bold">מתווי תשלום אפשריים (מקסימום בטוח)</span>
                                             <ChevronDown className="w-4 h-4 text-slate-500 group-open:rotate-180 transition-transform" />
                                         </summary>
                                         <div className="p-3 pt-0 grid grid-cols-1 gap-2">
-                                            {analysis.payment_suggestions.map((suggestion, idx) => (
+                                            {options.map((opt, idx) => (
                                                 <div key={idx} className="bg-slate-900/80 p-3 rounded-lg border border-slate-700/50 flex flex-col gap-1">
                                                     <div className="flex justify-between items-center">
-                                                        <span className="text-sm font-bold text-indigo-300">{suggestion.structure}</span>
-                                                        <span className="text-xs font-mono bg-slate-800 px-2 py-0.5 rounded text-emerald-400">{suggestion.monthly_payment_cap}</span>
+                                                        <span className="text-sm font-bold text-indigo-300">{opt.decision === 'APPROVE' ? 'מסלול אישור' : opt.decision === 'REVIEW' ? 'מסלול בחינה' : 'דחייה'}</span>
+                                                        <span className="text-xs font-mono bg-slate-800 px-2 py-0.5 rounded text-emerald-400">
+                                                            {opt.max_loan_amount > 0 ? `עד ₪${opt.max_loan_amount.toLocaleString()}` : '₪0'}
+                                                        </span>
                                                     </div>
-                                                    <p className="text-xs text-slate-400 mt-1">{suggestion.reasoning}</p>
+                                                    {opt.suggested_interest && (
+                                                        <p className="text-xs text-slate-400 mt-1">ריבית מומלצת: {opt.suggested_interest}%</p>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
                                     </details>
                                 )}
-
-                                <div className="bg-indigo-900/20 p-3 rounded-lg border border-indigo-500/20">
-                                    <p className="text-[10px] text-indigo-300 uppercase tracking-wider mb-1">
-                                        סיווג מסלול
-                                    </p>
-                                    <p className="text-sm text-indigo-100 font-medium">
-                                        {analysis.recommended_loan_structure || "Standard"}
-                                    </p>
-                                </div>
 
                             </div>
                         </motion.div>
@@ -202,13 +225,5 @@ function Section({ title, children }) {
             <p className="text-[10px] text-slate-500 uppercase mb-1">{title}</p>
             <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-line">{children}</p>
         </div>
-    );
-}
-
-function CommentBox({ title, text }) {
-    return (
-        <Section title={title}>
-            {text || "N/A"}
-        </Section>
     );
 }
