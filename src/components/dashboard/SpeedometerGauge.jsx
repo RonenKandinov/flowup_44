@@ -1,301 +1,307 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react';
-
+import { ArrowUpRight, ArrowDownRight, Minus, Zap } from 'lucide-react';
 import { SystemInfo } from '@/components/utils/forecastingLogic';
 
-export default function SpeedometerGauge({ 
-  projectedBalance,
-  dti, 
-  riskLevel = 'green',
-  riskDay,
-  whatIfAmount = 0,
-  engineData,
-  label,
-  isScore = false,
-  dtiTrend = null
-}) {
-  // Use projected balance as-is (already calculated by forecasting logic)
-  const adjustedBalance = projectedBalance;
-  
-  const { angle, color, glowColor, statusColor } = useMemo(() => {
-    let calculatedAngle;
-    let calculatedColor;
-    let calculatedGlow;
-    let statusColor;
-
-    if (isScore) {
-        // FLOWUP SCORING LOGIC (0-100)
-        // Red: Score 0-54 -> Left (-60 to -20)
-        // Orange: Score 55-79 -> Center (-20 to 20)
-        // Green: Score 80-100 -> Right (20 to 60)
-        const score = adjustedBalance; // adjustedBalance is passed as score
-
-        if (score < 55) {
-            // RED ZONE (High Risk / Low Score)
-            // Map 0-54 to -60 -> -20
-            const ratio = score / 55;
-            calculatedAngle = -60 + (ratio * 40);
-            calculatedColor = '#ef4444';
-            calculatedGlow = 'rgba(239, 68, 68, 0.5)';
-            statusColor = 'red';
-        } else if (score < 80) {
-            // ORANGE ZONE (Medium Risk / Medium Score)
-            // Map 55-79 to -20 -> +20
-            const ratio = (score - 55) / 25;
-            calculatedAngle = -20 + (ratio * 40);
-            calculatedColor = '#f97316'; // Orange-500
-            calculatedGlow = 'rgba(249, 115, 22, 0.5)';
-            statusColor = 'yellow';
-        } else {
-            // GREEN ZONE (Low Risk / High Score)
-            // Map 80-100 to +20 -> +60
-            const ratio = (score - 80) / 20;
-            calculatedAngle = 20 + (ratio * 40);
-            calculatedColor = '#22c55e';
-            calculatedGlow = 'rgba(34, 197, 94, 0.5)';
-            statusColor = 'green';
-        }
-
+/**
+ * Maps a score in [0, 100] to a needle angle in [-60, +60].
+ * Score 0   → -60° (far left / red)
+ * Score 54  → -20° (end of red)
+ * Score 55  → -20° (start of orange)
+ * Score 79  → +20° (end of orange)
+ * Score 80  → +20° (start of green)
+ * Score 100 → +60° (far right / green)
+ *
+ * Special case: score <= 0 is clamped to -60° (hard left).
+ */
+function scoreToAngle(score) {
+    const s = Math.max(0, Math.min(100, score));
+    if (s === 0) return -60;
+    if (s < 55) {
+        // Red zone: 0–54 → -60 to -20
+        return -60 + (s / 54) * 40;
+    } else if (s < 80) {
+        // Orange zone: 55–79 → -20 to +20
+        return -20 + ((s - 55) / 24) * 40;
     } else {
-        // ORIGINAL BALANCE LOGIC
-        // 1. Balance < 0 (Red): 0 -> +20°, -1000 -> +40° (Middle), -2000+ -> +60°
-        // 2. 0 <= Balance < 1500 (Yellow): 0 -> +20°, 1500 -> -20°
-        // 3. Balance >= 1500 (Green):
-        //    - 1500 to 2000: -20° to -40° (Middle)
-        //    - 2000+: -40° to -60°
-
-        if (adjustedBalance >= 2000) {
-        // Super Safe (Middle of Green to End)
-        // 2000 -> -40, 4000 -> -60
-        const ratio = Math.min((adjustedBalance - 2000) / 2000, 1);
-        calculatedAngle = -40 + (ratio * -20);
-        calculatedColor = '#22c55e';
-        calculatedGlow = 'rgba(34, 197, 94, 0.5)';
-        statusColor = 'green';
-        } else if (adjustedBalance >= 1500) {
-        // Safe Entry (Start of Green to Middle)
-        // 1500 -> -20, 2000 -> -40
-        const ratio = (adjustedBalance - 1500) / 500;
-        calculatedAngle = -20 + (ratio * -20);
-        calculatedColor = '#22c55e';
-        calculatedGlow = 'rgba(34, 197, 94, 0.5)';
-        statusColor = 'green';
-        } else if (adjustedBalance >= 0) {
-        // Caution (Yellow)
-        // 0 -> +20, 1500 -> -20
-        const ratio = adjustedBalance / 1500;
-        calculatedAngle = 20 - (ratio * 40);
-        calculatedColor = '#eab308';
-        calculatedGlow = 'rgba(234, 179, 8, 0.5)';
-        statusColor = 'yellow';
-        } else {
-        // Danger (Red)
-        // 0 -> +20, -1000 -> +40 (Middle), -2000 -> +60
-        const negativeVal = Math.abs(adjustedBalance);
-        const ratio = Math.min(negativeVal / 2000, 1);
-        calculatedAngle = 20 + (ratio * 40);
-        calculatedColor = '#ef4444';
-        calculatedGlow = 'rgba(239, 68, 68, 0.5)';
-        statusColor = 'red';
-        }
+        // Green zone: 80–100 → +20 to +60
+        return 20 + ((s - 80) / 20) * 40;
     }
-    
-    return { 
-      angle: calculatedAngle, 
-      color: calculatedColor, 
-      glowColor: calculatedGlow,
-      statusColor
-    };
-  }, [adjustedBalance, isScore]);
+}
 
-  return (
-    <div className="relative flex flex-col items-center justify-center w-full p-6 rounded-xl bg-slate-800/30 border border-slate-700/30 backdrop-blur-sm h-full">
-      {/* Gauge SVG */}
-      <svg 
-        viewBox="0 0 200 120" 
-        className="w-full max-w-[280px] md:max-w-[320px] mx-auto"
-      >
-        {/* Background arc segments */}
-        <defs>
-          {/* RED Gradient (Left) */}
-          <linearGradient id="redGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#ef4444" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#ef4444" stopOpacity="0.8" />
-          </linearGradient>
-          {/* ORANGE Gradient (Center) */}
-          <linearGradient id="orangeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#f97316" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#f97316" stopOpacity="0.8" />
-          </linearGradient>
-          {/* GREEN Gradient (Right) */}
-          <linearGradient id="greenGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#22c55e" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#22c55e" stopOpacity="0.8" />
-          </linearGradient>
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
-            <feMerge>
-              <feMergeNode in="coloredBlur"/>
-              <feMergeNode in="SourceGraphic"/>
-            </feMerge>
-          </filter>
-        </defs>
-        
-        {/* Red segment (Left) */}
-        <path
-          d="M 30 100 A 70 70 0 0 1 70 38"
-          fill="none"
-          stroke="url(#redGrad)"
-          strokeWidth="12"
-          strokeLinecap="round"
-        />
-        
-        {/* Orange segment (Center) */}
-        <path
-          d="M 75 35 A 70 70 0 0 1 125 35"
-          fill="none"
-          stroke="url(#orangeGrad)"
-          strokeWidth="12"
-          strokeLinecap="round"
-        />
-        
-        {/* Green segment (Right) */}
-        <path
-          d="M 130 38 A 70 70 0 0 1 170 100"
-          fill="none"
-          stroke="url(#greenGrad)"
-          strokeWidth="12"
-          strokeLinecap="round"
-        />
-        
-        {/* Needle - Straight Classic Speedometer Style */}
-        {/* Geometric Centering: Translate to center, rotate, then draw relative to 0,0 */}
-        <g transform="translate(100, 100)">
-          <motion.g
-            initial={{ rotate: 0 }}
-            animate={{ rotate: angle }}
-            transition={{ type: "spring", stiffness: 90, damping: 12 }}
-          >
-            {/* Visible Needle (Upwards) */}
-            <line
-              x1="0"
-              y1="0"
-              x2="0"
-              y2="-60"
-              stroke="white"
-              strokeWidth="3"
-              strokeLinecap="round"
-            />
-            {/* Invisible Counterbalance (Downwards) - Forces center of rotation to be exactly 0,0 */}
-            <line
-              x1="0"
-              y1="0"
-              x2="0"
-              y2="60"
-              stroke="transparent"
-              strokeWidth="0"
-            />
-          </motion.g>
-        </g>
+function scoreToColors(score) {
+    if (score < 55) return { color: '#ef4444', glowColor: 'rgba(239,68,68,0.5)', statusColor: 'red' };
+    if (score < 80) return { color: '#f97316', glowColor: 'rgba(249,115,22,0.5)', statusColor: 'yellow' };
+    return { color: '#22c55e', glowColor: 'rgba(34,197,94,0.5)', statusColor: 'green' };
+}
 
-        {/* Static Center Cap - Anchored at (100,100) */}
-        <circle cx="100" cy="100" r="6" fill="white" />
-        <circle cx="100" cy="100" r="3" fill="#1e293b" />
-      </svg>
-      
-      {/* Balance Display */}
-      <div className="text-center mt-2 md:mt-4 w-full relative z-10">
-        <p className="text-[10px] md:text-xs text-slate-400 mb-1 md:mb-2 uppercase tracking-wide">{isScore ? "סטטוס אישור מימון" : (label || "יתרה צפויה לסוף החודש")}</p>
-        <motion.p 
-          key={adjustedBalance}
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="text-3xl md:text-4xl font-bold text-white tracking-tight"
-        >
-          {isScore ? `${adjustedBalance}/100` : `₪${adjustedBalance.toLocaleString('he-IL')}`}
-        </motion.p>
+/**
+ * Applies a 20% income stress to the base metrics and recalculates the FlowUp score.
+ * Returns { stressScore, stressDti }.
+ */
+function applyStressScenario(baseScore, baseDti, baseMetrics) {
+    if (!baseMetrics) {
+        // Fallback: DTI increases by ~25% when income drops 20%
+        const stressDti = baseDti ? Math.round(baseDti / 0.8) : baseDti;
+        if (stressDti >= 100) return { stressScore: 0, stressDti };
+        const stressScore = Math.max(0, Math.round(baseScore * 0.65));
+        return { stressScore, stressDti };
+    }
 
-        {isScore && (
-          <div className="mt-2 text-sm font-semibold">
-            {statusColor === 'green' && <span className="text-green-400">העסקה ניתנת לאישור במסלול רגיל</span>}
-            {statusColor === 'yellow' && <span className="text-yellow-400">ניתן לאשר במסלול 72 חודשים או בלון</span>}
-            {statusColor === 'red' && <span className="text-red-400">נדרש שינוי מבנה העסקה</span>}
-          </div>
-        )}
+    const stressedIncome = (baseMetrics.totalIncome || 0) * 0.8;
+    const fixedExpenses = baseMetrics.totalFixedExpenses ?? baseMetrics.fixedExpenses ?? 0;
+    const stressDti = stressedIncome > 0 ? Math.round((fixedExpenses / stressedIncome) * 100) : 9999;
 
-        {isScore && statusColor !== 'green' && (
-          <div className="mt-4 text-xs text-slate-300 bg-slate-800/50 p-3 rounded-lg text-right border border-slate-700/50">
-            <p className="font-semibold mb-1 text-slate-200">כדי להגיע לירוק ניתן:</p>
-            <ul className="list-disc list-inside pr-2 space-y-1 text-slate-400">
-              <li>להוסיף מקדמה</li>
-              <li>לפרוס ל-72 חודשים</li>
-              <li>לבחור במסלול בלון</li>
-            </ul>
-          </div>
-        )}
-        
-        {isScore && dti !== undefined && (
-             <div className="mt-4 pt-3 border-t border-slate-700/50 text-xs font-medium text-slate-500 flex flex-col items-center">
-                <div>
-                  <span className="opacity-70">DTI: </span>
-                  <span className={dti > 50 ? 'text-red-400' : dti > 35 ? 'text-orange-400' : 'text-emerald-400'}>{dti}%</span>
-                </div>
-                {dtiTrend !== null && Math.abs(dtiTrend) >= 0.1 && (
-                   <div className={`mt-1 flex items-center text-[10px] ${Math.abs(dtiTrend) < 1 ? 'text-slate-500' : (dtiTrend > 0 ? 'text-red-400' : 'text-emerald-400')}`}>
-                      {Math.abs(dtiTrend) < 1 ? <Minus className="w-3 h-3 mr-1" /> : (dtiTrend > 0 ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />)}
-                      <span dir="ltr">{Math.abs(dtiTrend).toFixed(1)}%</span>
-                      <span className="ml-1 opacity-70">מול ממוצע קודם</span>
-                   </div>
+    if (stressDti >= 100) return { stressScore: 0, stressDti };
+
+    // Recalculate serviceability component
+    let scoreServiceability = 0;
+    if (stressDti <= 40) scoreServiceability = 80 + (40 - stressDti) * 0.5;
+    else if (stressDti <= 57) scoreServiceability = 55 + (57 - stressDti) * (24 / 17);
+    else scoreServiceability = Math.max(0, 54 - (stressDti - 57));
+
+    const liquidAssets = baseMetrics.liquidAssets || 0;
+    const totalExpenses = baseMetrics.totalExpenses || 1;
+    const scoreLiquidity = Math.min(((liquidAssets / totalExpenses) / 6) * 100, 100);
+
+    // Stability and volatility stay the same (we only stress income)
+    const scoreStability = 70; // conservative under stress
+    const scoreVolatility = 60;
+
+    const stressScore = Math.max(0, Math.min(100, Math.round(
+        0.35 * scoreStability +
+        0.25 * scoreServiceability +
+        0.25 * scoreLiquidity +
+        0.15 * scoreVolatility
+    )));
+
+    return { stressScore, stressDti };
+}
+
+export default function SpeedometerGauge({ 
+    projectedBalance,
+    dti, 
+    riskLevel = 'green',
+    riskDay,
+    whatIfAmount = 0,
+    engineData,
+    label,
+    isScore = false,
+    dtiTrend = null,
+    baseMetrics = null
+}) {
+    const [stressMode, setStressMode] = useState(false);
+
+    // Compute display score (stress or normal)
+    const displayScore = useMemo(() => {
+        if (!isScore) return projectedBalance;
+        const rawScore = typeof projectedBalance === 'number' ? projectedBalance : 0;
+        if (!stressMode) return rawScore;
+        const { stressScore } = applyStressScenario(rawScore, dti, baseMetrics);
+        return stressScore;
+    }, [projectedBalance, isScore, stressMode, dti, baseMetrics]);
+
+    const displayDti = useMemo(() => {
+        if (!isScore || !stressMode) return dti;
+        const rawScore = typeof projectedBalance === 'number' ? projectedBalance : 0;
+        const { stressDti } = applyStressScenario(rawScore, dti, baseMetrics);
+        return stressDti;
+    }, [projectedBalance, isScore, stressMode, dti, baseMetrics]);
+
+    const { angle, color, statusColor } = useMemo(() => {
+        if (isScore) {
+            const score = Math.max(0, displayScore ?? 0);
+            return {
+                angle: scoreToAngle(score),
+                ...scoreToColors(score)
+            };
+        }
+
+        // Balance mode (unchanged)
+        const adjustedBalance = projectedBalance;
+        if (adjustedBalance >= 2000) {
+            const ratio = Math.min((adjustedBalance - 2000) / 2000, 1);
+            return { angle: -40 + (ratio * -20), color: '#22c55e', glowColor: 'rgba(34,197,94,0.5)', statusColor: 'green' };
+        } else if (adjustedBalance >= 1500) {
+            const ratio = (adjustedBalance - 1500) / 500;
+            return { angle: -20 + (ratio * -20), color: '#22c55e', glowColor: 'rgba(34,197,94,0.5)', statusColor: 'green' };
+        } else if (adjustedBalance >= 0) {
+            const ratio = adjustedBalance / 1500;
+            return { angle: 20 - (ratio * 40), color: '#eab308', glowColor: 'rgba(234,179,8,0.5)', statusColor: 'yellow' };
+        } else {
+            const ratio = Math.min(Math.abs(adjustedBalance) / 2000, 1);
+            return { angle: 20 + (ratio * 40), color: '#ef4444', glowColor: 'rgba(239,68,68,0.5)', statusColor: 'red' };
+        }
+    }, [displayScore, projectedBalance, isScore]);
+
+    const safeDisplayScore = Math.max(0, displayScore ?? 0);
+
+    return (
+        <div className="relative flex flex-col items-center justify-center w-full p-6 rounded-xl bg-slate-800/30 border border-slate-700/30 backdrop-blur-sm h-full">
+
+            {/* Stress Factor Toggle */}
+            {isScore && (
+                <button
+                    onClick={() => setStressMode(v => !v)}
+                    className={`absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all ${
+                        stressMode
+                            ? 'bg-orange-500/20 border-orange-500/50 text-orange-300'
+                            : 'bg-slate-800/60 border-slate-600/40 text-slate-500 hover:text-slate-300'
+                    }`}
+                    title="סטרס טסט: הכנסה -20%"
+                >
+                    <Zap className={`w-3 h-3 ${stressMode ? 'text-orange-400' : ''}`} />
+                    {stressMode ? 'סטרס -20%' : 'סטרס טסט'}
+                </button>
+            )}
+
+            {/* Gauge SVG */}
+            <svg viewBox="0 0 200 120" className="w-full max-w-[280px] md:max-w-[320px] mx-auto">
+                <defs>
+                    <linearGradient id="redGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#ef4444" stopOpacity="0.3" />
+                        <stop offset="100%" stopColor="#ef4444" stopOpacity="0.8" />
+                    </linearGradient>
+                    <linearGradient id="orangeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#f97316" stopOpacity="0.3" />
+                        <stop offset="100%" stopColor="#f97316" stopOpacity="0.8" />
+                    </linearGradient>
+                    <linearGradient id="greenGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#22c55e" stopOpacity="0.3" />
+                        <stop offset="100%" stopColor="#22c55e" stopOpacity="0.8" />
+                    </linearGradient>
+                </defs>
+
+                {/* Red segment (Left) */}
+                <path d="M 30 100 A 70 70 0 0 1 70 38" fill="none" stroke="url(#redGrad)" strokeWidth="12" strokeLinecap="round" />
+                {/* Orange segment (Center) */}
+                <path d="M 75 35 A 70 70 0 0 1 125 35" fill="none" stroke="url(#orangeGrad)" strokeWidth="12" strokeLinecap="round" />
+                {/* Green segment (Right) */}
+                <path d="M 130 38 A 70 70 0 0 1 170 100" fill="none" stroke="url(#greenGrad)" strokeWidth="12" strokeLinecap="round" />
+
+                {/* Needle */}
+                <g transform="translate(100, 100)">
+                    <motion.g
+                        initial={{ rotate: -60 }}
+                        animate={{ rotate: angle }}
+                        transition={{ type: "spring", stiffness: 90, damping: 12 }}
+                    >
+                        <line x1="0" y1="0" x2="0" y2="-60" stroke={stressMode ? '#f97316' : 'white'} strokeWidth="3" strokeLinecap="round" />
+                    </motion.g>
+                </g>
+
+                <circle cx="100" cy="100" r="6" fill="white" />
+                <circle cx="100" cy="100" r="3" fill="#1e293b" />
+            </svg>
+
+            {/* Score Display */}
+            <div className="text-center mt-2 md:mt-4 w-full relative z-10">
+                <p className="text-[10px] md:text-xs text-slate-400 mb-1 md:mb-2 uppercase tracking-wide">
+                    {isScore ? (stressMode ? 'סטרס טסט — הכנסה -20%' : 'סטטוס אישור מימון') : (label || 'יתרה צפויה לסוף החודש')}
+                </p>
+
+                <motion.p
+                    key={`${safeDisplayScore}-${stressMode}`}
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className={`text-3xl md:text-4xl font-bold tracking-tight ${stressMode ? 'text-orange-300' : 'text-white'}`}
+                >
+                    {isScore
+                        ? `${safeDisplayScore}/100`
+                        : `₪${(projectedBalance ?? 0).toLocaleString('he-IL')}`
+                    }
+                </motion.p>
+
+                {isScore && (
+                    <div className="mt-2 text-sm font-semibold">
+                        {statusColor === 'green' && <span className="text-green-400">העסקה ניתנת לאישור במסלול רגיל</span>}
+                        {statusColor === 'yellow' && <span className="text-yellow-400">ניתן לאשר במסלול 72 חודשים או בלון</span>}
+                        {statusColor === 'red' && safeDisplayScore === 0 && (
+                            <span className="text-red-400">אין יכולת החזר — ההכנסה אינה מכסה את ההתחייבויות</span>
+                        )}
+                        {statusColor === 'red' && safeDisplayScore > 0 && (
+                            <span className="text-red-400">נדרש שינוי מבנה העסקה</span>
+                        )}
+                    </div>
                 )}
-             </div>
-        )}
 
-        {riskDay ? (
-          <div className={`mt-3 md:mt-4 inline-flex items-center px-3 py-1.5 rounded-full border ${
-            statusColor === 'green' ? 'bg-green-500/10 border-green-500/20' :
-            statusColor === 'yellow' ? 'bg-yellow-500/10 border-yellow-500/20' :
-            'bg-red-500/10 border-red-500/20'
-          }`}>
-            <p className={`text-xs ${
-              statusColor === 'green' ? 'text-green-400' :
-              statusColor === 'yellow' ? 'text-yellow-400' :
-              'text-red-400'
-            }`}>
-              <span className="opacity-75">יום סיכון צפוי: </span>
-              <span className="font-bold mr-1">{riskDay}</span>
-            </p>
-          </div>
-        ) : (
-           !isScore && <div className="mt-3 md:mt-4 h-8"></div> 
-        )}
-      </div>
+                {isScore && statusColor !== 'green' && (
+                    <div className="mt-4 text-xs text-slate-300 bg-slate-800/50 p-3 rounded-lg text-right border border-slate-700/50">
+                        {safeDisplayScore === 0 ? (
+                            <>
+                                <p className="font-semibold mb-1 text-red-300">אין תרחיש ליכולת החזר:</p>
+                                <ul className="list-disc list-inside pr-2 space-y-1 text-slate-400">
+                                    <li>ההכנסה הנוכחית אינה מספיקה לכיסוי ההחזר</li>
+                                    <li>נדרש הגדלת הכנסה משמעותית לפני אישור</li>
+                                    <li>יש לשקול ערב/בטוחה חלופית</li>
+                                </ul>
+                            </>
+                        ) : (
+                            <>
+                                <p className="font-semibold mb-1 text-slate-200">כדי להגיע לירוק ניתן:</p>
+                                <ul className="list-disc list-inside pr-2 space-y-1 text-slate-400">
+                                    <li>להוסיף מקדמה</li>
+                                    <li>לפרוס ל-72 חודשים</li>
+                                    <li>לבחור במסלול בלון</li>
+                                </ul>
+                            </>
+                        )}
+                    </div>
+                )}
 
-      {engineData && (
-        <div className="w-full mt-auto pt-8 border-t border-slate-700/30">
-          <div className="grid grid-cols-3 gap-2 text-center text-xs">
-            <div className="p-2 rounded-lg bg-slate-800/40">
-              <span className="block text-slate-500 text-[10px] mb-0.5">רמת ביטחון</span>
-              <span className={`font-medium ${
-                (statusColor === 'green' || engineData.confidence === 'high') ? 'text-green-400' :
-                engineData.confidence === 'medium' ? 'text-yellow-400' :
-                'text-red-400'
-              }`}>
-                {(statusColor === 'green' || engineData.confidence === 'high') ? 'גבוהה' :
-                 engineData.confidence === 'medium' ? 'בינונית' : 'נמוכה'}
-              </span>
+                {isScore && displayDti !== undefined && (
+                    <div className="mt-4 pt-3 border-t border-slate-700/50 text-xs font-medium text-slate-500 flex flex-col items-center">
+                        <div>
+                            <span className="opacity-70">DTI: </span>
+                            <span className={displayDti >= 100 ? 'text-red-500 font-bold' : displayDti > 50 ? 'text-red-400' : displayDti > 35 ? 'text-orange-400' : 'text-emerald-400'}>
+                                {displayDti >= 9999 ? '∞' : `${displayDti}%`}
+                            </span>
+                            {stressMode && <span className="text-orange-400 ml-1">(stress)</span>}
+                        </div>
+                        {!stressMode && dtiTrend !== null && Math.abs(dtiTrend) >= 0.1 && (
+                            <div className={`mt-1 flex items-center text-[10px] ${Math.abs(dtiTrend) < 1 ? 'text-slate-500' : (dtiTrend > 0 ? 'text-red-400' : 'text-emerald-400')}`}>
+                                {Math.abs(dtiTrend) < 1 ? <Minus className="w-3 h-3 mr-1" /> : (dtiTrend > 0 ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />)}
+                                <span dir="ltr">{Math.abs(dtiTrend).toFixed(1)}%</span>
+                                <span className="ml-1 opacity-70">מול ממוצע קודם</span>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {riskDay && !isScore && (
+                    <div className={`mt-3 md:mt-4 inline-flex items-center px-3 py-1.5 rounded-full border ${
+                        statusColor === 'green' ? 'bg-green-500/10 border-green-500/20' :
+                        statusColor === 'yellow' ? 'bg-yellow-500/10 border-yellow-500/20' :
+                        'bg-red-500/10 border-red-500/20'
+                    }`}>
+                        <p className={`text-xs ${statusColor === 'green' ? 'text-green-400' : statusColor === 'yellow' ? 'text-yellow-400' : 'text-red-400'}`}>
+                            <span className="opacity-75">יום סיכון צפוי: </span>
+                            <span className="font-bold mr-1">{riskDay}</span>
+                        </p>
+                    </div>
+                )}
             </div>
-            <div className="p-2 rounded-lg bg-slate-800/40">
-              <span className="block text-slate-500 text-[10px] mb-0.5">עסקאות</span>
-              <span className="text-slate-300 font-medium">{engineData.transactionCount}</span>
-            </div>
-            <div className="p-2 rounded-lg bg-slate-800/40">
-              <span className="block text-slate-500 text-[10px] mb-0.5">מנוע</span>
-              <span className="text-cyan-400 font-medium">{SystemInfo.engine.split(' ')[0]}</span>
-            </div>
-          </div>
+
+            {engineData && (
+                <div className="w-full mt-auto pt-8 border-t border-slate-700/30">
+                    <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                        <div className="p-2 rounded-lg bg-slate-800/40">
+                            <span className="block text-slate-500 text-[10px] mb-0.5">רמת ביטחון</span>
+                            <span className={`font-medium ${statusColor === 'green' ? 'text-green-400' : statusColor === 'yellow' ? 'text-yellow-400' : 'text-red-400'}`}>
+                                {statusColor === 'green' ? 'גבוהה' : statusColor === 'yellow' ? 'בינונית' : 'נמוכה'}
+                            </span>
+                        </div>
+                        <div className="p-2 rounded-lg bg-slate-800/40">
+                            <span className="block text-slate-500 text-[10px] mb-0.5">עסקאות</span>
+                            <span className="text-slate-300 font-medium">{engineData.transactionCount}</span>
+                        </div>
+                        <div className="p-2 rounded-lg bg-slate-800/40">
+                            <span className="block text-slate-500 text-[10px] mb-0.5">מנוע</span>
+                            <span className="text-cyan-400 font-medium">{SystemInfo.engine.split(' ')[0]}</span>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
-      )}
-    </div>
-  );
+    );
 }
