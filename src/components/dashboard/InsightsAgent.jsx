@@ -146,9 +146,36 @@ export default function InsightsAgent({ analysis, isLoading }) {
                                     {analysis.narrative || analysis.executive_summary?.replace(/\*\*/g, '') || "אין תקציר זמין"}
                                 </Section>
 
+                                {analysis.analyst_opinion && (
+                                    <div className="bg-slate-800/60 p-3 rounded-lg border-l-4 border-l-indigo-500 border-y border-r border-y-slate-700/50 border-r-slate-700/50">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <FileText className="w-4 h-4 text-indigo-400" />
+                                            <p className="text-[10px] text-slate-400 uppercase font-bold">המלצת חיתום סופית</p>
+                                        </div>
+                                        <p className="text-sm text-slate-200 font-medium leading-relaxed">{analysis.analyst_opinion}</p>
+                                    </div>
+                                )}
+
+                                {analysis.payment_suggestions && analysis.payment_suggestions.length > 0 && (
+                                    <div className="space-y-2">
+                                        <p className="text-[10px] text-slate-500 uppercase tracking-wider">מתווי תשלום אפשריים</p>
+                                        <div className="grid grid-cols-1 gap-2">
+                                            {analysis.payment_suggestions.map((suggestion, idx) => (
+                                                <div key={idx} className="bg-slate-900/80 p-3 rounded-lg border border-slate-700/50 flex flex-col gap-1">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-sm font-bold text-indigo-300">{suggestion.structure}</span>
+                                                        <span className="text-xs font-mono bg-slate-800 px-2 py-0.5 rounded text-emerald-400">{suggestion.monthly_payment_cap}</span>
+                                                    </div>
+                                                    <p className="text-xs text-slate-400 mt-1">{suggestion.reasoning}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="bg-indigo-900/20 p-3 rounded-lg border border-indigo-500/20">
                                     <p className="text-[10px] text-indigo-300 uppercase tracking-wider mb-1">
-                                        מבנה הלוואה מומלץ
+                                        סיווג מסלול
                                     </p>
                                     <p className="text-sm text-indigo-100 font-medium">
                                         {analysis.recommended_loan_structure || "Standard"}

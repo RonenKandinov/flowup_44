@@ -128,13 +128,29 @@ ${JSON.stringify(underwritingMetrics, null, 2)}`;
                     properties: {
                         narrative: { type: "string", description: "A single, concise paragraph narrative underwriting report in Hebrew." },
                         behavioral_classification: { type: "string", enum: ["Hidden Gem", "Hidden Risk", "Stable", "High Risk"], description: "Classify the client based on trajectory vs static metrics." },
-                        classification_reason: { type: "string", description: "Concise explanation in Hebrew of WHY they received this classification (e.g., 'Weak metrics but improving cash flow' or 'Strong metrics but increasing expenses')." },
+                        classification_reason: { type: "string", description: "Concise explanation in Hebrew of WHY they received this classification." },
+                        analyst_opinion: { type: "string", description: "A strong, opinionated stance on the deal from a Senior Analyst perspective (e.g., 'Strongly recommend approval due to...', 'Decline unless X is met'). Must sound professional and decisive." },
+                        payment_suggestions: { 
+                            type: "array", 
+                            items: { 
+                                type: "object", 
+                                properties: { 
+                                    structure: { type: "string", description: "e.g., 'פריסה ל-60 חודשים'" }, 
+                                    monthly_payment_cap: { type: "string", description: "e.g., 'עד 2,500 שח'" }, 
+                                    reasoning: { type: "string", description: "Why this structure?" } 
+                                },
+                                required: ["structure", "monthly_payment_cap", "reasoning"]
+                            }, 
+                            description: "1-2 concrete payment structures that mitigate the risk." 
+                        },
                         recommended_loan_structure: { type: "string", description: "Standard / Balloon / Extended 72" }
                     },
                     required: [
                         "narrative",
                         "behavioral_classification",
                         "classification_reason",
+                        "analyst_opinion",
+                        "payment_suggestions",
                         "recommended_loan_structure"
                     ]
                 }
