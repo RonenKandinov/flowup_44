@@ -664,6 +664,22 @@ ${JSON.stringify(limitedExpenses)}
             (SCORING_WEIGHTS.VOLATILITY * scoreVolatility)
         );
 
+        // --- EXTREME RISK CLAMP LAYER ---
+        const isExtremeDTI = dtiPerc > 120;
+        const isExtremeCashFlow = avgIncome > 0 ? (avgExpenses > avgIncome * 1.2) : (avgExpenses > 0);
+        
+        if (isExtremeDTI || isExtremeCashFlow) {
+            const expIncRatio = avgIncome > 0 ? (avgExpenses / avgIncome * 100).toFixed(1) : 'Infinity';
+            console.log(`[Risk Clamp] Extreme risk detected. DTI: ${dtiPerc}%, Exp/Inc: ${expIncRatio}%`);
+            finalScore = Math.min(finalScore, 10);
+
+            const isVeryExtremeCashFlow = avgIncome > 0 ? (avgExpenses > avgIncome * 1.5) : (avgExpenses > 0);
+            if (dtiPerc > 150 || isVeryExtremeCashFlow) {
+                 finalScore = Math.min(finalScore, 5);
+            }
+        }
+        // --------------------------------
+
         let riskStatus = "ORANGE";
         if (finalScore >= 80) riskStatus = "GREEN";
         else if (finalScore < 55) riskStatus = "RED";
