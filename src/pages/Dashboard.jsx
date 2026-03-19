@@ -711,6 +711,22 @@ export default function Dashboard() {
               <Plus className="w-3 h-3 ml-1.5" />
               <span className="text-[11px] font-medium">חבר חשבון בנק</span>
             </Button>
+            {hasData && (
+              <Button
+                onClick={() => {
+                  refetchLoanMetrics();
+                  queryClient.invalidateQueries(['ai-insights-v2']);
+                  toast.success('מרענן נתונים...');
+                }}
+                variant="ghost"
+                size="sm"
+                disabled={isLoanMetricsLoading || isInsightsLoading}
+                className="bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white transition-all h-8 px-3 rounded-md"
+              >
+                <RefreshCw className={`w-3 h-3 ml-1.5 ${(isLoanMetricsLoading || isInsightsLoading) ? 'animate-spin' : ''}`} />
+                <span className="text-[11px] font-medium">רענן נתונים</span>
+              </Button>
+            )}
 
           </div>
         </div>
