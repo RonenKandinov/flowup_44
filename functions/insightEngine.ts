@@ -66,7 +66,7 @@ Deno.serve(withValidation(insightSchema, async (req) => {
         const history = inputMetrics.history || [];
         const trends = inputMetrics.trends || {};
 
-        // 🔥 BEHAVIORAL SIGNALS (CORE UPGRADE)
+        // 🔥 BEHAVIOR SIGNALS
         let behaviorClassification = "STABLE";
 
         if (history.length >= 2) {
@@ -99,25 +99,24 @@ Deno.serve(withValidation(insightSchema, async (req) => {
                 : "STABLE"
         };
 
+        // ✅ CLEAN DATA (ENGLISH ONLY)
         const underwritingMetrics = {
             avg_monthly_income: totalIncome,
             avg_monthly_expenses: inputMetrics.totalExpenses || 0,
-            structural_fixed_load: fixedExpenses,
-            structural_dti: inputMetrics.dti || 0,
-            adjusted_dti: totalIncome > 0
+            fixed_expenses: fixedExpenses,
+            dti: inputMetrics.dti || 0,
+            expense_to_income_ratio: totalIncome > 0
                 ? Number(((inputMetrics.totalExpenses / totalIncome) * 100).toFixed(1))
                 : 0,
-            liquidity_buffer_months: liquidityBufferMonths,
-            stress_dti_after_10pct_income_drop: totalIncome > 0
-                ? Number(((fixedExpenses / (totalIncome * 0.9)) * 100).toFixed(1))
-                : 0,
-            current_risk_tier,
+            liquidity_months: liquidityBufferMonths,
+            risk_tier: current_risk_tier,
             trends,
             history,
             behaviorSignals
         };
 
-const prompt = `You are a senior credit risk analyst in a financial institution.
+        // ✅ PROMPT (ENGLISH INSTRUCTIONS → HEBREW OUTPUT)
+        const prompt = `You are a senior credit risk analyst in a financial institution.
 
 Your goal is to analyze customer behavior over time — not just describe the current state.
 
@@ -125,47 +124,48 @@ LANGUAGE ENFORCEMENT (CRITICAL):
 - Write ONLY in Hebrew.
 - Do NOT use any words from other languages.
 - Do NOT use English abbreviations.
-- Use standard financial terminology in Hebrew only (e.g., "יחס חוב להכנסה", "נזילות").
+- Use standard financial terminology in Hebrew (e.g., "יחס חוב להכנסה", "נזילות").
 - Do not invent new terms.
 - If any non-Hebrew word appears, rewrite the entire response in Hebrew.
 
 WRITING STYLE:
 - Professional, concise, and analytical.
 - Written like a bank credit analyst.
-- Clear structure, no repetition, no exaggeration.
+- No repetition, no exaggeration.
 
-CORE ANALYSIS REQUIREMENT (VERY IMPORTANT):
-- Describe the customer's behavior as a trend over time.
-- Explain how the situation evolved (improving / deteriorating / unstable).
-- Do NOT describe only the current snapshot.
-- Focus on dynamics: changes in income, expenses, and net flow.
-- If income increases but expenses grow faster — treat as deterioration.
+CORE ANALYSIS REQUIREMENT:
+- Describe behavior over time (NOT a snapshot).
+- Explain how the situation evolved.
+- Focus on income vs expenses dynamics.
+- If income rises but expenses rise faster → deterioration.
 - Highlight consistency vs volatility.
-- The narrative should read like a "financial story" of the customer.
+- Use phrases like:
+  "לאורך התקופה", "במהלך החודשים", "ניכרת מגמה".
 
 QUALITY RULES:
 - Compare income vs expenses clearly.
-- Explain drivers of change (what is causing improvement/deterioration).
-- If mixed signals exist — explain the complexity.
-- Ensure consistency with behavior classification.
+- Explain drivers of change.
+- Reflect uncertainty if needed.
+- Align with behavior classification.
 
-Behavior Signals (authoritative):
+Behavior Signals:
 ${JSON.stringify(behaviorSignals)}
 
 DATA:
-${JSON.stringify(underwritingMetricsForLLM)}
+${JSON.stringify(underwritingMetrics)}
 
 Return JSON ONLY:
 {
-  "narrative": "3-5 sentences describing behavior over time (not snapshot)",
+  "narrative": "3-5 sentences describing behavior over time",
   "key_factors": [
-    "behavioral factor",
-    "behavioral factor",
-    "behavioral factor"
+    "factor",
+    "factor",
+    "factor"
   ],
   "recommended_loan_structure": "Standard / Balloon / Extended 72",
   "behavior_classification": "IMPROVING / DETERIORATING / STABLE"
 }`;
+
         let llmRes;
 
         try {
@@ -190,8 +190,8 @@ Return JSON ONLY:
         } catch (err) {
             console.error("LLM failed", err);
             llmRes = {
-                narrative: "התנהגות הלקוח אינה יציבה ולכן הסיכון בפועל גבוה יותר מהנראה.",
-                key_factors: ["התנהגות לא יציבה", "סיכון גבוה מהנראה"],
+                narrative: "לאורך התקופה ניכרת חוסר יציבות בהתנהגות הפיננסית ועלייה ברמת הסיכון.",
+                key_factors: ["חוסר יציבות", "שחיקה בתזרים", "עלייה בסיכון"],
                 recommended_loan_structure: "Extended 72",
                 behavior_classification: behaviorClassification
             };
