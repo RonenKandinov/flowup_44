@@ -142,24 +142,17 @@ export default function InsightsAgent({ analysis, isLoading }) {
                                     </div>
                                 )}
 
-                                <Section title="תקציר מורחב">
+                                <Section title="תקציר מורחב (כולל המלצת חיתום)">
                                     {analysis.narrative || analysis.executive_summary?.replace(/\*\*/g, '') || "אין תקציר זמין"}
                                 </Section>
 
-                                {analysis.analyst_opinion && (
-                                    <div className="bg-slate-800/60 p-3 rounded-lg border-l-4 border-l-indigo-500 border-y border-r border-y-slate-700/50 border-r-slate-700/50">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <FileText className="w-4 h-4 text-indigo-400" />
-                                            <p className="text-[10px] text-slate-400 uppercase font-bold">המלצת חיתום סופית</p>
-                                        </div>
-                                        <p className="text-sm text-slate-200 font-medium leading-relaxed">{analysis.analyst_opinion}</p>
-                                    </div>
-                                )}
-
                                 {analysis.payment_suggestions && analysis.payment_suggestions.length > 0 && (
-                                    <div className="space-y-2">
-                                        <p className="text-[10px] text-slate-500 uppercase tracking-wider">מתווי תשלום אפשריים</p>
-                                        <div className="grid grid-cols-1 gap-2">
+                                    <details className="group bg-slate-800/30 rounded-lg border border-slate-700/50">
+                                        <summary className="flex items-center justify-between p-3 cursor-pointer list-none">
+                                            <span className="text-[10px] text-slate-400 uppercase font-bold">מתווי תשלום אפשריים (מקסימום בטוח)</span>
+                                            <ChevronDown className="w-4 h-4 text-slate-500 group-open:rotate-180 transition-transform" />
+                                        </summary>
+                                        <div className="p-3 pt-0 grid grid-cols-1 gap-2">
                                             {analysis.payment_suggestions.map((suggestion, idx) => (
                                                 <div key={idx} className="bg-slate-900/80 p-3 rounded-lg border border-slate-700/50 flex flex-col gap-1">
                                                     <div className="flex justify-between items-center">
@@ -170,7 +163,7 @@ export default function InsightsAgent({ analysis, isLoading }) {
                                                 </div>
                                             ))}
                                         </div>
-                                    </div>
+                                    </details>
                                 )}
 
                                 <div className="bg-indigo-900/20 p-3 rounded-lg border border-indigo-500/20">
