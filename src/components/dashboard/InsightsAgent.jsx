@@ -97,20 +97,52 @@ export default function InsightsAgent({ analysis, isLoading }) {
                                     <MetricBox label="Income Volatility" value={typeof analysis.metrics?.income_volatility === 'number' ? analysis.metrics.income_volatility.toFixed(1) + '%' : (analysis.metrics?.income_volatility ?? 0)} color="text-amber-400" />
                                 </div>
 
-                                {/* Risk Tier */}
-                                <Section title="רמת סיכון">
-                                    <span className={
-                                        analysis.risk_tier === 'Red'
-                                            ? 'text-red-400 font-bold'
-                                            : analysis.risk_tier === 'Orange'
-                                                ? 'text-orange-400 font-bold'
-                                                : 'text-emerald-400 font-bold'
-                                    }>
-                                        {analysis.risk_tier === 'Red' ? 'גבוהה (Red)' : analysis.risk_tier === 'Orange' ? 'בינונית (Orange)' : 'נמוכה (Green)'}
-                                    </span>
-                                </Section>
+                                {/* Risk Tier & Classification */}
+                                <div className="grid grid-cols-2 gap-2">
+                                    <Section title="רמת סיכון">
+                                        <span className={
+                                            analysis.risk_tier === 'Red'
+                                                ? 'text-red-400 font-bold'
+                                                : analysis.risk_tier === 'Orange'
+                                                    ? 'text-orange-400 font-bold'
+                                                    : 'text-emerald-400 font-bold'
+                                        }>
+                                            {analysis.risk_tier === 'Red' ? 'גבוהה (Red)' : analysis.risk_tier === 'Orange' ? 'בינונית (Orange)' : 'נמוכה (Green)'}
+                                        </span>
+                                    </Section>
+                                    
+                                    {analysis.behavioral_classification && (
+                                        <Section title="סיווג התנהגותי">
+                                            <span className={
+                                                analysis.behavioral_classification === 'Hidden Gem' ? 'text-emerald-400 font-bold' :
+                                                analysis.behavioral_classification === 'Hidden Risk' ? 'text-amber-400 font-bold' :
+                                                analysis.behavioral_classification === 'High Risk' ? 'text-red-400 font-bold' :
+                                                'text-blue-400 font-bold'
+                                            }>
+                                                {analysis.behavioral_classification === 'Hidden Gem' ? 'פוטנציאל חבוי (Hidden Gem)' :
+                                                 analysis.behavioral_classification === 'Hidden Risk' ? 'סיכון חבוי (Hidden Risk)' :
+                                                 analysis.behavioral_classification === 'High Risk' ? 'סיכון גבוה' : 'יציב'}
+                                            </span>
+                                        </Section>
+                                    )}
+                                </div>
 
-                                <Section title="תקציר לאנליסט">
+                                {analysis.classification_reason && (
+                                    <div className={`p-3 rounded-lg border ${
+                                        analysis.behavioral_classification === 'Hidden Gem' ? 'bg-emerald-900/20 border-emerald-500/20' :
+                                        analysis.behavioral_classification === 'Hidden Risk' ? 'bg-amber-900/20 border-amber-500/20' :
+                                        'bg-slate-800/30 border-slate-700/50'
+                                    }`}>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            {analysis.behavioral_classification === 'Hidden Gem' && <Activity className="w-4 h-4 text-emerald-400" />}
+                                            {analysis.behavioral_classification === 'Hidden Risk' && <AlertTriangle className="w-4 h-4 text-amber-400" />}
+                                            <p className="text-[10px] text-slate-400 uppercase">תובנת אנליסט</p>
+                                        </div>
+                                        <p className="text-sm text-slate-300 leading-relaxed">{analysis.classification_reason}</p>
+                                    </div>
+                                )}
+
+                                <Section title="תקציר מורחב">
                                     {analysis.narrative || analysis.executive_summary?.replace(/\*\*/g, '') || "אין תקציר זמין"}
                                 </Section>
 

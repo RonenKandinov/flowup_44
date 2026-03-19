@@ -88,9 +88,6 @@ CRITICAL MINDSET:
 - Focus on the trajectory — how the client is evolving over time.
 - Treat the data as a STORY, not a picture.
 
-You must answer:
-Is the client IMPROVING, DETERIORATING, or STABLE?
-
 PRIORITY SIGNALS (in order of importance):
 1. Direction of net cash flow over time (improving vs worsening)
 2. Changes in spending behavior (increasing, decreasing, stabilizing)
@@ -102,10 +99,11 @@ KEY RULES:
 - A client with strong metrics but deteriorating behavior may be HIGHER risk than they appear.
 - Behavioral trends OVERRIDE static metrics.
 
-WHAT TO DETECT:
-- Hidden improvement (recovery patterns)
-- Hidden risk (early deterioration)
-- False stability (good averages hiding instability)
+WHAT TO DETECT & CLASSIFY:
+1. Hidden Gem (Under-Valuation Risk): Client has weak static metrics (e.g., high DTI, low liquidity) BUT shows a clear improving trajectory (e.g., reducing expenses, increasing income, positive cash flow trend).
+2. Hidden Risk (Over-Valuation Risk): Client has strong static metrics (e.g., low DTI) BUT shows a deteriorating trajectory (e.g., increasing lifestyle creep, negative cash flow trend).
+3. Stable: Consistent behavior matching their metrics.
+4. High Risk: Weak metrics AND deteriorating behavior.
 
 Security Constraints (Non-Negotiable):
 - Encryption & Sanitization: You are processing data that has been pre-sanitized (PII removed) and encrypted. Do not attempt to guess or hallucinate identity details. If a field looks like ciphertext, ignore its literal content and use the provided metrics object as the sole source of truth.
@@ -114,20 +112,9 @@ Security Constraints (Non-Negotiable):
 
 OUTPUT RULES:
 - Language: Hebrew
-- Maximum 2-3 sentences. Be extremely concise, direct, and to the point.
-- No raw numbers unless critical.
+- Be extremely concise, direct, and to the point.
 - No generic statements or fluff.
 - NO MARKDOWN. NO BOLD. NO ASTERISKS.
-
-STRUCTURE:
-1. Bottom-line behavioral insight (trajectory).
-2. Direct translation into real repayment risk.
-
-OPTIONAL:
-Recommend loan structure:
-- "Standard" → stable or improving
-- "Balloon" → mismatch but manageable
-- "Extended 72" → unstable or deteriorating
 
 DATA:
 ${JSON.stringify(underwritingMetrics, null, 2)}`;
@@ -140,10 +127,14 @@ ${JSON.stringify(underwritingMetrics, null, 2)}`;
                     type: "object",
                     properties: {
                         narrative: { type: "string", description: "A single, concise paragraph narrative underwriting report in Hebrew." },
+                        behavioral_classification: { type: "string", enum: ["Hidden Gem", "Hidden Risk", "Stable", "High Risk"], description: "Classify the client based on trajectory vs static metrics." },
+                        classification_reason: { type: "string", description: "Concise explanation in Hebrew of WHY they received this classification (e.g., 'Weak metrics but improving cash flow' or 'Strong metrics but increasing expenses')." },
                         recommended_loan_structure: { type: "string", description: "Standard / Balloon / Extended 72" }
                     },
                     required: [
                         "narrative",
+                        "behavioral_classification",
+                        "classification_reason",
                         "recommended_loan_structure"
                     ]
                 }

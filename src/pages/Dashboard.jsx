@@ -72,6 +72,8 @@ function generateLocalInsights(metrics) {
       riskTier === 'Orange' ? 'Extended (60–84 חודשים) — הקטנת נטל חודשי' :
       'זהירות — יש להתייעץ עם יועץ פיננסי',
     risk_flags: riskFlags,
+    behavioral_classification: riskTier === 'Green' ? 'Stable' : riskTier === 'Red' ? 'High Risk' : 'Stable',
+    classification_reason: "הערכה מקומית מבוססת על מדדים סטטיים בלבד (ללא ניתוח AI).",
   };
 }
 
