@@ -117,20 +117,27 @@ Deno.serve(withValidation(insightSchema, async (req) => {
             behaviorSignals
         };
 
-        const prompt = `
-You are a Senior Credit Risk Analyst specializing in behavioral cash-flow analysis.
+        const prompt = `Analyze the customer's financial behavior based on the provided data.
 
-Your job is to analyze BEHAVIOR OVER TIME — not static financial snapshots.
+LANGUAGE ENFORCEMENT (CRITICAL):
+- Write ONLY in Hebrew.
+- Do NOT use any words from other languages.
+- If a professional term is needed, translate it to Hebrew.
+- The output must be fully in Hebrew, including financial terminology except the pro words like structural dti.
 
-CRITICAL:
-- Focus on trajectory (direction), not just current state
-- Behavior OVERRIDES snapshot metrics
-- If conflict exists → trust behaviorSignals
+WRITING STYLE:
+- Write in a formal, professional tone, like a bank credit analyst.
+- Be concise, clear, and structured.
+- Avoid slang or informal language.
+- Avoid repetition.
+- Do not exaggerate conclusions.
 
-You MUST classify:
-- IMPROVING
-- DETERIORATING
-- STABLE
+QUALITY RULES:
+- The narrative must describe trends over time (not a single moment).
+- Compare income vs expenses clearly.
+- If there is deterioration, explain why.
+- If the situation is mixed, reflect uncertainty professionally.
+- Ensure there are no foreign characters or words in the output.
 
 Behavior Signals (authoritative):
 ${JSON.stringify(behaviorSignals)}
@@ -138,20 +145,17 @@ ${JSON.stringify(behaviorSignals)}
 DATA:
 ${JSON.stringify(underwritingMetrics)}
 
-OUTPUT RULES:
-- Hebrew
-- Max 3 sentences
-- Start with behavior (trajectory)
-- No generic text
-- No markdown
-
 Return JSON:
 {
-  "narrative": "...",
+  "narrative": "3-5 sentences in professional Hebrew",
+  "key_factors": [
+    "short factor in Hebrew",
+    "short factor in Hebrew",
+    "short factor in Hebrew"
+  ],
   "recommended_loan_structure": "Standard / Balloon / Extended 72",
   "behavior_classification": "IMPROVING / DETERIORATING / STABLE"
-}
-`;
+}`;
 
         let llmRes;
 
@@ -162,11 +166,13 @@ Return JSON:
                     type: "object",
                     properties: {
                         narrative: { type: "string" },
+                        key_factors: { type: "array", items: { type: "string" } },
                         recommended_loan_structure: { type: "string" },
                         behavior_classification: { type: "string" }
                     },
                     required: [
                         "narrative",
+                        "key_factors",
                         "recommended_loan_structure",
                         "behavior_classification"
                     ]
@@ -176,6 +182,7 @@ Return JSON:
             console.error("LLM failed", err);
             llmRes = {
                 narrative: "התנהגות הלקוח אינה יציבה ולכן הסיכון בפועל גבוה יותר מהנראה.",
+                key_factors: ["התנהגות לא יציבה", "סיכון גבוה מהנראה"],
                 recommended_loan_structure: "Extended 72",
                 behavior_classification: behaviorClassification
             };
