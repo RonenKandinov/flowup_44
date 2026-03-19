@@ -117,46 +117,55 @@ Deno.serve(withValidation(insightSchema, async (req) => {
             behaviorSignals
         };
 
-        const prompt = `Analyze the customer's financial behavior based on the provided data.
+const prompt = `You are a senior credit risk analyst in a financial institution.
+
+Your goal is to analyze customer behavior over time — not just describe the current state.
 
 LANGUAGE ENFORCEMENT (CRITICAL):
 - Write ONLY in Hebrew.
 - Do NOT use any words from other languages.
-- If a professional term is needed, translate it to Hebrew.
-- The output must be fully in Hebrew, including financial terminology except the pro words like structural dti.
+- Do NOT use English abbreviations.
+- Use standard financial terminology in Hebrew only (e.g., "יחס חוב להכנסה", "נזילות").
+- Do not invent new terms.
+- If any non-Hebrew word appears, rewrite the entire response in Hebrew.
 
 WRITING STYLE:
-- Write in a formal, professional tone, like a bank credit analyst.
-- Be concise, clear, and structured.
-- Avoid slang or informal language.
-- Avoid repetition.
-- Do not exaggerate conclusions.
+- Professional, concise, and analytical.
+- Written like a bank credit analyst.
+- Clear structure, no repetition, no exaggeration.
+
+CORE ANALYSIS REQUIREMENT (VERY IMPORTANT):
+- Describe the customer's behavior as a trend over time.
+- Explain how the situation evolved (improving / deteriorating / unstable).
+- Do NOT describe only the current snapshot.
+- Focus on dynamics: changes in income, expenses, and net flow.
+- If income increases but expenses grow faster — treat as deterioration.
+- Highlight consistency vs volatility.
+- The narrative should read like a "financial story" of the customer.
 
 QUALITY RULES:
-- The narrative must describe trends over time (not a single moment).
 - Compare income vs expenses clearly.
-- If there is deterioration, explain why.
-- If the situation is mixed, reflect uncertainty professionally.
-- Ensure there are no foreign characters or words in the output.
+- Explain drivers of change (what is causing improvement/deterioration).
+- If mixed signals exist — explain the complexity.
+- Ensure consistency with behavior classification.
 
 Behavior Signals (authoritative):
 ${JSON.stringify(behaviorSignals)}
 
 DATA:
-${JSON.stringify(underwritingMetrics)}
+${JSON.stringify(underwritingMetricsForLLM)}
 
-Return JSON:
+Return JSON ONLY:
 {
-  "narrative": "3-5 sentences in professional Hebrew",
+  "narrative": "3-5 sentences describing behavior over time (not snapshot)",
   "key_factors": [
-    "short factor in Hebrew",
-    "short factor in Hebrew",
-    "short factor in Hebrew"
+    "behavioral factor",
+    "behavioral factor",
+    "behavioral factor"
   ],
   "recommended_loan_structure": "Standard / Balloon / Extended 72",
   "behavior_classification": "IMPROVING / DETERIORATING / STABLE"
 }`;
-
         let llmRes;
 
         try {
