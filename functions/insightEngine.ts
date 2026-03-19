@@ -115,6 +115,8 @@ OUTPUT RULES:
 - Be extremely concise, direct, and to the point.
 - No generic statements or fluff.
 - NO MARKDOWN. NO BOLD. NO ASTERISKS.
+- The narrative MUST include a strong, opinionated stance on the deal from a Senior Analyst perspective (e.g., 'Recommend approval due to...', 'Decline unless X is met'). Do NOT call it a 'final' decision, as the human analyst decides.
+- For payment_suggestions, calculate the MAXIMUM safe loan capacity and spread the client can take without endangering the lending company.
 
 DATA:
 ${JSON.stringify(underwritingMetrics, null, 2)}`;
