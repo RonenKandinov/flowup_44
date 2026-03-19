@@ -27,8 +27,6 @@ const schema = z.object({
     liquidAssets: z.number().optional(),
     score: z.number().optional(),
     dti: z.number().optional(),
-    totalFixedExpenses: z.number().optional(),
-    fixedExpenses: z.number().optional(),
     trends: z.object({ income: z.number().optional(), expenses: z.number().optional() }).optional(),
     history: z.array(z.object({ netFlow: z.number().optional() })).optional()
   }).optional()
@@ -78,28 +76,85 @@ Deno.serve(withValidation(schema, async (req, body) => {
 
     if ((neg && badTrend) || (lowLiq && badTrend)) risk = "Red";
 
-    let rec = "APPROVE", conf = "HIGH";
-    if (risk === "Red") rec = "DECLINE";
-    else if (neg || lowLiq || highDti || badTrend) { rec = "REVIEW"; conf = "MEDIUM"; }
+    // ===== Strengths =====
+    const strengths = [];
+    if (behavior === "IMPROVING") strengths.push("מגמת שיפור עקבית");
+    if (liq > 3) strengths.push("נזילות גבוהה");
+    if (expInc < 90) strengths.push("שליטה בהוצאות");
+    if (signals.netFlowTrend === "UP") strengths.push("תזרים מזומנים במגמת עלייה");
 
-    const options = [
-      { decision: "APPROVE", max_loan_amount: Math.round(income * 10), suggested_interest: 6 },
-      { decision: "REVIEW", max_loan_amount: Math.round(income * 5), suggested_interest: 10 },
-      { decision: "DECLINE", max_loan_amount: 0, suggested_interest: null }
-    ];
-
+    // ===== Risks =====
     const risks = [];
     if (neg) risks.push("תזרים שלילי");
     if (lowLiq) risks.push("נזילות נמוכה");
     if (highDti) risks.push("יחס חוב להכנסה גבוה");
     if (badTrend) risks.push("מגמת הידרדרות");
 
+    if (risks.length === 0) {
+      if (dti > 35) risks.push("יחס חוב להכנסה גבולי");
+      if (income < 10000) risks.push("רמת הכנסה נמוכה יחסית");
+    }
+
+    // ===== Fixes =====
     const fixes = [];
     if (neg) fixes.push("הקטנת הוצאות מתחת להכנסה");
     if (lowLiq) fixes.push("הגדלת נזילות ללפחות 3 חודשים");
     if (highDti) fixes.push("הפחתת התחייבויות");
     if (badTrend) fixes.push("ייצוב תזרים");
 
+    // ===== Second Chance Engine 🔥 =====
+    let secondChanceScore = 0;
+    if (behavior === "IMPROVING") secondChanceScore += 2;
+    if (liq > 4) secondChanceScore += 2;
+    if (expInc < 85) secondChanceScore += 1;
+    if (signals.netFlowTrend === "UP") secondChanceScore += 1;
+
+    const isSecondChance = (risk === "Orange" || risk === "Red") && secondChanceScore >= 4;
+
+    // ===== Recommendation =====
+    let rec = "APPROVE", conf = "HIGH";
+
+    if (risk === "Red" && !isSecondChance) {
+      rec = "DECLINE";
+    } else if (neg || lowLiq || highDti || badTrend) {
+      rec = isSecondChance ? "APPROVE" : "REVIEW";
+      conf = "MEDIUM";
+    }
+
+    // ===== Smart Pricing =====
+    let approveAmount = Math.round(income * 6);
+    let approveInterest = 8;
+
+    if (risk === "Orange") approveInterest += 1;
+    if (risk === "Red") {
+      approveInterest += 2;
+      approveAmount *= 0.7;
+    }
+
+    if (isSecondChance) {
+      approveInterest += 1.5;
+      approveAmount *= 0.8;
+    }
+
+    const options = [
+      {
+        decision: "APPROVE",
+        max_loan_amount: Math.round(approveAmount),
+        suggested_interest: Math.round(approveInterest * 10) / 10
+      },
+      {
+        decision: "REVIEW",
+        max_loan_amount: Math.round(income * 4),
+        suggested_interest: 11
+      },
+      {
+        decision: "DECLINE",
+        max_loan_amount: 0,
+        suggested_interest: null
+      }
+    ];
+
+    // ===== Narrative =====
     const prompt = `
 אתה אנליסט אשראי.
 כתוב בעברית בלבד.
@@ -110,7 +165,7 @@ ${JSON.stringify({ income, expenses, signals, trends })}
 נתח את המצב בלבד (בלי לקבוע החלטה).
 `;
 
-    let narrative = "ניכרת מגמת הידרדרות בתזרים ועלייה בהוצאות.";
+    let narrative = "מצב פיננסי יציב.";
     try {
       const llm = base44.integrations.Core.InvokeLLM({
         prompt,
@@ -139,10 +194,16 @@ ${JSON.stringify({ income, expenses, signals, trends })}
           expense_to_income_ratio: expInc,
           liquidity_months: liq
         },
+        second_chance_analysis: {
+          eligible: isSecondChance,
+          score: secondChanceScore,
+          reasons: strengths
+        },
         analyst_recommendation: {
           recommendation: { decision: rec, confidence: conf },
           options,
           key_risks: risks,
+          strengths,
           what_to_improve: fixes
         }
       }
