@@ -676,19 +676,30 @@ export default function Dashboard() {
           
           <div className="flex items-center gap-2">
             {originalLoanMetrics?.availableAccounts?.length > 0 && (
-              <div className="w-48">
-                <Select value={targetAccountId || originalLoanMetrics.activeTargetAccountId || ''} onValueChange={setTargetAccountId}>
-                  <SelectTrigger className="h-8 bg-slate-800/50 border-slate-700/50 text-xs">
-                    <SelectValue placeholder="בחר חשבון" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {originalLoanMetrics.availableAccounts.map(acc => (
-                      <SelectItem key={acc.id} value={acc.id}>
-                        {acc.name} ({acc.number ? acc.number.slice(-4) : '****'})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="flex items-center gap-2">
+                <div className="w-48">
+                  <Select value={targetAccountId || originalLoanMetrics.activeTargetAccountId || ''} onValueChange={setTargetAccountId}>
+                    <SelectTrigger className="h-8 bg-slate-800/50 border-slate-700/50 text-xs">
+                      <SelectValue placeholder="בחר חשבון" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {originalLoanMetrics.availableAccounts.map(acc => (
+                        <SelectItem key={acc.id} value={acc.id}>
+                          {acc.name} ({acc.number ? acc.number.slice(-4) : '****'})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  onClick={() => refetchLoanMetrics()}
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-slate-400 hover:text-white hover:bg-slate-800/50"
+                  disabled={isLoanMetricsLoading}
+                >
+                  <RefreshCw className={`w-4 h-4 ${isLoanMetricsLoading ? 'animate-spin' : ''}`} />
+                </Button>
               </div>
             )}
             {hasData && (
