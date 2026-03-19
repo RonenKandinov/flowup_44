@@ -114,7 +114,7 @@ Security Constraints (Non-Negotiable):
 
 OUTPUT RULES:
 - Language: Hebrew
-- Maximum 3 sentences
+- Maximum 5 sentences
 - No raw numbers unless critical
 - No generic statements
 - NO MARKDOWN. NO BOLD. NO ASTERISKS.
