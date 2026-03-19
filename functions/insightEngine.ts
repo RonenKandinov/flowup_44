@@ -53,8 +53,10 @@ Deno.serve(withValidation(schema, async (req, body) => {
     const liq = income > 0 ? +(assets / income).toFixed(1) : 0;
     const expInc = income > 0 ? +((expenses / income) * 100).toFixed(1) : 0;
 
+    // ===== Base Risk =====
     let risk = score < 55 ? "Red" : score < 80 ? "Orange" : "Green";
 
+    // ===== Behavior =====
     let behavior = "STABLE";
     if (history.length >= 2) {
       const d = history.at(-1).netFlow - history[0].netFlow;
@@ -74,7 +76,17 @@ Deno.serve(withValidation(schema, async (req, body) => {
     const highDti = dti > 45;
     const badTrend = behavior === "DETERIORATING";
 
-    if ((neg && badTrend) || (lowLiq && badTrend)) risk = "Red";
+    // ===== Behavior Override (קריטי) =====
+    if (behavior === "DETERIORATING") {
+      if (liq < 2 || signals.netFlowTrend === "DOWN") {
+        risk = "Orange";
+      }
+      if (liq < 1.5 && signals.netFlowTrend === "DOWN") {
+        risk = "Red";
+      }
+    }
+
+    if (neg && badTrend) risk = "Red";
 
     // ===== Strengths =====
     const strengths = [];
@@ -102,7 +114,12 @@ Deno.serve(withValidation(schema, async (req, body) => {
     if (highDti) fixes.push("הפחתת התחייבויות");
     if (badTrend) fixes.push("ייצוב תזרים");
 
-    // ===== Second Chance Engine 🔥 =====
+    if (fixes.length === 0) {
+      if (dti > 35) fixes.push("הפחתת יחס חוב להכנסה מתחת ל־35%");
+      if (income < 10000) fixes.push("הגדלת הכנסה חודשית");
+    }
+
+    // ===== Second Chance =====
     let secondChanceScore = 0;
     if (behavior === "IMPROVING") secondChanceScore += 2;
     if (liq > 4) secondChanceScore += 2;
@@ -116,12 +133,13 @@ Deno.serve(withValidation(schema, async (req, body) => {
 
     if (risk === "Red" && !isSecondChance) {
       rec = "DECLINE";
+      conf = "HIGH";
     } else if (neg || lowLiq || highDti || badTrend) {
       rec = isSecondChance ? "APPROVE" : "REVIEW";
-      conf = "MEDIUM";
+      conf = isSecondChance ? "MEDIUM" : "MEDIUM";
     }
 
-    // ===== Smart Pricing =====
+    // ===== Pricing =====
     let approveAmount = Math.round(income * 6);
     let approveInterest = 8;
 
@@ -129,6 +147,11 @@ Deno.serve(withValidation(schema, async (req, body) => {
     if (risk === "Red") {
       approveInterest += 2;
       approveAmount *= 0.7;
+    }
+
+    if (behavior === "DETERIORATING") {
+      approveAmount *= 0.7;
+      approveInterest += 1;
     }
 
     if (isSecondChance) {
@@ -165,7 +188,7 @@ ${JSON.stringify({ income, expenses, signals, trends })}
 נתח את המצב בלבד (בלי לקבוע החלטה).
 `;
 
-    let narrative = "מצב פיננסי יציב.";
+    let narrative = "מצב פיננסי בינוני עם סיכון מסוים.";
     try {
       const llm = base44.integrations.Core.InvokeLLM({
         prompt,
