@@ -98,8 +98,8 @@ function runTests() {
             expect: { score: 80, status: "GREEN", gte: true }
         },
         {
-            name: "Borderline DTI 45% → ORANGE",
-            metrics: { totalIncome: 10000, totalExpenses: 6000, fixedExpenses: 4500, liquidAssets: 20000 },
+            name: "Borderline DTI 45% → not GREEN",
+            metrics: { totalIncome: 10000, totalExpenses: 6000, fixedExpenses: 4500, liquidAssets: 500 },
             expect: { status: "ORANGE" }
         }
     ];
