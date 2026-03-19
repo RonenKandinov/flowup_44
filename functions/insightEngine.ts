@@ -152,7 +152,7 @@ Deno.serve(withValidation(schema, async (req, body) => {
       approveAmount *= 0.8;
     }
 
-    const options = [
+    let options = [
       {
         decision: "APPROVE",
         max_loan_amount: Math.round(approveAmount),
@@ -169,6 +169,16 @@ Deno.serve(withValidation(schema, async (req, body) => {
         suggested_interest: null
       }
     ];
+
+    if (rec === "DECLINE") {
+      options = [
+        {
+          decision: "DECLINE",
+          max_loan_amount: 0,
+          suggested_interest: null
+        }
+      ];
+    }
 
     // ===== Narrative =====
     const prompt = `
