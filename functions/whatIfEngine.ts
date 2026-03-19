@@ -68,10 +68,6 @@ function calculateScore(metrics) {
         (SCORING_WEIGHTS.VOLATILITY * scoreVolatility)
     );
 
-    if (dtiPerc > 100) {
-        finalScore = 0;
-    }
-
     let riskStatus = "ORANGE";
     if (finalScore >= 80) riskStatus = "GREEN";
     else if (finalScore < 55) riskStatus = "RED";
