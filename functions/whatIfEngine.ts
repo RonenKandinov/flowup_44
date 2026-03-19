@@ -69,11 +69,17 @@ function calculateScore(metrics) {
     );
 
     // --- EXTREME RISK CLAMP LAYER ---
-    const isExtremeDTI = dtiPerc > 120;
-    const isExtremeCashFlow = totalIncome > 0 ? (totalExpenses > totalIncome * 1.2) : (totalExpenses > 0);
+    const isHighRiskDTI = dtiPerc > 120;
+    const isHighRiskCashFlow = totalIncome > 0 ? (totalExpenses > totalIncome * 1.2) : (totalExpenses > 0);
+    if (isHighRiskDTI || isHighRiskCashFlow) {
+        finalScore = Math.min(finalScore, 45); // Medium range
+    }
+
+    const isExtremeDTI = dtiPerc > 150;
+    const isExtremeCashFlow = totalIncome > 0 ? (totalExpenses > totalIncome * 1.5) : (totalExpenses > 0);
     if (isExtremeDTI || isExtremeCashFlow) {
-        finalScore = Math.min(finalScore, 10);
-        const isVeryExtreme = dtiPerc > 150 || (totalIncome > 0 && totalExpenses > totalIncome * 1.5);
+        finalScore = Math.min(finalScore, 25);
+        const isVeryExtreme = dtiPerc > 200 || (totalIncome > 0 && totalExpenses > totalIncome * 2.0);
         if (isVeryExtreme) finalScore = Math.min(finalScore, 5);
     }
     // --------------------------------

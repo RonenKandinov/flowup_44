@@ -81,12 +81,19 @@ Deno.serve(async (req) => {
     let finalScore = Math.max(0, Math.min(100, Math.round(rawScore)));
 
     // --- EXTREME RISK CLAMP LAYER ---
-    const isExtremeDTI = dti > 120;
-    const isExtremeCashFlow = income > 0 ? (totalExpenses > income * 1.2) : (totalExpenses > 0);
+    const isHighRiskDTI = dti > 120;
+    const isHighRiskCashFlow = income > 0 ? (totalExpenses > income * 1.2) : (totalExpenses > 0);
+    
+    if (isHighRiskDTI || isHighRiskCashFlow) {
+        finalScore = Math.min(finalScore, 45); // Medium range
+    }
+
+    const isExtremeDTI = dti > 150;
+    const isExtremeCashFlow = income > 0 ? (totalExpenses > income * 1.5) : (totalExpenses > 0);
     
     if (isExtremeDTI || isExtremeCashFlow) {
-        finalScore = Math.min(finalScore, 10);
-        if (dti > 150 || (income > 0 && totalExpenses > income * 1.5)) {
+        finalScore = Math.min(finalScore, 25);
+        if (dti > 200 || (income > 0 && totalExpenses > income * 2.0)) {
              finalScore = Math.min(finalScore, 5);
         }
     }

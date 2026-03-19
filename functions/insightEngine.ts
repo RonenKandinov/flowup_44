@@ -114,15 +114,14 @@ Security Constraints (Non-Negotiable):
 
 OUTPUT RULES:
 - Language: Hebrew
-- Maximum 5 sentences
-- No raw numbers unless critical
-- No generic statements
+- Maximum 2-3 sentences. Be extremely concise, direct, and to the point.
+- No raw numbers unless critical.
+- No generic statements or fluff.
 - NO MARKDOWN. NO BOLD. NO ASTERISKS.
 
 STRUCTURE:
-1. Start with the behavioral insight (trajectory)
-2. Explain why the snapshot is misleading (if relevant)
-3. Translate into real repayment risk
+1. Bottom-line behavioral insight (trajectory).
+2. Direct translation into real repayment risk.
 
 OPTIONAL:
 Recommend loan structure:
