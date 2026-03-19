@@ -114,6 +114,16 @@ export default function InsightsAgent({ analysis, isLoading }) {
                                     {analysis.narrative || analysis.executive_summary?.replace(/\*\*/g, '') || "אין תקציר זמין"}
                                 </Section>
 
+                                {analysis.key_factors && analysis.key_factors.length > 0 && (
+                                    <Section title="גורמי מפתח">
+                                        <ul className="list-disc list-inside space-y-1 text-slate-300 text-sm">
+                                            {analysis.key_factors.map((factor, idx) => (
+                                                <li key={idx} className="leading-relaxed">{factor}</li>
+                                            ))}
+                                        </ul>
+                                    </Section>
+                                )}
+
                                 <div className="bg-indigo-900/20 p-3 rounded-lg border border-indigo-500/20">
                                     <p className="text-[10px] text-indigo-300 uppercase tracking-wider mb-1">
                                         מבנה הלוואה מומלץ
