@@ -43,21 +43,27 @@ const SCORING_WEIGHTS = {
     VOLATILITY: 0.15
 };
 
+/**
+ * Core scoring function.
+ * Returns score=0 immediately if DTI > 100% (income cannot cover fixed obligations).
+ */
 function calculateScore(metrics) {
-    const { totalIncome, totalExpenses, fixedExpenses, liquidAssets, incomeVolatility = 0, runwayMonths = 12 } = metrics;
+    const { totalIncome, totalExpenses, fixedExpenses, liquidAssets, incomeVolatility = 0 } = metrics;
     
-    const avgIncome = totalIncome;
-    const avgFixedExpenses = fixedExpenses;
-    const DTI = avgIncome > 0 ? avgFixedExpenses / avgIncome : 1;
-    let scoreServiceability = 0;
+    const DTI = totalIncome > 0 ? fixedExpenses / totalIncome : 1;
     const dtiPerc = DTI * 100;
-    
+
+    // Hard floor: if fixed obligations exceed income, repayment is impossible → score = 0
+    if (dtiPerc >= 100) {
+        return { finalScore: 0, riskStatus: "RED", dtiPerc };
+    }
+
+    let scoreServiceability = 0;
     if (dtiPerc <= 40) scoreServiceability = 80 + (40 - dtiPerc) * 0.5;
     else if (dtiPerc <= 57) scoreServiceability = 55 + (57 - dtiPerc) * (24 / 17);
     else scoreServiceability = Math.max(0, 54 - (dtiPerc - 57));
 
-    // For simplicity, we assume stability and volatility remain constant during WhatIf
-    const scoreStability = 100; // Assuming positive history for simulation
+    const scoreStability = 100;
     const scoreLiquidity = Math.min(((liquidAssets / (totalExpenses || 1)) / 6) * 100, 100);
     const scoreVolatility = Math.max(0, 100 - (incomeVolatility * 100));
 
@@ -68,9 +74,8 @@ function calculateScore(metrics) {
         (SCORING_WEIGHTS.VOLATILITY * scoreVolatility)
     );
 
-    if (dtiPerc > 100) {
-        finalScore = 0;
-    }
+    // Clamp to [0, 100]
+    finalScore = Math.max(0, Math.min(100, finalScore));
 
     let riskStatus = "ORANGE";
     if (finalScore >= 80) riskStatus = "GREEN";
@@ -79,12 +84,50 @@ function calculateScore(metrics) {
     return { finalScore, riskStatus, dtiPerc };
 }
 
+// --- Unit Tests (run on cold start) ---
+function runTests() {
+    const cases = [
+        {
+            name: "DTI > 100% → score must be 0",
+            metrics: { totalIncome: 1636, totalExpenses: 41809, fixedExpenses: 39390, liquidAssets: 3102 },
+            expect: { score: 0, status: "RED" }
+        },
+        {
+            name: "Healthy profile → score >= 80",
+            metrics: { totalIncome: 20000, totalExpenses: 8000, fixedExpenses: 5000, liquidAssets: 60000 },
+            expect: { score: 80, status: "GREEN", gte: true }
+        },
+        {
+            name: "Borderline DTI 45% → ORANGE",
+            metrics: { totalIncome: 10000, totalExpenses: 6000, fixedExpenses: 4500, liquidAssets: 20000 },
+            expect: { status: "ORANGE" }
+        }
+    ];
+
+    let passed = 0;
+    cases.forEach(tc => {
+        const { finalScore, riskStatus } = calculateScore(tc.metrics);
+        let ok = true;
+        if (tc.expect.score !== undefined) {
+            ok = tc.expect.gte ? finalScore >= tc.expect.score : finalScore === tc.expect.score;
+        }
+        if (tc.expect.status) ok = ok && riskStatus === tc.expect.status;
+        if (ok) {
+            passed++;
+            console.log(`[WhatIfEngine Test ✓] ${tc.name} → score=${finalScore}, status=${riskStatus}`);
+        } else {
+            console.error(`[WhatIfEngine Test ✗] ${tc.name} → got score=${finalScore}, status=${riskStatus}, expected`, tc.expect);
+        }
+    });
+    console.log(`[WhatIfEngine Tests] ${passed}/${cases.length} passed`);
+}
+runTests();
+
 Deno.serve(withValidation(whatIfSchema, async (req) => {
     try {
         const body = await req.json().catch(() => ({}));
         const { baseMetrics, scenario, params } = body;
 
-        // Provide default dummy metrics for dashboard testing if not provided
         const activeMetrics = {
             ...(baseMetrics || {}),
             totalIncome: baseMetrics?.totalIncome ?? 20000,
@@ -92,9 +135,8 @@ Deno.serve(withValidation(whatIfSchema, async (req) => {
             fixedExpenses: baseMetrics?.totalFixedExpenses ?? baseMetrics?.fixedExpenses ?? 10000,
             liquidAssets: baseMetrics?.liquidAssets ?? 50000,
             incomeVolatility: baseMetrics?.incomeVolatility ?? 0.1,
-            runwayMonths: baseMetrics?.runwayMonths ?? 12,
-            netCashFlow: (baseMetrics?.totalIncome ?? 20000) - (baseMetrics?.totalExpenses ?? 15000)
         };
+        activeMetrics.netCashFlow = activeMetrics.totalIncome - activeMetrics.totalExpenses;
 
         let simulatedMetrics = { ...activeMetrics };
         let message = "";
@@ -114,14 +156,13 @@ Deno.serve(withValidation(whatIfSchema, async (req) => {
 
         if (scenario === 'standard_loan' || scenario === 'extended_loan') {
             simulatedPayment = calculateSpitzer(loanAmount, annualRate, termMonths);
-            
             simulatedMetrics.fixedExpenses += simulatedPayment;
             simulatedMetrics.totalExpenses += simulatedPayment;
             simulatedMetrics.netCashFlow = simulatedMetrics.totalIncome - simulatedMetrics.totalExpenses;
-            simulatedMetrics.runway = simulatedMetrics.totalExpenses > 0 
-                ? (simulatedMetrics.liquidAssets / simulatedMetrics.totalExpenses) 
+            simulatedMetrics.runway = simulatedMetrics.totalExpenses > 0
+                ? simulatedMetrics.liquidAssets / simulatedMetrics.totalExpenses
                 : 12;
-            
+
             if (simulatedMetrics.netCashFlow < 0) {
                 if (simulatedMetrics.runway >= 6) {
                     message = `ההחזר (₪${Math.round(simulatedPayment)}) יוצר גירעון תזרימי (₪${Math.abs(Math.round(simulatedMetrics.netCashFlow))}-), אך קיים באפר נזילות של ${simulatedMetrics.runway.toFixed(1)} חודשים.`;
@@ -137,56 +178,56 @@ Deno.serve(withValidation(whatIfSchema, async (req) => {
             simulatedMetrics.fixedExpenses += simulatedPayment;
             simulatedMetrics.totalExpenses += simulatedPayment;
             simulatedMetrics.netCashFlow = simulatedMetrics.totalIncome - simulatedMetrics.totalExpenses;
-            
+
             const projectedSavings = Math.max(0, simulatedMetrics.netCashFlow) * termMonths;
             const totalAvailableAtEnd = simulatedMetrics.liquidAssets + projectedSavings;
 
             if (totalAvailableAtEnd < loanAmount) {
                 isBlocked = true;
-                message = `BLOCKED: חסר הון לכיסוי הקרן. גם עם חיסכון צפוי של ₪${Math.round(projectedSavings)} (לפי ממוצע 6 חודשים), לא תגיע ל-₪${loanAmount}.`;
+                message = `BLOCKED: חסר הון לכיסוי הקרן. גם עם חיסכון צפוי של ₪${Math.round(projectedSavings)}, לא תגיע ל-₪${loanAmount}.`;
             } else if (simulatedMetrics.liquidAssets < loanAmount) {
-                simulatedMetrics.runway = simulatedMetrics.totalExpenses > 0 
-                    ? (simulatedMetrics.liquidAssets / simulatedMetrics.totalExpenses) 
+                simulatedMetrics.runway = simulatedMetrics.totalExpenses > 0
+                    ? simulatedMetrics.liquidAssets / simulatedMetrics.totalExpenses
                     : 12;
-                message = `APPROVED: אין מספיק הון כרגע, אך בהתבסס על היסטוריית החיסכון (6 חודשים אחרונים) תוכל לכסות את הקרן בסוף התקופה.`;
+                message = `APPROVED: בהתבסס על היסטוריית החיסכון תוכל לכסות את הקרן בסוף התקופה.`;
             } else {
-                simulatedMetrics.runway = simulatedMetrics.totalExpenses > 0 
-                    ? (simulatedMetrics.liquidAssets / simulatedMetrics.totalExpenses) 
+                simulatedMetrics.runway = simulatedMetrics.totalExpenses > 0
+                    ? simulatedMetrics.liquidAssets / simulatedMetrics.totalExpenses
                     : 12;
                 message = `APPROVED (Smart Logic): ההחזר החודשי הוא ₪${Math.round(simulatedPayment)} בלבד, מבוסס על הון קיים.`;
             }
         }
 
-        const { finalScore, riskStatus, dtiPerc } = calculateScore(simulatedMetrics);
-        
         if (isBlocked) {
-            simulatedMetrics.score = 0;
-            simulatedMetrics.dti = Math.round(dtiPerc);
             return Response.json({
                 success: true,
                 status: "RED",
                 score: 0,
-                metrics: simulatedMetrics,
+                metrics: { ...simulatedMetrics, score: 0, dti: 9999 },
                 message
             });
         }
-        simulatedMetrics.score = finalScore;
+
+        const { finalScore, riskStatus, dtiPerc } = calculateScore(simulatedMetrics);
+
+        // Apply negative cash-flow penalty on top of score
+        let finalRiskStatus = riskStatus;
+        let finalScoreValue = finalScore;
+        if (simulatedMetrics.netCashFlow < 0) {
+            if (simulatedMetrics.runway >= 6) {
+                finalRiskStatus = riskStatus === "GREEN" ? "ORANGE" : riskStatus;
+                finalScoreValue = Math.max(0, finalScore - 10);
+            } else {
+                finalRiskStatus = "RED";
+                finalScoreValue = Math.max(0, finalScore - 30);
+            }
+        }
+
+        simulatedMetrics.score = finalScoreValue;
         simulatedMetrics.dti = Math.round(dtiPerc);
         simulatedMetrics.totalFixedExpenses = Math.round(simulatedMetrics.fixedExpenses);
         simulatedMetrics.totalLifestyleExpenses = Math.round(simulatedMetrics.totalExpenses - simulatedMetrics.fixedExpenses);
 
-        let finalRiskStatus = riskStatus;
-        let finalScoreValue = finalScore;
-
-       if (simulatedMetrics.netCashFlow < 0) {
-    if (simulatedMetrics.runway >= 6) {
-        finalRiskStatus = riskStatus === "GREEN" ? "ORANGE" : riskStatus;
-        finalScoreValue = Math.max(0, finalScore - 10);
-    } else {
-        finalRiskStatus = "RED";
-        finalScoreValue = Math.max(0, finalScore - 30);
-    }
-}
         return Response.json({
             success: true,
             status: finalRiskStatus,
