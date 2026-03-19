@@ -795,8 +795,7 @@ export default function Dashboard() {
                     whatIfAmount={whatIfAmount}
                     engineData={null}
                     isScore={!!(simulatedMetrics || newLoanMetrics)}
-                    dtiTrend={newLoanMetrics?.trends?.dti}
-                    baseMetrics={simulatedMetrics || newLoanMetrics || metricsForInsights}
+                    dtiTrend={newLoanMetrics?.trends?.dti} 
                   />
                 </motion.div>
 
