@@ -68,6 +68,16 @@ function calculateScore(metrics) {
         (SCORING_WEIGHTS.VOLATILITY * scoreVolatility)
     );
 
+    // --- EXTREME RISK CLAMP LAYER ---
+    const isExtremeDTI = dtiPerc > 120;
+    const isExtremeCashFlow = totalIncome > 0 ? (totalExpenses > totalIncome * 1.2) : (totalExpenses > 0);
+    if (isExtremeDTI || isExtremeCashFlow) {
+        finalScore = Math.min(finalScore, 10);
+        const isVeryExtreme = dtiPerc > 150 || (totalIncome > 0 && totalExpenses > totalIncome * 1.5);
+        if (isVeryExtreme) finalScore = Math.min(finalScore, 5);
+    }
+    // --------------------------------
+
     let riskStatus = "ORANGE";
     if (finalScore >= 80) riskStatus = "GREEN";
     else if (finalScore < 55) riskStatus = "RED";
