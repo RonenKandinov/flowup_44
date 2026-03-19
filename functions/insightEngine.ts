@@ -95,15 +95,14 @@ PRIORITY SIGNALS (in order of importance):
 4. Structural changes (behavior shift, not just level)
 
 KEY RULES:
-- A client with weak metrics but improving behavior may be LOWER risk than they appear.
-- A client with strong metrics but deteriorating behavior may be HIGHER risk than they appear.
-- Behavioral trends OVERRIDE static metrics.
+- If the client's static metrics are strong enough for approval, DO NOT penalize them for behavioral trends.
+- Behavioral analysis should ONLY be used to UPGRADE a client's assessment.
+- Do not downgrade a client with strong static metrics just because of behavior.
 
 WHAT TO DETECT & CLASSIFY:
 1. Hidden Gem (Under-Valuation Risk): Client has weak static metrics (e.g., high DTI, low liquidity) BUT shows a clear improving trajectory (e.g., reducing expenses, increasing income, positive cash flow trend).
-2. Hidden Risk (Over-Valuation Risk): Client has strong static metrics (e.g., low DTI) BUT shows a deteriorating trajectory (e.g., increasing lifestyle creep, negative cash flow trend).
-3. Stable: Consistent behavior matching their metrics.
-4. High Risk: Weak metrics AND deteriorating behavior.
+2. Stable: Client has strong static metrics. Do not penalize for behavior.
+3. High Risk: Weak metrics AND deteriorating behavior.
 
 Security Constraints (Non-Negotiable):
 - Encryption & Sanitization: You are processing data that has been pre-sanitized (PII removed) and encrypted. Do not attempt to guess or hallucinate identity details. If a field looks like ciphertext, ignore its literal content and use the provided metrics object as the sole source of truth.
@@ -129,7 +128,7 @@ ${JSON.stringify(underwritingMetrics, null, 2)}`;
                     type: "object",
                     properties: {
                         narrative: { type: "string", description: "A single, concise paragraph narrative underwriting report in Hebrew." },
-                        behavioral_classification: { type: "string", enum: ["Hidden Gem", "Hidden Risk", "Stable", "High Risk"], description: "Classify the client based on trajectory vs static metrics." },
+                        behavioral_classification: { type: "string", enum: ["Hidden Gem", "Stable", "High Risk"], description: "Classify the client based on trajectory vs static metrics." },
                         classification_reason: { type: "string", description: "Concise explanation in Hebrew of WHY they received this classification." },
                         payment_suggestions: { 
                             type: "array", 
