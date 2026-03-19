@@ -2,7 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.3';
 import { z } from 'npm:zod';
 
 /**
- * ✅ Validation Middleware (NO double req.json bug)
+ * ✅ Validation Middleware
  */
 function withValidation(schema, handler) {
     return async (req) => {
@@ -23,7 +23,7 @@ function withValidation(schema, handler) {
 
                 parsedBody = body;
 
-            } catch (e) {
+            } catch {
                 return Response.json({
                     success: false,
                     error: "Invalid JSON"
@@ -88,7 +88,7 @@ Deno.serve(withValidation(insightSchema, async (req, parsedBody) => {
         }
 
         /**
-         * ✅ SAFE DATA EXTRACTION
+         * ✅ SAFE DATA
          */
         const totalIncome = inputMetrics.totalIncome ?? 0;
         const totalExpenses = inputMetrics.totalExpenses ?? 0;
@@ -102,31 +102,27 @@ Deno.serve(withValidation(insightSchema, async (req, parsedBody) => {
         const dti = inputMetrics.dti ?? 0;
 
         const trends = inputMetrics.trends || { income: 0, expenses: 0 };
-        const historyRaw = inputMetrics.history || [];
-
-        const history = Array.isArray(historyRaw)
-            ? historyRaw.filter(h => typeof h.netFlow === "number")
+        const history = Array.isArray(inputMetrics.history)
+            ? inputMetrics.history.filter(h => typeof h.netFlow === "number")
             : [];
 
         /**
-         * ✅ DERIVED METRICS
+         * ✅ DERIVED
          */
-        const liquidityBufferMonths =
-            totalIncome > 0
-                ? Number((liquidAssets / totalIncome).toFixed(1))
-                : 0;
+        const liquidityMonths =
+            totalIncome > 0 ? Number((liquidAssets / totalIncome).toFixed(1)) : 0;
 
         const expenseToIncome =
             totalIncome > 0
                 ? Number(((totalExpenses / totalIncome) * 100).toFixed(1))
                 : 0;
 
-        const current_risk_tier =
+        let riskTier =
             score < 55 ? "Red" :
             score < 80 ? "Orange" : "Green";
 
         /**
-         * 🔥 BEHAVIOR ANALYSIS
+         * 🔥 BEHAVIOR
          */
         let behaviorClassification = "STABLE";
 
@@ -156,61 +152,99 @@ Deno.serve(withValidation(insightSchema, async (req, parsedBody) => {
                         ? "DECREASING"
                         : "STABLE",
             incomeTrend:
-                trends.income > 0
-                    ? "UP"
-                    : trends.income < 0
-                        ? "DOWN"
-                        : "STABLE"
+                trends.income > 0 ? "UP" :
+                trends.income < 0 ? "DOWN" : "STABLE"
         };
 
         /**
-         * ✅ CLEAN METRICS
+         * 🔥 RISK INTELLIGENCE
          */
-        const underwritingMetrics = {
-            avg_monthly_income: totalIncome,
-            avg_monthly_expenses: totalExpenses,
-            fixed_expenses: fixedExpenses,
-            dti,
-            expense_to_income_ratio: expenseToIncome,
-            liquidity_months: liquidityBufferMonths,
-            risk_tier: current_risk_tier,
-            trends,
-            history,
-            behaviorSignals
-        };
+        const isNegativeCashflow = expenseToIncome > 100;
+        const isLowLiquidity = liquidityMonths < 1;
+        const isHighDTI = dti > 45;
+        const isDeteriorating = behaviorClassification === "DETERIORATING";
+
+        let adjustedRisk = riskTier;
+
+        if (
+            (isNegativeCashflow && isDeteriorating) ||
+            (isLowLiquidity && isDeteriorating)
+        ) {
+            adjustedRisk = "Red";
+        }
 
         /**
-         * 🧠 PROMPT
+         * 🧠 DECISION (Recommendation only!)
+         */
+        let recommendedDecision = "APPROVE";
+        let confidence = "HIGH";
+
+        if (adjustedRisk === "Red") {
+            recommendedDecision = "DECLINE";
+        } else if (
+            isNegativeCashflow ||
+            isLowLiquidity ||
+            isHighDTI ||
+            isDeteriorating
+        ) {
+            recommendedDecision = "REVIEW";
+            confidence = "MEDIUM";
+        }
+
+        /**
+         * 💰 OPTIONS (אנליסט בוחר!)
+         */
+        const options = [
+            {
+                decision: "APPROVE",
+                max_loan_amount: Math.round(totalIncome * 10),
+                suggested_interest: 6
+            },
+            {
+                decision: "REVIEW",
+                max_loan_amount: Math.round(totalIncome * 5),
+                suggested_interest: 10
+            },
+            {
+                decision: "DECLINE",
+                max_loan_amount: 0,
+                suggested_interest: null
+            }
+        ];
+
+        /**
+         * ⚠️ EXPLAINABILITY
+         */
+        const keyRisks = [];
+
+        if (isNegativeCashflow) keyRisks.push("תזרים שלילי");
+        if (isLowLiquidity) keyRisks.push("נזילות נמוכה");
+        if (isHighDTI) keyRisks.push("יחס חוב להכנסה גבוה");
+        if (isDeteriorating) keyRisks.push("מגמת הידרדרות");
+
+        const mitigations = [];
+
+        if (isNegativeCashflow) mitigations.push("הקטנת סכום ההלוואה");
+        if (isLowLiquidity) mitigations.push("דרישת בטחונות");
+        if (isDeteriorating) mitigations.push("פריסת תשלומים ארוכה יותר");
+
+        /**
+         * 🧠 LLM
          */
         const prompt = `
-אתה אנליסט סיכוני אשראי בכיר במוסד פיננסי.
+אתה אנליסט אשראי.
 
 כתוב בעברית בלבד.
 
 נתונים:
-${JSON.stringify(underwritingMetrics)}
+${JSON.stringify({ totalIncome, totalExpenses, trends, behaviorSignals })}
 
-אותות התנהגות:
-${JSON.stringify(behaviorSignals)}
+המלצת מערכת:
+${recommendedDecision}
 
-הוראות:
-- תאר התנהגות לאורך זמן (לא צילום מצב)
-- השווה הכנסות מול הוצאות
-- הדגש מגמות
-- היה מקצועי ותמציתי
-
-החזר JSON בלבד:
-{
-  "narrative": "",
-  "key_factors": [],
-  "recommended_loan_structure": "",
-  "behavior_classification": ""
-}
+הסבר קצר (3 משפטים).
 `;
 
-        /**
-         * ⏱️ LLM עם timeout
-         */
         let llmRes;
 
         try {
@@ -219,42 +253,23 @@ ${JSON.stringify(behaviorSignals)}
                 response_json_schema: {
                     type: "object",
                     properties: {
-                        narrative: { type: "string" },
-                        key_factors: { type: "array", items: { type: "string" } },
-                        recommended_loan_structure: { type: "string" },
-                        behavior_classification: { type: "string" }
+                        narrative: { type: "string" }
                     },
-                    required: [
-                        "narrative",
-                        "key_factors",
-                        "recommended_loan_structure",
-                        "behavior_classification"
-                    ]
+                    required: ["narrative"]
                 }
             });
 
-            const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error("LLM timeout")), 8000)
+            const timeout = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error("timeout")), 5000)
             );
 
-            llmRes = await Promise.race([llmPromise, timeoutPromise]);
+            llmRes = await Promise.race([llmPromise, timeout]);
 
-        } catch (err) {
-            console.error("LLM failed:", err);
-
+        } catch {
             llmRes = {
-                narrative: "לאורך התקופה ניכרת אי יציבות בתזרים והחמרה הדרגתית במצב הפיננסי.",
-                key_factors: [
-                    "שחיקה בתזרים",
-                    "עלייה בהוצאות",
-                    "רמת סיכון עולה"
-                ],
-                recommended_loan_structure: "Extended 72",
-                behavior_classification: behaviorClassification
+                narrative: "ניכרת מגמת הידרדרות בתזרים ועלייה בהוצאות לאורך התקופה."
             };
         }
-
-        llmRes.risk_tier = current_risk_tier;
 
         /**
          * ✅ RESPONSE
@@ -262,9 +277,26 @@ ${JSON.stringify(behaviorSignals)}
         return Response.json({
             success: true,
             insights: {
-                ...llmRes,
+                narrative: llmRes.narrative,
                 behaviorSignals,
-                metrics: underwritingMetrics
+                risk_tier: adjustedRisk,
+                metrics: {
+                    totalIncome,
+                    totalExpenses,
+                    liquidAssets,
+                    dti,
+                    expense_to_income_ratio: expenseToIncome,
+                    liquidity_months: liquidityMonths
+                },
+                analyst_recommendation: {
+                    recommendation: {
+                        decision: recommendedDecision,
+                        confidence
+                    },
+                    options,
+                    key_risks: keyRisks,
+                    mitigations
+                }
             }
         });
 
