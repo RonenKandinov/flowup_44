@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle, Plus, FileSpreadsheet } from 'lucide-react';
+import { Upload, Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle, Plus, FileSpreadsheet, ShieldAlert } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { generateUnderwritingReport } from '../components/utils/excelReportGenerator';
@@ -677,6 +678,18 @@ export default function Dashboard() {
           </div>
           
           <div className="flex items-center gap-2">
+            {isAdmin && (
+              <Link to="/AuditLogs">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white transition-all h-8 px-3 rounded-md"
+                >
+                  <ShieldAlert className="w-3 h-3 ml-1.5" />
+                  <span className="text-[11px] font-medium">יומן אירועים</span>
+                </Button>
+              </Link>
+            )}
             {originalLoanMetrics?.availableAccounts?.length > 0 && (
               <div className="w-48">
                 <Select value={targetAccountId || originalLoanMetrics.activeTargetAccountId || ''} onValueChange={setTargetAccountId}>
