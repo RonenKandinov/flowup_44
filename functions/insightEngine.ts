@@ -90,16 +90,46 @@ Deno.serve(withValidation(schema, async (req, body) => {
       console.warn("Could not fetch custom rules, using defaults", e);
     }
 
+    const policy_explanations = [];
+    let isRejected = false;
+    let isReview = false;
+
+    // Hard Rules
+    if (dti > rules.max_dti_review) {
+        isRejected = true;
+        policy_explanations.push(`נדחה: יחס החזר (DTI) עומד על ${dti}%, מעל המקסימום המותר (${rules.max_dti_review}%).`);
+    }
+    if (income < rules.min_income) {
+        isRejected = true;
+        policy_explanations.push(`נדחה: הכנסה חודשית (₪${income}) נמוכה מהמינימום הנדרש (₪${rules.min_income}).`);
+    }
+
+    // Soft Rules
+    if (dti > rules.max_dti_approve && dti <= rules.max_dti_review) {
+        isReview = true;
+        policy_explanations.push(`בחינה: יחס החזר (DTI) עומד על ${dti}%, מעל סף האישור האוטומטי (${rules.max_dti_approve}%).`);
+    }
+    if (expInc > rules.max_expense_income_ratio) {
+        isReview = true;
+        policy_explanations.push(`בחינה: יחס הוצאות להכנסות (${expInc}%) חורג מהמדיניות (${rules.max_expense_income_ratio}%).`);
+    }
+    if (liq < rules.min_liquidity_months) {
+        isReview = true;
+        policy_explanations.push(`בחינה: נזילות (${liq} חודשים) נמוכה מהנדרש (${rules.min_liquidity_months} חודשים).`);
+    }
+
+    if (isRejected) {
+        risk = "Red";
+    } else if (isReview) {
+        risk = "Orange";
+    } else {
+        risk = "Green";
+        policy_explanations.push("אישור אוטומטי: כל המדדים עומדים במדיניות החיתום.");
+    }
+
     const neg = expInc > rules.max_expense_income_ratio;
     const lowLiq = liq < rules.min_liquidity_months;
     const highDti = dti > rules.max_dti_review;
-
-    // Override Base Risk based on custom rules
-    if (dti > rules.max_dti_review || liq < rules.min_liquidity_months || income < rules.min_income) {
-        risk = "Red";
-    } else if (dti > rules.max_dti_approve || expInc > rules.max_expense_income_ratio) {
-        risk = "Orange";
-    }
 
     // ===== Strengths =====
     const strengths = [];
@@ -141,6 +171,7 @@ Deno.serve(withValidation(schema, async (req, body) => {
 
     // Upgrade risk tier if second chance is granted
     if (isSecondChance) {
+        policy_explanations.push(`הזדמנות שנייה: הופעל מנגנון אישור חריג עקב מגמת שיפור בהתנהלות (ציון: ${secondChanceScore}).`);
         if (risk === "Red") risk = "Orange";
         else if (risk === "Orange") risk = "Green";
     }
@@ -264,7 +295,8 @@ ${JSON.stringify({ income, expenses, signals, trends, currentRisk: risk, isSecon
           options,
           key_risks: risks,
           strengths,
-          what_to_improve: fixes
+          what_to_improve: fixes,
+          policy_explanations
         }
       }
     });

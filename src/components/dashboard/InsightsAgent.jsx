@@ -50,7 +50,7 @@ export default function InsightsAgent({ analysis, isLoading }) {
         behaviorSignals
     } = analysis;
 
-    const { recommendation, options, key_risks, strengths, what_to_improve } = analyst_recommendation;
+    const { recommendation, options, key_risks, strengths, what_to_improve, policy_explanations } = analyst_recommendation;
 
     return (
         <div className="relative h-full w-full">
@@ -143,6 +143,25 @@ export default function InsightsAgent({ analysis, isLoading }) {
                                 <Section title="תקציר מנהלים">
                                     {narrative}
                                 </Section>
+
+                                {policy_explanations && policy_explanations.length > 0 && (
+                                    <div className="bg-slate-800/30 p-3 rounded-lg border border-slate-700/50">
+                                        <p className="text-[10px] text-slate-500 uppercase mb-2">החלטות מנוע חיתום (Policy Engine)</p>
+                                        <ul className="space-y-2">
+                                            {policy_explanations.map((exp, idx) => (
+                                                <li key={idx} className="flex items-start gap-2 text-sm text-slate-300 bg-slate-900/50 p-2 rounded-md border border-slate-700/30">
+                                                    <div className="mt-0.5 shrink-0">
+                                                        {exp.includes('נדחה') ? <XCircle className="w-4 h-4 text-red-400" /> : 
+                                                         exp.includes('בחינה') ? <AlertTriangle className="w-4 h-4 text-amber-400" /> : 
+                                                         exp.includes('הזדמנות שנייה') ? <Zap className="w-4 h-4 text-indigo-400" /> :
+                                                         <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+                                                    </div>
+                                                    <span className="leading-tight">{exp}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
 
                                 {/* Strengths & Risks */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
