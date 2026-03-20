@@ -7,6 +7,7 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import AuditLogs from './pages/AuditLogs';
+import UnderwritingSettings from './pages/UnderwritingSettings';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 
 const { Pages, Layout, mainPage } = pagesConfig;
@@ -60,6 +61,7 @@ const AuthenticatedApp = () => {
         />
       ))}
       <Route path="/AuditLogs" element={<LayoutWrapper currentPageName="AuditLogs"><AuditLogs /></LayoutWrapper>} />
+      <Route path="/UnderwritingSettings" element={<LayoutWrapper currentPageName="UnderwritingSettings"><UnderwritingSettings /></LayoutWrapper>} />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );

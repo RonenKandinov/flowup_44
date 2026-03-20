@@ -71,48 +71,73 @@ Deno.serve(withValidation(schema, async (req, body) => {
       incomeTrend: trends.income > 0 ? "UP" : trends.income < 0 ? "DOWN" : "STABLE"
     };
 
-    const neg = expInc > 100;
-    const lowLiq = liq < 1;
-    const highDti = dti > 45;
+    // Fetch custom underwriting rules
+    let rules = {
+      max_dti_approve: 35,
+      max_dti_review: 45,
+      min_liquidity_months: 1,
+      max_expense_income_ratio: 90,
+      min_income: 8000,
+      enable_second_chance: true
+    };
+    
+    try {
+      const savedRules = await base44.asServiceRole.entities.UnderwritingRule.list();
+      if (savedRules && savedRules.length > 0) {
+        rules = { ...rules, ...savedRules[0] };
+      }
+    } catch (e) {
+      console.warn("Could not fetch custom rules, using defaults", e);
+    }
+
+    const neg = expInc > rules.max_expense_income_ratio;
+    const lowLiq = liq < rules.min_liquidity_months;
+    const highDti = dti > rules.max_dti_review;
+
+    // Override Base Risk based on custom rules
+    if (dti > rules.max_dti_review || liq < rules.min_liquidity_months || income < rules.min_income) {
+        risk = "Red";
+    } else if (dti > rules.max_dti_approve || expInc > rules.max_expense_income_ratio) {
+        risk = "Orange";
+    }
 
     // ===== Strengths =====
     const strengths = [];
     if (behavior === "IMPROVING") strengths.push("מגמת שיפור עקבית");
-    if (liq > 3) strengths.push("נזילות גבוהה");
-    if (expInc < 90) strengths.push("שליטה בהוצאות");
+    if (liq > rules.min_liquidity_months * 2) strengths.push("נזילות גבוהה");
+    if (expInc < rules.max_expense_income_ratio - 10) strengths.push("שליטה בהוצאות");
     if (signals.netFlowTrend === "UP") strengths.push("תזרים מזומנים במגמת עלייה");
 
     // ===== Risks =====
     const risks = [];
-    if (neg) risks.push("תזרים שלילי");
-    if (lowLiq) risks.push("נזילות נמוכה");
-    if (highDti) risks.push("יחס חוב להכנסה גבוה");
+    if (neg) risks.push(`יחס הוצאות/הכנסות חורג מהמדיניות (${rules.max_expense_income_ratio}%)`);
+    if (lowLiq) risks.push(`נזילות נמוכה מהנדרש (${rules.min_liquidity_months} חודשים)`);
+    if (highDti) risks.push(`יחס DTI חורג מהמדיניות (${rules.max_dti_review}%)`);
+    if (income < rules.min_income) risks.push(`הכנסה נמוכה מהמינימום הנדרש (₪${rules.min_income})`);
 
     if (risks.length === 0) {
-      if (dti > 35) risks.push("יחס חוב להכנסה גבולי");
-      if (income < 10000) risks.push("רמת הכנסה נמוכה יחסית");
+      if (dti > rules.max_dti_approve) risks.push("יחס חוב להכנסה גבולי");
     }
 
     // ===== Fixes =====
     const fixes = [];
-    if (neg) fixes.push("הקטנת הוצאות מתחת להכנסה");
-    if (lowLiq) fixes.push("הגדלת נזילות ללפחות 3 חודשים");
+    if (neg) fixes.push(`הקטנת הוצאות מתחת ל-${rules.max_expense_income_ratio}%`);
+    if (lowLiq) fixes.push(`הגדלת נזילות ללפחות ${rules.min_liquidity_months} חודשים`);
     if (highDti) fixes.push("הפחתת התחייבויות");
 
     if (fixes.length === 0) {
-      if (dti > 35) fixes.push("הפחתת יחס חוב להכנסה מתחת ל־35%");
-      if (income < 10000) fixes.push("הגדלת הכנסה חודשית");
+      if (dti > rules.max_dti_approve) fixes.push(`הפחתת יחס חוב להכנסה מתחת ל־${rules.max_dti_approve}%`);
     }
 
     // ===== Second Chance =====
     let secondChanceScore = 0;
     if (behavior === "IMPROVING") secondChanceScore += 2;
-    if (liq > 4) secondChanceScore += 2;
-    if (expInc < 85) secondChanceScore += 1;
+    if (liq > rules.min_liquidity_months * 2) secondChanceScore += 2;
+    if (expInc < rules.max_expense_income_ratio - 5) secondChanceScore += 1;
     if (signals.netFlowTrend === "UP") secondChanceScore += 1;
 
-    // Only apply second chance if the risk is Orange or Red
-    const isSecondChance = (risk === "Orange" || risk === "Red") && secondChanceScore >= 4;
+    // Only apply second chance if the risk is Orange or Red AND feature is enabled
+    const isSecondChance = rules.enable_second_chance && (risk === "Orange" || risk === "Red") && secondChanceScore >= 4;
 
     // Upgrade risk tier if second chance is granted
     if (isSecondChance) {
