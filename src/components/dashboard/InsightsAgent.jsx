@@ -134,12 +134,13 @@ export default function InsightsAgent({ analysis, isLoading }) {
                                 )}
 
                                 {/* Metrics */}
-                                <div className="grid grid-cols-2 gap-2">
-                                    <MetricBox label="יחס הוצאות/הכנסות" value={`${metrics?.expense_to_income_ratio ?? 0}%`} />
-                                    <MetricBox label="נזילות" value={`${metrics?.liquidity_months ?? 0} חודשים`} />
+                                <div className="grid grid-cols-3 gap-2">
+                                    <MetricBox label="DTI (יחס החזר)" value={`${metrics?.dti ?? 0}%`} />
+                                    <MetricBox label="הוצאות/הכנסות" value={`${metrics?.expense_to_income_ratio ?? 0}%`} />
+                                    <MetricBox label="נזילות (חודשים)" value={`${metrics?.liquidity_months ?? 0}`} />
                                 </div>
 
-                                <Section title="תקציר מורחב">
+                                <Section title="תקציר מנהלים">
                                     {narrative}
                                 </Section>
 
