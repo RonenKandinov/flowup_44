@@ -204,6 +204,17 @@ ${JSON.stringify({ income, expenses, signals, trends, currentRisk: risk, isSecon
       if (llm?.narrative) narrative = llm.narrative;
     } catch {}
 
+    try {
+      await base44.asServiceRole.entities.AuditLog.create({
+        action: "AI_INSIGHT_ANALYSIS",
+        user_id: user.email,
+        details: { risk_tier: risk, decision: rec, dti },
+        status: "SUCCESS"
+      });
+    } catch (err) {
+      console.error("Audit log failed:", err);
+    }
+
     return Response.json({
       success: true,
       insights: {
