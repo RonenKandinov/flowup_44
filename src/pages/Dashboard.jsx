@@ -679,30 +679,6 @@ export default function Dashboard() {
           </div>
           
           <div className="flex items-center gap-2">
-            {isAdmin && (
-              <>
-                <Link to="/UnderwritingSettings">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white transition-all h-8 px-3 rounded-md"
-                  >
-                    <Settings className="w-3 h-3 ml-1.5" />
-                    <span className="text-[11px] font-medium">הגדרות חיתום</span>
-                  </Button>
-                </Link>
-                <Link to="/AuditLogs">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white transition-all h-8 px-3 rounded-md"
-                  >
-                    <ShieldAlert className="w-3 h-3 ml-1.5" />
-                    <span className="text-[11px] font-medium">יומן אירועים</span>
-                  </Button>
-                </Link>
-              </>
-            )}
             {originalLoanMetrics?.availableAccounts?.length > 0 && (
               <div className="w-48">
                 <Select value={targetAccountId || originalLoanMetrics.activeTargetAccountId || ''} onValueChange={setTargetAccountId}>
@@ -739,23 +715,53 @@ export default function Dashboard() {
               <Plus className="w-3 h-3 ml-1.5" />
               <span className="text-[11px] font-medium">חבר חשבון בנק</span>
             </Button>
-            {hasData && (
-              <Button
-                onClick={() => {
-                  refetchLoanMetrics();
-                  queryClient.invalidateQueries(['ai-insights-v2']);
-                  toast.success('מרענן נתונים...');
-                }}
-                variant="ghost"
-                size="sm"
-                disabled={isLoanMetricsLoading || isInsightsLoading}
-                className="bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white transition-all h-8 px-3 rounded-md"
-              >
-                <RefreshCw className={`w-3 h-3 ml-1.5 ${(isLoanMetricsLoading || isInsightsLoading) ? 'animate-spin' : ''}`} />
-                <span className="text-[11px] font-medium">רענן נתונים</span>
-              </Button>
+            {(isAdmin || hasData) && (
+              <DropdownMenu dir="rtl">
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white transition-all h-8 px-3 rounded-md"
+                  >
+                    <Settings className="w-3 h-3 ml-1.5" />
+                    <span className="text-[11px] font-medium">הגדרות מערכת</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48 bg-slate-900 border-slate-800 text-slate-200">
+                  {isAdmin && (
+                    <>
+                      <Link to="/UnderwritingSettings">
+                        <DropdownMenuItem className="cursor-pointer hover:bg-slate-800 focus:bg-slate-800 text-xs">
+                          <Settings className="w-3 h-3 ml-2" />
+                          הגדרות חיתום
+                        </DropdownMenuItem>
+                      </Link>
+                      <Link to="/AuditLogs">
+                        <DropdownMenuItem className="cursor-pointer hover:bg-slate-800 focus:bg-slate-800 text-xs">
+                          <ShieldAlert className="w-3 h-3 ml-2" />
+                          יומן אירועים
+                        </DropdownMenuItem>
+                      </Link>
+                    </>
+                  )}
+                  {isAdmin && hasData && <DropdownMenuSeparator className="bg-slate-800" />}
+                  {hasData && (
+                    <DropdownMenuItem 
+                      className="cursor-pointer hover:bg-slate-800 focus:bg-slate-800 text-xs"
+                      disabled={isLoanMetricsLoading || isInsightsLoading}
+                      onClick={() => {
+                        refetchLoanMetrics();
+                        queryClient.invalidateQueries(['ai-insights-v2']);
+                        toast.success('מרענן נתונים...');
+                      }}
+                    >
+                      <RefreshCw className={`w-3 h-3 ml-2 ${(isLoanMetricsLoading || isInsightsLoading) ? 'animate-spin' : ''}`} />
+                      רענן נתונים
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
-
           </div>
         </div>
       </header>
