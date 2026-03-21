@@ -4,6 +4,7 @@ import { Upload, Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, Check
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { generateUnderwritingReport } from '../components/utils/excelReportGenerator';
 import { base44 } from '@/api/base44Client';
 import { appParams } from '@/lib/app-params';
