@@ -15,7 +15,7 @@ Deno.serve(async (req) => {
         if (!action) {
             return Response.json({ error: 'Action is required' }, { status: 400 });
         }
-
+//
         await base44.asServiceRole.entities.AuditLog.create({
             action,
             user_id: user ? user.email : 'system',
