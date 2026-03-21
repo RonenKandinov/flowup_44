@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp, AlertTriangle, BrainCircuit, Activity, FileText, CheckCircle2, XCircle, Zap } from 'lucide-react';
+import ExportDecisionModal from './ExportDecisionModal';
 
 export default function InsightsAgent({ analysis, isLoading }) {
     const [isOpen, setIsOpen] = useState(true);
@@ -217,6 +218,11 @@ export default function InsightsAgent({ analysis, isLoading }) {
                                         </div>
                                     </details>
                                 )}
+
+                                {/* Export Button */}
+                                <div className="pt-2 border-t border-slate-800/60 mt-2 flex justify-end">
+                                    <ExportDecisionModal analysis={analysis} />
+                                </div>
 
                             </div>
                         </motion.div>
