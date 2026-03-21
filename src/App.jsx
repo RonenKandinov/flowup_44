@@ -60,8 +60,6 @@ const AuthenticatedApp = () => {
           }
         />
       ))}
-      <Route path="/AuditLogs" element={<LayoutWrapper currentPageName="AuditLogs"><AuditLogs /></LayoutWrapper>} />
-      <Route path="/UnderwritingSettings" element={<LayoutWrapper currentPageName="UnderwritingSettings"><UnderwritingSettings /></LayoutWrapper>} />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );
