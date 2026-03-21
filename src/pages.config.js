@@ -49,12 +49,16 @@
  */
 import Dashboard from './pages/Dashboard';
 import Home from './pages/Home';
+import AuditLogs from './pages/AuditLogs';
+import UnderwritingSettings from './pages/UnderwritingSettings';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
     "Dashboard": Dashboard,
     "Home": Home,
+    "AuditLogs": AuditLogs,
+    "UnderwritingSettings": UnderwritingSettings,
 }
 
 export const pagesConfig = {
