@@ -36,7 +36,8 @@ Deno.serve(withValidation(schema, async (req, body) => {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me().catch(() => null);
-    if (!user) return Response.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    // Allow anonymous access for public apps
+    // if (!user) return Response.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
     const m = body?.metrics;
     if (!m) return Response.json({ success: false, error: "metrics required" });
@@ -263,7 +264,7 @@ ${JSON.stringify({ income, expenses, signals, trends, currentRisk: risk, isSecon
     try {
       await base44.asServiceRole.entities.AuditLog.create({
         action: "AI_INSIGHT_ANALYSIS",
-        user_id: user.email,
+        user_id: user ? user.email : 'anonymous',
         details: { risk_tier: risk, decision: rec, dti },
         status: "SUCCESS"
       });
