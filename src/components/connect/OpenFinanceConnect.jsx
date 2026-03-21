@@ -248,6 +248,7 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
           </div>
           <h2 className="text-xl font-bold text-white mb-2">הניתוח הושלם</h2>
           <p className="text-slate-400 text-sm">מעביר אותך לדאשבורד...</p>
+          console.log("FORCE DEPLOY");
         </motion.div>
       )}
     </div>
