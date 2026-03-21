@@ -26,7 +26,7 @@ export default function LiquidAssetsCard({ cash, etf, trainingFund }) {
                             </TooltipTrigger>
                             <TooltipContent>
                                 <p className="text-xs">מבוסס על היסטוריית 12 חודשים אחרונים</p>
-                                <h1 style="color:red">VERSION TEST</h1>
+                                <h1 style={{ color: 'red' }}>VERSION TEST</h1>
                             </TooltipContent>
                         </Tooltip>
                     </TooltipProvider>
