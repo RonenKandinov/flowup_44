@@ -715,7 +715,6 @@ export default function Dashboard() {
               <Plus className="w-3 h-3 ml-1.5" />
               <span className="text-[11px] font-medium">חבר חשבון בנק</span>
             </Button>
-            {(isAdmin || hasData) && (
               <DropdownMenu dir="rtl">
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -728,23 +727,19 @@ export default function Dashboard() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48 bg-slate-900 border-slate-800 text-slate-200">
-                  {isAdmin && (
-                    <>
-                      <DropdownMenuItem asChild className="cursor-pointer hover:bg-slate-800 focus:bg-slate-800 text-xs">
-                        <Link to="/UnderwritingSettings" className="flex items-center w-full">
-                          <Settings className="w-3 h-3 ml-2" />
-                          הגדרות חיתום
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild className="cursor-pointer hover:bg-slate-800 focus:bg-slate-800 text-xs">
-                        <Link to="/AuditLogs" className="flex items-center w-full">
-                          <ShieldAlert className="w-3 h-3 ml-2" />
-                          יומן אירועים
-                        </Link>
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                  {isAdmin && hasData && <DropdownMenuSeparator className="bg-slate-800" />}
+                  <DropdownMenuItem asChild className="cursor-pointer hover:bg-slate-800 focus:bg-slate-800 text-xs">
+                    <Link to="/UnderwritingSettings" className="flex items-center w-full">
+                      <Settings className="w-3 h-3 ml-2" />
+                      הגדרות חיתום
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="cursor-pointer hover:bg-slate-800 focus:bg-slate-800 text-xs">
+                    <Link to="/AuditLogs" className="flex items-center w-full">
+                      <ShieldAlert className="w-3 h-3 ml-2" />
+                      יומן אירועים
+                    </Link>
+                  </DropdownMenuItem>
+                  {hasData && <DropdownMenuSeparator className="bg-slate-800" />}
                   {hasData && (
                     <DropdownMenuItem 
                       className="cursor-pointer hover:bg-slate-800 focus:bg-slate-800 text-xs"
@@ -761,7 +756,6 @@ export default function Dashboard() {
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
-            )}
           </div>
         </div>
       </header>
