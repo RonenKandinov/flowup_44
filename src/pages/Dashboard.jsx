@@ -730,18 +730,18 @@ export default function Dashboard() {
                 <DropdownMenuContent align="end" className="w-48 bg-slate-900 border-slate-800 text-slate-200">
                   {isAdmin && (
                     <>
-                      <Link to="/UnderwritingSettings">
-                        <DropdownMenuItem className="cursor-pointer hover:bg-slate-800 focus:bg-slate-800 text-xs">
+                      <DropdownMenuItem asChild className="cursor-pointer hover:bg-slate-800 focus:bg-slate-800 text-xs">
+                        <Link to="/UnderwritingSettings" className="flex items-center w-full">
                           <Settings className="w-3 h-3 ml-2" />
                           הגדרות חיתום
-                        </DropdownMenuItem>
-                      </Link>
-                      <Link to="/AuditLogs">
-                        <DropdownMenuItem className="cursor-pointer hover:bg-slate-800 focus:bg-slate-800 text-xs">
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild className="cursor-pointer hover:bg-slate-800 focus:bg-slate-800 text-xs">
+                        <Link to="/AuditLogs" className="flex items-center w-full">
                           <ShieldAlert className="w-3 h-3 ml-2" />
                           יומן אירועים
-                        </DropdownMenuItem>
-                      </Link>
+                        </Link>
+                      </DropdownMenuItem>
                     </>
                   )}
                   {isAdmin && hasData && <DropdownMenuSeparator className="bg-slate-800" />}
