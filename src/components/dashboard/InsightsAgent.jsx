@@ -194,6 +194,21 @@ export default function InsightsAgent({ analysis, isLoading }) {
                                     )}
                                 </div>
 
+                                {/* How to approve */}
+                                {what_to_improve?.length > 0 && recommendation.decision !== 'APPROVE' && (
+                                    <div className="bg-indigo-900/10 border border-indigo-500/20 rounded-lg p-3">
+                                        <p className="text-[10px] text-indigo-400/80 uppercase font-bold mb-2">תנאים לאישור (איך כן לאשר)</p>
+                                        <ul className="space-y-1">
+                                            {what_to_improve.map((item, i) => (
+                                                <li key={i} className="text-xs text-indigo-200/90 flex items-center gap-1.5">
+                                                    <CheckCircle2 className="w-3 h-3 text-indigo-400 shrink-0" />
+                                                    <span className="leading-tight">{item}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+
                                 {/* Options */}
                                 {options && options.length > 0 && (
                                     <details className="group bg-slate-800/30 rounded-lg border border-slate-700/50">
