@@ -687,9 +687,54 @@ ${JSON.stringify(limitedExpenses)}
         }
         // --------------------------------
 
+        // Fetch custom underwriting rules
+        let rules = {
+            max_dti_approve: 35,
+            max_dti_review: 45,
+            min_liquidity_months: 1,
+            max_expense_income_ratio: 90,
+            min_income: 8000,
+            enable_second_chance: true
+        };
+        try {
+            const savedRules = await base44.asServiceRole.entities.UnderwritingRule.list();
+            if (savedRules && savedRules.length > 0) {
+                rules = { ...rules, ...savedRules[0] };
+            }
+        } catch (e) {
+            console.warn("Could not fetch custom rules, using defaults", e);
+        }
+
         let riskStatus = "ORANGE";
         if (finalScore >= 80) riskStatus = "GREEN";
         else if (finalScore < 55) riskStatus = "RED";
+
+        // Apply Underwriting Rules overrides
+        const expIncRatio = avgIncome > 0 ? (avgExpenses / avgIncome * 100) : 100;
+        let isRejected = false;
+        let isReview = false;
+        let forceRedReason = null;
+
+        if (dtiPerc > rules.max_dti_review) {
+            isRejected = true;
+            forceRedReason = `DTI (${Math.round(dtiPerc)}%) מעל המקסימום המותר (${rules.max_dti_review}%)`;
+        }
+        if (avgIncome < rules.min_income) {
+            isRejected = true;
+            forceRedReason = `הכנסה (₪${Math.round(avgIncome)}) נמוכה מהמינימום הנדרש (₪${rules.min_income})`;
+        }
+        
+        if (dtiPerc > rules.max_dti_approve && dtiPerc <= rules.max_dti_review) isReview = true;
+        if (expIncRatio > rules.max_expense_income_ratio) isReview = true;
+        if (runwayMonths < rules.min_liquidity_months) isReview = true;
+
+        if (isRejected) {
+            riskStatus = "RED";
+            finalScore = Math.min(finalScore, 45); // Cap score for rejected
+        } else if (isReview && riskStatus === "GREEN") {
+            riskStatus = "ORANGE";
+            finalScore = Math.min(finalScore, 79); // Cap score for review
+        }
 
         return Response.json({
             success: true,
