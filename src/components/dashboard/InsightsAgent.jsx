@@ -236,11 +236,16 @@ export default function InsightsAgent({ analysis, isLoading }) {
 
 /* ---------- Small UI Helpers ---------- */
 
-function MetricBox({ label, value, color = "text-white" }) {
+function MetricBox({ label, value, color = "text-white", tooltip }) {
     return (
-        <div className="bg-slate-800/40 p-2.5 rounded-lg border border-slate-700/50">
-            <p className="text-[10px] text-slate-500 mb-0.5">{label}</p>
+        <div className="bg-slate-800/40 p-2.5 rounded-lg border border-slate-700/50 group relative">
+            <p className="text-[10px] text-slate-500 mb-0.5 border-b border-dashed border-slate-600/50 inline-block cursor-help">{label}</p>
             <p className={`text-sm font-mono ${color}`}>{value}</p>
+            {tooltip && (
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-800 text-xs text-slate-300 rounded shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 text-center pointer-events-none border border-slate-700">
+                    {tooltip}
+                </div>
+            )}
         </div>
     );
 }
