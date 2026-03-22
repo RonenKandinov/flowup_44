@@ -773,7 +773,8 @@ ${JSON.stringify(limitedExpenses)}
                 score: finalScore,
                 dti: Math.round(dtiPerc),
                 runway: parseFloat(runwayMonths.toFixed(1)),
-                trends: trends
+                trends: trends,
+                forceRedReason: forceRedReason
             },
             availableAccounts,
             activeTargetAccountId,
