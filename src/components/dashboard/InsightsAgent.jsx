@@ -136,9 +136,9 @@ export default function InsightsAgent({ analysis, isLoading }) {
 
                                 {/* Metrics */}
                                 <div className="grid grid-cols-3 gap-2">
-                                    <MetricBox label="DTI (יחס החזר)" value={`${metrics?.dti ?? 0}%`} />
-                                    <MetricBox label="הוצאות/הכנסות" value={`${metrics?.expense_to_income_ratio ?? 0}%`} />
-                                    <MetricBox label="נזילות (חודשים)" value={`${metrics?.liquidity_months ?? 0}`} />
+                                    <MetricBox label="DTI (יחס החזר)" value={`${metrics?.dti ?? 0}%`} tooltip="אחוז ההכנסה הפנויה שמופנה להחזר חובות. יחס נמוך הוא טוב יותר." />
+                                    <MetricBox label="הוצאות/הכנסות" value={`${metrics?.expense_to_income_ratio ?? 0}%`} tooltip="אחוז ההוצאות מתוך ההכנסות. מעל 100% מעיד על גירעון." />
+                                    <MetricBox label="נזילות (חודשים)" value={`${metrics?.liquidity_months ?? 0}`} tooltip="מספר החודשים שהלקוח יכול לשרוד ללא הכנסה, בהתבסס על נכסים נזילים." />
                                 </div>
 
                                 <Section title="תקציר מנהלים">
