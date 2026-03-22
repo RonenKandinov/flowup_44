@@ -117,10 +117,6 @@ export default function InsightsAgent({ analysis, isLoading }) {
                                             </p>
                                         </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-[10px] text-slate-400 uppercase">רמת ביטחון</p>
-                                        <p className="text-xs font-mono text-slate-300">{recommendation.confidence}</p>
-                                    </div>
                                 </div>
 
                                 {/* Second Chance Banner */}
