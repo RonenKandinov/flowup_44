@@ -68,7 +68,7 @@ export default function InsightsAgent({ analysis, isLoading }) {
                             <BrainCircuit className="w-5 h-5 text-indigo-400 relative z-10" />
                         </div>
                         <span className="text-sm font-semibold text-slate-200">
-                            אנליסט אשראי AI
+                            FlowUp AI Analyst
                         </span>
                     </div>
 
@@ -136,9 +136,9 @@ export default function InsightsAgent({ analysis, isLoading }) {
 
                                 {/* Metrics */}
                                 <div className="grid grid-cols-3 gap-2">
-                                    <MetricBox label="DTI (יחס החזר)" value={`${metrics?.dti ?? 0}%`} tooltip="אחוז ההכנסה הפנויה שמופנה להחזר חובות. יחס נמוך הוא טוב יותר." />
-                                    <MetricBox label="הוצאות/הכנסות" value={`${metrics?.expense_to_income_ratio ?? 0}%`} tooltip="אחוז ההוצאות מתוך ההכנסות. מעל 100% מעיד על גירעון." />
-                                    <MetricBox label="נזילות (חודשים)" value={`${metrics?.liquidity_months ?? 0}`} tooltip="מספר החודשים שהלקוח יכול לשרוד ללא הכנסה, בהתבסס על נכסים נזילים." />
+                                    <MetricBox label="DTI (יחס החזר)" value={`${metrics?.dti ?? 0}%`} />
+                                    <MetricBox label="הוצאות/הכנסות" value={`${metrics?.expense_to_income_ratio ?? 0}%`} />
+                                    <MetricBox label="נזילות (חודשים)" value={`${metrics?.liquidity_months ?? 0}`} />
                                 </div>
 
                                 <Section title="תקציר מנהלים">
@@ -194,21 +194,6 @@ export default function InsightsAgent({ analysis, isLoading }) {
                                     )}
                                 </div>
 
-                                {/* How to approve */}
-                                {what_to_improve?.length > 0 && recommendation.decision !== 'APPROVE' && (
-                                    <div className="bg-indigo-900/10 border border-indigo-500/20 rounded-lg p-3">
-                                        <p className="text-[10px] text-indigo-400/80 uppercase font-bold mb-2">תנאים לאישור (איך כן לאשר)</p>
-                                        <ul className="space-y-1">
-                                            {what_to_improve.map((item, i) => (
-                                                <li key={i} className="text-xs text-indigo-200/90 flex items-center gap-1.5">
-                                                    <CheckCircle2 className="w-3 h-3 text-indigo-400 shrink-0" />
-                                                    <span className="leading-tight">{item}</span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                )}
-
                                 {/* Options */}
                                 {options && options.length > 0 && (
                                     <details className="group bg-slate-800/30 rounded-lg border border-slate-700/50">
@@ -251,16 +236,11 @@ export default function InsightsAgent({ analysis, isLoading }) {
 
 /* ---------- Small UI Helpers ---------- */
 
-function MetricBox({ label, value, color = "text-white", tooltip }) {
+function MetricBox({ label, value, color = "text-white" }) {
     return (
-        <div className="bg-slate-800/40 p-2.5 rounded-lg border border-slate-700/50 group relative">
-            <p className="text-[10px] text-slate-500 mb-0.5 border-b border-dashed border-slate-600/50 inline-block cursor-help">{label}</p>
+        <div className="bg-slate-800/40 p-2.5 rounded-lg border border-slate-700/50">
+            <p className="text-[10px] text-slate-500 mb-0.5">{label}</p>
             <p className={`text-sm font-mono ${color}`}>{value}</p>
-            {tooltip && (
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-800 text-xs text-slate-300 rounded shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 text-center pointer-events-none border border-slate-700">
-                    {tooltip}
-                </div>
-            )}
         </div>
     );
 }
