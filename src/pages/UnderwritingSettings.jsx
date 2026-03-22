@@ -46,6 +46,15 @@ export default function UnderwritingSettings() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries(['underwritingRules']);
+            queryClient.invalidateQueries(['ai-insights-v2']);
+            
+            // Clear loan metrics cache so Dashboard refetches with new rules
+            Object.keys(sessionStorage).forEach(key => {
+                if (key.startsWith('loanMetricsCacheV3_')) {
+                    sessionStorage.removeItem(key);
+                }
+            });
+
             toast.success('מדיניות החיתום עודכנה בהצלחה');
         },
         onError: (err) => {
