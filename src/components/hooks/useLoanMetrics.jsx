@@ -61,7 +61,7 @@ export const useLoanMetrics = (userId, targetAccountId = null) => {
                     confidence: report.decision?.confidence || "Standard",
                     recommendation: report.decision?.recommendation || "N/A",
                     stressTestPassed: report.stressTest?.passedCount ?? 0,
-                    forceRedReason: report.decision?.forceRedReason,
+                    forceRedReason: report.decision?.forceRedReason || metrics.forceRedReason,
                     narrative: report.narrative || null,
                     
                     // Trends from Backend
