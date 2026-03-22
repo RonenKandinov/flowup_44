@@ -68,7 +68,7 @@ export default function InsightsAgent({ analysis, isLoading }) {
                             <BrainCircuit className="w-5 h-5 text-indigo-400 relative z-10" />
                         </div>
                         <span className="text-sm font-semibold text-slate-200">
-                            FlowUp AI Analyst
+                            אנליסט אשראי AI
                         </span>
                     </div>
 
