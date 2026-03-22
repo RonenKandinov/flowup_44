@@ -160,35 +160,20 @@ export default function InsightsAgent({ analysis, isLoading }) {
                                     </div>
                                 )}
 
-                                {/* Strengths & Risks */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    {strengths?.length > 0 && (
-                                        <div className="bg-emerald-900/10 border border-emerald-500/20 rounded-lg p-3">
-                                            <p className="text-[10px] text-emerald-400/80 uppercase font-bold mb-2">נקודות חוזק</p>
-                                            <ul className="space-y-1">
-                                                {strengths.map((s, i) => (
-                                                    <li key={i} className="text-xs text-emerald-200/90 flex items-center gap-1.5">
-                                                        <div className="w-1 h-1 rounded-full bg-emerald-400" />
-                                                        {s}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    )}
-                                    {key_risks?.length > 0 && (
-                                        <div className="bg-red-900/10 border border-red-500/20 rounded-lg p-3">
-                                            <p className="text-[10px] text-red-400/80 uppercase font-bold mb-2">סיכונים מרכזיים</p>
-                                            <ul className="space-y-1">
-                                                {key_risks.map((r, i) => (
-                                                    <li key={i} className="text-xs text-red-200/90 flex items-center gap-1.5">
-                                                        <div className="w-1 h-1 rounded-full bg-red-400" />
-                                                        {r}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    )}
-                                </div>
+                                {/* Strengths */}
+                                {strengths?.length > 0 && (
+                                    <div className="bg-emerald-900/10 border border-emerald-500/20 rounded-lg p-3">
+                                        <p className="text-[10px] text-emerald-400/80 uppercase font-bold mb-2">נקודות חוזק</p>
+                                        <ul className="space-y-1">
+                                            {strengths.map((s, i) => (
+                                                <li key={i} className="text-xs text-emerald-200/90 flex items-center gap-1.5">
+                                                    <div className="w-1 h-1 rounded-full bg-emerald-400" />
+                                                    {s}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
 
                                 {/* Options */}
                                 {options && options.length > 0 && (
