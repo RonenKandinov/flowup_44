@@ -21,11 +21,6 @@ export default function WhatIfSimulator({ onSimulate, baseMetrics }) {
   const [loanAmount, setLoanAmount] = useState('');
   const [annualRate, setAnnualRate] = useState('');
   const [termMonths, setTermMonths] = useState('');
-  
-  // Stress Test Params
-  const [incomeReduction, setIncomeReduction] = useState(0);
-  const [expenseIncrease, setExpenseIncrease] = useState(0);
-  const [assetReduction, setAssetReduction] = useState(0);
 
   useEffect(() => {
     const checkScreen = () => {
@@ -74,13 +69,7 @@ export default function WhatIfSimulator({ onSimulate, baseMetrics }) {
       const rate = Number(annualRate);
       const term = Number(termMonths);
 
-      if (activeTab === 'stress_test') {
-          debouncedSimulate('stress_test', { 
-              incomeReduction, 
-              expenseIncrease, 
-              assetReduction 
-          });
-      } else if (amount > 0 && rate > 0) {
+      if (amount > 0 && rate > 0) {
           if (activeTab === 'balloon_loan') {
               debouncedSimulate('balloon_loan', { loanAmount: amount, annualRate: rate, termMonths: term });
           } else if (term > 0) {
@@ -93,15 +82,12 @@ export default function WhatIfSimulator({ onSimulate, baseMetrics }) {
           setSimulationResult(null);
           if (onSimulate) onSimulate(null);
       }
-  }, [activeTab, loanAmount, annualRate, termMonths, baseMetrics, incomeReduction, expenseIncrease, assetReduction]);
+  }, [activeTab, loanAmount, annualRate, termMonths, baseMetrics]);
 
   const handleReset = () => {
     setLoanAmount('');
     setAnnualRate('');
     setTermMonths('');
-    setIncomeReduction(0);
-    setExpenseIncrease(0);
-    setAssetReduction(0);
     setSimulationResult(null);
     if (onSimulate) onSimulate(null);
   };
@@ -169,7 +155,6 @@ export default function WhatIfSimulator({ onSimulate, baseMetrics }) {
                   <TabsTrigger value="standard_loan" className="text-[10px] py-2 whitespace-normal leading-tight">רגיל</TabsTrigger>
                   <TabsTrigger value="extended_loan" className="text-[10px] py-2 whitespace-normal leading-tight">פריסה ארוכה</TabsTrigger>
                   <TabsTrigger value="balloon_loan" className="text-[10px] py-2 whitespace-normal leading-tight">בלון</TabsTrigger>
-                  <TabsTrigger value="stress_test" className="text-[10px] py-2 whitespace-normal leading-tight text-red-400">מבחן לחץ</TabsTrigger>
                 </TabsList>
 
                 {/* Standard Loan */}
@@ -207,57 +192,6 @@ export default function WhatIfSimulator({ onSimulate, baseMetrics }) {
                   <div>
                     <Label className="text-slate-400 text-xs mb-1.5 block">תקופה בחודשים (60-84)</Label>
                     <Input type="number" placeholder="חודשים" value={termMonths} onChange={(e) => setTermMonths(e.target.value)} className="bg-slate-900/50 border-slate-700 text-white focus:border-indigo-500 h-9" dir="ltr" />
-                  </div>
-                </TabsContent>
-
-                {/* Stress Test */}
-                <TabsContent value="stress_test" className="space-y-4 mt-4">
-                  <div className="text-[11px] text-red-400 mb-2 border-r-2 border-red-500 pr-2">
-                      הדמיית משבר: בדיקת עמידות התיק בתרחישי קיצון (ירידה בהכנסות, עלייה בהוצאות).
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <div>
-                        <div className="flex justify-between mb-1.5">
-                            <Label className="text-slate-400 text-xs">ירידה בהכנסות (%)</Label>
-                            <span className="text-xs text-red-400 font-mono">-{incomeReduction}%</span>
-                        </div>
-                        <Slider 
-                            value={[incomeReduction]} 
-                            onValueChange={(val) => setIncomeReduction(val[0])} 
-                            max={50} 
-                            step={5}
-                            className="py-2"
-                        />
-                    </div>
-
-                    <div>
-                        <div className="flex justify-between mb-1.5">
-                            <Label className="text-slate-400 text-xs">עלייה בהוצאות (%)</Label>
-                            <span className="text-xs text-red-400 font-mono">+{expenseIncrease}%</span>
-                        </div>
-                        <Slider 
-                            value={[expenseIncrease]} 
-                            onValueChange={(val) => setExpenseIncrease(val[0])} 
-                            max={50} 
-                            step={5}
-                            className="py-2"
-                        />
-                    </div>
-
-                    <div>
-                        <div className="flex justify-between mb-1.5">
-                            <Label className="text-slate-400 text-xs">שחיקת נכסים נזילים (%)</Label>
-                            <span className="text-xs text-red-400 font-mono">-{assetReduction}%</span>
-                        </div>
-                        <Slider 
-                            value={[assetReduction]} 
-                            onValueChange={(val) => setAssetReduction(val[0])} 
-                            max={100} 
-                            step={10}
-                            className="py-2"
-                        />
-                    </div>
                   </div>
                 </TabsContent>
 
