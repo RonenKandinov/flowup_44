@@ -160,19 +160,27 @@ Deno.serve(withValidation(schema, async (req, body) => {
       if (dti > rules.max_dti_approve) fixes.push(`הפחתת יחס חוב להכנסה מתחת ל־${rules.max_dti_approve}%`);
     }
 
-    // ===== Second Chance =====
+    // ===== Second Chance (False Negative Detection) =====
     let secondChanceScore = 0;
-    if (behavior === "IMPROVING") secondChanceScore += 2;
-    if (liq > rules.min_liquidity_months * 2) secondChanceScore += 2;
-    if (expInc < rules.max_expense_income_ratio - 5) secondChanceScore += 1;
-    if (signals.netFlowTrend === "UP") secondChanceScore += 1;
+    // Nuanced scoring for better False Negative detection
+    if (behavior === "IMPROVING") secondChanceScore += 3; // Higher weight for consistent behavior improvement
+    if (liq > rules.min_liquidity_months * 3) secondChanceScore += 3; // Exceptional liquidity
+    else if (liq > rules.min_liquidity_months * 1.5) secondChanceScore += 1.5;
+    if (expInc < rules.max_expense_income_ratio - 15) secondChanceScore += 2; // Strong expense control
+    else if (expInc < rules.max_expense_income_ratio - 5) secondChanceScore += 1;
+    if (signals.netFlowTrend === "UP") secondChanceScore += 1.5;
+    if (trends.income > 5) secondChanceScore += 2; // Significant income growth
+
+    // Dynamic threshold based on initial risk
+    let requiredScoreForSecondChance = 4;
+    if (risk === "Red") requiredScoreForSecondChance = 6; // Harder to rescue from Red
 
     // Only apply second chance if the risk is Orange or Red AND feature is enabled
-    const isSecondChance = rules.enable_second_chance && (risk === "Orange" || risk === "Red") && secondChanceScore >= 4;
+    const isSecondChance = rules.enable_second_chance && (risk === "Orange" || risk === "Red") && secondChanceScore >= requiredScoreForSecondChance;
 
     // Upgrade risk tier if second chance is granted
     if (isSecondChance) {
-        policy_explanations.push(`הזדמנות שנייה: הופעל מנגנון אישור חריג עקב מגמת שיפור בהתנהלות (ציון: ${secondChanceScore}).`);
+        policy_explanations.push(`זיהוי פוטנציאל (False Negative): הופעל מנגנון אישור חריג עקב אינדיקטורים חיוביים חזקים (ציון: ${secondChanceScore}).`);
         if (risk === "Red") risk = "Orange";
         else if (risk === "Orange") risk = "Green";
     }
@@ -244,12 +252,14 @@ Deno.serve(withValidation(schema, async (req, body) => {
 דבר תכלס: מה המצב, מה הבעיה/החוזקה העיקרית, ומה ההחלטה. אל תשתמש במילים גבוהות או ב"סיפורים".
 
 נתונים:
-${JSON.stringify({ income, expenses, signals, trends, currentRisk: risk, isSecondChance, dti, liq, expInc })}
+${JSON.stringify({ income, expenses, signals, trends, currentRisk: risk, isSecondChance, dti, liq, expInc, secondChanceScore })}
 
 דוגמה רצויה: "הלקוח מוציא יותר ממה שהוא מכניס, עם יחס החזר (DTI) מסוכן של X%. אין לו מספיק נזילות כדי לספוג זעזועים. ההמלצה היא לדחות את הבקשה."
 או: "לקוח יציב עם הכנסות קבועות ויחס החזר תקין של X%. יש לו כרית ביטחון טובה. מומלץ לאשר."
 
-אם יש הזדמנות שנייה (isSecondChance=true), ציין בקצרה שיש מגמת שיפור שמצדיקה בחינה מחדש.
+הנחיות מיוחדות לאזור האפור (False Negatives):
+- אם הלקוח סווג כ"Orange" (בחינה) או שהופעלה "הזדמנות שנייה" (isSecondChance=true), חובה להדגיש את נקודות האור (למשל: שיפור בהכנסות, שליטה בהוצאות, מגמה חיובית).
+- ציין במפורש אם נראה שמדובר בלקוח טוב שעלול להידחות בטעות (False Negative) בגלל פרמטר יבש אחד, אך מציג התנהגות פיננסית מפצה.
 `;
 
     let narrative = "מצב פיננסי יציב.";
