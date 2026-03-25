@@ -32,9 +32,7 @@ const whatIfSchema = z.object({
     params: z.object({
         loanAmount: z.union([z.number(), z.string()]).optional(),
         annualRate: z.union([z.number(), z.string()]).optional(),
-        termMonths: z.union([z.number(), z.string()]).optional(),
-        incomeReduction: z.union([z.number(), z.string()]).optional(),
-        expenseIncrease: z.union([z.number(), z.string()]).optional()
+        termMonths: z.union([z.number(), z.string()]).optional()
     }).passthrough().optional()
 }).passthrough();
 
@@ -168,31 +166,6 @@ Deno.serve(withValidation(whatIfSchema, async (req) => {
                     ? (simulatedMetrics.liquidAssets / simulatedMetrics.totalExpenses) 
                     : 12;
                 message = `APPROVED (Smart Logic): ההחזר החודשי הוא ₪${Math.round(simulatedPayment)} בלבד, מבוסס על הון קיים.`;
-            }
-        } else if (scenario === 'stress_test') {
-            const incRed = Number(params?.incomeReduction || 0);
-            const expInc = Number(params?.expenseIncrease || 0);
-            
-            const incomeMultiplier = 1 - (incRed / 100);
-            const expenseMultiplier = 1 + (expInc / 100);
-            
-            simulatedMetrics.totalIncome = simulatedMetrics.totalIncome * incomeMultiplier;
-            simulatedMetrics.totalExpenses = simulatedMetrics.totalExpenses * expenseMultiplier;
-            simulatedMetrics.fixedExpenses = simulatedMetrics.fixedExpenses * expenseMultiplier;
-            
-            simulatedMetrics.netCashFlow = simulatedMetrics.totalIncome - simulatedMetrics.totalExpenses;
-            simulatedMetrics.runway = simulatedMetrics.totalExpenses > 0 
-                ? (simulatedMetrics.liquidAssets / simulatedMetrics.totalExpenses) 
-                : 12;
-                
-            if (simulatedMetrics.netCashFlow < 0) {
-                if (simulatedMetrics.runway >= 6) {
-                    message = `במבחן הלחץ נוצר גירעון תזרימי (₪${Math.abs(Math.round(simulatedMetrics.netCashFlow))}-), אך קיים באפר נזילות של ${simulatedMetrics.runway.toFixed(1)} חודשים.`;
-                } else {
-                    message = `סכנה: מבחן הלחץ מכניס לסיכון תזרימי חמור. חסר ₪${Math.abs(Math.round(simulatedMetrics.netCashFlow))} בחודש, ובאפר הנזילות נמוך (${simulatedMetrics.runway.toFixed(1)} חודשים).`;
-                }
-            } else {
-                message = `עובר: הלקוח עמיד במבחן הלחץ ונשאר עם תזרים חיובי של ₪${Math.round(simulatedMetrics.netCashFlow)}.`;
             }
         }
 

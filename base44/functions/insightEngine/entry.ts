@@ -239,45 +239,17 @@ Deno.serve(withValidation(schema, async (req, body) => {
 
     // ===== Narrative =====
     const prompt = `
-You are a senior credit risk manager.
+אתה מנהל מחלקת סיכונים בחברת מימון. כתוב תקציר מנהלים לאנליסט שלך.
+התקציר חייב להיות קצר, פרקטי וברור (מקסימום 2-3 משפטים קצרים).
+דבר תכלס: מה המצב, מה הבעיה/החוזקה העיקרית, ומה ההחלטה. אל תשתמש במילים גבוהות או ב"סיפורים".
 
-You are reviewing a loan applicant that was already rejected by an existing underwriting system.
-
-Your job:
-1. Evaluate if this rejection is justified or too conservative
-2. If there is ANY reasonable way to approve the client — suggest how to structure the loan safely
-
-Focus on:
-- Income vs expenses (cash flow reality)
-- Liquidity and runway (months the client can survive)
-- Debt burden (DTI)
-- Stability and trends
-
-IMPORTANT:
-You are NOT just explaining the rejection.
-You are trying to find a SAFE way to approve (if possible).
-
-Output format (strict):
-
-Decision:
-- APPROVE / REVIEW / DECLINE
-
-Confidence:
-- LOW / MEDIUM / HIGH
-
-If APPROVE or REVIEW:
-- Suggested loan amount (₪)
-- Suggested interest rate (%)
-- Short reasoning 
-
-If DECLINE:
-- Short explanation
-- Explicitly state that no safe structure was found
-
-Keep it short, sharp, and business-oriented and in hebrew.
-
-Data:
+נתונים:
 ${JSON.stringify({ income, expenses, signals, trends, currentRisk: risk, isSecondChance, dti, liq, expInc })}
+
+דוגמה רצויה: "הלקוח מוציא יותר ממה שהוא מכניס, עם יחס החזר (DTI) מסוכן של X%. אין לו מספיק נזילות כדי לספוג זעזועים. ההמלצה היא לדחות את הבקשה."
+או: "לקוח יציב עם הכנסות קבועות ויחס החזר תקין של X%. יש לו כרית ביטחון טובה. מומלץ לאשר."
+
+אם יש הזדמנות שנייה (isSecondChance=true), ציין בקצרה שיש מגמת שיפור שמצדיקה בחינה מחדש.
 `;
 
     let narrative = "מצב פיננסי יציב.";
