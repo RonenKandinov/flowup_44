@@ -32,7 +32,10 @@ const whatIfSchema = z.object({
     params: z.object({
         loanAmount: z.union([z.number(), z.string()]).optional(),
         annualRate: z.union([z.number(), z.string()]).optional(),
-        termMonths: z.union([z.number(), z.string()]).optional()
+        termMonths: z.union([z.number(), z.string()]).optional(),
+        incomeReduction: z.union([z.number(), z.string()]).optional(),
+        expenseIncrease: z.union([z.number(), z.string()]).optional(),
+        assetReduction: z.union([z.number(), z.string()]).optional()
     }).passthrough().optional()
 }).passthrough();
 
@@ -116,6 +119,11 @@ Deno.serve(withValidation(whatIfSchema, async (req) => {
         const loanAmount = Number(params?.loanAmount || 0);
         const annualRate = Number(params?.annualRate || 0);
         const termMonths = Number(params?.termMonths || 0);
+        
+        // Stress Test Params
+        const incomeReduction = Number(params?.incomeReduction || 0);
+        const expenseIncrease = Number(params?.expenseIncrease || 0);
+        const assetReduction = Number(params?.assetReduction || 0);
 
         function calculateSpitzer(L, annualInterest, n) {
             if (L <= 0 || n <= 0) return 0;
@@ -167,6 +175,32 @@ Deno.serve(withValidation(whatIfSchema, async (req) => {
                     : 12;
                 message = `APPROVED (Smart Logic): ההחזר החודשי הוא ₪${Math.round(simulatedPayment)} בלבד, מבוסס על הון קיים.`;
             }
+        } else if (scenario === 'stress_test') {
+            // Apply Stress Factors
+            simulatedMetrics.totalIncome = simulatedMetrics.totalIncome * (1 - (incomeReduction / 100));
+            simulatedMetrics.totalExpenses = simulatedMetrics.totalExpenses * (1 + (expenseIncrease / 100));
+            simulatedMetrics.fixedExpenses = simulatedMetrics.fixedExpenses * (1 + (expenseIncrease / 100));
+            simulatedMetrics.liquidAssets = simulatedMetrics.liquidAssets * (1 - (assetReduction / 100));
+            
+            simulatedMetrics.netCashFlow = simulatedMetrics.totalIncome - simulatedMetrics.totalExpenses;
+            simulatedMetrics.runway = simulatedMetrics.totalExpenses > 0 
+                ? (simulatedMetrics.liquidAssets / simulatedMetrics.totalExpenses) 
+                : 12;
+
+            // Recalculate DTI with stressed numbers
+            const stressedDTI = simulatedMetrics.totalIncome > 0 ? (simulatedMetrics.fixedExpenses / simulatedMetrics.totalIncome) * 100 : 100;
+            
+            let violations = [];
+            if (stressedDTI > 45) violations.push(`DTI חורג (${stressedDTI.toFixed(1)}%)`);
+            if (simulatedMetrics.netCashFlow < 0) violations.push(`תזרים שלילי (₪${Math.round(simulatedMetrics.netCashFlow)})`);
+            if (simulatedMetrics.runway < 3) violations.push(`נזילות נמוכה (${simulatedMetrics.runway.toFixed(1)} חודשים)`);
+
+            if (violations.length > 0) {
+                message = `נכשל במבחן לחץ: ${violations.join(', ')}.`;
+                isBlocked = true; 
+            } else {
+                message = `עבר בהצלחה: הלקוח עומד בתרחיש הקיצון. DTI: ${stressedDTI.toFixed(1)}%, נזילות: ${simulatedMetrics.runway.toFixed(1)} חודשים.`;
+            }
         }
 
         const { finalScore, riskStatus, dtiPerc } = calculateScore(simulatedMetrics);
@@ -191,14 +225,14 @@ Deno.serve(withValidation(whatIfSchema, async (req) => {
         let finalScoreValue = finalScore;
 
        if (simulatedMetrics.netCashFlow < 0) {
-    if (simulatedMetrics.runway >= 6) {
-        finalRiskStatus = riskStatus === "GREEN" ? "ORANGE" : riskStatus;
-        finalScoreValue = Math.max(0, finalScore - 10);
-    } else {
-        finalRiskStatus = "RED";
-        finalScoreValue = Math.max(0, finalScore - 30);
-    }
-}
+            if (simulatedMetrics.runway >= 6) {
+                finalRiskStatus = riskStatus === "GREEN" ? "ORANGE" : riskStatus;
+                finalScoreValue = Math.max(0, finalScore - 10);
+            } else {
+                finalRiskStatus = "RED";
+                finalScoreValue = Math.max(0, finalScore - 30);
+            }
+        }
         return Response.json({
             success: true,
             status: finalRiskStatus,
