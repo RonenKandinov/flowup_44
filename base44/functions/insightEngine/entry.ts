@@ -247,33 +247,108 @@ Deno.serve(withValidation(schema, async (req, body) => {
 
     // ===== Narrative =====
     const prompt = `
-אתה מנהל מחלקת סיכונים בחברת מימון. כתוב תקציר מנהלים לאנליסט שלך.
-התקציר חייב להיות קצר, פרקטי וברור (מקסימום 2-3 משפטים קצרים).
-דבר תכלס: מה המצב, מה הבעיה/החוזקה העיקרית, ומה ההחלטה. אל תשתמש במילים גבוהות או ב"סיפורים".
+אתה אנליסט אשראי בכיר בגוף פיננסי.
+המטרה שלך היא לא רק לנתח נתונים — אלא להעריך האם החלטת החיתום המקורית הייתה נכונה או שגויה, במיוחד במקרים גבוליים (האזור האפור).
 
-נתונים:
-${JSON.stringify({ income, expenses, signals, trends, currentRisk: risk, isSecondChance, dti, liq, expInc, secondChanceScore })}
+⚠️ עקרונות עבודה:
+- אל תיתן רק תובנות — תן המלצה ברורה לפעולה.
+- אל תסתיר סיכונים — הצג אותם יחד עם גורמים מאזנים.
+- שמור על גישה שמרנית אך חכמה: חריגה ממדיניות מותרת רק אם יש הצדקה ברורה.
+- כתוב בצורה קצרה, חדה ומקצועית — כמו אנליסט אמיתי, לא כמו מודל AI.
 
-דוגמה רצויה: "הלקוח מוציא יותר ממה שהוא מכניס, עם יחס החזר (DTI) מסוכן של X%. אין לו מספיק נזילות כדי לספוג זעזועים. ההמלצה היא לדחות את הבקשה."
-או: "לקוח יציב עם הכנסות קבועות ויחס החזר תקין של X%. יש לו כרית ביטחון טובה. מומלץ לאשר."
+נתוני הלקוח (כולל החלטת מערכת נוכחית והפרות מדיניות):
+${JSON.stringify({ income, expenses, signals, trends, currentRisk: risk, isSecondChance, dti, liq, expInc, secondChanceScore, policy_explanations, fixes, strengths })}
 
-הנחיות מיוחדות לאזור האפור (False Negatives):
-- אם הלקוח סווג כ"Orange" (בחינה) או שהופעלה "הזדמנות שנייה" (isSecondChance=true), חובה להדגיש את נקודות האור (למשל: שיפור בהכנסות, שליטה בהוצאות, מגמה חיובית).
-- ציין במפורש אם נראה שמדובר בלקוח טוב שעלול להידחות בטעות (False Negative) בגלל פרמטר יבש אחד, אך מציג התנהגות פיננסית מפצה.
+🎯 משימה:
+בהתבסס על הנתונים, קבע:
+- האם ההחלטה המקורית (לרוב דחייה) הייתה מוצדקת
+- האם יש אינדיקציה ל־False Negative (לקוח טוב שנדחה בטעות)
+- מה ההחלטה המומלצת עכשיו (APPROVE / REVIEW / DECLINE)
+- אם מאשרים — באילו תנאים
+
+📊 ניתוח נדרש:
+- זהה מגמות: הכנסה, הוצאות, תזרים
+- בדוק עקביות ושיפור לאורך זמן
+- השווה בין סיגנלים חיוביים לבין הפרות מדיניות
+- זהה אם יש “סיבה טכנית” לדחייה שלא משקפת את המצב בפועל
+
+🧠 דגש חשוב (False Negative):
+אם יש סתירה בין המדיניות לבין ההתנהגות בפועל:
+- הסבר למה המדיניות “פספסה”
+- ציין אילו סיגנלים חיוביים לא נלקחו בחשבון
+- הסבר למה ניתן לאשר למרות חריגה
+
+🧾 הנחיות כתיבה:
+- תהיה ישיר — בלי מילים מיותרות
+- אל תכתוב “ייתכן” או “אולי” בלי סיבה
+- אם יש סיכון — תציין אותו ברור
+- אם יש הזדמנות — תסביר למה היא אמיתית ולא מקרית
 `;
 
     let narrative = "מצב פיננסי יציב.";
+    let llmAnalysis = null;
     try {
       const llm = await base44.integrations.Core.InvokeLLM({
         prompt,
         response_json_schema: {
           type: "object",
-          properties: { narrative: { type: "string" } },
-          required: ["narrative"]
+          properties: {
+            decision: { type: "string" },
+            confidence: { type: "number" },
+            is_false_negative: { type: "boolean" },
+            summary: { type: "string" },
+            policy_analysis: {
+              type: "object",
+              properties: {
+                policy_status: { type: "string" },
+                breaches: { type: "array", items: { type: "string" } },
+                why_policy_failed: { type: "string" }
+              }
+            },
+            behavior_analysis: {
+              type: "object",
+              properties: {
+                trend: { type: "string" },
+                key_positive_signals: { type: "array", items: { type: "string" } },
+                key_risks: { type: "array", items: { type: "string" } }
+              }
+            },
+            override_analysis: {
+              type: "object",
+              properties: {
+                override_recommended: { type: "boolean" },
+                reason: { type: "string" },
+                confidence: { type: "number" }
+              }
+            },
+            recommended_terms: {
+              type: "object",
+              properties: {
+                approve: { type: "boolean" },
+                amount: { type: "number" },
+                interest_adjustment: { type: "string" },
+                conditions: { type: "array", items: { type: "string" } }
+              }
+            }
+          },
+          required: ["decision", "summary", "is_false_negative"]
         }
       });
-      if (llm?.narrative) narrative = llm.narrative;
-    } catch {}
+      if (llm) {
+          llmAnalysis = llm;
+          narrative = llm.summary || narrative;
+          if (llm.decision === "APPROVE") rec = "APPROVE";
+          else if (llm.decision === "REVIEW") rec = "REVIEW";
+          else if (llm.decision === "DECLINE") rec = "DECLINE";
+          
+          if (llm.override_analysis?.override_recommended || llm.is_false_negative) {
+              if (risk === "Red") risk = "Orange";
+              else if (risk === "Orange") risk = "Green";
+          }
+      }
+    } catch (e) {
+        console.error("LLM Error:", e);
+    }
 
     try {
       await base44.asServiceRole.entities.AuditLog.create({
@@ -305,6 +380,7 @@ ${JSON.stringify({ income, expenses, signals, trends, currentRisk: risk, isSecon
           score: secondChanceScore,
           reasons: strengths
         },
+        llm_analysis: llmAnalysis,
         analyst_recommendation: {
           recommendation: { decision: rec, confidence: conf },
           options,

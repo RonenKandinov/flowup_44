@@ -48,7 +48,8 @@ export default function InsightsAgent({ analysis, isLoading }) {
         metrics,
         second_chance_analysis,
         analyst_recommendation,
-        behaviorSignals
+        behaviorSignals,
+        llm_analysis
     } = analysis;
 
     const { recommendation, options, key_risks, strengths, what_to_improve, policy_explanations } = analyst_recommendation;
@@ -119,8 +120,22 @@ export default function InsightsAgent({ analysis, isLoading }) {
                                     </div>
                                 </div>
 
+                                {/* False Negative Banner */}
+                                {llm_analysis?.is_false_negative && (
+                                    <div className="bg-fuchsia-900/30 border border-fuchsia-500/30 p-3 rounded-lg flex items-start gap-3">
+                                        <BrainCircuit className="w-5 h-5 text-fuchsia-400 shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-xs font-bold text-fuchsia-300">זיהוי False Negative (שגיאת מדיניות)</p>
+                                            <p className="text-xs text-fuchsia-200/80 mt-1">מערכת ה-AI זיהתה שהלקוח נדחה בגלל "סיבה טכנית", למרות התנהגות פיננסית חיובית המצדיקה אישור.</p>
+                                            {llm_analysis.override_analysis?.reason && (
+                                                <p className="text-xs text-fuchsia-300 mt-2 font-medium bg-fuchsia-950/50 p-2 rounded border-l-2 border-fuchsia-500">"{llm_analysis.override_analysis.reason}"</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Second Chance Banner */}
-                                {second_chance_analysis?.eligible && (
+                                {!llm_analysis?.is_false_negative && second_chance_analysis?.eligible && (
                                     <div className="bg-indigo-900/30 border border-indigo-500/30 p-3 rounded-lg flex items-start gap-3">
                                         <Zap className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
                                         <div>
@@ -140,6 +155,42 @@ export default function InsightsAgent({ analysis, isLoading }) {
                                 <Section title="תקציר מנהלים">
                                     {narrative}
                                 </Section>
+
+                                {/* Behavior Analysis */}
+                                {llm_analysis?.behavior_analysis && (
+                                    <div className="bg-slate-800/30 p-3 rounded-lg border border-slate-700/50">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <p className="text-[10px] text-slate-500 uppercase">ניתוח התנהגות עומק (AI)</p>
+                                            {llm_analysis.behavior_analysis.trend && (
+                                                <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
+                                                    llm_analysis.behavior_analysis.trend === 'IMPROVING' ? 'bg-emerald-500/20 text-emerald-400' :
+                                                    llm_analysis.behavior_analysis.trend === 'DETERIORATING' ? 'bg-red-500/20 text-red-400' :
+                                                    'bg-slate-500/20 text-slate-400'
+                                                }`}>{llm_analysis.behavior_analysis.trend}</span>
+                                            )}
+                                        </div>
+                                        {llm_analysis.behavior_analysis.key_positive_signals?.length > 0 && (
+                                            <div className="mb-2">
+                                                <p className="text-[10px] text-emerald-400/80 mb-1 uppercase font-bold">סיגנלים חיוביים:</p>
+                                                <ul className="space-y-1">
+                                                    {llm_analysis.behavior_analysis.key_positive_signals.map((sig, i) => (
+                                                        <li key={i} className="text-xs text-slate-300 flex items-start gap-1.5"><CheckCircle2 className="w-3 h-3 text-emerald-400 mt-0.5 shrink-0"/>{sig}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                        {llm_analysis.behavior_analysis.key_risks?.length > 0 && (
+                                            <div>
+                                                <p className="text-[10px] text-red-400/80 mb-1 uppercase font-bold">סיכונים לגידור:</p>
+                                                <ul className="space-y-1">
+                                                    {llm_analysis.behavior_analysis.key_risks.map((risk, i) => (
+                                                        <li key={i} className="text-xs text-slate-300 flex items-start gap-1.5"><XCircle className="w-3 h-3 text-red-400 mt-0.5 shrink-0"/>{risk}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
 
                                 {policy_explanations && policy_explanations.length > 0 && (
                                     <div className="bg-slate-800/30 p-3 rounded-lg border border-slate-700/50">
