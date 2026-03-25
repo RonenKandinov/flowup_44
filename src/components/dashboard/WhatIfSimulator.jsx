@@ -21,6 +21,8 @@ export default function WhatIfSimulator({ onSimulate, baseMetrics }) {
   const [loanAmount, setLoanAmount] = useState('');
   const [annualRate, setAnnualRate] = useState('');
   const [termMonths, setTermMonths] = useState('');
+  const [incomeReduction, setIncomeReduction] = useState('');
+  const [expenseIncrease, setExpenseIncrease] = useState('');
 
   useEffect(() => {
     const checkScreen = () => {
@@ -68,8 +70,17 @@ export default function WhatIfSimulator({ onSimulate, baseMetrics }) {
       const amount = Number(loanAmount);
       const rate = Number(annualRate);
       const term = Number(termMonths);
+      const incRed = Number(incomeReduction);
+      const expInc = Number(expenseIncrease);
 
-      if (amount > 0 && rate > 0) {
+      if (activeTab === 'stress_test') {
+          if (incRed > 0 || expInc > 0) {
+              debouncedSimulate('stress_test', { incomeReduction: incRed, expenseIncrease: expInc });
+          } else {
+              setSimulationResult(null);
+              if (onSimulate) onSimulate(null);
+          }
+      } else if (amount > 0 && rate > 0) {
           if (activeTab === 'balloon_loan') {
               debouncedSimulate('balloon_loan', { loanAmount: amount, annualRate: rate, termMonths: term });
           } else if (term > 0) {
@@ -82,12 +93,14 @@ export default function WhatIfSimulator({ onSimulate, baseMetrics }) {
           setSimulationResult(null);
           if (onSimulate) onSimulate(null);
       }
-  }, [activeTab, loanAmount, annualRate, termMonths, baseMetrics]);
+  }, [activeTab, loanAmount, annualRate, termMonths, incomeReduction, expenseIncrease, baseMetrics]);
 
   const handleReset = () => {
     setLoanAmount('');
     setAnnualRate('');
     setTermMonths('');
+    setIncomeReduction('');
+    setExpenseIncrease('');
     setSimulationResult(null);
     if (onSimulate) onSimulate(null);
   };
@@ -151,10 +164,11 @@ export default function WhatIfSimulator({ onSimulate, baseMetrics }) {
           >
             <div className="pt-4 flex-1 flex flex-col">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-3 bg-slate-900/50 h-auto">
+                <TabsList className="grid w-full grid-cols-4 bg-slate-900/50 h-auto">
                   <TabsTrigger value="standard_loan" className="text-[10px] py-2 whitespace-normal leading-tight">רגיל</TabsTrigger>
                   <TabsTrigger value="extended_loan" className="text-[10px] py-2 whitespace-normal leading-tight">פריסה ארוכה</TabsTrigger>
                   <TabsTrigger value="balloon_loan" className="text-[10px] py-2 whitespace-normal leading-tight">בלון</TabsTrigger>
+                  <TabsTrigger value="stress_test" className="text-[10px] py-2 whitespace-normal leading-tight text-red-400">מבחן לחץ</TabsTrigger>
                 </TabsList>
 
                 {/* Standard Loan */}
@@ -211,6 +225,21 @@ export default function WhatIfSimulator({ onSimulate, baseMetrics }) {
                   <div>
                     <Label className="text-slate-400 text-xs mb-1.5 block">תקופה בחודשים (12-36)</Label>
                     <Input type="number" placeholder="חודשים" value={termMonths} onChange={(e) => setTermMonths(e.target.value)} className="bg-slate-900/50 border-slate-700 text-white focus:border-indigo-500 h-9" dir="ltr" />
+                  </div>
+                </TabsContent>
+
+                {/* Stress Test */}
+                <TabsContent value="stress_test" className="space-y-3 mt-4">
+                  <div className="text-[11px] text-slate-400 mb-2 border-r-2 border-red-500 pr-2">
+                      בדיקת עמידות הלקוח בתרחישי קיצון של ירידה בהכנסות או עלייה בהוצאות.
+                  </div>
+                  <div>
+                    <Label className="text-slate-400 text-xs mb-1.5 block">ירידה בהכנסות (%)</Label>
+                    <Input type="number" placeholder="%" value={incomeReduction} onChange={(e) => setIncomeReduction(e.target.value)} className="bg-slate-900/50 border-slate-700 text-white focus:border-red-500 h-9" dir="ltr" />
+                  </div>
+                  <div>
+                    <Label className="text-slate-400 text-xs mb-1.5 block">עלייה בהוצאות (%)</Label>
+                    <Input type="number" placeholder="%" value={expenseIncrease} onChange={(e) => setExpenseIncrease(e.target.value)} className="bg-slate-900/50 border-slate-700 text-white focus:border-red-500 h-9" dir="ltr" />
                   </div>
                 </TabsContent>
               </Tabs>
