@@ -50,45 +50,22 @@ export default function B2BConnect() {
         throw new Error('פג תוקף החיבור. אנא נסה שוב.');
       }
 
-      // 1. Wait for connection to be ACTIVE
-      let connectionStatus = 'INACTIVE';
-      let attempts = 0;
-      while (!['ACTIVE', 'COMPLETED', 'CONNECTED'].includes(connectionStatus) && attempts < 20) {
-        await new Promise(r => setTimeout(r, 3000));
-        const { data: statusData } = await base44.functions.invoke('openFinanceAuth', {
-          action: 'check_status',
-          connectionId,
-          psuId
-        });
-        connectionStatus = statusData?.status || 'UNKNOWN';
-        if (['ERROR', 'FETCHING_ERROR', 'EXPIRED', 'REJECTED', 'REVOKED'].includes(connectionStatus)) {
-          throw new Error(`החיבור נכשל (${connectionStatus})`);
-        }
-        attempts++;
-      }
-
-      // 2. Fetch Bank Data
-      const { data: bankData } = await base44.functions.invoke('loanLogicV2', { userId: psuId });
-      if (!bankData?.success) throw new Error('שגיאה במשיכת נתוני הבנק');
-
-      // 3. Run Insight Engine
-      const { data: insightsRes } = await base44.functions.invoke('insightEngine', { metrics: bankData.metrics });
-      if (!insightsRes?.success) throw new Error('שגיאה בניתוח הנתונים');
-
-      setAnalysisResults(insightsRes.insights);
-
-      // 4. Send Webhook to Partner
-      await base44.functions.invoke('sendPartnerWebhook', {
+      // Fire and forget the heavy underwriting process in the background
+      base44.functions.invoke('processB2BUnderwriting', {
         partner_id: partnerId,
         customer_id: customerId,
-        analysis_results: insightsRes.insights
-      });
+        connection_id: connectionId,
+        psu_id: psuId
+      }).catch(err => console.error("Background underwriting failed:", err));
 
       // Clean up
       localStorage.removeItem('of_pending_connection');
       localStorage.removeItem('of_pending_provider');
       
-      setStep('success');
+      // Simulate a short "analyzing" delay for UX, then show success
+      setTimeout(() => {
+        setStep('success');
+      }, 2500);
 
     } catch (err) {
       console.error(err);
