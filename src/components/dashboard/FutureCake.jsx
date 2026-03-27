@@ -3,7 +3,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Anchor, Zap, Sparkles, ChevronDown, ChevronUp, PieChart as PieChartIcon } from 'lucide-react';
 
-const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 0, currency = '₪' }) => {
+const FutureCake = ({ dti = 0, fixedExpenses = 0, flexExpenses = 0, currency = '₪' }) => {
   const [activeIndex, setActiveIndex] = useState(null);
   const [isOpen, setIsOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
@@ -23,35 +23,19 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
   // 1. Preview Mode Logic (Empty State)
   const safeFixed = Number(fixedExpenses) || 0;
   const safeFlex = Number(flexExpenses) || 0;
-  const safeTax = Number(taxRefundPotential) || 0;
+  const safeDti = Math.round(Number(dti)) || 0;
 
   const isPreviewMode = safeFixed === 0 && safeFlex === 0;
 
-  const flexPercentage = !isPreviewMode && (safeFixed + safeFlex > 0) 
-      ? Math.round((safeFlex / (safeFixed + safeFlex)) * 100) 
-      : 40;
-
   const chartData = isPreviewMode 
     ? [
-        { name: 'הוצאות קשיחות', value: 6000, color: '#ec4899', icon: <Anchor className="w-5 h-5" />, type: 'fixed' },
-        { name: 'הוצאות משתנות', value: 4000, color: '#14b8a6', icon: <Zap className="w-5 h-5" />, type: 'flex' }
+        { name: 'החזר חובות קבועים', value: 6000, color: '#ec4899', icon: <Anchor className="w-5 h-5" />, type: 'fixed' },
+        { name: 'הוצאות מחיה משתנות', value: 4000, color: '#14b8a6', icon: <Zap className="w-5 h-5" />, type: 'flex' }
       ]
     : [
-        { name: 'הוצאות קשיחות', value: safeFixed, color: '#ec4899', icon: <Anchor className="w-5 h-5" />, type: 'fixed' },
-        { name: 'הוצאות משתנות', value: safeFlex, color: '#14b8a6', icon: <Zap className="w-5 h-5" />, type: 'flex' },
+        { name: 'החזר חובות קבועים', value: safeFixed, color: '#ec4899', icon: <Anchor className="w-5 h-5" />, type: 'fixed' },
+        { name: 'הוצאות מחיה משתנות', value: safeFlex, color: '#14b8a6', icon: <Zap className="w-5 h-5" />, type: 'flex' },
       ];
-
-  // 2. Add Tax Segment if exists (The Saderan Layer)
-  if (!isPreviewMode && safeTax > 0) {
-      chartData.push({
-          name: 'החזרי מס (פוטנציאל)',
-          value: safeTax,
-          color: '#F59E0B', // Amber/Gold for found money
-          icon: <Sparkles className="w-4 h-4" />,
-          type: 'tax',
-          isGlowing: true
-      });
-  }
 
   const activeItem = activeIndex !== null ? chartData[activeIndex] : null;
   const totalExpenses = (isPreviewMode ? 10000 : safeFixed + safeFlex);
@@ -84,7 +68,7 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
             <PieChartIcon className="w-5 h-5 text-cyan-400" />
             <div className="flex flex-col items-start">
                 <h3 className="text-white text-sm font-medium uppercase tracking-wide leading-none">Future Cake</h3>
-                <span className="text-xs text-slate-400 mt-0.5">תחזית הוצאות לחודש הבא</span>
+                <span className="text-xs text-slate-400 mt-0.5">מבנה הוצאות וכושר החזר</span>
             </div>
             {isPreviewMode && <span className="text-[9px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded-full mr-2">Preview</span>}
         </div>
@@ -144,19 +128,10 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
                                 exit={{ opacity: 0, y: -5 }}
                                 className="flex flex-col items-center"
                             >
-                                {activeItem.type === 'tax' ? (
-                                    <>
-                                        <span className="text-amber-400 text-[10px] uppercase tracking-wider mb-1 font-bold">החזרי מס והטבות</span>
-                                        <span className="text-sm font-medium text-slate-200 leading-tight">
-                                            זיהיתי <span className="font-bold text-amber-400">{currency}{activeItem.value.toLocaleString()}</span> שמגיעים לך מהמדינה
-                                        </span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <span className="text-slate-400 text-[10px] uppercase tracking-wider mb-1">{activeItem.name}</span>
-                                        <span className="text-2xl font-bold text-white font-mono">{currency}{activeItem.value.toLocaleString()}</span>
-                                    </>
-                                )}
+                                <>
+                                    <span className="text-slate-400 text-[10px] uppercase tracking-wider mb-1">{activeItem.name}</span>
+                                    <span className="text-2xl font-bold text-white font-mono">{currency}{activeItem.value.toLocaleString()}</span>
+                                </>
                             </motion.div>
                         ) : (
                             <motion.div
@@ -167,8 +142,8 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
                                 className="flex flex-col items-center"
                             >
                                 <>
-                                    <span className="text-slate-500 text-[10px] uppercase">צפי הוצאה בחודש הבא</span>
-                                    <span className="text-xl font-bold text-slate-200 font-mono">{currency}{totalExpenses.toLocaleString()}</span>
+                                    <span className="text-slate-500 text-[10px] uppercase">יחס חוב להכנסה (DTI)</span>
+                                    <span className="text-3xl font-bold text-slate-200 font-mono">{isPreviewMode ? '35' : safeDti}%</span>
                                 </>
                             </motion.div>
                         )}
@@ -196,9 +171,8 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
                              <span className={`text-[11px] font-medium tracking-wide ${item.type === 'tax' ? 'text-amber-200' : 'text-slate-400'}`}>
                                  {item.name}
                              </span>
-                             <span className={`text-sm font-bold font-mono leading-none mt-1 ${item.type === 'tax' ? 'text-amber-400' : 'text-white'}`}>
+                             <span className="text-sm font-bold font-mono leading-none mt-1 text-white">
                                  {currency}{item.value.toLocaleString()}
-                                 {item.type === 'tax' && <span className="text-[9px] text-amber-500/80 mr-1 font-sans font-normal">(שנתי)</span>}
                              </span>
                          </div>
                      </div>
