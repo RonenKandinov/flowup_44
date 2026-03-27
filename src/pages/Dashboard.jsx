@@ -333,14 +333,48 @@ export default function Dashboard() {
 
   const metricsForInsights = newLoanMetrics || (loanLogicData ? loanMetrics : null) || metricsFromSnapshot;
 
+  // Generate a stable hash of the metrics to prevent unnecessary AI re-renders
+  const stableMetricsHash = React.useMemo(() => {
+    if (!metricsForInsights) return '';
+    const stable = {
+      score: metricsForInsights.score,
+      status: metricsForInsights.status,
+      totalIncome: Math.round(metricsForInsights.totalIncome || 0),
+      totalExpenses: Math.round(metricsForInsights.totalExpenses || 0),
+      liquidAssets: Math.round(metricsForInsights.liquidAssets || 0),
+      dti: Math.round(metricsForInsights.dti || 0),
+    };
+    return JSON.stringify(stable);
+  }, [metricsForInsights]);
+
   // Fetch AI Insights from server using React Query to avoid infinite loops
   const { data: serverInsightsData, isLoading: isInsightsLoading, error: insightsError } = useQuery({
-    queryKey: ['ai-insights-v2', JSON.stringify(metricsForInsights)],
+    queryKey: ['ai-insights-v2', stableMetricsHash],
     queryFn: async () => {
         if (!metricsForInsights) return { error: "No risk metrics available" };
+        
+        const cacheKey = 'flowup_ai_insights_cache';
+        try {
+            const cached = localStorage.getItem(cacheKey);
+            if (cached) {
+                const parsedCache = JSON.parse(cached);
+                if (parsedCache.hash === stableMetricsHash && parsedCache.data) {
+                    return parsedCache.data;
+                }
+            }
+        } catch (e) {
+            console.warn("Failed to read insights cache", e);
+        }
+
         try {
             const res = await base44.functions.invoke('insightEngine', { metrics: metricsForInsights });
             if (res.data?.success && res.data?.insights) {
+                try {
+                    localStorage.setItem(cacheKey, JSON.stringify({
+                        hash: stableMetricsHash,
+                        data: res.data.insights
+                    }));
+                } catch (e) {}
                 return res.data.insights;
             }
             return generateLocalInsights(metricsForInsights) || { error: "Failed to generate insights" };
@@ -350,8 +384,10 @@ export default function Dashboard() {
         }
     },
     enabled: !!(metricsForInsights && hasData),
-    staleTime: 1000 * 60 * 60, // Cache for 1 hour to prevent re-fetching on focus
+    staleTime: Infinity, // Keep cache indefinitely in memory
+    cacheTime: Infinity,
     refetchOnWindowFocus: false, // Don't refetch on window focus
+    refetchOnMount: false, // Don't refetch on mount if we have it
   });
 
   const serverInsights = serverInsightsData || (insightsError ? { error: "Network error" } : null);
