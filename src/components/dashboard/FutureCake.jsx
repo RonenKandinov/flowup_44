@@ -33,11 +33,11 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
 
   const chartData = isPreviewMode 
     ? [
-        { name: 'החזר חובות קבועים', value: 6000, color: '#ec4899', icon: <Anchor className="w-5 h-5" />, type: 'fixed' },
+        { name: 'החזרי חובות קבועים', value: 6000, color: '#ec4899', icon: <Anchor className="w-5 h-5" />, type: 'fixed' },
         { name: 'הוצאות מחיה משתנות', value: 4000, color: '#14b8a6', icon: <Zap className="w-5 h-5" />, type: 'flex' }
       ]
     : [
-        { name: 'החזר חובות קבועים', value: safeFixed, color: '#ec4899', icon: <Anchor className="w-5 h-5" />, type: 'fixed' },
+        { name: 'החזרי חובות קבועים', value: safeFixed, color: '#ec4899', icon: <Anchor className="w-5 h-5" />, type: 'fixed' },
         { name: 'הוצאות מחיה משתנות', value: safeFlex, color: '#14b8a6', icon: <Zap className="w-5 h-5" />, type: 'flex' },
       ];
 
@@ -84,7 +84,7 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
             <PieChartIcon className="w-5 h-5 text-cyan-400" />
             <div className="flex flex-col items-start">
                 <h3 className="text-white text-sm font-medium uppercase tracking-wide leading-none">Future Cake</h3>
-                <span className="text-xs text-slate-400 mt-0.5">יחס חוב להכנסה (DTI) צפוי</span>
+                <span className="text-xs text-slate-400 mt-0.5">צפי הוצאות לחודש הבא</span>
             </div>
             {isPreviewMode && <span className="text-[9px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded-full mr-2">Preview</span>}
         </div>
@@ -167,7 +167,7 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
                                 className="flex flex-col items-center"
                             >
                                 <>
-                                    <span className="text-slate-500 text-[10px] uppercase">יחס חוב להכנסה (DTI) צפוי</span>
+                                    <span className="text-slate-500 text-[10px] uppercase">צפי הוצאות לחודש הבא</span>
                                     <span className="text-xl font-bold text-slate-200 font-mono">{currency}{totalExpenses.toLocaleString()}</span>
                                 </>
                             </motion.div>
