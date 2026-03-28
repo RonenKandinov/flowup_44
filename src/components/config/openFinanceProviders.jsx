@@ -13,8 +13,8 @@ export const PROVIDERS = {
     category: 'bank',
     supported: true
   },
-  poalim: {
-    id: 'poalim',
+  hapoalim: {
+    id: 'hapoalim',
     name: 'בנק הפועלים',
     displayName: 'POALIM',
     color: '#0047BB',
