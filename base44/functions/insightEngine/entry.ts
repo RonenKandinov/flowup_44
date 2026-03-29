@@ -246,22 +246,32 @@ Deno.serve(withValidation(schema, async (req, body) => {
     }
 
     // ===== Narrative =====
+    const isExtremeReject = dti > 100 || (income > 0 && expenses > income * 1.5) || score < 20;
+
     const prompt = `
 אתה חתם אשראי בכיר בחברת מימון חוץ-בנקאית.
-המטרה העסקית שלך היא למקסם אישורי הלוואות בטוחות (למצוא את ה"כן"), במיוחד במקרים שהמערכת האוטומטית דחתה טכנית (False Negatives). אתה לא "אבא ואמא" של הלקוח, אלא מנתח סיכונים עסקי שמחפש גורמים מפצים המאפשרים אישור.
+${isExtremeReject ? 
+`⚠️ שים לב: מדובר בלקוח או בסימולציה עם נתונים קיצוניים לחלוטין (DTI של מעל 100%, ציון אפסי או תזרים שקורס). 
+חובה עליך לקבוע דחייה מוחלטת (DECLINE). אל תחפש סיבות לאשר ואל תמליץ על בחינה נוספת. כתוב תקציר מנהלים מקצועי וקר שמסביר את עוצמת החריגה ביחס ההחזר או בתזרים.`
+: 
+`המטרה העסקית שלך היא למקסם אישורי הלוואות בטוחות (למצוא את ה"כן"), במיוחד במקרים שהמערכת האוטומטית דחתה טכנית (False Negatives). אתה לא "אבא ואמא" של הלקוח, אלא מנתח סיכונים עסקי שמחפש גורמים מפצים המאפשרים אישור.
 
 ⚠️ עקרונות עבודה:
 - חפש אקטיבית סיבות לאשר: התמקד ביכולת החזר אמיתית, יציבות תעסוקתית, ומגמות שיפור, גם אם יש חריגות יבשות מהמדיניות.
 - תמחור סיכון: אם יש סיכון, שקול אישור בריבית גבוהה יותר או בסכום נמוך יותר (REVIEW) במקום דחייה אוטומטית.
 - אל תחנך את הלקוח: אל תיתן עצות לחיסכון. התמקד בשאלה "האם הוא יכול להחזיר את ההלוואה?".
-- כתוב בצורה קצרה, חדה ומקצועית, מוכוונת שורת רווח.
+- כתוב בצורה קצרה, חדה ומקצועית, מוכוונת שורת רווח.`}
 
 נתוני הלקוח (כולל החלטת מערכת נוכחית והפרות מדיניות):
 ${JSON.stringify({ income, expenses, signals, trends, currentRisk: risk, isSecondChance, dti, liq, expInc, secondChanceScore, policy_explanations, fixes, strengths })}
 
 🎯 משימה:
 בהתבסס על הנתונים, קבע:
-- האם ניתן להפוך דחייה לאישור (False Negative) על בסיס גורמים מפצים (למשל: הכנסה גבוהה שמפצה על DTI גבולי, או מגמת שיפור חזקה)?
+${isExtremeReject ? 
+`- קבע החלטה DECLINE.
+- הסבר בקצרה למה הנתונים הללו (למשל DTI חריג) חוסמים כל אפשרות לאשראי סביר.` 
+: 
+`- האם ניתן להפוך דחייה לאישור (False Negative) על בסיס גורמים מפצים (למשל: הכנסה גבוהה שמפצה על DTI גבולי, או מגמת שיפור חזקה)?
 - מה ההחלטה המומלצת עכשיו (APPROVE / REVIEW / DECLINE) - העדף APPROVE או REVIEW על פני DECLINE אם יש הגיון עסקי.
 - אם מאשרים (או REVIEW) — באילו תנאים (התאמת סכום/ריבית לסיכון).
 
@@ -273,12 +283,12 @@ ${JSON.stringify({ income, expenses, signals, trends, currentRisk: risk, isSecon
 🧠 דגש חשוב (False Negative):
 אם המערכת דחתה טכנית אך הלקוח מראה יכולת החזר:
 - הסבר מדוע הדחייה הטכנית אינה משקפת את יכולת ההחזר האמיתית.
-- הצג את הגורמים המפצים שמאפשרים לאשר את העסקה בבטחה.
+- הצג את הגורמים המפצים שמאפשרים לאשר את העסקה בבטחה.`}
 
 🧾 הנחיות כתיבה:
 - תהיה ישיר, עסקי ותכליתי.
 - אל תכתוב אזהרות כלליות או עצות חינוכיות.
-- התמקד בשורה התחתונה: למה כדאי לנו לאשר את ההלוואה הזו.
+- התמקד בשורה התחתונה.
 `;
 
     let narrative = "מצב פיננסי יציב.";
@@ -337,9 +347,19 @@ ${JSON.stringify({ income, expenses, signals, trends, currentRisk: risk, isSecon
           else if (llm.decision === "REVIEW") rec = "REVIEW";
           else if (llm.decision === "DECLINE") rec = "DECLINE";
           
-          if (llm.override_analysis?.override_recommended || llm.is_false_negative) {
+          if (!isExtremeReject && (llm.override_analysis?.override_recommended || llm.is_false_negative)) {
               if (risk === "Red") risk = "Orange";
               else if (risk === "Orange") risk = "Green";
+          }
+
+          if (isExtremeReject) {
+              rec = "DECLINE";
+              risk = "Red";
+              llm.is_false_negative = false; // Prevent logic bleeding
+              llmAnalysis.is_false_negative = false;
+              if (llmAnalysis.override_analysis) {
+                  llmAnalysis.override_analysis.override_recommended = false;
+              }
           }
       }
     } catch (e) {
