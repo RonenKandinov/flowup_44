@@ -69,16 +69,29 @@ export default function TrendsDashboard() {
             .sort((a, b) => b.date - a.date);
     }, [shadowEntries, localData]);
 
+    const { data: loanLogicData, isLoading: isSyncing } = useQuery({
+        queryKey: ['loanLogic', user?.email || user?.id],
+        queryFn: async () => {
+            if (!user) return null;
+            const res = await base44.functions.invoke('loanLogicV2', { userId: user.email || user.id });
+            return res.data;
+        },
+        enabled: !!user,
+    });
+
     const monthlyData = useMemo(() => {
-        if (!transactions || transactions.length === 0) return [];
+        const txnsToUse = loanLogicData?.transactions?.length > 0 ? loanLogicData.transactions : transactions;
+        
+        if (!txnsToUse || txnsToUse.length === 0) return [];
         
         const monthsMap = {};
         
-        transactions.forEach(t => {
-            if (isNaN(t.date.getTime())) return;
+        txnsToUse.forEach(t => {
+            const date = new Date(t.date);
+            if (isNaN(date.getTime())) return;
             
-            const monthKey = `${t.date.getFullYear()}-${String(t.date.getMonth() + 1).padStart(2, '0')}`;
-            const monthLabel = t.date.toLocaleDateString('he-IL', { month: 'short', year: '2-digit' });
+            const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            const monthLabel = date.toLocaleDateString('he-IL', { month: 'short', year: '2-digit' });
             
             if (!monthsMap[monthKey]) {
                 monthsMap[monthKey] = {
@@ -109,7 +122,7 @@ export default function TrendsDashboard() {
             .sort((a, b) => a.key.localeCompare(b.key))
             .slice(-6);
             
-    }, [transactions]);
+    }, [loanLogicData, transactions]);
 
     const CustomTooltip = ({ active, payload, label }) => {
         if (active && payload && payload.length) {
@@ -131,7 +144,7 @@ export default function TrendsDashboard() {
         return null;
     };
 
-    if (isLoading) {
+    if (isLoading || isSyncing) {
         return (
             <div className="flex items-center justify-center h-screen bg-slate-950">
                 <div className="w-8 h-8 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
