@@ -56,7 +56,7 @@
  * 
  * ### Database & Security
  * - **Database:** Base44 Entities (JSON Document Store)
- * - **Security Model:** Millennium Protocol (Shadow Realm Entry) - data is obfuscated/sealed before storage
+ * - **Security Model:** Millennium Protocol  - data is obfuscated/sealed before storage
  * - **Caching:** LocalStorage (Offline-first approach and performance optimization)
  * 
  * ## Directory Structure
