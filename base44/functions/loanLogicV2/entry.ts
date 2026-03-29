@@ -307,8 +307,8 @@ Deno.serve(withValidation(loanLogicSchema, async (req) => {
                     activeTargetAccountId = preferredAccount ? preferredAccount.id : availableAccounts[0].id;
                 }
 
-                // Filter to activeTargetAccountId if provided
-                if (activeTargetAccountId) {
+                // Filter to activeTargetAccountId if provided (skip if 'all' is selected to aggregate multiple banks)
+                if (activeTargetAccountId && activeTargetAccountId !== 'all') {
                     accounts = accounts.filter(acc => String(acc.id || acc.accountId || acc.accountNumber) === String(activeTargetAccountId));
                 }
                 
@@ -384,7 +384,7 @@ Deno.serve(withValidation(loanLogicSchema, async (req) => {
         const txData = await txRes.json();
         let transactions = txData?.data || txData?.items || txData?.transactions || [];
 
-        if (activeTargetAccountId) {
+        if (activeTargetAccountId && activeTargetAccountId !== 'all') {
             transactions = transactions.filter(tx => {
                 const txAccId = String(tx.accountId || tx.account_id || tx.accountNumber || "");
                 return txAccId === String(activeTargetAccountId);

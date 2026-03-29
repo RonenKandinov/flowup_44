@@ -716,12 +716,13 @@ export default function Dashboard() {
           
           <div className="flex items-center gap-2">
             {originalLoanMetrics?.availableAccounts?.length > 0 && (
-              <div className="w-48">
+              <div className="w-56">
                 <Select value={targetAccountId || originalLoanMetrics.activeTargetAccountId || ''} onValueChange={setTargetAccountId}>
                   <SelectTrigger className="h-8 bg-slate-800/50 border-slate-700/50 text-xs">
                     <SelectValue placeholder="בחר חשבון" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="all" className="font-bold text-cyan-400">כל החשבונות (תצוגה משולבת)</SelectItem>
                     {originalLoanMetrics.availableAccounts.map(acc => (
                       <SelectItem key={acc.id} value={acc.id}>
                         {acc.name} ({acc.number ? acc.number.slice(-4) : '****'})
