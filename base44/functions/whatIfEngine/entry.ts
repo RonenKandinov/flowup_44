@@ -80,7 +80,7 @@ function calculateScore(metrics) {
     if (isExtremeDTI || isExtremeCashFlow) {
         finalScore = Math.min(finalScore, 25);
         const isVeryExtreme = dtiPerc > 200 || (totalIncome > 0 && totalExpenses > totalIncome * 2.0);
-        if (isVeryExtreme) finalScore = Math.min(finalScore, 5);
+        if (isVeryExtreme) finalScore = Math.min(finalScore, 15); // Set a realistic floor instead of crashing to 5
     }
     // --------------------------------
 
@@ -193,10 +193,10 @@ Deno.serve(withValidation(whatIfSchema, async (req) => {
        if (simulatedMetrics.netCashFlow < 0) {
     if (simulatedMetrics.runway >= 6) {
         finalRiskStatus = riskStatus === "GREEN" ? "ORANGE" : riskStatus;
-        finalScoreValue = Math.max(0, finalScore - 10);
+        finalScoreValue = Math.max(12, finalScore - 10); // Prevent absolute zero
     } else {
         finalRiskStatus = "RED";
-        finalScoreValue = Math.max(0, finalScore - 30);
+        finalScoreValue = Math.max(12, finalScore - 30); // Prevent absolute zero
     }
 }
         return Response.json({

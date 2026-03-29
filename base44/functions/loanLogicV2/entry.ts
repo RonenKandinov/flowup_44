@@ -682,7 +682,7 @@ ${JSON.stringify(limitedExpenses)}
 
             const isVeryExtremeCashFlow = avgIncome > 0 ? (avgExpenses > avgIncome * 2.0) : (avgExpenses > 0);
             if (dtiPerc > 200 || isVeryExtremeCashFlow) {
-                 finalScore = Math.min(finalScore, 5);
+                 finalScore = Math.min(finalScore, 15); // Set a realistic floor instead of crashing to 5
             }
         }
         // --------------------------------
