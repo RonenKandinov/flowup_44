@@ -10,6 +10,7 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import B2BConnect from './pages/B2BConnect';
 import PartnersAdmin from './pages/PartnersAdmin';
 import DevelopersPortal from './pages/DevelopersPortal';
+import TrendsDashboard from './pages/TrendsDashboard';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -64,6 +65,7 @@ const AuthenticatedApp = () => {
       <Route path="/b2b-connect" element={<B2BConnect />} />
       <Route path="/partners-admin" element={<LayoutWrapper currentPageName="partners-admin"><PartnersAdmin /></LayoutWrapper>} />
       <Route path="/developers" element={<LayoutWrapper currentPageName="developers"><DevelopersPortal /></LayoutWrapper>} />
+      <Route path="/trends" element={<LayoutWrapper currentPageName="trends"><TrendsDashboard /></LayoutWrapper>} />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );
