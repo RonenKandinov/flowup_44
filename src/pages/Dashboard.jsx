@@ -353,7 +353,7 @@ export default function Dashboard() {
     queryFn: async () => {
         if (!metricsForInsights) return { error: "No risk metrics available" };
         
-        const cacheKey = 'flowup_ai_insights_cache';
+        const cacheKey = 'flowup_ai_insights_cache_v2';
         try {
             const cached = localStorage.getItem(cacheKey);
             if (cached) {
