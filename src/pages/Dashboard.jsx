@@ -122,7 +122,7 @@ export default function Dashboard() {
     }
     const loadFromStorage = async () => {
       try {
-        const res = await base44.functions.invoke('secureStorage', { action: 'load' });
+        const res = await base44.functions.invoke('systemUtils', { service: 'storage', action: 'load' });
         const data = res.data?.data;
         if (data) {
           // Rehydrate Date objects if needed (JSON.parse makes them strings)
@@ -481,7 +481,7 @@ export default function Dashboard() {
   const deleteDataMutation = useMutation({
     mutationFn: async () => {
       // Clear local storage
-      await base44.functions.invoke('secureStorage', { action: 'clear' });
+      await base44.functions.invoke('systemUtils', { service: 'storage', action: 'clear' });
 
       // Fetch all data (up to reasonable limits) to delete
       const allSnapshots = await base44.entities.FinancialSnapshot.list(null, 100);
@@ -521,7 +521,7 @@ export default function Dashboard() {
     setWhatIfName('');
     
     // Save locally (encrypted)
-    await base44.functions.invoke('secureStorage', { action: 'save', data });
+    await base44.functions.invoke('systemUtils', { service: 'storage', action: 'save', data });
 
     // Clear previous DB data to prevent duplication (Batched to avoid rate limits)
     const allSnapshots = await base44.entities.FinancialSnapshot.list();
@@ -561,7 +561,7 @@ export default function Dashboard() {
           // Update local state with readable data
           const updatedData = { ...data, transactions: recoveredTransactions };
           setLocalData(updatedData);
-          await base44.functions.invoke('secureStorage', { action: 'save', data: updatedData });
+          await base44.functions.invoke('systemUtils', { service: 'storage', action: 'save', data: updatedData });
           
       } else {
           // CSV Upload (Raw Data) - Needs Sealing

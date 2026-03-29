@@ -51,7 +51,8 @@ export default function B2BConnect() {
       }
 
       // Fire and forget the heavy underwriting process in the background
-      base44.functions.invoke('processB2BUnderwriting', {
+      base44.functions.invoke('b2bService', {
+        action: 'process_underwriting',
         partner_id: partnerId,
         customer_id: customerId,
         connection_id: connectionId,
