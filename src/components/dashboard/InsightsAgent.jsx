@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp, AlertTriangle, BrainCircuit, Activity, FileText, CheckCircle2, XCircle, Zap } from 'lucide-react';
 import ExportDecisionModal from './ExportDecisionModal';
+import SecondChanceModal from './SecondChanceModal';
 
 export default function InsightsAgent({ analysis, isLoading }) {
     const [isOpen, setIsOpen] = useState(true);
     const [isMobile, setIsMobile] = useState(false);
+    const [showSCModal, setShowSCModal] = useState(false);
 
     useEffect(() => {
         const checkMobile = () => {
@@ -55,6 +57,7 @@ export default function InsightsAgent({ analysis, isLoading }) {
     const { recommendation, options, key_risks, strengths, what_to_improve, policy_explanations } = analyst_recommendation;
 
     return (
+        <>
         <div className="relative h-full w-full">
             <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-indigo-500/20 rounded-xl overflow-hidden shadow-lg shadow-indigo-900/5 h-full flex flex-col">
 
@@ -136,12 +139,30 @@ export default function InsightsAgent({ analysis, isLoading }) {
 
                                 {/* Second Chance Banner */}
                                 {!llm_analysis?.is_false_negative && second_chance_analysis?.eligible && (
-                                    <div className="bg-indigo-900/30 border border-indigo-500/30 p-3 rounded-lg flex items-start gap-3">
-                                        <Zap className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
-                                        <div>
-                                            <p className="text-xs font-bold text-indigo-300">הזדמנות שנייה (Second Chance)</p>
-                                            <p className="text-xs text-indigo-200/80 mt-1">הלקוח קיבל שדרוג בדירוג הסיכון בזכות התנהלות פיננסית חיובית המפצה על נתונים יבשים חלשים.</p>
+                                    <div className="bg-indigo-900/30 border border-indigo-500/30 p-3 rounded-lg flex flex-col gap-3">
+                                        <div className="flex items-start gap-3">
+                                            <Zap className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
+                                            <div>
+                                                <p className="text-xs font-bold text-indigo-300 flex items-center gap-2">
+                                                    הזדמנות שנייה (Second Chance)
+                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
+                                                        (second_chance_analysis.score ?? 0) >= 70 ? 'bg-emerald-500/20 text-emerald-400' :
+                                                        (second_chance_analysis.score ?? 0) >= 40 ? 'bg-amber-500/20 text-amber-400' :
+                                                        'bg-red-500/20 text-red-400'
+                                                    }`}>
+                                                        ציון: {second_chance_analysis.score ?? 0}
+                                                    </span>
+                                                </p>
+                                                <p className="text-xs text-indigo-200/80 mt-1">הלקוח קיבל שדרוג בדירוג הסיכון בזכות התנהלות פיננסית חיובית המפצה על נתונים יבשים חלשים.</p>
+                                            </div>
                                         </div>
+                                        <button
+                                            onClick={() => setShowSCModal(true)}
+                                            className="text-xs bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 rounded-md py-2 px-3 font-semibold transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            <Zap className="w-3 h-3" />
+                                            אנליסט: צפה בניתוח גורמים מפצים (CTA)
+                                        </button>
                                     </div>
                                 )}
 
@@ -263,6 +284,11 @@ export default function InsightsAgent({ analysis, isLoading }) {
 
             </div>
         </div>
+
+        {showSCModal && (
+            <SecondChanceModal analysis={analysis} onClose={() => setShowSCModal(false)} />
+        )}
+        </>
     );
 }
 
