@@ -37,6 +37,28 @@
  *     LocalLogic --> WhatIf
  * ```
  * 
+ * ## Tech Stack
+ * 
+ * ### Frontend (Client-Side)
+ * - **Framework:** React 18 with Vite
+ * - **Language:** JavaScript / JSX
+ * - **Styling:** Tailwind CSS, Shadcn UI, Radix UI primitives
+ * - **Animations & Charts:** Framer Motion, Recharts
+ * - **State Management & Data Fetching:** React Query (@tanstack/react-query), React Hooks
+ * - **Routing:** React Router DOM
+ * - **Architecture Pattern:** Local-First, processing sensitive calculations directly on the device
+ * 
+ * ### Backend (Edge Computing)
+ * - **Platform:** Base44 Edge Functions
+ * - **Runtime:** Deno (JavaScript/TypeScript)
+ * - **Integration SDK:** Base44 SDK (@base44/sdk)
+ * - **AI & Inference:** Base44 Core Integrations (InvokeLLM)
+ * 
+ * ### Database & Security
+ * - **Database:** Base44 Entities (JSON Document Store)
+ * - **Security Model:** Millennium Protocol (Shadow Realm Entry) - data is obfuscated/sealed before storage
+ * - **Caching:** LocalStorage (Offline-first approach and performance optimization)
+ * 
  * ## Directory Structure
  * 
  * ```text
