@@ -96,40 +96,25 @@ export default function InsightsAgent({ analysis, isLoading }) {
                         >
                             <div className="p-4 flex-1 flex flex-col space-y-4 overflow-y-auto">
 
-                                {/* Decision Banner - WOW Effect */}
-                                <div className={`relative overflow-hidden rounded-xl border p-5 flex items-center justify-between shadow-2xl ${
-                                    recommendation.decision === 'APPROVE' ? 'bg-gradient-to-br from-emerald-950/80 to-emerald-900/40 border-emerald-500/50 shadow-emerald-900/20' :
-                                    recommendation.decision === 'REVIEW' ? 'bg-gradient-to-br from-amber-950/80 to-amber-900/40 border-amber-500/50 shadow-amber-900/20' :
-                                    'bg-gradient-to-br from-red-950/80 to-rose-900/40 border-red-500/50 shadow-red-900/20'
+                                {/* Decision Banner */}
+                                <div className={`p-3 rounded-lg border flex items-center justify-between ${
+                                    recommendation.decision === 'APPROVE' ? 'bg-emerald-900/20 border-emerald-500/30' :
+                                    recommendation.decision === 'REVIEW' ? 'bg-amber-900/20 border-amber-500/30' :
+                                    'bg-red-900/20 border-red-500/30'
                                 }`}>
-                                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl -mr-10 -mt-10" />
-                                    
-                                    <div className="flex items-center gap-4 relative z-10">
-                                        <div className={`p-3 rounded-full flex items-center justify-center shadow-inner ${
-                                            recommendation.decision === 'APPROVE' ? 'bg-emerald-500/20 text-emerald-400' :
-                                            recommendation.decision === 'REVIEW' ? 'bg-amber-500/20 text-amber-400' :
-                                            'bg-red-500/20 text-red-400'
-                                        }`}>
-                                            {recommendation.decision === 'APPROVE' ? <ShieldCheck className="w-8 h-8" /> :
-                                             recommendation.decision === 'REVIEW' ? <AlertTriangle className="w-8 h-8" /> :
-                                             <AlertOctagon className="w-8 h-8" />}
-                                        </div>
+                                    <div className="flex items-center gap-3">
+                                        {recommendation.decision === 'APPROVE' ? <CheckCircle2 className="w-6 h-6 text-emerald-400" /> :
+                                         recommendation.decision === 'REVIEW' ? <AlertTriangle className="w-6 h-6 text-amber-400" /> :
+                                         <XCircle className="w-6 h-6 text-red-400" />}
                                         <div>
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <div className={`w-2 h-2 rounded-full animate-pulse ${
-                                                    recommendation.decision === 'APPROVE' ? 'bg-emerald-400' :
-                                                    recommendation.decision === 'REVIEW' ? 'bg-amber-400' :
-                                                    'bg-red-400'
-                                                }`} />
-                                                <p className="text-[11px] text-slate-300 uppercase font-bold tracking-wider">המלצת מערכת חיתום (AI)</p>
-                                            </div>
-                                            <p className={`text-3xl font-black tracking-tight ${
-                                                recommendation.decision === 'APPROVE' ? 'text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.4)]' :
-                                                recommendation.decision === 'REVIEW' ? 'text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.4)]' :
-                                                'text-red-400 drop-shadow-[0_0_8px_rgba(248,113,113,0.4)]'
+                                            <p className="text-[10px] text-slate-400 uppercase font-bold">המלצת מערכת</p>
+                                            <p className={`text-base font-bold ${
+                                                recommendation.decision === 'APPROVE' ? 'text-emerald-400' :
+                                                recommendation.decision === 'REVIEW' ? 'text-amber-400' :
+                                                'text-red-400'
                                             }`}>
-                                                {recommendation.decision === 'APPROVE' ? 'אישור מומלץ' :
-                                                 recommendation.decision === 'REVIEW' ? 'בחינה נוספת נדרשת' : 'דחייה מוחלטת'}
+                                                {recommendation.decision === 'APPROVE' ? 'אישור' :
+                                                 recommendation.decision === 'REVIEW' ? 'בחינה נוספת' : 'דחייה'}
                                             </p>
                                         </div>
                                     </div>
@@ -160,7 +145,7 @@ export default function InsightsAgent({ analysis, isLoading }) {
                                     </div>
                                 )}
 
-                                {/* Core Risk Metrics - WOW Effect */}
+                                {/* Core Risk Metrics */}
                                 <div className="grid grid-cols-3 gap-3 mt-2">
                                     <EnhancedMetricBox 
                                         label="DTI (יחס החזר)" 
@@ -190,104 +175,58 @@ export default function InsightsAgent({ analysis, isLoading }) {
                                     {narrative}
                                 </Section>
 
-                                {/* Behavior Analysis - WOW Effect */}
+                                {/* Behavior Analysis */}
                                 {llm_analysis?.behavior_analysis && (
-                                    <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-700/50 shadow-sm relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 w-full h-1 bg-gradient-to-r from-transparent via-slate-500/20 to-transparent" />
-                                        <div className="flex items-center justify-between mb-4">
-                                            <div className="flex items-center gap-2">
-                                                <BrainCircuit className="w-4 h-4 text-indigo-400" />
-                                                <p className="text-xs text-slate-300 uppercase font-bold tracking-wider">ניתוח התנהגות עומק (AI Deep Scan)</p>
-                                            </div>
+                                    <div className="bg-slate-800/30 p-3 rounded-lg border border-slate-700/50">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <p className="text-[10px] text-slate-500 uppercase">ניתוח התנהגות עומק (AI)</p>
                                             {llm_analysis.behavior_analysis.trend && (
-                                                <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider border ${
-                                                    llm_analysis.behavior_analysis.trend === 'IMPROVING' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                                                    llm_analysis.behavior_analysis.trend === 'DETERIORATING' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                                                    'bg-slate-500/10 text-slate-400 border-slate-500/20'
-                                                }`}>
-                                                    מגמה: {llm_analysis.behavior_analysis.trend}
-                                                </span>
+                                                <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
+                                                    llm_analysis.behavior_analysis.trend === 'IMPROVING' ? 'bg-emerald-500/20 text-emerald-400' :
+                                                    llm_analysis.behavior_analysis.trend === 'DETERIORATING' ? 'bg-red-500/20 text-red-400' :
+                                                    'bg-slate-500/20 text-slate-400'
+                                                }`}>{llm_analysis.behavior_analysis.trend}</span>
                                             )}
                                         </div>
-                                        
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            {llm_analysis.behavior_analysis.key_positive_signals?.length > 0 && (
-                                                <div className="bg-emerald-950/20 p-3 rounded-lg border border-emerald-900/30">
-                                                    <p className="text-[10px] text-emerald-400 mb-2 uppercase font-bold tracking-wider flex items-center gap-1.5"><TrendingUp className="w-3 h-3"/> חוזקות שזוהו:</p>
-                                                    <ul className="space-y-1.5">
-                                                        {llm_analysis.behavior_analysis.key_positive_signals.map((sig, i) => (
-                                                            <li key={i} className="text-xs text-emerald-100/80 flex items-start gap-2">
-                                                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0"/>
-                                                                <span>{sig}</span>
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                </div>
-                                            )}
-                                            {llm_analysis.behavior_analysis.key_risks?.length > 0 && (
-                                                <div className="bg-red-950/20 p-3 rounded-lg border border-red-900/30">
-                                                    <p className="text-[10px] text-red-400 mb-2 uppercase font-bold tracking-wider flex items-center gap-1.5"><TrendingDown className="w-3 h-3"/> סיכונים לגידור:</p>
-                                                    <ul className="space-y-1.5">
-                                                        {llm_analysis.behavior_analysis.key_risks.map((risk, i) => (
-                                                            <li key={i} className="text-xs text-red-100/80 flex items-start gap-2">
-                                                                <XCircle className="w-3.5 h-3.5 text-red-500 mt-0.5 shrink-0"/>
-                                                                <span>{risk}</span>
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                </div>
-                                            )}
-                                        </div>
+                                        {llm_analysis.behavior_analysis.key_positive_signals?.length > 0 && (
+                                            <div className="mb-2">
+                                                <p className="text-[10px] text-emerald-400/80 mb-1 uppercase font-bold">סיגנלים חיוביים:</p>
+                                                <ul className="space-y-1">
+                                                    {llm_analysis.behavior_analysis.key_positive_signals.map((sig, i) => (
+                                                        <li key={i} className="text-xs text-slate-300 flex items-start gap-1.5"><CheckCircle2 className="w-3 h-3 text-emerald-400 mt-0.5 shrink-0"/>{sig}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                        {llm_analysis.behavior_analysis.key_risks?.length > 0 && (
+                                            <div>
+                                                <p className="text-[10px] text-red-400/80 mb-1 uppercase font-bold">סיכונים לגידור:</p>
+                                                <ul className="space-y-1">
+                                                    {llm_analysis.behavior_analysis.key_risks.map((risk, i) => (
+                                                        <li key={i} className="text-xs text-slate-300 flex items-start gap-1.5"><XCircle className="w-3 h-3 text-red-400 mt-0.5 shrink-0"/>{risk}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
-                                {/* Policy Engine Rules - WOW Effect */}
                                 {policy_explanations && policy_explanations.length > 0 && (
-                                    <div className="bg-slate-950/80 p-4 rounded-xl border border-slate-800 shadow-inner">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <FileText className="w-4 h-4 text-slate-400" />
-                                            <p className="text-xs text-slate-400 uppercase font-bold tracking-wider">החלטות מנוע מדיניות קשיחה (Policy Engine)</p>
-                                        </div>
-                                        <div className="space-y-2 font-mono">
-                                            {policy_explanations.map((exp, idx) => {
-                                                const isReject = exp.includes('נדחה');
-                                                const isWarning = exp.includes('בחינה');
-                                                const isSecondChance = exp.includes('הזדמנות שנייה');
-                                                
-                                                let itemBg = "bg-slate-900/50";
-                                                let itemBorder = "border-slate-800";
-                                                let textColor = "text-slate-300";
-                                                let IconCmp = CheckCircle2;
-                                                let iconColor = "text-emerald-500";
-
-                                                if (isReject) {
-                                                    itemBg = "bg-red-950/30";
-                                                    itemBorder = "border-red-900/50";
-                                                    textColor = "text-red-200";
-                                                    IconCmp = XCircle;
-                                                    iconColor = "text-red-500";
-                                                } else if (isWarning) {
-                                                    itemBg = "bg-amber-950/30";
-                                                    itemBorder = "border-amber-900/50";
-                                                    textColor = "text-amber-200";
-                                                    IconCmp = AlertTriangle;
-                                                    iconColor = "text-amber-500";
-                                                } else if (isSecondChance) {
-                                                    itemBg = "bg-indigo-950/30";
-                                                    itemBorder = "border-indigo-900/50";
-                                                    textColor = "text-indigo-200";
-                                                    IconCmp = Zap;
-                                                    iconColor = "text-indigo-500";
-                                                }
-
-                                                return (
-                                                    <div key={idx} className={`flex items-start gap-3 text-[11px] p-2.5 rounded border ${itemBg} ${itemBorder} transition-colors hover:brightness-110`}>
-                                                        <IconCmp className={`w-4 h-4 ${iconColor} shrink-0`} />
-                                                        <span className={`${textColor} leading-relaxed`}>{exp}</span>
+                                    <div className="bg-slate-800/30 p-3 rounded-lg border border-slate-700/50">
+                                        <p className="text-[10px] text-slate-500 uppercase mb-2">החלטות מנוע חיתום (Policy Engine)</p>
+                                        <ul className="space-y-2">
+                                            {policy_explanations.map((exp, idx) => (
+                                                <li key={idx} className="flex items-start gap-2 text-sm text-slate-300 bg-slate-900/50 p-2 rounded-md border border-slate-700/30">
+                                                    <div className="mt-0.5 shrink-0">
+                                                        {exp.includes('נדחה') ? <XCircle className="w-4 h-4 text-red-400" /> : 
+                                                         exp.includes('בחינה') ? <AlertTriangle className="w-4 h-4 text-amber-400" /> : 
+                                                         exp.includes('הזדמנות שנייה') ? <Zap className="w-4 h-4 text-indigo-400" /> :
+                                                         <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
                                                     </div>
-                                                );
-                                            })}
-                                        </div>
+                                                    <span className="leading-tight">{exp}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
                                     </div>
                                 )}
 
