@@ -47,15 +47,18 @@ export default function UnderwritingSettings() {
         onSuccess: () => {
             queryClient.invalidateQueries(['underwritingRules']);
             queryClient.invalidateQueries(['ai-insights-v2']);
+            queryClient.invalidateQueries(['loanMetrics']);
             
-            // Clear loan metrics cache so Dashboard refetches with new rules
+            // Clear ALL loan metrics cache versions so Dashboard refetches with new rules
             Object.keys(sessionStorage).forEach(key => {
-                if (key.startsWith('loanMetricsCacheV3_')) {
+                if (key.startsWith('loanMetricsCache')) {
                     sessionStorage.removeItem(key);
                 }
             });
+            // Clear AI insights cache too
+            try { localStorage.removeItem('flowup_ai_insights_cache_v2'); } catch (_) {}
 
-            toast.success('מדיניות החיתום עודכנה בהצלחה');
+            toast.success('מדיניות החיתום עודכנה בהצלחה. הדף יתרענן בפעם הבאה שתכנס.');
         },
         onError: (err) => {
             toast.error('שגיאה בשמירת הנתונים: ' + err.message);
