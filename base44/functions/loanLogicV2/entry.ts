@@ -778,6 +778,45 @@ ${JSON.stringify(limitedExpenses)}
             finalScore = Math.min(finalScore, 79); // Cap score for review
         }
 
+        // --- 12 MONTHS CLEAN PROFILE CHECK (AUTO GREEN) ---
+        if (history.length === 12) {
+            const negativeKeywords = ['פיגור', 'החזרת', 'חריגה', 'הוצאה לפועל', 'עיקול', 'הגבלת', 'התראה', 'returned', 'arrears', 'collection', 'overdraft fee'];
+            let isClean12Months = true;
+            
+            const twelveMonthsAgo = new Date();
+            twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+            
+            const recentTxns = transactions.filter(tx => {
+                const txDateObj = tx?.date;
+                const dateStr = tx?.creationDate ||
+                    (typeof txDateObj === 'string' ? txDateObj : (txDateObj?.valueDate || txDateObj?.bookingDate || txDateObj?.transactionDate)) ||
+                    tx?.transactionDate;
+                let date = dateStr ? new Date(dateStr) : today;
+                return date >= twelveMonthsAgo;
+            });
+
+            for (const tx of recentTxns) {
+                const desc = String(tx?.description || tx?.details || "").toLowerCase();
+                const category = String(tx?.category?.main || tx?.categoryName || tx?.category || "").toLowerCase();
+                const balanceAfter = Number(tx?.balance_after_transaction || tx?.balance || 0);
+
+                const hasNegativeKeyword = negativeKeywords.some(kw => desc.includes(kw) || category.includes(kw));
+                const hasNegativeBalance = (tx.balance_after_transaction !== undefined || tx.balance !== undefined) && balanceAfter < 0;
+
+                if (hasNegativeKeyword || hasNegativeBalance) {
+                    isClean12Months = false;
+                    break;
+                }
+            }
+            
+            if (isClean12Months) {
+                console.log("[Auto-Green] Customer has been completely clean for 12 months. Forcing Green status.");
+                riskStatus = "GREEN";
+                finalScore = Math.max(finalScore, 85);
+                forceRedReason = null;
+            }
+        }
+
         return Response.json({
             success: true,
             status: riskStatus,

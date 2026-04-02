@@ -850,7 +850,7 @@ export default function Dashboard() {
                     trainingFund={newLoanMetrics?.liquidAssetsBreakdown?.trainingFund ?? (loanLogicData ? loanMetrics?.liquidAssetsBreakdown?.trainingFund : 0)}
                 />
                 <StatCard
-                  title="ממוצע הכנסות (6 חודשים)"
+                  title="ממוצע הכנסות (12 חודשים)"
                   value={`₪${Math.round(newLoanMetrics ? newLoanMetrics.totalIncome : (loanLogicData ? loanMetrics.totalIncome : (currentEngineData?.totalIncome ?? currentMonthStats?.income ?? snapshot.total_income ?? 0))).toLocaleString('he-IL')}`}
                   icon={TrendingUp}
                   color="green"
@@ -858,7 +858,7 @@ export default function Dashboard() {
                   trend={newLoanMetrics?.trends?.income}
                 />
                 <StatCard
-                  title="ממוצע הוצאות (6 חודשים)"
+                  title="ממוצע הוצאות (12 חודשים)"
                   value={`₪${Math.round(newLoanMetrics ? newLoanMetrics.totalExpenses : (loanLogicData ? loanMetrics.totalExpenses : (currentEngineData?.totalExpenses ?? currentMonthStats?.expenses ?? snapshot.total_expenses ?? 0))).toLocaleString('he-IL')}`}
                   icon={TrendingDown}
                   color="red"
