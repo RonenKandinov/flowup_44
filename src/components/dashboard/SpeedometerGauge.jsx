@@ -30,38 +30,27 @@ export default function SpeedometerGauge({
         // Orange: Score 55-79 -> Center (-20 to 20)
         // Green: Score 80-100 -> Right (20 to 60)
         const score = adjustedBalance; // adjustedBalance is passed as score
-        
-        let targetZone = 'green';
-        if (score < 55) targetZone = 'red';
-        else if (score < 80) targetZone = 'orange';
-        
-        // If riskLevel is provided and different from the score zone, we override the visual status
-        if (riskLevel) {
-            if (riskLevel.toLowerCase() === 'red' || riskLevel.toLowerCase() === 'decline') targetZone = 'red';
-            else if (riskLevel.toLowerCase() === 'orange' || riskLevel.toLowerCase() === 'review') targetZone = 'orange';
-            else if (riskLevel.toLowerCase() === 'green' || riskLevel.toLowerCase() === 'approve') targetZone = 'green';
-        }
 
-        if (targetZone === 'red') {
+        if (score < 55) {
             // RED ZONE (High Risk / Low Score)
             // Map 0-54 to -60 -> -20
-            const ratio = Math.min(score / 55, 1);
+            const ratio = score / 55;
             calculatedAngle = -60 + (ratio * 40);
             calculatedColor = '#ef4444';
             calculatedGlow = 'rgba(239, 68, 68, 0.5)';
             statusColor = 'red';
-        } else if (targetZone === 'orange') {
+        } else if (score < 80) {
             // ORANGE ZONE (Medium Risk / Medium Score)
             // Map 55-79 to -20 -> +20
-            const ratio = Math.max(0, Math.min((score - 55) / 25, 1));
+            const ratio = (score - 55) / 25;
             calculatedAngle = -20 + (ratio * 40);
             calculatedColor = '#f97316'; // Orange-500
             calculatedGlow = 'rgba(249, 115, 22, 0.5)';
-            statusColor = 'yellow'; // Kept 'yellow' for internal conditional rendering classes
+            statusColor = 'yellow';
         } else {
             // GREEN ZONE (Low Risk / High Score)
             // Map 80-100 to +20 -> +60
-            const ratio = Math.max(0, Math.min((score - 80) / 20, 1));
+            const ratio = (score - 80) / 20;
             calculatedAngle = 20 + (ratio * 40);
             calculatedColor = '#22c55e';
             calculatedGlow = 'rgba(34, 197, 94, 0.5)';
@@ -230,7 +219,7 @@ export default function SpeedometerGauge({
         {isScore && (
           <div className="mt-2 text-sm font-semibold">
             {statusColor === 'green' && <span className="text-green-400">העסקה ניתנת לאישור במסלול רגיל</span>}
-            {statusColor === 'yellow' && <span className="text-orange-400">ניתן לאשר במסלול 72 חודשים או בלון</span>}
+            {statusColor === 'yellow' && <span className="text-yellow-400">ניתן לאשר במסלול 72 חודשים או בלון</span>}
             {statusColor === 'red' && <span className="text-red-400">נדרש שינוי מבנה העסקה</span>}
           </div>
         )}
@@ -265,12 +254,12 @@ export default function SpeedometerGauge({
         {riskDay ? (
           <div className={`mt-3 md:mt-4 inline-flex items-center px-3 py-1.5 rounded-full border ${
             statusColor === 'green' ? 'bg-green-500/10 border-green-500/20' :
-            statusColor === 'yellow' ? 'bg-orange-500/10 border-orange-500/20' :
+            statusColor === 'yellow' ? 'bg-yellow-500/10 border-yellow-500/20' :
             'bg-red-500/10 border-red-500/20'
           }`}>
             <p className={`text-xs ${
               statusColor === 'green' ? 'text-green-400' :
-              statusColor === 'yellow' ? 'text-orange-400' :
+              statusColor === 'yellow' ? 'text-yellow-400' :
               'text-red-400'
             }`}>
               <span className="opacity-75">יום סיכון צפוי: </span>
@@ -289,7 +278,7 @@ export default function SpeedometerGauge({
               <span className="block text-slate-500 text-[10px] mb-0.5">רמת ביטחון</span>
               <span className={`font-medium ${
                 (statusColor === 'green' || engineData.confidence === 'high') ? 'text-green-400' :
-                engineData.confidence === 'medium' ? 'text-orange-400' :
+                engineData.confidence === 'medium' ? 'text-yellow-400' :
                 'text-red-400'
               }`}>
                 {(statusColor === 'green' || engineData.confidence === 'high') ? 'גבוהה' :

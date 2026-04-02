@@ -99,18 +99,18 @@ export default function InsightsAgent({ analysis, isLoading }) {
                                 {/* Decision Banner */}
                                 <div className={`p-3 rounded-lg border flex items-center justify-between ${
                                     recommendation.decision === 'APPROVE' ? 'bg-emerald-900/20 border-emerald-500/30' :
-                                    recommendation.decision === 'REVIEW' ? 'bg-orange-900/20 border-orange-500/30' :
+                                    recommendation.decision === 'REVIEW' ? 'bg-amber-900/20 border-amber-500/30' :
                                     'bg-red-900/20 border-red-500/30'
                                 }`}>
                                     <div className="flex items-center gap-3">
                                         {recommendation.decision === 'APPROVE' ? <CheckCircle2 className="w-6 h-6 text-emerald-400" /> :
-                                         recommendation.decision === 'REVIEW' ? <AlertTriangle className="w-6 h-6 text-orange-400" /> :
+                                         recommendation.decision === 'REVIEW' ? <AlertTriangle className="w-6 h-6 text-amber-400" /> :
                                          <XCircle className="w-6 h-6 text-red-400" />}
                                         <div>
                                             <p className="text-[10px] text-slate-400 uppercase font-bold">המלצת מערכת</p>
                                             <p className={`text-base font-bold ${
                                                 recommendation.decision === 'APPROVE' ? 'text-emerald-400' :
-                                                recommendation.decision === 'REVIEW' ? 'text-orange-400' :
+                                                recommendation.decision === 'REVIEW' ? 'text-amber-400' :
                                                 'text-red-400'
                                             }`}>
                                                 {recommendation.decision === 'APPROVE' ? 'אישור' :
@@ -219,7 +219,7 @@ export default function InsightsAgent({ analysis, isLoading }) {
                                                 <li key={idx} className="flex items-start gap-2 text-sm text-slate-300 bg-slate-900/50 p-2 rounded-md border border-slate-700/30">
                                                     <div className="mt-0.5 shrink-0">
                                                         {exp.includes('נדחה') ? <XCircle className="w-4 h-4 text-red-400" /> : 
-                                                         exp.includes('בחינה') ? <AlertTriangle className="w-4 h-4 text-orange-400" /> : 
+                                                         exp.includes('בחינה') ? <AlertTriangle className="w-4 h-4 text-amber-400" /> : 
                                                          exp.includes('הזדמנות שנייה') ? <Zap className="w-4 h-4 text-indigo-400" /> :
                                                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
                                                     </div>
@@ -300,10 +300,10 @@ function EnhancedMetricBox({ label, value, isDanger, isWarning, icon: Icon, reve
         borderColor = "border-red-500/30";
         barColor = "bg-red-500";
     } else if (isWarning) {
-        statusColor = "text-orange-400";
-        bgGlow = "bg-orange-400/10";
-        borderColor = "border-orange-500/30";
-        barColor = "bg-orange-500";
+        statusColor = "text-amber-400";
+        bgGlow = "bg-amber-400/10";
+        borderColor = "border-amber-500/30";
+        barColor = "bg-amber-500";
     }
 
     return (

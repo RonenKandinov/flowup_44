@@ -47,7 +47,6 @@ Deno.serve(withValidation(schema, async (req, body) => {
     const assets = m.liquidAssets ?? 0;
     const dti = m.dti ?? 0;
     const score = m.score ?? 0;
-    const isClean12Months = m.isClean12Months ?? false;
 
     const trends = m.trends || { income: 0, expenses: 0 };
     const history = (m.history || []).filter(h => typeof h.netFlow === "number");
@@ -127,25 +126,6 @@ Deno.serve(withValidation(schema, async (req, body) => {
     } else {
         risk = "Green";
         policy_explanations.push("אישור אוטומטי: כל המדדים עומדים במדיניות החיתום.");
-    }
-
-    if (isClean12Months) {
-        risk = "Green";
-        isRejected = false;
-        isReview = false;
-        // Transform "נדחה" or "בחינה" into "חריגה" to avoid contradiction
-        for (let i = 0; i < policy_explanations.length; i++) {
-            policy_explanations[i] = policy_explanations[i].replace("נדחה:", "חריגה:").replace("בחינה:", "חריגה:");
-        }
-        policy_explanations.unshift("פרופיל נקי 12 חודשים (Auto-Green): הלקוח הפגין התנהלות נקייה מפיגורים ומחריגות מסגרת בשנה האחרונה וזכאי למסלול ירוק למרות החריגות הכתובות מטה.");
-    } else if (score >= 80 && risk !== "Green") {
-        risk = "Green";
-        isRejected = false;
-        isReview = false;
-        for (let i = 0; i < policy_explanations.length; i++) {
-            policy_explanations[i] = policy_explanations[i].replace("נדחה:", "חריגה:").replace("בחינה:", "חריגה:");
-        }
-        policy_explanations.unshift(`ציון חוסן פיננסי גבוה (${score}): המערכת החליטה לאשר למרות חריגות המדיניות.`);
     }
 
     const neg = expInc > rules.max_expense_income_ratio;
@@ -282,13 +262,12 @@ ${isExtremeReject ?
 - נטרול "עונש העו"ש": אל תוריד ציון על יתרה נמוכה בעובר ושב אם מזוהה פעילות השקעה עקבית. לקוח שמשקיע את העודפים שלו הוא לווה בטוח יותר.
 - חישוב DTI חכם: DTI במערכת כבר מחושב רק על בסיס הוצאות קשיחות (שכירות, הלוואות, ביטוח). השקעות וחיסכון מוחרגים מהחישוב הזה.
 - ניתוח מגמות 12/4: בסיס שנתי קובע את הרמה, ומומנטום (4 חודשים) מזהה שינויים. לקוח שהגדיל את היקף ההשקעות ב-4 החודשים האחרונים הוא ב"Wealth Building". תיוג זה מעלה את ציון החוסן ויש לציין זאת בחיוב בהמלצה.
-- פרופיל נקי: אם הלקוח סומן עם 'isClean12Months', המערכת אישרה אותו אוטומטית כי הוא התנהל 12 חודשים רצופים ללא מינוסים או פיגורים. חובה להמליץ על APPROVE במקרה כזה ולציין לשבח את ההתנהלות שלו למרות חריגות.
 - חפש אקטיבית סיבות לאשר: התמקד ביכולת החזר אמיתית, יציבות תעסוקתית, ומגמות שיפור במומנטום של 4 החודשים האחרונים.
 - תמחור סיכון: אם יש סיכון, שקול אישור בריבית גבוהה יותר או בסכום נמוך יותר (REVIEW) במקום דחייה אוטומטית.
 - כתוב בצורה קצרה, חדה, עקבית ומבנית.`}
 
 נתוני הלקוח (כולל החלטת מערכת נוכחית והפרות מדיניות):
-${JSON.stringify({ income, expenses, signals, trends, currentRisk: risk, isSecondChance, isClean12Months, dti, liq, expInc, secondChanceScore, policy_explanations, fixes, strengths })}
+${JSON.stringify({ income, expenses, signals, trends, currentRisk: risk, isSecondChance, dti, liq, expInc, secondChanceScore, policy_explanations, fixes, strengths })}
 
 🎯 משימה:
 בהתבסס על הנתונים, קבע:
@@ -391,18 +370,6 @@ ${isExtremeReject ?
               if (llmAnalysis.override_analysis) {
                   llmAnalysis.override_analysis.override_recommended = false;
               }
-          } else if (risk === "Green") {
-              // Ensure we don't flag false negatives if the system is already Green
-              llm.is_false_negative = false;
-              llmAnalysis.is_false_negative = false;
-              rec = "APPROVE";
-              llmAnalysis.decision = "APPROVE";
-          } else if (risk === "Orange") {
-              rec = "REVIEW";
-              llmAnalysis.decision = "REVIEW";
-          } else if (risk === "Red") {
-              rec = "DECLINE";
-              llmAnalysis.decision = "DECLINE";
           }
       }
     } catch (e) {
