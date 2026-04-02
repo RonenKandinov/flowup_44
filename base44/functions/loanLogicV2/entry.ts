@@ -504,6 +504,7 @@ ${JSON.stringify(limitedExpenses)}
                     expenses: 0,
                     fixedExpenses: 0,
                     flexibleExpenses: 0,
+                    investmentTransfers: 0,
                     netFlow: 0
                 };
             }
@@ -531,6 +532,7 @@ ${JSON.stringify(limitedExpenses)}
                 if (isInvestmentTransfer) {
                     investmentTransfers += absAmt;
                     liquidAssetsBreakdown.etf += absAmt;
+                    currentMonth.investmentTransfers += absAmt;
                     console.log(`[Debug] Investment transfer found: ${txDesc} ${category} ${absAmt}`);
                 }
 
@@ -594,11 +596,38 @@ ${JSON.stringify(limitedExpenses)}
             }
         }
 
-        history = history.slice(-6);
+        history = history.slice(-12);
 
-        // Calculate trends
-        let trends = { income: 0, expenses: 0, dti: 0 };
-        if (history.length >= 2) {
+        // Calculate trends (12/4 Momentum Analysis)
+        let trends = { income: 0, expenses: 0, dti: 0, investments: 0, momentum: "STABLE" };
+        if (history.length >= 4) {
+            const recent4 = history.slice(-4);
+            const priorMonths = history.slice(0, -4);
+            
+            const recentAvgIncome = recent4.reduce((sum, m) => sum + m.income, 0) / recent4.length;
+            const priorAvgIncome = priorMonths.length > 0 ? priorMonths.reduce((sum, m) => sum + m.income, 0) / priorMonths.length : recentAvgIncome;
+            
+            const recentAvgExpenses = recent4.reduce((sum, m) => sum + m.expenses, 0) / recent4.length;
+            const priorAvgExpenses = priorMonths.length > 0 ? priorMonths.reduce((sum, m) => sum + m.expenses, 0) / priorMonths.length : recentAvgExpenses;
+            
+            const recentAvgFixed = recent4.reduce((sum, m) => sum + m.fixedExpenses, 0) / recent4.length;
+            const priorAvgFixed = priorMonths.length > 0 ? priorMonths.reduce((sum, m) => sum + m.fixedExpenses, 0) / priorMonths.length : recentAvgFixed;
+            
+            const recentAvgInvestments = recent4.reduce((sum, m) => sum + m.investmentTransfers, 0) / recent4.length;
+            const priorAvgInvestments = priorMonths.length > 0 ? priorMonths.reduce((sum, m) => sum + m.investmentTransfers, 0) / priorMonths.length : 0;
+            
+            const prevDti = priorAvgIncome > 0 ? (priorAvgFixed / priorAvgIncome) * 100 : 100;
+            const currDti = recentAvgIncome > 0 ? (recentAvgFixed / recentAvgIncome) * 100 : 100;
+
+            trends.income = priorAvgIncome > 0 ? ((recentAvgIncome - priorAvgIncome) / priorAvgIncome) * 100 : 0;
+            trends.expenses = priorAvgExpenses > 0 ? ((recentAvgExpenses - priorAvgExpenses) / priorAvgExpenses) * 100 : 0;
+            trends.investments = priorAvgInvestments > 0 ? ((recentAvgInvestments - priorAvgInvestments) / priorAvgInvestments) * 100 : (recentAvgInvestments > 0 ? 100 : 0);
+            trends.dti = currDti - prevDti;
+            
+            if (trends.investments > 20) trends.momentum = "WEALTH_BUILDING";
+            else if (trends.income > 10 && trends.expenses < 5) trends.momentum = "IMPROVING";
+            else if (trends.expenses > 15 && trends.income < 5) trends.momentum = "DETERIORATING";
+        } else if (history.length >= 2) {
             const lastMonth = history[history.length - 1];
             const previousMonths = history.slice(0, -1);
             
@@ -670,6 +699,12 @@ ${JSON.stringify(limitedExpenses)}
             (SCORING_WEIGHTS.LIQUIDITY * scoreLiquidity) +
             (SCORING_WEIGHTS.VOLATILITY * scoreVolatility)
         );
+
+        // Boost score for Wealth Builders
+        if (trends.momentum === "WEALTH_BUILDING") {
+            finalScore = Math.min(100, finalScore + 10);
+            console.log("[Resilience Boost] Applied Wealth Building +10 pts");
+        }
 
         // --- EXTREME RISK CLAMP LAYER ---
         const isHighRiskDTI = dtiPerc > 120;

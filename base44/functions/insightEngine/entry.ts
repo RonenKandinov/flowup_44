@@ -27,7 +27,7 @@ const schema = z.object({
     liquidAssets: z.number().optional(),
     score: z.number().optional(),
     dti: z.number().optional(),
-    trends: z.object({ income: z.number().optional(), expenses: z.number().optional() }).optional(),
+    trends: z.object({ income: z.number().optional(), expenses: z.number().optional(), investments: z.number().optional(), momentum: z.string().optional() }).optional(),
     history: z.array(z.object({ netFlow: z.number().optional() })).optional()
   }).optional()
 }).passthrough();
@@ -58,8 +58,8 @@ Deno.serve(withValidation(schema, async (req, body) => {
     let risk = score < 55 ? "Red" : score < 80 ? "Orange" : "Green";
 
     // ===== Behavior =====
-    let behavior = "STABLE";
-    if (history.length >= 2) {
+    let behavior = trends.momentum || "STABLE";
+    if (behavior === "STABLE" && history.length >= 2) {
       const d = history.at(-1).netFlow - history[0].netFlow;
       if (d > 0 && trends.expenses < 0) behavior = "IMPROVING";
       else if (d < 0 && trends.expenses > 0) behavior = "DETERIORATING";
@@ -134,8 +134,9 @@ Deno.serve(withValidation(schema, async (req, body) => {
 
     // ===== Strengths =====
     const strengths = [];
-    if (behavior === "IMPROVING") strengths.push("מגמת שיפור עקבית");
-    if (liq > rules.min_liquidity_months * 2) strengths.push("נזילות גבוהה");
+    if (behavior === "WEALTH_BUILDING") strengths.push("בניית הון (Wealth Building) - הגדלת הפקדות להשקעות ולחיסכון ב-4 החודשים האחרונים");
+    if (behavior === "IMPROVING") strengths.push("מגמת שיפור עקבית ב-4 החודשים האחרונים");
+    if (liq > rules.min_liquidity_months * 2) strengths.push("נזילות גבוהה ביחס להוצאות");
     if (expInc < rules.max_expense_income_ratio - 10) strengths.push("שליטה בהוצאות");
     if (signals.netFlowTrend === "UP") strengths.push("תזרים מזומנים במגמת עלייה");
 
@@ -249,7 +250,7 @@ Deno.serve(withValidation(schema, async (req, body) => {
     const isExtremeReject = dti > 100 || (income > 0 && expenses > income * 1.5) || score < 20;
 
     const prompt = `
-אתה חתם אשראי בכיר בחברת מימון חוץ-בנקאית.
+אתה חתם אשראי בכיר בחברת מימון חוץ-בנקאית. המשימה שלך היא להבדיל בין לקוח "בזבזן" ללקוח "משקיע".
 ${isExtremeReject ? 
 `⚠️ שים לב: מדובר בלקוח או בסימולציה עם נתונים קיצוניים לחלוטין (DTI של מעל 100%, ציון אפסי או תזרים שקורס). 
 חובה עליך לקבוע דחייה מוחלטת (DECLINE). אל תחפש סיבות לאשר ואל תמליץ על בחינה נוספת. כתוב תקציר מנהלים מקצועי וקר שמסביר את עוצמת החריגה ביחס ההחזר או בתזרים.`
@@ -257,12 +258,13 @@ ${isExtremeReject ?
 `המטרה העסקית שלך היא למקסם אישורי הלוואות בטוחות (למצוא את ה"כן"), במיוחד במקרים שהמערכת האוטומטית דחתה טכנית (False Negatives). אתה לא "אבא ואמא" של הלקוח, אלא מנתח סיכונים עסקי שמחפש גורמים מפצים המאפשרים אישור.
 
 ⚠️ עקרונות עבודה:
-- חפש אקטיבית סיבות לאשר: התמקד ביכולת החזר אמיתית, יציבות תעסוקתית, ומגמות שיפור, גם אם יש חריגות יבשות מהמדיניות.
-- 🔍 זיהוי "רעש" תזרימי: אל תספור כהוצאות מחיה שפוגעות ביכולת ההחזר סכומים שהם למעשה העברות (Transfers), הפקדות לחיסכון/השקעה, או תנועות בין חשבונות של אותו לקוח.
-- 🔍 ניתוח עומק של הוצאות חריגות: אם ממוצע ההוצאות גבוה משמעותית מההכנסות, בחן האם זה נובע משימוש בנזילות קיימת (למשל, שימוש בחסכונות/עו"ש לפירעון הלוואה או רכישה) ולא מהתנהלות רשלנית או מחיה מעבר ליכולת.
+- השקעה היא נזילות: עליך להתייחס להעברות לניירות ערך (Trading/Securities), קרנות השתלמות וחיסכון כאל נזילות גבוהה. כסף שיוצא להשקעה הוא סיגנל חיובי ליכולת החזר ואין להחשיב אותו כהוצאה שגורעת מהציון.
+- נטרול "עונש העו"ש": אל תוריד ציון על יתרה נמוכה בעובר ושב אם מזוהה פעילות השקעה עקבית. לקוח שמשקיע את העודפים שלו הוא לווה בטוח יותר.
+- חישוב DTI חכם: DTI במערכת כבר מחושב רק על בסיס הוצאות קשיחות (שכירות, הלוואות, ביטוח). השקעות וחיסכון מוחרגים מהחישוב הזה.
+- ניתוח מגמות 12/4: בסיס שנתי קובע את הרמה, ומומנטום (4 חודשים) מזהה שינויים. לקוח שהגדיל את היקף ההשקעות ב-4 החודשים האחרונים הוא ב"Wealth Building". תיוג זה מעלה את ציון החוסן ויש לציין זאת בחיוב בהמלצה.
+- חפש אקטיבית סיבות לאשר: התמקד ביכולת החזר אמיתית, יציבות תעסוקתית, ומגמות שיפור במומנטום של 4 החודשים האחרונים.
 - תמחור סיכון: אם יש סיכון, שקול אישור בריבית גבוהה יותר או בסכום נמוך יותר (REVIEW) במקום דחייה אוטומטית.
-- הצע פתרונות אופרטיביים: ספק המלצות קונקרטיות לשיפור.
-- כתוב בצורה קצרה, חדה, עקבית ומבנית (כדי למנוע שינויים תכופים בטקסט בכל קריאה).`}
+- כתוב בצורה קצרה, חדה, עקבית ומבנית.`}
 
 נתוני הלקוח (כולל החלטת מערכת נוכחית והפרות מדיניות):
 ${JSON.stringify({ income, expenses, signals, trends, currentRisk: risk, isSecondChance, dti, liq, expInc, secondChanceScore, policy_explanations, fixes, strengths })}
