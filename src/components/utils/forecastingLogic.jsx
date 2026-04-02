@@ -217,20 +217,27 @@ export const processAndForecast = (inputData, assets = null) => {
         // Calculate Totals for Display (Last Month Only)
         let fixedExpenses = 0;
         let flexExpenses = 0;
+        let totalDebit = 0;
+        let totalCredit = 0;
         
         // Simple Fixed/Flex classification for display
         if (allTransactions.length > 0) {
             const targetMonth = allTransactions[0].date.getMonth();
             const monthTransactions = allTransactions.filter(tx => tx.date.getMonth() === targetMonth);
             const FIXED_KEYWORDS = ['שכר דירה', 'משכנתא', 'ארנונה', 'חשמל', 'מים', 'ביטוח', 'נטפליקס', 'ספוטיפיי', 'אינטרנט'];
+            const NOISE_KEYWORDS = ['העברה', 'חיסכון', 'פיקדון', 'הלוואה', 'transfer', 'deposit', 'loan'];
             
             monthTransactions.forEach(tx => {
-                totalDebit += tx.debit;
-                totalCredit += tx.credit;
-                if (tx.debit > 0) {
-                    const desc = (tx.description || '').toLowerCase();
-                    if (FIXED_KEYWORDS.some(k => desc.includes(k))) fixedExpenses += tx.debit;
-                    else flexExpenses += tx.debit;
+                const desc = (tx.description || '').toLowerCase();
+                const isNoise = NOISE_KEYWORDS.some(k => desc.includes(k));
+                
+                if (!isNoise) {
+                    totalDebit += tx.debit;
+                    totalCredit += tx.credit;
+                    if (tx.debit > 0) {
+                        if (FIXED_KEYWORDS.some(k => desc.includes(k))) fixedExpenses += tx.debit;
+                        else flexExpenses += tx.debit;
+                    }
                 }
             });
         }

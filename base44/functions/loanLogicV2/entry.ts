@@ -510,57 +510,64 @@ ${JSON.stringify(limitedExpenses)}
 
             const currentMonth = monthlyData[monthKey];
 
+            // Identify general "noise" that shouldn't count towards operational income/expenses
+            const isInternalTransfer = ["העברה בין חשבונות", "העברה פנימית", "internal transfer", "העברה לחשבון", "העברה מחשבון", "העברות"].some(kw => category.includes(kw) || txDesc.includes(kw));
+            const isLoanDeposit = amount > 0 && ["הלוואה", "loan", "משכנתא", "mortgage", "credit"].some(kw => category.includes(kw) || txDesc.includes(kw));
+            
+            const investmentKeywords = [
+                "השקע", "ניירות ערך", "מניות", "קרן", "גמל", "השתלמות", "פיקדון", "חסכון", "קופת", 
+                "מיטב", "אלטשולר", "הראל", "כלל", "מגדל", "פניקס", "פסגות", "ילין", "מור", "סחירות",
+                "investment", "stock", "fund", "deposit", "saving", "broker", "crypto", "trade", "portfolio"
+            ];
+            const isInvestmentTransfer = amount < 0 && investmentKeywords.some(kw => category.includes(kw) || txDesc.includes(kw));
+
             if (amount > 0) {
-                currentMonth.income += amount;
+                if (!isInternalTransfer && !isLoanDeposit && !isInvestmentTransfer) {
+                    currentMonth.income += amount;
+                }
             } else {
                 const absAmt = Math.abs(amount);
                 
-                // Detect transfers to investments, savings, provident funds, training funds
-                const investmentKeywords = [
-                    "השקע", "ניירות ערך", "מניות", "קרן", "גמל", "השתלמות", "פיקדון", "חסכון", "קופת", 
-                    "מיטב", "אלטשולר", "הראל", "כלל", "מגדל", "פניקס", "פסגות", "ילין", "מור", "סחירות",
-                    "investment", "stock", "fund", "deposit", "saving", "broker", "crypto", "trade", "portfolio"
-                ];
-                
-                const isInvestmentTransfer = investmentKeywords.some(kw => category.includes(kw) || txDesc.includes(kw));
                 if (isInvestmentTransfer) {
                     investmentTransfers += absAmt;
                     liquidAssetsBreakdown.etf += absAmt;
                     console.log(`[Debug] Investment transfer found: ${txDesc} ${category} ${absAmt}`);
                 }
 
-                currentMonth.expenses += absAmt;
-                
-                const key = `${txDesc}|${category}`;
-                let isFixed = false;
-
-                // Priority 1: use Open Finance's own classification (REGULAR_EXPENSE = fixed recurring)
-                const ofClassType = (tx?.classification?.type || "").toUpperCase();
-                if (ofClassType === "REGULAR_EXPENSE" || ofClassType === "REGULAR_INCOME") {
-                    isFixed = (ofClassType === "REGULAR_EXPENSE");
-                } else if (aiClassifications[key] !== undefined) {
-                    isFixed = aiClassifications[key];
-                } else {
-                    // Fallback to keywords if AI classification failed or missed this item
-                    const fixedKeywords = [
-                        // English
-                        "housing", "loan", "insurance", "transportation", "utilities", "rent", "fixed", "commitment",
-                        "mortgage", "lease", "subscription", "installment", "payment plan",
-                        // Hebrew
-                        "הלוואה", "משכנתא", "ביטוח", "שכירות", "דירה", "חיוב", "תשלום קבוע",
-                        "מנוי", "ארנונה", "חשמל", "מים", "גז", "ועד בית", "טלפון", "אינטרנט",
-                        "החזר", "תשלומים", "מס", "היטל", "אגרה"
-                    ];
+                if (!isInternalTransfer && !isInvestmentTransfer) {
+                    currentMonth.expenses += absAmt;
                     
-                    isFixed = fixedKeywords.some((keyword) => 
-                        category.includes(keyword) || txDesc.includes(keyword)
-                    );
-                }
-                
-                if (isFixed) {
-                    currentMonth.fixedExpenses += absAmt;
-                } else {
-                    currentMonth.flexibleExpenses += absAmt;
+                    const key = `${txDesc}|${category}`;
+                    let isFixed = false;
+
+                    // Priority 1: use Open Finance's own classification (REGULAR_EXPENSE = fixed recurring)
+                    const ofClassType = (tx?.classification?.type || "").toUpperCase();
+                    if (ofClassType === "REGULAR_EXPENSE" || ofClassType === "REGULAR_INCOME") {
+                        isFixed = (ofClassType === "REGULAR_EXPENSE");
+                    } else if (aiClassifications[key] !== undefined) {
+                        isFixed = aiClassifications[key];
+                    } else {
+                        // Fallback to keywords if AI classification failed or missed this item
+                        const fixedKeywords = [
+                            // English
+                            "housing", "loan", "insurance", "transportation", "utilities", "rent", "fixed", "commitment",
+                            "mortgage", "lease", "subscription", "installment", "payment plan",
+                            // Hebrew
+                            "הלוואה", "משכנתא", "ביטוח", "שכירות", "דירה", "חיוב", "תשלום קבוע",
+                            "מנוי", "ארנונה", "חשמל", "מים", "גז", "ועד בית", "טלפון", "אינטרנט",
+                            "החזר", "תשלומים", "מס", "היטל", "אגרה"
+                        ];
+                        
+                        isFixed = fixedKeywords.some((keyword) => 
+                            category.includes(keyword) || txDesc.includes(keyword)
+                        );
+                    }
+                    
+                    if (isFixed) {
+                        currentMonth.fixedExpenses += absAmt;
+                    } else {
+                        currentMonth.flexibleExpenses += absAmt;
+                    }
                 }
             }
             currentMonth.netFlow = currentMonth.income - currentMonth.expenses;
