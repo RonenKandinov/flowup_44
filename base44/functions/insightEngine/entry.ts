@@ -129,11 +129,23 @@ Deno.serve(withValidation(schema, async (req, body) => {
         policy_explanations.push("אישור אוטומטי: כל המדדים עומדים במדיניות החיתום.");
     }
 
-    if (isClean12Months && risk !== "Green") {
+    if (isClean12Months) {
         risk = "Green";
         isRejected = false;
         isReview = false;
-        policy_explanations.push("פרופיל נקי 12 חודשים (Auto-Green): למרות חריגות, הלקוח הפגין התנהלות נקייה מפיגורים ומחריגות מסגרת בשנה האחרונה וזכאי למסלול אוטומטי ירוק.");
+        // Transform "נדחה" or "בחינה" into "חריגה" to avoid contradiction
+        for (let i = 0; i < policy_explanations.length; i++) {
+            policy_explanations[i] = policy_explanations[i].replace("נדחה:", "חריגה:").replace("בחינה:", "חריגה:");
+        }
+        policy_explanations.unshift("פרופיל נקי 12 חודשים (Auto-Green): הלקוח הפגין התנהלות נקייה מפיגורים ומחריגות מסגרת בשנה האחרונה וזכאי למסלול ירוק למרות החריגות הכתובות מטה.");
+    } else if (score >= 80 && risk !== "Green") {
+        risk = "Green";
+        isRejected = false;
+        isReview = false;
+        for (let i = 0; i < policy_explanations.length; i++) {
+            policy_explanations[i] = policy_explanations[i].replace("נדחה:", "חריגה:").replace("בחינה:", "חריגה:");
+        }
+        policy_explanations.unshift(`ציון חוסן פיננסי גבוה (${score}): המערכת החליטה לאשר למרות חריגות המדיניות.`);
     }
 
     const neg = expInc > rules.max_expense_income_ratio;
