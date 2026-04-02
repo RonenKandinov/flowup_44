@@ -391,6 +391,18 @@ ${isExtremeReject ?
               if (llmAnalysis.override_analysis) {
                   llmAnalysis.override_analysis.override_recommended = false;
               }
+          } else if (risk === "Green") {
+              // Ensure we don't flag false negatives if the system is already Green
+              llm.is_false_negative = false;
+              llmAnalysis.is_false_negative = false;
+              rec = "APPROVE";
+              llmAnalysis.decision = "APPROVE";
+          } else if (risk === "Orange") {
+              rec = "REVIEW";
+              llmAnalysis.decision = "REVIEW";
+          } else if (risk === "Red") {
+              rec = "DECLINE";
+              llmAnalysis.decision = "DECLINE";
           }
       }
     } catch (e) {

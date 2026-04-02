@@ -219,7 +219,7 @@ export default function SpeedometerGauge({
         {isScore && (
           <div className="mt-2 text-sm font-semibold">
             {statusColor === 'green' && <span className="text-green-400">העסקה ניתנת לאישור במסלול רגיל</span>}
-            {statusColor === 'yellow' && <span className="text-yellow-400">ניתן לאשר במסלול 72 חודשים או בלון</span>}
+            {statusColor === 'yellow' && <span className="text-orange-400">ניתן לאשר במסלול 72 חודשים או בלון</span>}
             {statusColor === 'red' && <span className="text-red-400">נדרש שינוי מבנה העסקה</span>}
           </div>
         )}
@@ -254,12 +254,12 @@ export default function SpeedometerGauge({
         {riskDay ? (
           <div className={`mt-3 md:mt-4 inline-flex items-center px-3 py-1.5 rounded-full border ${
             statusColor === 'green' ? 'bg-green-500/10 border-green-500/20' :
-            statusColor === 'yellow' ? 'bg-yellow-500/10 border-yellow-500/20' :
+            statusColor === 'yellow' ? 'bg-orange-500/10 border-orange-500/20' :
             'bg-red-500/10 border-red-500/20'
           }`}>
             <p className={`text-xs ${
               statusColor === 'green' ? 'text-green-400' :
-              statusColor === 'yellow' ? 'text-yellow-400' :
+              statusColor === 'yellow' ? 'text-orange-400' :
               'text-red-400'
             }`}>
               <span className="opacity-75">יום סיכון צפוי: </span>
@@ -278,7 +278,7 @@ export default function SpeedometerGauge({
               <span className="block text-slate-500 text-[10px] mb-0.5">רמת ביטחון</span>
               <span className={`font-medium ${
                 (statusColor === 'green' || engineData.confidence === 'high') ? 'text-green-400' :
-                engineData.confidence === 'medium' ? 'text-yellow-400' :
+                engineData.confidence === 'medium' ? 'text-orange-400' :
                 'text-red-400'
               }`}>
                 {(statusColor === 'green' || engineData.confidence === 'high') ? 'גבוהה' :
