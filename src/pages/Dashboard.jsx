@@ -395,6 +395,26 @@ export default function Dashboard() {
   const forecastData = localData?.forecastData || generateForecastFromTransactions(transactions);
   const currentEngineData = localData?.engineData || engineData;
 
+  const displayScore = React.useMemo(() => {
+    let baseScore = simulatedMetrics ? simulatedMetrics.score : (newLoanMetrics ? newLoanMetrics.score : (snapshot?.projected_eom_balance || 0));
+    
+    // AI Analyst Override
+    if (!simulatedMetrics && serverInsights && serverInsights.risk_tier) {
+      const aiTier = serverInsights.risk_tier.toLowerCase();
+      if (aiTier === 'orange' && baseScore < 55) return 65;
+      if (aiTier === 'green' && baseScore < 80) return 85;
+      if (aiTier === 'red' && baseScore >= 55) return 40;
+    }
+    return baseScore;
+  }, [simulatedMetrics, newLoanMetrics, snapshot, serverInsights]);
+
+  const displayRiskLevel = React.useMemo(() => {
+    if (simulatedMetrics) return simulatedMetrics.status;
+    if (serverInsights && serverInsights.risk_tier) return serverInsights.risk_tier.toLowerCase();
+    if (newLoanMetrics) return newLoanMetrics.status;
+    return snapshot?.risk_level || 'green';
+  }, [simulatedMetrics, newLoanMetrics, snapshot, serverInsights]);
+
   // Calculate real-time monthly stats to ensure we display only the latest month
   const currentMonthStats = React.useMemo(() => {
     const txns = localData?.transactions || transactions;
@@ -876,10 +896,10 @@ export default function Dashboard() {
                   className="order-1 lg:order-1 relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-full min-h-[240px]"
                 >
                   <SpeedometerGauge
-                    projectedBalance={simulatedMetrics ? simulatedMetrics.score : (newLoanMetrics ? newLoanMetrics.score : (snapshot.projected_eom_balance || 0))}
+                    projectedBalance={!!(simulatedMetrics || newLoanMetrics) ? displayScore : (snapshot?.projected_eom_balance || 0)}
                     dti={simulatedMetrics ? simulatedMetrics.dti : (newLoanMetrics ? newLoanMetrics.dti : 0)}
-                    label={simulatedMetrics || newLoanMetrics ? "ציון חיתום (FlowUp Score)" : "יתרה צפויה לסוף החודש"}
-                    riskLevel={simulatedMetrics ? simulatedMetrics.status : (newLoanMetrics ? newLoanMetrics.status : (snapshot.risk_level || 'green'))}
+                    label={!!(simulatedMetrics || newLoanMetrics) ? "ציון חיתום (FlowUp Score)" : "יתרה צפויה לסוף החודש"}
+                    riskLevel={displayRiskLevel}
                     riskDay={simulatedMetrics ? simulatedMetrics.riskDay : (newLoanMetrics ? newLoanMetrics.riskDay : null)}
                     whatIfAmount={whatIfAmount}
                     engineData={null}

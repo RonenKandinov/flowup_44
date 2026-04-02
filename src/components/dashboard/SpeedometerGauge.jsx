@@ -30,27 +30,38 @@ export default function SpeedometerGauge({
         // Orange: Score 55-79 -> Center (-20 to 20)
         // Green: Score 80-100 -> Right (20 to 60)
         const score = adjustedBalance; // adjustedBalance is passed as score
+        
+        let targetZone = 'green';
+        if (score < 55) targetZone = 'red';
+        else if (score < 80) targetZone = 'orange';
+        
+        // If riskLevel is provided and different from the score zone, we override the visual status
+        if (riskLevel) {
+            if (riskLevel.toLowerCase() === 'red' || riskLevel.toLowerCase() === 'decline') targetZone = 'red';
+            else if (riskLevel.toLowerCase() === 'orange' || riskLevel.toLowerCase() === 'review') targetZone = 'orange';
+            else if (riskLevel.toLowerCase() === 'green' || riskLevel.toLowerCase() === 'approve') targetZone = 'green';
+        }
 
-        if (score < 55) {
+        if (targetZone === 'red') {
             // RED ZONE (High Risk / Low Score)
             // Map 0-54 to -60 -> -20
-            const ratio = score / 55;
+            const ratio = Math.min(score / 55, 1);
             calculatedAngle = -60 + (ratio * 40);
             calculatedColor = '#ef4444';
             calculatedGlow = 'rgba(239, 68, 68, 0.5)';
             statusColor = 'red';
-        } else if (score < 80) {
+        } else if (targetZone === 'orange') {
             // ORANGE ZONE (Medium Risk / Medium Score)
             // Map 55-79 to -20 -> +20
-            const ratio = (score - 55) / 25;
+            const ratio = Math.max(0, Math.min((score - 55) / 25, 1));
             calculatedAngle = -20 + (ratio * 40);
             calculatedColor = '#f97316'; // Orange-500
             calculatedGlow = 'rgba(249, 115, 22, 0.5)';
-            statusColor = 'yellow';
+            statusColor = 'yellow'; // Kept 'yellow' for internal conditional rendering classes
         } else {
             // GREEN ZONE (Low Risk / High Score)
             // Map 80-100 to +20 -> +60
-            const ratio = (score - 80) / 20;
+            const ratio = Math.max(0, Math.min((score - 80) / 20, 1));
             calculatedAngle = 20 + (ratio * 40);
             calculatedColor = '#22c55e';
             calculatedGlow = 'rgba(34, 197, 94, 0.5)';
