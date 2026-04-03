@@ -68,6 +68,13 @@ function getStandardDeviation(array) {
     return Math.sqrt(variance);
 }
 
+function getMedian(array) {
+    if (!array || array.length === 0) return 0;
+    const sorted = [...array].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
 function extractBalance(acc) {
     let balance = 0;
     let extractionPath = 'none';
@@ -501,6 +508,7 @@ ${JSON.stringify(limitedExpenses)}
                 monthlyData[monthKey] = {
                     month: monthKey,
                     income: 0,
+                    primaryIncome: 0,
                     expenses: 0,
                     fixedExpenses: 0,
                     flexibleExpenses: 0,
@@ -512,8 +520,10 @@ ${JSON.stringify(limitedExpenses)}
             const currentMonth = monthlyData[monthKey];
 
             // Identify general "noise" that shouldn't count towards operational income/expenses
-            const isInternalTransfer = ["העברה בין חשבונות", "העברה פנימית", "internal transfer", "העברה לחשבון", "העברה מחשבון", "העברות"].some(kw => category.includes(kw) || txDesc.includes(kw));
-            const isLoanDeposit = amount > 0 && ["הלוואה", "loan", "משכנתא", "mortgage", "credit"].some(kw => category.includes(kw) || txDesc.includes(kw));
+            const isInternalTransfer = ["העברה בין חשבונות", "העברה פנימית", "internal transfer", "העברה לחשבון", "העברה מחשבון", "העברות", "העברה מ", "העברה ל"].some(kw => category.includes(kw) || txDesc.includes(kw)) && !txDesc.includes("משכורת") && !txDesc.includes("שכר");
+            const isLoanDeposit = amount > 0 && ["הלוואה", "loan", "משכנתא", "mortgage", "credit", "מימון", "הלוואות"].some(kw => category.includes(kw) || txDesc.includes(kw));
+            const isSalary = amount > 0 && ["משכורת", "שכר", "salary", "payroll", "קצבה", "ביטוח לאומי", "פנסיה"].some(kw => category.includes(kw) || txDesc.includes(kw));
+            const isRefundOrReversal = amount > 0 && ["זיכוי", "החזר", "refund", "reversal", "ביטול"].some(kw => category.includes(kw) || txDesc.includes(kw));
             
             const investmentKeywords = [
                 "השקע", "ניירות ערך", "מניות", "קרן", "גמל", "השתלמות", "פיקדון", "חסכון", "קופת", 
@@ -523,8 +533,11 @@ ${JSON.stringify(limitedExpenses)}
             const isInvestmentTransfer = amount < 0 && investmentKeywords.some(kw => category.includes(kw) || txDesc.includes(kw));
 
             if (amount > 0) {
-                if (!isInternalTransfer && !isLoanDeposit && !isInvestmentTransfer) {
+                if (!isInternalTransfer && !isLoanDeposit && !isInvestmentTransfer && !isRefundOrReversal) {
                     currentMonth.income += amount;
+                    if (isSalary) {
+                        currentMonth.primaryIncome += amount;
+                    }
                 }
             } else {
                 const absAmt = Math.abs(amount);
@@ -650,32 +663,15 @@ ${JSON.stringify(limitedExpenses)}
         // Generate a deterministic session key based on userId to ensure consistent shadow vectors
         const SESSION_KEY = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) || 777;
 
-        // 5. Shadow Vectorization
-        const shadowHistory = history.map(m => ({
-            incomeVec: toShadow(m.income, SESSION_KEY),
-            fixedVec: toShadow(m.fixedExpenses, SESSION_KEY),
-            totalExpVec: toShadow(m.expenses, SESSION_KEY),
-            netVec: toShadow(m.netFlow, SESSION_KEY)
-        }));
-
-        // 6. Vector Reconstruction & Feature Engineering
-        const avgIncome = fromShadow(
-            shadowHistory.reduce((acc, h) => acc + h.incomeVec.m, 0) / history.length,
-            shadowHistory.reduce((acc, h) => acc + h.incomeVec.p, 0) / history.length,
-            SESSION_KEY
-        );
-
-        const avgExpenses = fromShadow(
-            shadowHistory.reduce((acc, h) => acc + h.totalExpVec.m, 0) / history.length,
-            shadowHistory.reduce((acc, h) => acc + h.totalExpVec.p, 0) / history.length,
-            SESSION_KEY
-        );
-
-        const avgFixedExpenses = fromShadow(
-            shadowHistory.reduce((acc, h) => acc + h.fixedVec.m, 0) / history.length,
-            shadowHistory.reduce((acc, h) => acc + h.fixedVec.p, 0) / history.length,
-            SESSION_KEY
-        );
+        // 5. Underwriting Feature Engineering
+        const rawMedianIncome = getMedian(history.map(m => m.income));
+        const medianPrimaryIncome = getMedian(history.map(m => m.primaryIncome));
+        
+        // Underwriting prefers identified primary income (salary) if significant, else overall income
+        const avgIncome = (medianPrimaryIncome > rawMedianIncome * 0.4) ? medianPrimaryIncome : rawMedianIncome;
+        
+        const avgExpenses = getMedian(history.map(m => m.expenses));
+        const avgFixedExpenses = getMedian(history.map(m => m.fixedExpenses));
 
         const incomeVolatility = getStandardDeviation(history.map(m => m.income)) / (avgIncome || 1);
         const DTI = avgIncome > 0 ? avgFixedExpenses / avgIncome : 1;
