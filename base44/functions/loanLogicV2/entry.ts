@@ -847,10 +847,18 @@ ${JSON.stringify(limitedExpenses)}
             }
             
             if (isClean12Months) {
-                console.log("[Auto-Green] Customer has been completely clean for 12 months. Forcing Green status.");
-                riskStatus = "GREEN";
-                finalScore = Math.max(finalScore, 85);
-                forceRedReason = null;
+                console.log("[12 Months Clean] Customer has been completely clean for 12 months. Enhancing status.");
+                if (isRejected) {
+                    riskStatus = "ORANGE";
+                    finalScore = Math.max(finalScore, 65);
+                    forceRedReason = null;
+                } else if (isReview) {
+                    riskStatus = "ORANGE";
+                    finalScore = Math.max(finalScore, 75);
+                } else {
+                    riskStatus = "GREEN";
+                    finalScore = Math.max(finalScore, 85);
+                }
             }
         }
 
