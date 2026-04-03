@@ -26,6 +26,8 @@ const schema = z.object({
     totalExpenses: z.number().optional(),
     liquidAssets: z.number().optional(),
     score: z.number().optional(),
+    status: z.string().optional(),
+    isClean12Months: z.boolean().optional(),
     dti: z.number().optional(),
     trends: z.object({ income: z.number().optional(), expenses: z.number().optional(), investments: z.number().optional(), momentum: z.string().optional() }).optional(),
     history: z.array(z.object({ netFlow: z.number().optional() })).optional()
@@ -119,9 +121,19 @@ Deno.serve(withValidation(schema, async (req, body) => {
         policy_explanations.push(`בחינה: נזילות (${liq} חודשים) נמוכה מהנדרש (${rules.min_liquidity_months} חודשים).`);
     }
 
-    if (isRejected) {
+    if (m.isClean12Months) {
+        risk = "Green";
+        policy_explanations.push("אישור אוטומטי: פרופיל הלקוח נקי לחלוטין מאירועים שלילים ב-12 החודשים האחרונים.");
+        isRejected = false;
+        isReview = false;
+    } else if (m.status === "GREEN") {
+        risk = "Green";
+        policy_explanations.push("אישור מערכת: עמידה בתנאי הסף של מנוע החיתום.");
+        isRejected = false;
+        isReview = false;
+    } else if (isRejected || m.status === "RED") {
         risk = "Red";
-    } else if (isReview) {
+    } else if (isReview || m.status === "ORANGE") {
         risk = "Orange";
     } else {
         risk = "Green";

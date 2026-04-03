@@ -779,9 +779,10 @@ ${JSON.stringify(limitedExpenses)}
         }
 
         // --- 12 MONTHS CLEAN PROFILE CHECK (AUTO GREEN) ---
+        let isClean12Months = false;
         if (history.length === 12) {
             const negativeKeywords = ['פיגור', 'החזרת', 'חריגה', 'הוצאה לפועל', 'עיקול', 'הגבלת', 'התראה', 'returned', 'arrears', 'collection', 'overdraft fee'];
-            let isClean12Months = true;
+            isClean12Months = true;
             
             const twelveMonthsAgo = new Date();
             twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
@@ -852,6 +853,8 @@ ${JSON.stringify(limitedExpenses)}
                     trainingFund: Math.round(liquidAssetsBreakdown.trainingFund)
                 },
                 score: finalScore,
+                status: riskStatus,
+                isClean12Months: isClean12Months,
                 dti: Math.round(dtiPerc),
                 runway: parseFloat(runwayMonths.toFixed(1)),
                 trends: trends,
