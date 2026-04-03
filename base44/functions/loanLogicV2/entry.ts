@@ -548,18 +548,8 @@ ${JSON.stringify(limitedExpenses)}
 
             if (amount > 0) {
                 if (!isInternalTransfer && !isLoanDeposit && !isInvestmentTransfer && !isRefundOrReversal) {
-                    let weightedAmount = amount;
-                    let isPrimary = false;
-
+                    currentMonth.income += amount;
                     if (isDefiniteSalary || isRecurringIncome) {
-                        weightedAmount = amount; // 100% confidence
-                        isPrimary = true;
-                    } else {
-                        weightedAmount = amount * 0.5; // 50% confidence for one-off deposits
-                    }
-
-                    currentMonth.income += weightedAmount;
-                    if (isPrimary) {
                         currentMonth.primaryIncome += amount;
                     }
                 }
@@ -688,14 +678,20 @@ ${JSON.stringify(limitedExpenses)}
         const SESSION_KEY = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) || 777;
 
         // 5. Underwriting Feature Engineering
-        const rawMedianIncome = getMedian(history.map(m => m.income));
-        const medianPrimaryIncome = getMedian(history.map(m => m.primaryIncome));
-        
-        // Underwriting prefers identified primary income (salary) if significant, else overall income
-        const avgIncome = (medianPrimaryIncome > rawMedianIncome * 0.4) ? medianPrimaryIncome : rawMedianIncome;
-        
-        const avgExpenses = getMedian(history.map(m => m.expenses));
-        const avgFixedExpenses = getMedian(history.map(m => m.fixedExpenses));
+        // Use average of ACTIVE months to avoid 0-months pulling the average down artificially
+        const activeIncomeMonths = history.filter(m => m.income > 0);
+        const avgIncome = activeIncomeMonths.length > 0 
+            ? activeIncomeMonths.reduce((sum, m) => sum + m.income, 0) / activeIncomeMonths.length 
+            : 0;
+            
+        const activeExpenseMonths = history.filter(m => m.expenses > 0);
+        const avgExpenses = activeExpenseMonths.length > 0 
+            ? activeExpenseMonths.reduce((sum, m) => sum + m.expenses, 0) / activeExpenseMonths.length 
+            : 0;
+            
+        const avgFixedExpenses = activeExpenseMonths.length > 0 
+            ? activeExpenseMonths.reduce((sum, m) => sum + m.fixedExpenses, 0) / activeExpenseMonths.length 
+            : 0;
 
         const incomeVolatility = getStandardDeviation(history.map(m => m.income)) / (avgIncome || 1);
         const DTI = avgIncome > 0 ? avgFixedExpenses / avgIncome : 1;
