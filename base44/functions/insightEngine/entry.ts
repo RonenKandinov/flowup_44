@@ -212,52 +212,6 @@ Deno.serve(withValidation(schema, async (req, body) => {
       conf = "HIGH";
     }
 
-    // ===== Pricing =====
-    let approveAmount = Math.round(income * 6);
-    let approveInterest = 8;
-
-    if (risk === "Orange") {
-        approveInterest += 1;
-        approveAmount *= 0.8;
-    }
-    if (risk === "Red") {
-      approveInterest += 2;
-      approveAmount *= 0.5;
-    }
-
-    if (isSecondChance) {
-      approveInterest += 1.5; // Premium for the risk taken on second chance
-      approveAmount *= 0.8;
-    }
-
-    let options = [
-      {
-        decision: "APPROVE",
-        max_loan_amount: Math.round(approveAmount),
-        suggested_interest: Math.round(approveInterest * 10) / 10
-      },
-      {
-        decision: "REVIEW",
-        max_loan_amount: Math.round(income * 4),
-        suggested_interest: 11
-      },
-      {
-        decision: "DECLINE",
-        max_loan_amount: 0,
-        suggested_interest: null
-      }
-    ];
-
-    if (rec === "DECLINE") {
-      options = [
-        {
-          decision: "DECLINE",
-          max_loan_amount: 0,
-          suggested_interest: null
-        }
-      ];
-    }
-
     // ===== Narrative =====
     const isExtremeReject = risk === "Red" && (dti > 100 || (income > 0 && expenses > income * 1.5) || score < 20);
 
@@ -374,6 +328,16 @@ ${isExtremeReject ?
               else if (risk === "Orange") risk = "Green";
           }
 
+          // Ensure AI doesn't go rogue against hard system states
+          if (m.isClean12Months) {
+              rec = "APPROVE";
+              risk = "Green";
+              llm.is_false_negative = false;
+              llmAnalysis.is_false_negative = false;
+          } else if (risk === "Green" && rec === "DECLINE") {
+              rec = "REVIEW"; // At worst, a Green score requires human review, not auto-decline
+          }
+
           if (isExtremeReject) {
               rec = "DECLINE";
               risk = "Red";
@@ -386,6 +350,52 @@ ${isExtremeReject ?
       }
     } catch (e) {
         console.error("LLM Error:", e);
+    }
+
+    // ===== Pricing (Calculated after LLM overrides) =====
+    let approveAmount = Math.round(income * 6);
+    let approveInterest = 8;
+
+    if (risk === "Orange") {
+        approveInterest += 1;
+        approveAmount *= 0.8;
+    }
+    if (risk === "Red") {
+      approveInterest += 2;
+      approveAmount *= 0.5;
+    }
+
+    if (isSecondChance) {
+      approveInterest += 1.5;
+      approveAmount *= 0.8;
+    }
+
+    let options = [
+      {
+        decision: "APPROVE",
+        max_loan_amount: Math.round(approveAmount),
+        suggested_interest: Math.round(approveInterest * 10) / 10
+      },
+      {
+        decision: "REVIEW",
+        max_loan_amount: Math.round(income * 4),
+        suggested_interest: 11
+      },
+      {
+        decision: "DECLINE",
+        max_loan_amount: 0,
+        suggested_interest: null
+      }
+    ];
+
+    if (rec === "DECLINE") {
+      options = [
+        {
+          decision: "DECLINE",
+          max_loan_amount: 0,
+          suggested_interest: null
+        }
+      ];
     }
 
     try {

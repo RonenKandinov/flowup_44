@@ -31,30 +31,33 @@ export default function SpeedometerGauge({
         // Green: Score 80-100 -> Right (20 to 60)
         const score = adjustedBalance; // adjustedBalance is passed as score
 
+        const colorMap = {
+            'RED': { color: '#ef4444', glow: 'rgba(239, 68, 68, 0.5)', status: 'red' },
+            'ORANGE': { color: '#f97316', glow: 'rgba(249, 115, 22, 0.5)', status: 'yellow' },
+            'YELLOW': { color: '#f97316', glow: 'rgba(249, 115, 22, 0.5)', status: 'yellow' },
+            'GREEN': { color: '#22c55e', glow: 'rgba(34, 197, 94, 0.5)', status: 'green' }
+        };
+        const rl = riskLevel ? riskLevel.toUpperCase() : null;
+        const theme = colorMap[rl];
+
         if (score < 55) {
-            // RED ZONE (High Risk / Low Score)
-            // Map 0-54 to -60 -> -20
             const ratio = score / 55;
             calculatedAngle = -60 + (ratio * 40);
-            calculatedColor = '#ef4444';
-            calculatedGlow = 'rgba(239, 68, 68, 0.5)';
-            statusColor = 'red';
+            calculatedColor = theme ? theme.color : '#ef4444';
+            calculatedGlow = theme ? theme.glow : 'rgba(239, 68, 68, 0.5)';
+            statusColor = theme ? theme.status : 'red';
         } else if (score < 80) {
-            // ORANGE ZONE (Medium Risk / Medium Score)
-            // Map 55-79 to -20 -> +20
             const ratio = (score - 55) / 25;
             calculatedAngle = -20 + (ratio * 40);
-            calculatedColor = '#f97316'; // Orange-500
-            calculatedGlow = 'rgba(249, 115, 22, 0.5)';
-            statusColor = 'yellow';
+            calculatedColor = theme ? theme.color : '#f97316'; 
+            calculatedGlow = theme ? theme.glow : 'rgba(249, 115, 22, 0.5)';
+            statusColor = theme ? theme.status : 'yellow';
         } else {
-            // GREEN ZONE (Low Risk / High Score)
-            // Map 80-100 to +20 -> +60
             const ratio = (score - 80) / 20;
             calculatedAngle = 20 + (ratio * 40);
-            calculatedColor = '#22c55e';
-            calculatedGlow = 'rgba(34, 197, 94, 0.5)';
-            statusColor = 'green';
+            calculatedColor = theme ? theme.color : '#22c55e';
+            calculatedGlow = theme ? theme.glow : 'rgba(34, 197, 94, 0.5)';
+            statusColor = theme ? theme.status : 'green';
         }
 
     } else {
