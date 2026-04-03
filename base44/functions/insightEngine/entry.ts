@@ -259,7 +259,7 @@ Deno.serve(withValidation(schema, async (req, body) => {
     }
 
     // ===== Narrative =====
-    const isExtremeReject = dti > 100 || (income > 0 && expenses > income * 1.5) || score < 20;
+    const isExtremeReject = risk === "Red" && (dti > 100 || (income > 0 && expenses > income * 1.5) || score < 20);
 
     const prompt = `
 אתה חתם אשראי בכיר בחברת מימון חוץ-בנקאית. המשימה שלך היא להבדיל בין לקוח "בזבזן" ללקוח "משקיע".
