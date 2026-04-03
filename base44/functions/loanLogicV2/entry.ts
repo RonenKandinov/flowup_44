@@ -399,6 +399,26 @@ Deno.serve(withValidation(loanLogicSchema, async (req) => {
         }
 
         // 4. Process Transactions into Monthly History
+        const parseTransactionAmount = (tx) => {
+            if (tx.amount !== undefined) {
+                if (typeof tx.amount === 'object') {
+                    let val = Number(tx.amount.amount || tx.amount.chargedAmount?.amount || 0);
+                    const ind = String(tx.creditDebitIndicator || tx.indicator || "").toUpperCase();
+                    if (ind === 'DBIT' || ind === 'DEBIT') return -Math.abs(val);
+                    if (ind === 'CRDT' || ind === 'CREDIT') return Math.abs(val);
+                    return val; // Assume it's signed if no indicator
+                }
+                return Number(tx.amount);
+            }
+            if (tx.credit !== undefined || tx.debit !== undefined) {
+                return (Number(tx.credit) || 0) - (Number(tx.debit) || 0);
+            }
+            if (tx.amount_ils !== undefined) {
+                return Number(tx.amount_ils);
+            }
+            return 0;
+        };
+
         const monthlyData = {};
         const today = new Date();
         let investmentTransfers = 0;
@@ -406,7 +426,7 @@ Deno.serve(withValidation(loanLogicSchema, async (req) => {
         // --- RECURRING INCOME PRE-PROCESSING ---
         const incomeDescCount = new Map();
         transactions.forEach((tx) => {
-            const amount = Number(tx?.amount?.chargedAmount?.amount || tx?.amount || 0);
+            const amount = parseTransactionAmount(tx);
             if (isNaN(amount) || amount <= 0) return;
             const txDescClean = String(tx?.description || tx?.details || "").toLowerCase().replace(/[0-9\-\/]/g, '').trim();
             if (txDescClean) {
@@ -417,7 +437,7 @@ Deno.serve(withValidation(loanLogicSchema, async (req) => {
         // --- HYBRID AI CLASSIFICATION PRE-PROCESSING ---
         const uniqueExpensesMap = new Map();
         transactions.forEach((tx) => {
-            const amount = Number(tx?.amount?.chargedAmount?.amount || tx?.amount || 0);
+            const amount = parseTransactionAmount(tx);
             if (isNaN(amount) || amount >= 0) return;
             const category = (tx?.category?.main || tx?.category || "").toLowerCase();
             const txDesc = String(tx?.description || "").toLowerCase();
@@ -499,7 +519,7 @@ ${JSON.stringify(limitedExpenses)}
         }
 
         transactions.forEach((tx) => {
-            const amount = Number(tx?.amount?.chargedAmount?.amount || tx?.amount || 0);
+            const amount = parseTransactionAmount(tx);
             if (isNaN(amount)) return;
 
             const category = (tx?.category?.main || tx?.categoryName || tx?.category || "").toLowerCase();

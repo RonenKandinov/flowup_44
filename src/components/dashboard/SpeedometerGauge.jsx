@@ -40,20 +40,26 @@ export default function SpeedometerGauge({
         const rl = riskLevel ? riskLevel.toUpperCase() : null;
         const theme = colorMap[rl];
 
-        if (score < 55) {
-            const ratio = score / 55;
+        let visualScore = score;
+        // Override visual angle if AI analyst decided a different risk tier
+        if (rl === 'RED' && score >= 55) visualScore = 54;
+        if ((rl === 'ORANGE' || rl === 'YELLOW') && (score < 55 || score >= 80)) visualScore = 75;
+        if (rl === 'GREEN' && score < 80) visualScore = 85;
+
+        if (visualScore < 55) {
+            const ratio = visualScore / 55;
             calculatedAngle = -60 + (ratio * 40);
             calculatedColor = theme ? theme.color : '#ef4444';
             calculatedGlow = theme ? theme.glow : 'rgba(239, 68, 68, 0.5)';
             statusColor = theme ? theme.status : 'red';
-        } else if (score < 80) {
-            const ratio = (score - 55) / 25;
+        } else if (visualScore < 80) {
+            const ratio = (visualScore - 55) / 25;
             calculatedAngle = -20 + (ratio * 40);
             calculatedColor = theme ? theme.color : '#f97316'; 
             calculatedGlow = theme ? theme.glow : 'rgba(249, 115, 22, 0.5)';
             statusColor = theme ? theme.status : 'yellow';
         } else {
-            const ratio = (score - 80) / 20;
+            const ratio = (visualScore - 80) / 20;
             calculatedAngle = 20 + (ratio * 40);
             calculatedColor = theme ? theme.color : '#22c55e';
             calculatedGlow = theme ? theme.glow : 'rgba(34, 197, 94, 0.5)';
