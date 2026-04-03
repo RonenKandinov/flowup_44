@@ -403,6 +403,17 @@ Deno.serve(withValidation(loanLogicSchema, async (req) => {
         const today = new Date();
         let investmentTransfers = 0;
 
+        // --- RECURRING INCOME PRE-PROCESSING ---
+        const incomeDescCount = new Map();
+        transactions.forEach((tx) => {
+            const amount = Number(tx?.amount?.chargedAmount?.amount || tx?.amount || 0);
+            if (isNaN(amount) || amount <= 0) return;
+            const txDescClean = String(tx?.description || tx?.details || "").toLowerCase().replace(/[0-9\-\/]/g, '').trim();
+            if (txDescClean) {
+                incomeDescCount.set(txDescClean, (incomeDescCount.get(txDescClean) || 0) + 1);
+            }
+        });
+
         // --- HYBRID AI CLASSIFICATION PRE-PROCESSING ---
         const uniqueExpensesMap = new Map();
         transactions.forEach((tx) => {
@@ -520,10 +531,13 @@ ${JSON.stringify(limitedExpenses)}
             const currentMonth = monthlyData[monthKey];
 
             // Identify general "noise" that shouldn't count towards operational income/expenses
-            const isInternalTransfer = ["העברה בין חשבונות", "העברה פנימית", "internal transfer", "העברה לחשבון", "העברה מחשבון", "העברות", "העברה מ", "העברה ל"].some(kw => category.includes(kw) || txDesc.includes(kw)) && !txDesc.includes("משכורת") && !txDesc.includes("שכר");
-            const isLoanDeposit = amount > 0 && ["הלוואה", "loan", "משכנתא", "mortgage", "credit", "מימון", "הלוואות"].some(kw => category.includes(kw) || txDesc.includes(kw));
-            const isSalary = amount > 0 && ["משכורת", "שכר", "salary", "payroll", "קצבה", "ביטוח לאומי", "פנסיה"].some(kw => category.includes(kw) || txDesc.includes(kw));
-            const isRefundOrReversal = amount > 0 && ["זיכוי", "החזר", "refund", "reversal", "ביטול"].some(kw => category.includes(kw) || txDesc.includes(kw));
+            const txDescClean = txDesc.replace(/[0-9\-\/]/g, '').trim();
+            const isRecurringIncome = amount > 0 && txDescClean && incomeDescCount.get(txDescClean) >= 3;
+
+            const isInternalTransfer = ["העברה בין חשבונות", "העברה פנימית", "internal transfer", "own account"].some(kw => category.includes(kw) || txDesc.includes(kw));
+            const isLoanDeposit = amount >= 15000 && ["הלוואה", "loan", "משכנתא", "mortgage", "מימון", "הלוואות"].some(kw => category.includes(kw) || txDesc.includes(kw));
+            const isDefiniteSalary = amount > 0 && ["משכורת", "שכר", "salary", "payroll", "קצבה", "ביטוח לאומי", "פנסיה", "מס\"ב"].some(kw => category.includes(kw) || txDesc.includes(kw));
+            const isRefundOrReversal = amount > 0 && ["החזר", "refund", "reversal", "ביטול"].some(kw => category.includes(kw) || txDesc.includes(kw)) && !txDesc.includes("זיכוי");
             
             const investmentKeywords = [
                 "השקע", "ניירות ערך", "מניות", "קרן", "גמל", "השתלמות", "פיקדון", "חסכון", "קופת", 
@@ -534,8 +548,18 @@ ${JSON.stringify(limitedExpenses)}
 
             if (amount > 0) {
                 if (!isInternalTransfer && !isLoanDeposit && !isInvestmentTransfer && !isRefundOrReversal) {
-                    currentMonth.income += amount;
-                    if (isSalary) {
+                    let weightedAmount = amount;
+                    let isPrimary = false;
+
+                    if (isDefiniteSalary || isRecurringIncome) {
+                        weightedAmount = amount; // 100% confidence
+                        isPrimary = true;
+                    } else {
+                        weightedAmount = amount * 0.5; // 50% confidence for one-off deposits
+                    }
+
+                    currentMonth.income += weightedAmount;
+                    if (isPrimary) {
                         currentMonth.primaryIncome += amount;
                     }
                 }
