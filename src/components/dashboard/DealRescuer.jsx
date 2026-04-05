@@ -8,6 +8,7 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [analysisComplete, setAnalysisComplete] = useState(false);
     const [activeStrategy, setActiveStrategy] = useState(null);
+    const [generatedStrategies, setGeneratedStrategies] = useState(null);
 
     // Ensure we don't crash if baseMetrics is missing
     const score = baseMetrics?.score || 0;
@@ -19,52 +20,121 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
     
     const runAnalysis = () => {
         setIsAnalyzing(true);
-        // Simulate "Brute Force" and Goal Seek calculations
+        // Execute the 30-combination matrix logic
         setTimeout(() => {
+            const income = baseMetrics?.totalIncome || 10000;
+            const liquidAssets = baseMetrics?.liquidAssets || 0;
+            const fixedExpenses = baseMetrics?.totalFixedExpenses || 0;
+            const incomeTrend = baseMetrics?.trends?.income || 0; // percentage
+            
+            const requestedLoan = 100000; // Default assumption for simulation
+            const R_base = 0.05; // 5% annual
+            
+            const periods = [24, 36, 48, 60, 72, 84];
+            
+            // Generate down payment options: 0, 2.5k, 5k, 7.5k, 10k limited by liquid assets
+            const possibleDPs = [0, 2500, 5000, 7500, 10000];
+            let downPayments = possibleDPs.filter(dp => dp <= liquidAssets);
+            if (downPayments.length === 0) downPayments = [0];
+
+            let matrix = [];
+
+            periods.forEach(n => {
+                downPayments.forEach(dp => {
+                    const P = requestedLoan - dp;
+                    let r_annual = R_base;
+                    if (n > 48 && n <= 72) r_annual += 0.015;
+                    if (n > 72) r_annual += 0.025;
+                    
+                    const r_monthly = r_annual / 12;
+                    const pmt = (P * r_monthly) / (1 - Math.pow(1 + r_monthly, -n));
+                    
+                    const newDTI = ((fixedExpenses + pmt) / income) * 100;
+                    
+                    // Score calculation
+                    // 40% DTI
+                    let dtiScore = 0;
+                    if (newDTI < 25) dtiScore = 100;
+                    else if (newDTI > 40) dtiScore = 0;
+                    else dtiScore = 100 - ((newDTI - 25) / 15) * 100;
+                    
+                    // 30% LTV
+                    const ltvScore = (dp / requestedLoan) * 100;
+                    
+                    // 30% Trend score
+                    let trendScore = incomeTrend > 0 ? Math.min(100, incomeTrend * 2) : 0;
+                    
+                    let S_new = (0.4 * dtiScore) + (0.3 * ltvScore) + (0.3 * trendScore);
+                    
+                    // Bonus for strong trend
+                    if (incomeTrend > 50) S_new += 20; 
+                    
+                    matrix.push({ n, dp, P, r_annual, pmt, newDTI, S_new, dtiScore, ltvScore, trendScore });
+                });
+            });
+
+            // Filter for S >= 60
+            const validOptions = matrix.filter(opt => opt.S_new >= 60);
+            const pool = validOptions.length > 0 ? validOptions : matrix;
+
+            // 1. Economic (Lowest PMT)
+            const ecoPath = [...pool].sort((a, b) => a.pmt - b.pmt)[0];
+            // 2. Security (Lowest LTV / Max DP)
+            const secPath = [...pool].sort((a, b) => b.dp - a.dp || a.pmt - b.pmt)[0];
+            // 3. AI Path (Reasonable n <= 60, relies on trend)
+            const aiPathPool = pool.filter(opt => opt.n <= 60);
+            const aiPath = aiPathPool.length > 0 ? [...aiPathPool].sort((a, b) => b.S_new - a.S_new)[0] : ecoPath;
+
+            const newStrategies = {
+                cash_flow: {
+                    id: 'cash_flow',
+                    title: 'התאמת יכולת החזר',
+                    subtitle: 'Lowest Monthly Payment',
+                    icon: ArrowLeftRight,
+                    color: 'text-blue-400',
+                    bg: 'bg-blue-500/10',
+                    border: 'border-blue-500/30',
+                    strategy: `הנתיב הכלכלי: פריסה ל-${ecoPath.n} חודשים עם מקדמה של ₪${Math.round(ecoPath.dp).toLocaleString()}.`,
+                    aiLogic: `הנתיב הכלכלי ממזער את ההחזר החודשי לכ-₪${Math.round(ecoPath.pmt).toLocaleString()}. פריסה ל-${ecoPath.n} חודשים מורידה את יחס ה-DTI ל-${Math.round(ecoPath.newDTI)}%, בטווח הבטוח.`,
+                    simulatedBoost: Math.min(100 - score, Math.round(ecoPath.S_new / 2)),
+                    metrics: ecoPath
+                },
+                exposure: {
+                    id: 'exposure',
+                    title: 'הפחתת חשיפה',
+                    subtitle: 'Exposure Reduction',
+                    icon: Wallet,
+                    color: 'text-emerald-400',
+                    bg: 'bg-emerald-500/10',
+                    border: 'border-emerald-500/30',
+                    strategy: `נתיב הביטחון: מקדמה מקסימלית של ₪${Math.round(secPath.dp).toLocaleString()} על חשבון נזילות קיימת.`,
+                    aiLogic: `הנתיב הבטוח ביותר (LTV נמוך). שימוש בנזילות קיימת להקטנת הקרן ל-₪${Math.round(secPath.P).toLocaleString()}, מקטין דרמטית את הסיכון המערכתי תוך פריסה ל-${secPath.n} חודשים.`,
+                    simulatedBoost: Math.min(100 - score, Math.round(secPath.S_new / 2)),
+                    metrics: secPath
+                },
+                behavioral: {
+                    id: 'behavioral',
+                    title: 'אישור מבוסס התנהגות',
+                    subtitle: 'AI Optimal Path',
+                    icon: Activity,
+                    color: 'text-purple-400',
+                    bg: 'bg-purple-500/10',
+                    border: 'border-purple-500/30',
+                    strategy: `נתיב ה-AI: פריסה ל-${aiPath.n} חודשים המסתמכת על מגמת ההכנסות.`,
+                    aiLogic: `שילוב אופטימלי בין פריסה סבירה (${aiPath.n} חודשים) וניצול מגמת שכר חיובית (+${Math.round(incomeTrend)}%). הציון המשוקלל במטריצה: ${Math.round(aiPath.S_new)} נק'.`,
+                    simulatedBoost: Math.min(100 - score, Math.round(aiPath.S_new / 2)),
+                    metrics: aiPath
+                }
+            };
+
+            setGeneratedStrategies(newStrategies);
             setIsAnalyzing(false);
             setAnalysisComplete(true);
             setActiveStrategy('cash_flow');
         }, 1500);
     };
 
-    const strategies = {
-        cash_flow: {
-            id: 'cash_flow',
-            title: 'התאמת יכולת החזר',
-            subtitle: 'Cash-Flow Alignment',
-            icon: ArrowLeftRight,
-            color: 'text-blue-400',
-            bg: 'bg-blue-500/10',
-            border: 'border-blue-500/30',
-            strategy: 'פריסה מחדש של התשלומים להקטנת הנטל החודשי.',
-            aiLogic: 'התאמת לוח הסילוקין ליכולת ההחזר הריאלית של הלווה. הפריסה מורידה את יחס ה-DTI לטווח הבטוח, תוך התבססות על מגמת הצמיחה בהכנסותיו.',
-            simulatedBoost: 12
-        },
-        exposure: {
-            id: 'exposure',
-            title: 'הפחתת חשיפה',
-            subtitle: 'Exposure Reduction',
-            icon: Wallet,
-            color: 'text-emerald-400',
-            bg: 'bg-emerald-500/10',
-            border: 'border-emerald-500/30',
-            strategy: 'הגדלת המקדמה על בסיס הנזילות הקיימת בחשבון הלקוח.',
-            aiLogic: 'צמצום החשיפה של החברה (LTV) על ידי שימוש בנכסים נזילים מזוהים בחשבון. המהלך משפר את יחס הביטחונות ומוריד את רמת הסיכון הכוללת בעסקה.',
-            simulatedBoost: 15
-        },
-        behavioral: {
-            id: 'behavioral',
-            title: 'אישור מבוסס התנהגות',
-            subtitle: 'Behavioral-Based Approval',
-            icon: Activity,
-            color: 'text-purple-400',
-            bg: 'bg-purple-500/10',
-            border: 'border-purple-500/30',
-            strategy: 'אישור בתנאים המקוריים תוך מתן משקל להתנהלות פיננסית אחראית.',
-            aiLogic: "הדחייה המקורית נבעה מ'רעש' תזרימי זמני. האנליזה מראה עמידה מלאה בהתחייבויות ב-11 מתוך 12 החודשים האחרונים. המלצה לאישור על בסיס יציבות התנהגותית.",
-            simulatedBoost: 8
-        }
-    };
+    const strategies = generatedStrategies || {};
 
     const handleApplyStrategy = (stratKey) => {
         if (!baseMetrics) return;
