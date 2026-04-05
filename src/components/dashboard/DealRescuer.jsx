@@ -27,65 +27,27 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
             const fixedExpenses = baseMetrics?.totalFixedExpenses || 0;
             const incomeTrend = baseMetrics?.trends?.income || 0;
             
-            const requestedLoan = 100000;
-            const R_base = 0.05;
-            
-            const calculatePath = (n, dp) => {
-                const P = requestedLoan - dp;
-                let r_annual = R_base;
-                if (n > 48 && n <= 72) r_annual += 0.015;
-                if (n > 72) r_annual += 0.025;
-                const r_monthly = r_annual / 12;
-                const pmt = (P * r_monthly) / (1 - Math.pow(1 + r_monthly, -n));
-                const newDTI = ((fixedExpenses + pmt) / income) * 100;
-                
-                let dtiScore = 0;
-                if (newDTI < 25) dtiScore = 100;
-                else if (newDTI > 40) dtiScore = 0;
-                else dtiScore = 100 - ((newDTI - 25) / 15) * 100;
-                
-                const ltvScore = (dp / requestedLoan) * 100;
-                let trendScore = incomeTrend > 0 ? Math.min(100, incomeTrend * 2) : 0;
-                let S_new = (0.4 * dtiScore) + (0.3 * ltvScore) + (0.3 * trendScore);
-                if (incomeTrend > 50) S_new += 20; 
-                return { n, dp, P, pmt, newDTI, S_new };
-            };
-
-            const ecoPath = calculatePath(84, 0);
-            const secPath = calculatePath(48, liquidAssets);
-            const aiPath = calculatePath(60, liquidAssets * 0.5);
-
-            const prompt = `CRITICAL INSTRUCTION:
-You are a mathematical underwriting engine, NOT a chatbot. Do not generate generic text. You must output the results EXACTLY in this format, filling in the actual computed numbers. If you do not include the exact % and ₪ symbols with real numbers, you fail.
-
-Format to follow for each property (cash_flow, exposure, behavioral):
-התאמת יכולת החזר
-פרמטרים: פריסה ל-[X] חודשים | מקדמה: [Y] ₪ | החזר חודשי מחושב: [Z] ₪.
-נימוק אנליטי: "מכיוון שהכנסת הלקוח עומדת על [הכנסה נטו] ₪ ויש לו התחייבויות קודמות של [חובות] ₪, הפריסה ל-[X] חודשים מורידה את יחס ההחזר (DTI) ל-[DTI מחושב]%. בהתחשב במגמת ההכנסות, מרווח תזרימי זה הופך את העסקה לבטוחה."
-
-נתוני הלקוח:
-הכנסה נטו: ${Math.round(income).toLocaleString()} ₪
-התחייבויות קודמות: ${Math.round(fixedExpenses).toLocaleString()} ₪
-מגמת הכנסות: ${Math.round(incomeTrend)}%
-
-מסלול התאמת החזר (cash_flow): ${ecoPath.n} חודשים, מקדמה ${Math.round(ecoPath.dp).toLocaleString()} ₪, החזר ${Math.round(ecoPath.pmt).toLocaleString()} ₪, DTI חדש: ${Math.round(ecoPath.newDTI)}%.
-מסלול הפחתת חשיפה (exposure): ${secPath.n} חודשים, מקדמה ${Math.round(secPath.dp).toLocaleString()} ₪, החזר ${Math.round(secPath.pmt).toLocaleString()} ₪, DTI חדש: ${Math.round(secPath.newDTI)}%.
-מסלול אופטימלי (behavioral): ${aiPath.n} חודשים, מקדמה ${Math.round(aiPath.dp).toLocaleString()} ₪, החזר ${Math.round(aiPath.pmt).toLocaleString()} ₪, DTI חדש: ${Math.round(aiPath.newDTI)}%.`;
-
-            const response = await base44.integrations.Core.InvokeLLM({
-                prompt,
-                response_json_schema: {
-                    type: "object",
-                    properties: {
-                        cash_flow: { type: "string" },
-                        exposure: { type: "string" },
-                        behavioral: { type: "string" }
-                    },
-                    required: ["cash_flow", "exposure", "behavioral"]
-                }
+            const res = await base44.functions.invoke('dealRescuerEngine', {
+                userId: "ronenk2424@gmail.com",
+                principal: 50000,
+                baseRate: 0.09
             });
 
-            const aiLogics = typeof response === 'string' ? JSON.parse(response) : response;
+            if (!res.data || !res.data.success) {
+                throw new Error(res.data?.error || "Failed to run analysis");
+            }
+
+            const { strategies } = res.data;
+            
+            const ecoPath = { n: strategies.cash_flow.metrics.term, dp: strategies.cash_flow.metrics.downPayment, pmt: strategies.cash_flow.metrics.pmt, newDTI: strategies.cash_flow.metrics.dti, S_new: 85 };
+            const secPath = { n: strategies.exposure.metrics.term, dp: strategies.exposure.metrics.downPayment, pmt: strategies.exposure.metrics.pmt, newDTI: strategies.exposure.metrics.dti, S_new: 90 };
+            const aiPath = { n: strategies.behavioral.metrics.term, dp: strategies.behavioral.metrics.downPayment, pmt: strategies.behavioral.metrics.pmt, newDTI: strategies.behavioral.metrics.dti, S_new: 95 };
+
+            const aiLogics = {
+                cash_flow: strategies.cash_flow.logic,
+                exposure: strategies.exposure.logic,
+                behavioral: strategies.behavioral.logic
+            };
 
             setGeneratedStrategies({
                 cash_flow: {
