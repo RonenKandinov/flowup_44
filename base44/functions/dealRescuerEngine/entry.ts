@@ -153,9 +153,9 @@ Strategies to justify:
 
 Output EXACTLY this JSON structure. Follow this text pattern for the values:
 {
-  "cash_flow": "🟢 התאמת תזרים: פריסה ל-${stratCashFlow.term} חודשים מעמידה את ההחזר על ${Math.round(stratCashFlow.pmt)} ₪.\\n🟢 יחס החזר (DTI): הלקוח מתייצב על יחס אשראי בטוח של ${Math.round(stratCashFlow.dti)}% מהכנסתו הפנויה.\\n🟢 שורת חתם: העסקה מאושרת. הנטל החודשי תואם את יכולת ההחזר האמיתית.",
-  "exposure": "🟢 הפחתת LTV: דרישת מקדמה של ${Math.round(stratExposure.downPayment)} ₪ מתוך הנזילות הקיימת מקטינה את קרן ההלוואה.\\n🟢 הקטנת סיכון: יחס החשיפה (LTV) יורד ל-${Math.round(stratExposure.ltv)}%, מה שמגן על החברה מירידת ערך הרכב.\\n🟢 שורת חתם: עסקה מגובה בביטחונות חזקים, מאושר לחיתום.",
-  "behavioral": "🟢 ניקוי רעשים: הלקוח מציג הכנסה יציבה של ${Math.round(avgIncome)} ₪ בניטרול הוצאות חריגות.\\n🟢 איזון תזרימי: תשלום של ${Math.round(stratBehavioral.pmt)} ₪ שומר על DTI של ${Math.round(stratBehavioral.dti)}%.\\n🟢 שורת חתם: התנהלות היסטורית תקינה מאפשרת אישור בתנאים אלו."
+  "cash_flow": " התאמת תזרים: פריסה ל-${stratCashFlow.term} חודשים מעמידה את ההחזר על ${Math.round(stratCashFlow.pmt)} ₪.\\n🟢 יחס החזר (DTI): הלקוח מתייצב על יחס אשראי בטוח של ${Math.round(stratCashFlow.dti)}% מהכנסתו הפנויה.\\n🟢 שורת חתם: העסקה מאושרת. הנטל החודשי תואם את יכולת ההחזר האמיתית.",
+  "exposure": " הפחתת LTV: דרישת מקדמה של ${Math.round(stratExposure.downPayment)} ₪ מתוך הנזילות הקיימת מקטינה את קרן ההלוואה.\\n🟢  הקטנת סיכון: יחס החשיפה (LTV) יורד ל-${Math.round(stratExposure.ltv)}%, מה שמגן על החברה מירידת ערך הרכב.\\n🟢 שורת חתם: עסקה מגובה בביטחונות חזקים, מאושר לחיתום.",
+  "behavioral": " ניקוי רעשים: הלקוח מציג הכנסה יציבה של ${Math.round(avgIncome)} ₪ בניטרול הוצאות חריגות.\\n איזון תזרימי: תשלום של ${Math.round(stratBehavioral.pmt)} ₪ שומר על DTI של ${Math.round(stratBehavioral.dti)}%.\\n🟢 שורת חתם: התנהלות היסטורית תקינה מאפשרת אישור בתנאים אלו."
 }`;
         const llmRes = await base44.integrations.Core.InvokeLLM({
             prompt,
