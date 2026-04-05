@@ -30,51 +30,47 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
             const requestedLoan = 100000;
             const R_base = 0.05;
             
-            const periods = [24, 36, 48, 60, 72, 84];
-            const possibleDPs = [0, 2500, 5000, 7500, 10000];
-            let downPayments = possibleDPs.filter(dp => dp <= liquidAssets);
-            if (downPayments.length === 0) downPayments = [0];
+            const calculatePath = (n, dp) => {
+                const P = requestedLoan - dp;
+                let r_annual = R_base;
+                if (n > 48 && n <= 72) r_annual += 0.015;
+                if (n > 72) r_annual += 0.025;
+                const r_monthly = r_annual / 12;
+                const pmt = (P * r_monthly) / (1 - Math.pow(1 + r_monthly, -n));
+                const newDTI = ((fixedExpenses + pmt) / income) * 100;
+                
+                let dtiScore = 0;
+                if (newDTI < 25) dtiScore = 100;
+                else if (newDTI > 40) dtiScore = 0;
+                else dtiScore = 100 - ((newDTI - 25) / 15) * 100;
+                
+                const ltvScore = (dp / requestedLoan) * 100;
+                let trendScore = incomeTrend > 0 ? Math.min(100, incomeTrend * 2) : 0;
+                let S_new = (0.4 * dtiScore) + (0.3 * ltvScore) + (0.3 * trendScore);
+                if (incomeTrend > 50) S_new += 20; 
+                return { n, dp, P, pmt, newDTI, S_new };
+            };
 
-            let matrix = [];
-            periods.forEach(n => {
-                downPayments.forEach(dp => {
-                    const P = requestedLoan - dp;
-                    let r_annual = R_base;
-                    if (n > 48 && n <= 72) r_annual += 0.015;
-                    if (n > 72) r_annual += 0.025;
-                    const r_monthly = r_annual / 12;
-                    const pmt = (P * r_monthly) / (1 - Math.pow(1 + r_monthly, -n));
-                    const newDTI = ((fixedExpenses + pmt) / income) * 100;
-                    
-                    let dtiScore = 0;
-                    if (newDTI < 25) dtiScore = 100;
-                    else if (newDTI > 40) dtiScore = 0;
-                    else dtiScore = 100 - ((newDTI - 25) / 15) * 100;
-                    
-                    const ltvScore = (dp / requestedLoan) * 100;
-                    let trendScore = incomeTrend > 0 ? Math.min(100, incomeTrend * 2) : 0;
-                    let S_new = (0.4 * dtiScore) + (0.3 * ltvScore) + (0.3 * trendScore);
-                    if (incomeTrend > 50) S_new += 20; 
-                    matrix.push({ n, dp, P, pmt, newDTI, S_new });
-                });
-            });
+            const ecoPath = calculatePath(84, 0);
+            const secPath = calculatePath(48, liquidAssets);
+            const aiPath = calculatePath(60, liquidAssets * 0.5);
 
-            const validOptions = matrix.filter(opt => opt.S_new >= 60);
-            const pool = validOptions.length > 0 ? validOptions : matrix;
+            const prompt = `CRITICAL INSTRUCTION:
+You are a mathematical underwriting engine, NOT a chatbot. Do not generate generic text. You must output the results EXACTLY in this format, filling in the actual computed numbers. If you do not include the exact % and ₪ symbols with real numbers, you fail.
 
-            const ecoPath = [...pool].sort((a, b) => a.pmt - b.pmt)[0];
-            const secPath = [...pool].sort((a, b) => b.dp - a.dp || a.pmt - b.pmt)[0];
-            const aiPathPool = pool.filter(opt => opt.n <= 60);
-            const aiPath = aiPathPool.length > 0 ? [...aiPathPool].sort((a, b) => b.S_new - a.S_new)[0] : ecoPath;
+Format to follow for each property (cash_flow, exposure, behavioral):
+התאמת יכולת החזר
+פרמטרים: פריסה ל-[X] חודשים | מקדמה: [Y] ₪ | החזר חודשי מחושב: [Z] ₪.
+נימוק אנליטי: "מכיוון שהכנסת הלקוח עומדת על [הכנסה נטו] ₪ ויש לו התחייבויות קודמות של [חובות] ₪, הפריסה ל-[X] חודשים מורידה את יחס ההחזר (DTI) ל-[DTI מחושב]%. בהתחשב במגמת ההכנסות, מרווח תזרימי זה הופך את העסקה לבטוחה."
 
-            const prompt = `אתה מנתח אשראי AI. העסקה המקורית נדחתה. סימלצנו 3 חלופות לחילוץ:
-            נתיב כלכלי: פריסה ל-${ecoPath.n} חודשים, מקדמה ${ecoPath.dp}₪, החזר: ${Math.round(ecoPath.pmt)}₪.
-            נתיב ביטחון: פריסה ל-${secPath.n} חודשים, מקדמה ${secPath.dp}₪, החזר: ${Math.round(secPath.pmt)}₪.
-            נתיב AI: פריסה ל-${aiPath.n} חודשים, מקדמה ${aiPath.dp}₪, החזר: ${Math.round(aiPath.pmt)}₪.
-            
-            הכנסות: ${Math.round(income)}₪, נזילות: ${Math.round(liquidAssets)}₪.
-            
-            כתוב משפט הסבר קצר (עד 12 מילים) לכל נתיב, שמסביר מדוע הוא מתאים.`;
+נתוני הלקוח:
+הכנסה נטו: ${Math.round(income).toLocaleString()} ₪
+התחייבויות קודמות: ${Math.round(fixedExpenses).toLocaleString()} ₪
+מגמת הכנסות: ${Math.round(incomeTrend)}%
+
+מסלול התאמת החזר (cash_flow): ${ecoPath.n} חודשים, מקדמה ${Math.round(ecoPath.dp).toLocaleString()} ₪, החזר ${Math.round(ecoPath.pmt).toLocaleString()} ₪, DTI חדש: ${Math.round(ecoPath.newDTI)}%.
+מסלול הפחתת חשיפה (exposure): ${secPath.n} חודשים, מקדמה ${Math.round(secPath.dp).toLocaleString()} ₪, החזר ${Math.round(secPath.pmt).toLocaleString()} ₪, DTI חדש: ${Math.round(secPath.newDTI)}%.
+מסלול אופטימלי (behavioral): ${aiPath.n} חודשים, מקדמה ${Math.round(aiPath.dp).toLocaleString()} ₪, החזר ${Math.round(aiPath.pmt).toLocaleString()} ₪, DTI חדש: ${Math.round(aiPath.newDTI)}%.`;
 
             const response = await base44.integrations.Core.InvokeLLM({
                 prompt,
@@ -173,7 +169,7 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`relative rounded-xl p-4 border bg-slate-800/30 backdrop-blur-sm transition-all h-full flex flex-col ${
+            className={`relative rounded-xl p-4 border bg-slate-800/30 backdrop-blur-sm transition-all flex flex-col ${
                 analysisComplete ? 'border-cyan-500/40 shadow-sm shadow-cyan-500/10' : 'border-slate-700/30'
             }`}
         >
