@@ -43,10 +43,21 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
             const secPath = { n: strategies.exposure.metrics.term, dp: strategies.exposure.metrics.downPayment, pmt: strategies.exposure.metrics.pmt, newDTI: strategies.exposure.metrics.dti, S_new: 90 };
             const aiPath = { n: strategies.behavioral.metrics.term, dp: strategies.behavioral.metrics.downPayment, pmt: strategies.behavioral.metrics.pmt, newDTI: strategies.behavioral.metrics.dti, S_new: 95 };
 
+            // Helper to safely extract bullets from various possible AI return formats
+            const extractBullets = (logicData) => {
+                if (!logicData) return ["מסלול מאושר בהתאם לפרמטרים."];
+                if (logicData.bullets && Array.isArray(logicData.bullets)) return logicData.bullets;
+                if (typeof logicData === 'string') {
+                    const split = logicData.split('\n').filter(l => l.trim().length > 0).map(l => l.replace(/^[-*•]\s*/, '').trim());
+                    return split.length > 0 ? split : [logicData];
+                }
+                return ["מסלול מאושר בהתאם לפרמטרים."];
+            };
+
             const aiLogics = {
-                cash_flow: strategies.cash_flow.logic,
-                exposure: strategies.exposure.logic,
-                behavioral: strategies.behavioral.logic
+                cash_flow: extractBullets(strategies.cash_flow.logic),
+                exposure: extractBullets(strategies.exposure.logic),
+                behavioral: extractBullets(strategies.behavioral.logic)
             };
 
             setGeneratedStrategies({
@@ -59,7 +70,7 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                     bg: 'bg-blue-500/10',
                     border: 'border-blue-500/30',
                     strategy: `כלכלי: ${ecoPath.n} חוד', ${Math.round(ecoPath.dp).toLocaleString()}₪ מקדמה.`,
-                    aiLogic: aiLogics.cash_flow || `הנתיב מוריד את החזר ל-${Math.round(ecoPath.pmt)}₪.`,
+                    aiLogic: aiLogics.cash_flow,
                     simulatedBoost: Math.min(100 - score, Math.round(ecoPath.S_new / 2)),
                     metrics: ecoPath
                 },
@@ -72,7 +83,7 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                     bg: 'bg-emerald-500/10',
                     border: 'border-emerald-500/30',
                     strategy: `ביטחון: ${secPath.n} חוד', ${Math.round(secPath.dp).toLocaleString()}₪ מקדמה.`,
-                    aiLogic: aiLogics.exposure || `הנתיב מקטין את סיכון האשראי משמעותית.`,
+                    aiLogic: aiLogics.exposure,
                     simulatedBoost: Math.min(100 - score, Math.round(secPath.S_new / 2)),
                     metrics: secPath
                 },
@@ -85,7 +96,7 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                     bg: 'bg-purple-500/10',
                     border: 'border-purple-500/30',
                     strategy: `AI: ${aiPath.n} חוד', ${Math.round(aiPath.dp).toLocaleString()}₪ מקדמה.`,
-                    aiLogic: aiLogics.behavioral || `שילוב מאוזן בין תזרים לביטחונות.`,
+                    aiLogic: aiLogics.behavioral,
                     simulatedBoost: Math.min(100 - score, Math.round(aiPath.S_new / 2)),
                     metrics: aiPath
                 }
@@ -227,10 +238,17 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                                             <p className="text-[10px] text-slate-400 pr-2">{activeStratData.strategy}</p>
                                         </div>
 
-                                        <div className="flex-1 bg-slate-950/50 rounded-md p-2 border border-slate-800">
-                                            <p className="text-[10px] leading-relaxed text-slate-300">
-                                                "{activeStratData.aiLogic}"
-                                            </p>
+                                        <div className="flex-1 bg-slate-950/50 rounded-md p-2.5 border border-slate-800">
+                                            <ul className="space-y-2">
+                                                {Array.isArray(activeStratData.aiLogic) ? activeStratData.aiLogic.map((bullet, idx) => (
+                                                    <li key={idx} className="flex items-start gap-2 text-[10px] leading-relaxed text-slate-300">
+                                                        <div className="mt-1 w-1.5 h-1.5 rounded-full bg-cyan-500/50 shrink-0" />
+                                                        <span>{bullet}</span>
+                                                    </li>
+                                                )) : (
+                                                    <li className="text-[10px] leading-relaxed text-slate-300">{activeStratData.aiLogic}</li>
+                                                )}
+                                            </ul>
                                         </div>
                                     </div>
 

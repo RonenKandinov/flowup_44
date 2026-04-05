@@ -134,38 +134,36 @@ Deno.serve(async (req) => {
 
         // 6. ניתוח התנהגותי (AI Advocate)
        const prompt = `CRITICAL INSTRUCTION:
-You are a senior, aggressive credit underwriter. Your job is to justify why the computed loan structure is safe to approve[cite: 3, 13].
-DO NOT write generic paragraphs. DO NOT write "פריסה קצרה מקטינה תשלום" if the term is short (short terms INCREASE monthly payments but reduce risk). 
+You are a senior, decisive credit underwriter making a firm approval recommendation.
+DO NOT use robotic phrases like "בהתחשב בנתונים" or "ההנחה היא". Speak directly and authoritatively.
+Explain exactly why this structure makes the loan safe to approve.
 
-You MUST output the justification for each strategy using EXACTLY 3 bullet points. 
-Start each bullet point with the 🟢 emoji, and separate them with a newline character (\\n).
-You MUST include the specific DTI, PMT, and Income numbers in the text.
-
-Client Data Context:
+Data:
 Net Income: ${Math.round(avgIncome)} ILS
 Fixed Debts: ${Math.round(avgFixedExpenses)} ILS
 Liquid Assets (Buffer): ${Math.round(liquidAssets)} ILS
 
-Strategies to justify:
-1. cash_flow: Term ${stratCashFlow.term}m, DP ${Math.round(stratCashFlow.downPayment)} ILS, PMT ${Math.round(stratCashFlow.pmt)} ILS, DTI ${Math.round(stratCashFlow.dti)}%
-2. exposure: Term ${stratExposure.term}m, DP ${Math.round(stratExposure.downPayment)} ILS, PMT ${Math.round(stratExposure.pmt)} ILS, DTI ${Math.round(stratExposure.dti)}%, LTV ${Math.round(stratExposure.ltv)}%
-3. behavioral: Term ${stratBehavioral.term}m, DP ${Math.round(stratBehavioral.downPayment)} ILS, PMT ${Math.round(stratBehavioral.pmt)} ILS, DTI ${Math.round(stratBehavioral.dti)}%
+Strategies:
+1. Cash Flow: Term ${stratCashFlow.term}m, DP ${Math.round(stratCashFlow.downPayment)}, PMT ${Math.round(stratCashFlow.pmt)}, DTI ${Math.round(stratCashFlow.dti)}%, LTV ${Math.round(stratCashFlow.ltv)}%
+2. Exposure: Term ${stratExposure.term}m, DP ${Math.round(stratExposure.downPayment)}, PMT ${Math.round(stratExposure.pmt)}, DTI ${Math.round(stratExposure.dti)}%, LTV ${Math.round(stratExposure.ltv)}%
+3. Behavioral: Term ${stratBehavioral.term}m, DP ${Math.round(stratBehavioral.downPayment)}, PMT ${Math.round(stratBehavioral.pmt)}, DTI ${Math.round(stratBehavioral.dti)}%, LTV ${Math.round(stratBehavioral.ltv)}%
 
-Output EXACTLY this JSON structure. Follow this text pattern for the values:
+Output EXACTLY this JSON structure. For each strategy, provide EXACTLY 3 short, sharp bullet points (justifications in Hebrew). Do NOT write paragraphs.
 {
-  "cash_flow": " התאמת תזרים: פריסה ל-${stratCashFlow.term} חודשים מעמידה את ההחזר על ${Math.round(stratCashFlow.pmt)} ₪.\\n🟢 יחס החזר (DTI): הלקוח מתייצב על יחס אשראי בטוח של ${Math.round(stratCashFlow.dti)}% מהכנסתו הפנויה.\\n🟢 שורת חתם: העסקה מאושרת. הנטל החודשי תואם את יכולת ההחזר האמיתית.",
-  "exposure": " הפחתת LTV: דרישת מקדמה של ${Math.round(stratExposure.downPayment)} ₪ מתוך הנזילות הקיימת מקטינה את קרן ההלוואה.\\n🟢  הקטנת סיכון: יחס החשיפה (LTV) יורד ל-${Math.round(stratExposure.ltv)}%, מה שמגן על החברה מירידת ערך הרכב.\\n🟢 שורת חתם: עסקה מגובה בביטחונות חזקים, מאושר לחיתום.",
-  "behavioral": " ניקוי רעשים: הלקוח מציג הכנסה יציבה של ${Math.round(avgIncome)} ₪ בניטרול הוצאות חריגות.\\n איזון תזרימי: תשלום של ${Math.round(stratBehavioral.pmt)} ₪ שומר על DTI של ${Math.round(stratBehavioral.dti)}%.\\n🟢 שורת חתם: התנהלות היסטורית תקינה מאפשרת אישור בתנאים אלו."
+  "cash_flow": { "bullets": ["נקודה 1...", "נקודה 2...", "נקודה 3..."] },
+  "exposure": { "bullets": ["נקודה 1...", "נקודה 2...", "נקודה 3..."] },
+  "behavioral": { "bullets": ["נקודה 1...", "נקודה 2...", "נקודה 3..."] }
 }`;
+
         const llmRes = await base44.integrations.Core.InvokeLLM({
             prompt,
             model: "gpt_5_mini", // Using a faster model for quicker generation
             response_json_schema: {
                 type: "object",
                 properties: {
-                    cash_flow: { type: "string" },
-                    exposure: { type: "string" },
-                    behavioral: { type: "string" }
+                    cash_flow: { type: "object", properties: { bullets: { type: "array", items: { type: "string" } } } },
+                    exposure: { type: "object", properties: { bullets: { type: "array", items: { type: "string" } } } },
+                    behavioral: { type: "object", properties: { bullets: { type: "array", items: { type: "string" } } } }
                 },
                 required: ["cash_flow", "exposure", "behavioral"]
             }
