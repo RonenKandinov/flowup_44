@@ -287,7 +287,7 @@ export default function Dashboard() {
     initialData: []
   });
 
-  const isLoading = isSnapshotsLoading || isUserLoading;
+  const isLoading = isSnapshotsLoading || isUserLoading || isStorageLoading;
 
   // Fetch Shadow Realm entries (Secured Data)
   const { data: shadowEntries } = useQuery({
@@ -680,16 +680,14 @@ export default function Dashboard() {
     }
   };
 
-  if (isStorageLoading || isProcessingCallback) {
+  if (isProcessingCallback) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-4">
         <div className="w-10 h-10 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
-        {isProcessingCallback && (
-          <div className="text-center">
-            <p className="text-white font-medium">מחבר את חשבון הבנק...</p>
-            <p className="text-slate-500 text-sm mt-1">בודק סטטוס חיבור ומושך נתונים</p>
-          </div>
-        )}
+        <div className="text-center">
+          <p className="text-white font-medium">מחבר את חשבון הבנק...</p>
+          <p className="text-slate-500 text-sm mt-1">בודק סטטוס חיבור ומושך נתונים</p>
+        </div>
       </div>
     );
   }
