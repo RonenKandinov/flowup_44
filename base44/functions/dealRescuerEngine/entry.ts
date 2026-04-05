@@ -134,9 +134,9 @@ Deno.serve(async (req) => {
 
         // 6. ניתוח התנהגותי (AI Advocate)
         const prompt = `CRITICAL INSTRUCTION:
-You are an algorithmic underwriting engine.
-We ran a grid search of 50 simulations and selected 3 optimal rescue paths for a rejected loan.
-Generate the analytical justification for each path in Hebrew.
+You are a senior, decisive credit underwriter making a firm approval recommendation.
+DO NOT use robotic phrases like "בהתחשב בנתונים" or "ההנחה היא". Speak directly and authoritatively.
+Explain exactly why this structure makes the loan safe to approve. Keep it to 1-2 punchy, professional sentences.
 
 Data:
 Net Income: ${Math.round(avgIncome)} ILS
@@ -144,20 +144,20 @@ Fixed Debts: ${Math.round(avgFixedExpenses)} ILS
 Liquid Assets (Buffer): ${Math.round(liquidAssets)} ILS
 
 Strategies:
-1. Cash Flow (התאמת יכולת החזר): Term ${stratCashFlow.term}m, DP ${Math.round(stratCashFlow.downPayment)}, PMT ${Math.round(stratCashFlow.pmt)}, DTI ${Math.round(stratCashFlow.dti)}%, LTV ${Math.round(stratCashFlow.ltv)}%
-2. Exposure (הפחתת חשיפה): Term ${stratExposure.term}m, DP ${Math.round(stratExposure.downPayment)}, PMT ${Math.round(stratExposure.pmt)}, DTI ${Math.round(stratExposure.dti)}%, LTV ${Math.round(stratExposure.ltv)}%
-3. Behavioral (אישור התנהגותי): Term ${stratBehavioral.term}m, DP ${Math.round(stratBehavioral.downPayment)}, PMT ${Math.round(stratBehavioral.pmt)}, DTI ${Math.round(stratBehavioral.dti)}%, LTV ${Math.round(stratBehavioral.ltv)}%
+1. Cash Flow: Term ${stratCashFlow.term}m, DP ${Math.round(stratCashFlow.downPayment)}, PMT ${Math.round(stratCashFlow.pmt)}, DTI ${Math.round(stratCashFlow.dti)}%, LTV ${Math.round(stratCashFlow.ltv)}%
+2. Exposure: Term ${stratExposure.term}m, DP ${Math.round(stratExposure.downPayment)}, PMT ${Math.round(stratExposure.pmt)}, DTI ${Math.round(stratExposure.dti)}%, LTV ${Math.round(stratExposure.ltv)}%
+3. Behavioral: Term ${stratBehavioral.term}m, DP ${Math.round(stratBehavioral.downPayment)}, PMT ${Math.round(stratBehavioral.pmt)}, DTI ${Math.round(stratBehavioral.dti)}%, LTV ${Math.round(stratBehavioral.ltv)}%
 
-Output EXACTLY this JSON structure:
+Output EXACTLY this JSON structure. 
 {
-  "cash_flow": "Your analytical justification for path 1 in Hebrew...",
-  "exposure": "Your analytical justification for path 2 in Hebrew...",
-  "behavioral": "Your analytical justification for path 3 in Hebrew..."
-}
-Rule: Justifications must mention the exact parameters (Term, DP, PMT, DTI, LTV) and how the data cleaning (ignoring expenses 2.5x over avg) and the liquidity buffer make it a safe deal.`;
+  "cash_flow": "e.g., פריסה ל-X חודשים מקטינה את ה-DTI ל-Y%, מה שמשאיר מרווח תזרימי בטוח. נזילות קיימת של Z ₪ מספקת גיבוי נוסף לעסקה.",
+  "exposure": "e.g., דרישת מקדמה של X ₪ מפחיתה את ה-LTV ל-Y% ומקטינה משמעותית את חשיפת האשראי של החברה. העסקה מאושרת בתנאים אלו.",
+  "behavioral": "e.g., לאחר ניקוי רעשים והוצאות חריגות, הלקוח מציג יציבות פיננסית. פריסה ל-X חודשים מבטיחה החזר חודשי סביר של Y ₪."
+}`;
 
         const llmRes = await base44.integrations.Core.InvokeLLM({
             prompt,
+            model: "gpt_5_mini", // Using a faster model for quicker generation
             response_json_schema: {
                 type: "object",
                 properties: {
