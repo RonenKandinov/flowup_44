@@ -5,19 +5,16 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 
-export default function DealRescuer({ onSimulate, baseMetrics }) {
+export default function DealRescuer({ onSimulate, baseMetrics, autoRun }) {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [analysisComplete, setAnalysisComplete] = useState(false);
     const [activeStrategy, setActiveStrategy] = useState(null);
     const [generatedStrategies, setGeneratedStrategies] = useState(null);
+    const hasRunRef = React.useRef(false);
 
     // Ensure we don't crash if baseMetrics is missing
     const score = baseMetrics?.score || 0;
-    const isUnderperforming = score < 60; // Just an example threshold based on the doc
     const status = baseMetrics?.status || 'GREEN';
-    
-    // Automatically trigger analysis if score is below a certain threshold or status is RED/ORANGE
-    // Or we can just let the user click "Run Deal Rescuer"
     
     const runAnalysis = async () => {
         setIsAnalyzing(true);
@@ -110,6 +107,14 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
             setIsAnalyzing(false);
         }
     };
+
+    useEffect(() => {
+        if (autoRun && baseMetrics && !isAnalyzing && !analysisComplete && !hasRunRef.current) {
+            hasRunRef.current = true;
+            runAnalysis();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [autoRun, baseMetrics]);
 
     const strategies = generatedStrategies || {};
 

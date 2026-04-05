@@ -347,6 +347,8 @@ export default function Dashboard() {
     return JSON.stringify(stable);
   }, [metricsForInsights]);
 
+  const shouldRunInsights = metricsForInsights && hasData && metricsForInsights.score >= 60 && metricsForInsights.status?.toUpperCase() === 'GREEN';
+
   // Fetch AI Insights from server using React Query to avoid infinite loops
   const { data: serverInsightsData, isLoading: isInsightsLoading, error: insightsError } = useQuery({
     queryKey: ['ai-insights-v2', stableMetricsHash],
@@ -383,7 +385,7 @@ export default function Dashboard() {
             return generateLocalInsights(metricsForInsights) || { error: "Insights unavailable" };
         }
     },
-    enabled: !!(metricsForInsights && hasData),
+    enabled: !!shouldRunInsights,
     staleTime: Infinity, // Keep cache indefinitely in memory
     cacheTime: Infinity,
     refetchOnWindowFocus: false, // Don't refetch on window focus
@@ -900,18 +902,19 @@ export default function Dashboard() {
                     />
                 </motion.div>
 
-                {/* InsightsAgent: Mobile 3, Desktop 3 (Bottom Left) */}
-                <div className="order-3 lg:order-3 h-full w-full">
-                    <InsightsAgent analysis={serverInsights} isLoading={isInsightsLoading} />
-                </div>
-
-                {/* Deal Rescuer: Mobile 4, Desktop 4 (Bottom Right) */}
-                <div className="order-4 lg:order-4 h-full w-full">
-                    <DealRescuer
-                        onSimulate={(metrics) => setSimulatedMetrics(metrics)}
-                        baseMetrics={originalLoanMetrics}
-                    />
-                </div>
+                {shouldRunInsights ? (
+                    <div className="order-3 lg:order-3 col-span-1 lg:col-span-2 h-full w-full">
+                        <InsightsAgent analysis={serverInsights} isLoading={isInsightsLoading} />
+                    </div>
+                ) : (
+                    <div className="order-3 lg:order-3 col-span-1 lg:col-span-2 h-full w-full">
+                        <DealRescuer
+                            onSimulate={(metrics) => setSimulatedMetrics(metrics)}
+                            baseMetrics={originalLoanMetrics}
+                            autoRun={true}
+                        />
+                    </div>
+                )}
               </div>
 
               <Disclaimer />
