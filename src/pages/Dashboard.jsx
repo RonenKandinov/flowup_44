@@ -15,7 +15,7 @@ import { FiscalAgent } from '../components/protocol/core/fiscalAgent';
 import SpeedometerGauge from '../components/dashboard/SpeedometerGauge';
 import StatCard from '../components/dashboard/StatCard';
 import LiquidAssetsCard from '../components/dashboard/LiquidAssetsCard'; // New Component
-import WhatIfSimulator from '../components/dashboard/WhatIfSimulator';
+import DealRescuer from '../components/dashboard/DealRescuer';
 import FutureCake from '../components/dashboard/FutureCake';
 import InsightsAgent from '../components/dashboard/InsightsAgent'; // New
 import EmptyState from '../components/dashboard/EmptyState';
@@ -905,9 +905,9 @@ export default function Dashboard() {
                     <InsightsAgent analysis={serverInsights} isLoading={isInsightsLoading} />
                 </div>
 
-                {/* WhatIfSimulator: Mobile 4, Desktop 4 (Bottom Right) */}
+                {/* Deal Rescuer: Mobile 4, Desktop 4 (Bottom Right) */}
                 <div className="order-4 lg:order-4 h-full w-full">
-                    <WhatIfSimulator
+                    <DealRescuer
                         onSimulate={(metrics) => setSimulatedMetrics(metrics)}
                         baseMetrics={originalLoanMetrics}
                     />
