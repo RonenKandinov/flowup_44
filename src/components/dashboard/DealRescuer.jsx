@@ -229,7 +229,33 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                                         <span className="text-[10px] font-medium text-slate-300">{decisionData.confidence}%</span>
                                     </div>
                                 </div>
-                                <div className="space-y-1">
+                                <div className="grid grid-cols-3 gap-2 mb-2">
+                                    <div className="bg-slate-950/50 p-1.5 rounded border border-slate-800">
+                                        <span className="text-[9px] text-slate-500 block">Bureau</span>
+                                        <span className="text-[10px] font-medium text-slate-300 capitalize">{decisionData.data_sources?.bureau}</span>
+                                    </div>
+                                    <div className="bg-slate-950/50 p-1.5 rounded border border-slate-800">
+                                        <span className="text-[9px] text-slate-500 block">Open Banking</span>
+                                        <span className="text-[10px] font-medium text-slate-300 capitalize">{decisionData.data_sources?.open_banking}</span>
+                                    </div>
+                                    <div className="bg-slate-950/50 p-1.5 rounded border border-slate-800">
+                                        <span className="text-[9px] text-slate-500 block">Dominant</span>
+                                        <span className="text-[10px] font-medium text-slate-300 capitalize">{decisionData.data_sources?.dominant_signal?.replace('_', ' ')}</span>
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    {decisionData.explanation?.why_approved && (
+                                        <div className="bg-emerald-500/10 p-1.5 rounded border border-emerald-500/20">
+                                            <span className="text-[9px] font-bold text-emerald-400 block mb-0.5">Why Approved:</span>
+                                            <p className="text-[10px] text-slate-300 leading-tight">{decisionData.explanation.why_approved}</p>
+                                        </div>
+                                    )}
+                                    {decisionData.explanation?.what_changed && (
+                                        <div className="bg-amber-500/10 p-1.5 rounded border border-amber-500/20">
+                                            <span className="text-[9px] font-bold text-amber-400 block mb-0.5">What Changed vs Rejection:</span>
+                                            <p className="text-[10px] text-slate-300 leading-tight">{decisionData.explanation.what_changed}</p>
+                                        </div>
+                                    )}
                                     {decisionData.reasoning.map((r, i) => (
                                         <p key={i} className="text-[9px] text-slate-400 leading-tight flex items-start gap-1">
                                             <span className="text-indigo-400 shrink-0 mt-0.5">•</span>
