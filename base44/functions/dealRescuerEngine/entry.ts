@@ -88,6 +88,60 @@ Deno.serve(async (req) => {
         
         const avgFixedExpenses = fixedExpenses / monthsCount;
 
+        // --- Hybrid Decision Engine: Data Fusion & Conflict Resolution ---
+        // 1. Mocked Credit Bureau Data
+        const creditBureauData = {
+            score: body?.bureauScore || 620,
+            delinquencies: 1,
+            creditUtilization: 0.75,
+            recentNegativeEvents: 0
+        };
+
+        // 2. Open Banking Data metrics
+        const avgMonthlyExpenses = cleanTotalExpenses / monthsCount;
+
+        // 3. Data Fusion Layer
+        const bureauRiskLevel = creditBureauData.score >= 700 ? 'low' : (creditBureauData.score >= 600 ? 'medium' : 'high');
+        const incomeTrendScore = avgIncome > avgMonthlyExpenses ? 'positive' : 'negative';
+        const liquidityBufferDays = (liquidAssets > 0 && avgMonthlyExpenses > 0) ? (liquidAssets / (avgMonthlyExpenses / 30)) : 0;
+        const cashflowStabilityScore = monthsCount >= 3 ? 'high' : 'low';
+
+        // 4. Conflict Resolution Logic
+        const isBureauWeak = bureauRiskLevel === 'high' || bureauRiskLevel === 'medium';
+        const isBureauStrong = bureauRiskLevel === 'low';
+        const isIncomeImproving = incomeTrendScore === 'positive' && liquidityBufferDays > 15;
+        const isCashflowUnstable = cashflowStabilityScore === 'low';
+
+        let engineDecision = 'reject';
+        let engineRiskLevel = 'high';
+        let engineReasoning = [];
+        let engineConfidence = 85;
+
+        if (isBureauWeak && !isIncomeImproving) {
+            engineDecision = 'reject';
+            engineRiskLevel = 'high';
+            engineReasoning.push("Credit bureau score is weak and income trend does not show sufficient improvement or liquidity buffer.");
+        } else if (isBureauWeak && isIncomeImproving) {
+            engineDecision = 'conditional';
+            engineRiskLevel = 'medium';
+            engineReasoning.push("Weak credit bureau data is offset by a strong and improving income trend with good liquidity. Conditional approval granted.");
+            engineConfidence = 75;
+        } else if (isBureauStrong && isCashflowUnstable) {
+            engineDecision = 'conditional';
+            engineRiskLevel = 'medium';
+            engineReasoning.push("Strong credit bureau data, but cashflow is unstable. Reducing exposure is recommended.");
+            engineConfidence = 80;
+        } else if (isBureauStrong && !isCashflowUnstable) {
+            engineDecision = 'approve';
+            engineRiskLevel = 'low';
+            engineReasoning.push("Both credit bureau data and cashflow stability are strong. Approved for optimal terms.");
+            engineConfidence = 95;
+        } else {
+             engineDecision = 'conditional';
+             engineRiskLevel = 'medium';
+             engineReasoning.push("Mixed signals detected. Conditional approval requires strict capacity checks.");
+        }
+
         // 4. מטריצת 50 סימולציות (Grid Search)
         const terms = [24, 36, 48, 60, 72, 84];
         const downPaymentSteps = 10;
@@ -141,6 +195,17 @@ Deno.serve(async (req) => {
             if (strat.dti > 45) score -= 30;
             if (strat.freeCashFlow < 1000) score -= 20;
             if (strat.ltv > 80) score -= 15;
+            
+            // Integrate Hybrid Decision Engine logic into ranking
+            if (engineDecision === 'conditional') {
+                if (strat.ltv < 70) score += 15;
+                if (strat.dti < 35) score += 15;
+            } else if (engineDecision === 'reject') {
+                if (strat.ltv < 50) score += 20;
+            } else if (engineDecision === 'approve') {
+                if (strat.term === 60) score += 10;
+            }
+
             return score;
         };
 
@@ -187,14 +252,30 @@ Output EXACTLY this JSON structure. For each strategy, provide EXACTLY 3 short, 
             }
         });
 
+        const strategiesObj = {
+            cash_flow: { metrics: stratCashFlow, logic: llmRes.cash_flow },
+            exposure: { metrics: stratExposure, logic: llmRes.exposure },
+            behavioral: { metrics: stratBehavioral, logic: llmRes.behavioral }
+        };
+
+        const recommendedStrat = strategiesObj[recommendedStrategyId].metrics;
+
+        const decisionObject = {
+            decision: engineDecision,
+            recommended_terms: {
+                term: recommendedStrat.term,
+                down_payment: recommendedStrat.downPayment
+            },
+            confidence: engineConfidence,
+            risk_level: engineRiskLevel,
+            reasoning: engineReasoning
+        };
+
         return Response.json({
             success: true,
             recommendedStrategyId,
-            strategies: {
-                cash_flow: { metrics: stratCashFlow, logic: llmRes.cash_flow },
-                exposure: { metrics: stratExposure, logic: llmRes.exposure },
-                behavioral: { metrics: stratBehavioral, logic: llmRes.behavioral }
-            }
+            decision_engine: decisionObject,
+            strategies: strategiesObj
         });
 
     } catch (error) {

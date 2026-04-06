@@ -11,6 +11,7 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
     const [activeStrategy, setActiveStrategy] = useState(null);
     const [generatedStrategies, setGeneratedStrategies] = useState(null);
     const [recommendedStrategyId, setRecommendedStrategyId] = useState(null);
+    const [decisionData, setDecisionData] = useState(null);
 
     // Ensure we don't crash if baseMetrics is missing
     const score = baseMetrics?.score || 0;
@@ -44,8 +45,9 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                 throw new Error(res.data?.error || "Failed to run analysis");
             }
 
-            const { strategies, recommendedStrategyId } = res.data;
+            const { strategies, recommendedStrategyId, decision_engine } = res.data;
             if (recommendedStrategyId) setRecommendedStrategyId(recommendedStrategyId);
+            if (decision_engine) setDecisionData(decision_engine);
             
             const ecoPath = { n: strategies.cash_flow.metrics.term, dp: strategies.cash_flow.metrics.downPayment, pmt: strategies.cash_flow.metrics.pmt, newDTI: strategies.cash_flow.metrics.dti, S_new: 85 };
             const secPath = { n: strategies.exposure.metrics.term, dp: strategies.exposure.metrics.downPayment, pmt: strategies.exposure.metrics.pmt, newDTI: strategies.exposure.metrics.dti, S_new: 90 };
@@ -141,6 +143,7 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
     const handleReset = () => {
         setAnalysisComplete(false);
         setActiveStrategy(null);
+        setDecisionData(null);
         if (onSimulate) onSimulate(null);
     };
 
@@ -201,6 +204,42 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
 
                 {analysisComplete && (
                     <div className="flex flex-col h-full animate-in fade-in zoom-in duration-300">
+                        {decisionData && (
+                            <div dir="ltr" className="mb-3 p-3 rounded-lg border border-slate-700 bg-slate-900/50 text-left">
+                                <div className="flex items-center justify-between mb-2">
+                                    <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                                        <Activity className="w-3.5 h-3.5 text-indigo-400" />
+                                        Hybrid Decision Engine
+                                    </h4>
+                                    <div className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                        decisionData.decision === 'approve' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                                        decisionData.decision === 'conditional' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                                        'bg-red-500/20 text-red-400 border border-red-500/30'
+                                    }`}>
+                                        {decisionData.decision.toUpperCase()}
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 mb-2">
+                                    <div className="bg-slate-950/50 p-1.5 rounded border border-slate-800">
+                                        <span className="text-[9px] text-slate-500 block">Risk Level</span>
+                                        <span className="text-[10px] font-medium text-slate-300 capitalize">{decisionData.risk_level}</span>
+                                    </div>
+                                    <div className="bg-slate-950/50 p-1.5 rounded border border-slate-800">
+                                        <span className="text-[9px] text-slate-500 block">Confidence</span>
+                                        <span className="text-[10px] font-medium text-slate-300">{decisionData.confidence}%</span>
+                                    </div>
+                                </div>
+                                <div className="space-y-1">
+                                    {decisionData.reasoning.map((r, i) => (
+                                        <p key={i} className="text-[9px] text-slate-400 leading-tight flex items-start gap-1">
+                                            <span className="text-indigo-400 shrink-0 mt-0.5">•</span>
+                                            <span>{r}</span>
+                                        </p>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         <div className="grid grid-cols-3 gap-1.5 mb-3">
                             {Object.values(strategies).map((strat) => {
                                 const Icon = strat.icon;
