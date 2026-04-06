@@ -153,50 +153,20 @@ Deno.serve(async (req) => {
         const recommendedStrategyId = Object.keys(scores).reduce((a, b) => scores[a] > scores[b] ? a : b);
         const recommendedScore = scores[recommendedStrategyId];
 
-        // 6. ניתוח התנהגותי (AI Advocate)
-       const prompt = `CRITICAL INSTRUCTION:
-You are a senior, decisive credit underwriter for a non-bank financing company making a firm approval recommendation.
-You must assess the data and provide EXACTLY 3 sharp, professional bullet points for each strategy, explaining why it mitigates risk and makes the loan safe to approve. Focus on DTI, liquidity, and payment capacity.
-
-Data:
-Net Income: ${Math.round(avgIncome)} ILS
-Fixed Debts: ${Math.round(avgFixedExpenses)} ILS
-Liquid Assets (Buffer): ${Math.round(liquidAssets)} ILS
-
-Strategies:
-1. Cash Flow: Term ${stratCashFlow.term}m, DP ${Math.round(stratCashFlow.downPayment)}, PMT ${Math.round(stratCashFlow.pmt)}, DTI ${Math.round(stratCashFlow.dti)}%, LTV ${Math.round(stratCashFlow.ltv)}%
-2. Exposure: Term ${stratExposure.term}m, DP ${Math.round(stratExposure.downPayment)}, PMT ${Math.round(stratExposure.pmt)}, DTI ${Math.round(stratExposure.dti)}%, LTV ${Math.round(stratExposure.ltv)}%
-3. Behavioral: Term ${stratBehavioral.term}m, DP ${Math.round(stratBehavioral.downPayment)}, PMT ${Math.round(stratBehavioral.pmt)}, DTI ${Math.round(stratBehavioral.dti)}%, LTV ${Math.round(stratBehavioral.ltv)}%
-
-Output EXACTLY this JSON structure. For each strategy, provide EXACTLY 3 short, sharp bullet points (justifications in Hebrew). Do NOT write paragraphs.
-{
-  "cash_flow": { "bullets": ["נקודה 1...", "נקודה 2...", "נקודה 3..."] },
-  "exposure": { "bullets": ["נקודה 1...", "נקודה 2...", "נקודה 3..."] },
-  "behavioral": { "bullets": ["נקודה 1...", "נקודה 2...", "נקודה 3..."] }
-}`;
-
-        const llmRes = await base44.integrations.Core.InvokeLLM({
-            prompt,
-            model: "gpt_5_mini", // Fast model for low latency
-            response_json_schema: {
-                type: "object",
-                properties: {
-                    cash_flow: { type: "object", properties: { bullets: { type: "array", items: { type: "string" } } } },
-                    exposure: { type: "object", properties: { bullets: { type: "array", items: { type: "string" } } } },
-                    behavioral: { type: "object", properties: { bullets: { type: "array", items: { type: "string" } } } }
-                },
-                required: ["cash_flow", "exposure", "behavioral"]
-            }
-        });
-
+        // 6. חזרה מיידית של המטריקות (נימוקי AI יבוצעו בנפרד)
         return Response.json({
             success: true,
             recommendedStrategyId,
             recommendedScore,
             strategies: {
-                cash_flow: { metrics: stratCashFlow, logic: llmRes.cash_flow, score: scores.cash_flow },
-                exposure: { metrics: stratExposure, logic: llmRes.exposure, score: scores.exposure },
-                behavioral: { metrics: stratBehavioral, logic: llmRes.behavioral, score: scores.behavioral }
+                cash_flow: { metrics: stratCashFlow, score: scores.cash_flow },
+                exposure: { metrics: stratExposure, score: scores.exposure },
+                behavioral: { metrics: stratBehavioral, score: scores.behavioral }
+            },
+            context: {
+                avgIncome,
+                avgFixedExpenses,
+                liquidAssets
             }
         });
 

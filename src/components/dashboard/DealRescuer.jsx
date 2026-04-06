@@ -44,29 +44,12 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                 throw new Error(res.data?.error || "Failed to run analysis");
             }
 
-            const { strategies, recommendedStrategyId } = res.data;
+            const { strategies, recommendedStrategyId, recommendedScore, context } = res.data;
             if (recommendedStrategyId) setRecommendedStrategyId(recommendedStrategyId);
             
             const ecoPath = { n: strategies.cash_flow.metrics.term, dp: strategies.cash_flow.metrics.downPayment, pmt: strategies.cash_flow.metrics.pmt, newDTI: strategies.cash_flow.metrics.dti, S_new: strategies.cash_flow.score };
             const secPath = { n: strategies.exposure.metrics.term, dp: strategies.exposure.metrics.downPayment, pmt: strategies.exposure.metrics.pmt, newDTI: strategies.exposure.metrics.dti, S_new: strategies.exposure.score };
             const aiPath = { n: strategies.behavioral.metrics.term, dp: strategies.behavioral.metrics.downPayment, pmt: strategies.behavioral.metrics.pmt, newDTI: strategies.behavioral.metrics.dti, S_new: strategies.behavioral.score };
-
-            // Helper to safely extract bullets from various possible AI return formats
-            const extractBullets = (logicData) => {
-                if (!logicData) return ["מסלול מאושר בהתאם לפרמטרים."];
-                if (logicData.bullets && Array.isArray(logicData.bullets)) return logicData.bullets;
-                if (typeof logicData === 'string') {
-                    const split = logicData.split('\n').filter(l => l.trim().length > 0).map(l => l.replace(/^[-*•]\s*/, '').trim());
-                    return split.length > 0 ? split : [logicData];
-                }
-                return ["מסלול מאושר בהתאם לפרמטרים."];
-            };
-
-            const aiLogics = {
-                cash_flow: extractBullets(strategies.cash_flow.logic),
-                exposure: extractBullets(strategies.exposure.logic),
-                behavioral: extractBullets(strategies.behavioral.logic)
-            };
 
             setGeneratedStrategies({
                 cash_flow: {
@@ -78,7 +61,7 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                     bg: 'bg-blue-500/10',
                     border: 'border-blue-500/30',
                     strategy: `כלכלי: ${ecoPath.n} חוד', ${Math.round(ecoPath.dp).toLocaleString()}₪ מקדמה.`,
-                    aiLogic: aiLogics.cash_flow,
+                    aiLogic: null,
                     simulatedBoost: Math.min(100 - score, Math.round(ecoPath.S_new / 2)),
                     metrics: ecoPath
                 },
@@ -91,7 +74,7 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                     bg: 'bg-emerald-500/10',
                     border: 'border-emerald-500/30',
                     strategy: `ביטחון: ${secPath.n} חוד', ${Math.round(secPath.dp).toLocaleString()}₪ מקדמה.`,
-                    aiLogic: aiLogics.exposure,
+                    aiLogic: null,
                     simulatedBoost: Math.min(100 - score, Math.round(secPath.S_new / 2)),
                     metrics: secPath
                 },
@@ -104,7 +87,7 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                     bg: 'bg-purple-500/10',
                     border: 'border-purple-500/30',
                     strategy: `AI: ${aiPath.n} חוד', ${Math.round(aiPath.dp).toLocaleString()}₪ מקדמה.`,
-                    aiLogic: aiLogics.behavioral,
+                    aiLogic: null,
                     simulatedBoost: Math.min(100 - score, Math.round(aiPath.S_new / 2)),
                     metrics: aiPath
                 }
@@ -117,14 +100,36 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
             if (onSimulate) {
                 onSimulate({
                     ...baseMetrics,
-                    score: res.data.recommendedScore || 85,
-                    status: 'GREEN',
-                    message: `עסקה חולצה בהצלחה באופן אוטומטי ע"י המערכת`
+                    score: recommendedScore || 85,
+                    status: 'GREEN'
                 });
             }
+
+            // Fetch AI logic in the background
+            base44.functions.invoke('dealRescuerAI', { strategies, context }).then(aiRes => {
+                if (aiRes?.data?.success && aiRes.data.logic) {
+                    const extractBullets = (logicData) => {
+                        if (!logicData) return ["מסלול מאושר בהתאם לפרמטרים."];
+                        if (logicData.bullets && Array.isArray(logicData.bullets)) return logicData.bullets;
+                        if (typeof logicData === 'string') {
+                            const split = logicData.split('\n').filter(l => l.trim().length > 0).map(l => l.replace(/^[-*•]\s*/, '').trim());
+                            return split.length > 0 ? split : [logicData];
+                        }
+                        return ["מסלול מאושר בהתאם לפרמטרים."];
+                    };
+
+                    setGeneratedStrategies(prev => ({
+                        ...prev,
+                        cash_flow: { ...prev.cash_flow, aiLogic: extractBullets(aiRes.data.logic.cash_flow) },
+                        exposure: { ...prev.exposure, aiLogic: extractBullets(aiRes.data.logic.exposure) },
+                        behavioral: { ...prev.behavioral, aiLogic: extractBullets(aiRes.data.logic.behavioral) }
+                    }));
+                }
+            }).catch(err => console.error("AI Logic fetch error:", err));
+
         } catch (err) {
-            console.error('LLM error:', err);
-            toast.error('שגיאה בניתוח AI');
+            console.error('Analysis error:', err);
+            toast.error('שגיאה בניתוח הנתונים');
             setIsAnalyzing(false);
         }
     };
@@ -194,10 +199,7 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
 
                 {analysisComplete && (
                     <div className="flex flex-col h-full animate-in fade-in zoom-in duration-300">
-                        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-2 mb-3 flex items-center justify-center text-emerald-400 text-xs font-bold">
-                            <ShieldCheck className="w-4 h-4 mr-2" />
-                            עסקה חולצה ואושרה אוטומטית!
-                        </div>
+
 
                         <div className="grid grid-cols-3 gap-1.5 mb-3">
                             {Object.values(strategies).map((strat) => {
@@ -251,16 +253,23 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                                         </div>
 
                                         <div className="flex-1 bg-slate-950/50 rounded-md p-2.5 border border-slate-800">
-                                            <ul className="space-y-2">
-                                                {Array.isArray(activeStratData.aiLogic) ? activeStratData.aiLogic.map((bullet, idx) => (
-                                                    <li key={idx} className="flex items-start gap-2 text-[10px] leading-relaxed text-slate-300">
-                                                        <div className="mt-1 w-1.5 h-1.5 rounded-full bg-cyan-500/50 shrink-0" />
-                                                        <span>{bullet}</span>
-                                                    </li>
-                                                )) : (
-                                                    <li className="text-[10px] leading-relaxed text-slate-300">{activeStratData.aiLogic}</li>
-                                                )}
-                                            </ul>
+                                            {!activeStratData.aiLogic ? (
+                                                <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                                    טוען נימוקי AI...
+                                                </div>
+                                            ) : (
+                                                <ul className="space-y-2">
+                                                    {Array.isArray(activeStratData.aiLogic) ? activeStratData.aiLogic.map((bullet, idx) => (
+                                                        <li key={idx} className="flex items-start gap-2 text-[10px] leading-relaxed text-slate-300">
+                                                            <div className="mt-1 w-1.5 h-1.5 rounded-full bg-cyan-500/50 shrink-0" />
+                                                            <span>{bullet}</span>
+                                                        </li>
+                                                    )) : (
+                                                        <li className="text-[10px] leading-relaxed text-slate-300">{activeStratData.aiLogic}</li>
+                                                    )}
+                                                </ul>
+                                            )}
                                         </div>
                                     </div>
                                 </motion.div>
