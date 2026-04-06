@@ -47,9 +47,9 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
             const { strategies, recommendedStrategyId } = res.data;
             if (recommendedStrategyId) setRecommendedStrategyId(recommendedStrategyId);
             
-            const ecoPath = { n: strategies.cash_flow.metrics.term, dp: strategies.cash_flow.metrics.downPayment, pmt: strategies.cash_flow.metrics.pmt, newDTI: strategies.cash_flow.metrics.dti, S_new: 85 };
-            const secPath = { n: strategies.exposure.metrics.term, dp: strategies.exposure.metrics.downPayment, pmt: strategies.exposure.metrics.pmt, newDTI: strategies.exposure.metrics.dti, S_new: 90 };
-            const aiPath = { n: strategies.behavioral.metrics.term, dp: strategies.behavioral.metrics.downPayment, pmt: strategies.behavioral.metrics.pmt, newDTI: strategies.behavioral.metrics.dti, S_new: 95 };
+            const ecoPath = { n: strategies.cash_flow.metrics.term, dp: strategies.cash_flow.metrics.downPayment, pmt: strategies.cash_flow.metrics.pmt, newDTI: strategies.cash_flow.metrics.dti, S_new: strategies.cash_flow.score };
+            const secPath = { n: strategies.exposure.metrics.term, dp: strategies.exposure.metrics.downPayment, pmt: strategies.exposure.metrics.pmt, newDTI: strategies.exposure.metrics.dti, S_new: strategies.exposure.score };
+            const aiPath = { n: strategies.behavioral.metrics.term, dp: strategies.behavioral.metrics.downPayment, pmt: strategies.behavioral.metrics.pmt, newDTI: strategies.behavioral.metrics.dti, S_new: strategies.behavioral.score };
 
             // Helper to safely extract bullets from various possible AI return formats
             const extractBullets = (logicData) => {
@@ -111,7 +111,17 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
             });
             setIsAnalyzing(false);
             setAnalysisComplete(true);
-            setActiveStrategy(recommendedStrategyId || 'cash_flow');
+            const bestStrat = recommendedStrategyId || 'cash_flow';
+            setActiveStrategy(bestStrat);
+            
+            if (onSimulate) {
+                onSimulate({
+                    ...baseMetrics,
+                    score: res.data.recommendedScore || 85,
+                    status: 'GREEN',
+                    message: `עסקה חולצה בהצלחה באופן אוטומטי ע"י המערכת`
+                });
+            }
         } catch (err) {
             console.error('LLM error:', err);
             toast.error('שגיאה בניתוח AI');
@@ -120,23 +130,6 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
     };
 
     const strategies = generatedStrategies || {};
-
-    const handleApplyStrategy = (stratKey) => {
-        if (!baseMetrics) return;
-        const strat = strategies[stratKey];
-        
-        toast.success(`מפעיל אסטרטגיה: ${strat.title}`);
-        
-        // Mock a simulation boost to show on the dashboard
-        if (onSimulate) {
-            onSimulate({
-                ...baseMetrics,
-                score: Math.min(100, baseMetrics.score + strat.simulatedBoost),
-                status: 'GREEN', // Deal Rescuer converts to Green
-                message: `עסקה חולצה בהצלחה ע"י אסטרטגית ${strat.title}`
-            });
-        }
-    };
 
     const handleReset = () => {
         setAnalysisComplete(false);
@@ -201,6 +194,11 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
 
                 {analysisComplete && (
                     <div className="flex flex-col h-full animate-in fade-in zoom-in duration-300">
+                        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-2 mb-3 flex items-center justify-center text-emerald-400 text-xs font-bold">
+                            <ShieldCheck className="w-4 h-4 mr-2" />
+                            עסקה חולצה ואושרה אוטומטית!
+                        </div>
+
                         <div className="grid grid-cols-3 gap-1.5 mb-3">
                             {Object.values(strategies).map((strat) => {
                                 const Icon = strat.icon;
@@ -218,7 +216,7 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                                     >
                                         {isRecommended && (
                                             <span className="absolute -top-2 bg-amber-500 text-slate-950 text-[8px] font-bold px-1.5 py-0.5 rounded-full shadow-lg border border-amber-400 z-10">
-                                                מומלץ
+                                                נבחר אוטומטית
                                             </span>
                                         )}
                                         <Icon className={`w-4 h-4 mb-1 ${isActive ? strat.color : isRecommended ? 'text-amber-400' : 'text-slate-500'}`} />
@@ -265,14 +263,6 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                                             </ul>
                                         </div>
                                     </div>
-
-                                    <Button 
-                                        onClick={() => handleApplyStrategy(activeStrategy)}
-                                        className="w-full mt-3 bg-white hover:bg-slate-200 text-slate-900 rounded-lg h-8 text-xs font-bold"
-                                    >
-                                        <ShieldCheck className="w-3.5 h-3.5 mr-2 ml-2" />
-                                        החל מסלול
-                                    </Button>
                                 </motion.div>
                             )}
                         </AnimatePresence>

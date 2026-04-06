@@ -137,11 +137,12 @@ Deno.serve(async (req) => {
         })[0] || simulations[0];
 
         const calculateScore = (strat) => {
-            let score = 100;
-            if (strat.dti > 45) score -= 30;
-            if (strat.freeCashFlow < 1000) score -= 20;
-            if (strat.ltv > 80) score -= 15;
-            return score;
+            let score = 100 - (Math.max(0, strat.dti - 30) * 1.5);
+            if (strat.freeCashFlow > 2000) score += 5;
+            else if (strat.freeCashFlow < 1000) score -= 15;
+            if (strat.ltv > 80) score -= (strat.ltv - 80) * 0.5;
+            score += (strat.capacityScore || 0) * 10;
+            return Math.min(100, Math.max(0, Math.round(score)));
         };
 
         const scores = {
@@ -150,6 +151,7 @@ Deno.serve(async (req) => {
             behavioral: calculateScore(stratBehavioral)
         };
         const recommendedStrategyId = Object.keys(scores).reduce((a, b) => scores[a] > scores[b] ? a : b);
+        const recommendedScore = scores[recommendedStrategyId];
 
         // 6. ניתוח התנהגותי (AI Advocate)
        const prompt = `CRITICAL INSTRUCTION:
@@ -190,10 +192,11 @@ Output EXACTLY this JSON structure. For each strategy, provide EXACTLY 3 short, 
         return Response.json({
             success: true,
             recommendedStrategyId,
+            recommendedScore,
             strategies: {
-                cash_flow: { metrics: stratCashFlow, logic: llmRes.cash_flow },
-                exposure: { metrics: stratExposure, logic: llmRes.exposure },
-                behavioral: { metrics: stratBehavioral, logic: llmRes.behavioral }
+                cash_flow: { metrics: stratCashFlow, logic: llmRes.cash_flow, score: scores.cash_flow },
+                exposure: { metrics: stratExposure, logic: llmRes.exposure, score: scores.exposure },
+                behavioral: { metrics: stratBehavioral, logic: llmRes.behavioral, score: scores.behavioral }
             }
         });
 
