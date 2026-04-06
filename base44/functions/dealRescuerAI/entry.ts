@@ -5,81 +5,67 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const body = await req.json();
 
-    const { strategies, context } = body;
+    const { strategies, context, isRejected } = body;
 
     const income = Math.round(context?.avgIncome || 0);
     const expenses = Math.round(context?.avgFixedExpenses || 0);
     const liquidity = Math.round(context?.liquidAssets || 0);
+    const liquidityMonths = context?.liquidityMonths ? Math.round(context.liquidityMonths * 10) / 10 : 0;
     const net = income - expenses;
 
-    // 🚨 GUARD — אם הלקוח בגרעון
-    if (net <= 0) {
-      return Response.json({
-        success: true,
-        logic: {
-          cash_flow: {
-            bullets: [
-              `הכנסה ${income}₪ נמוכה מהוצאות ${expenses}₪ ולכן אין עודף תזרימי`,
-              `יכולת החזר אינה מספקת לתשלום חודשי נוסף`,
-              `נדרש שינוי מבנה מהותי או דחייה`
-            ]
-          },
-          exposure: {
-            bullets: [
-              `פער שלילי של ${net}₪ מצביע על סיכון גבוה`,
-              `ללא כרית תזרימית אין יכולת לספוג התחייבות`,
-              `העסקה אינה עומדת בקריטריוני חיתום`
-            ]
-          },
-          behavioral: {
-            bullets: [
-              `התנהגות תזרימית שלילית לאורך זמן`,
-              `אין בסיס לאישור ללא שיפור הכנסה או הפחתת הוצאות`,
-              `המלצה: דחייה או התאמה מחדש`
-            ]
-          }
-        }
-      });
+    if (isRejected || net <= 0) {
+        return Response.json({
+            success: true,
+            logic: {
+                rejected: {
+                    bullets: [
+                        `DSR צפוי לחצות את רף ה-100% או שההכנסה (${income}₪) נמוכה מההוצאות (${expenses}₪).`,
+                        `נזילות עומדת על ${liquidityMonths} חודשים, מתחת לרף המינימלי הנדרש של 2 חודשים.`,
+                        `אין עודף תזרימי חיובי המאפשר עמידה בהחזרים נוספים (העודף עומד על ${net}₪ בלבד לפני ההלוואה).`
+                    ]
+                }
+            }
+        });
     }
-const prompt = `CRITICAL INSTRUCTION:
 
-ענה אך ורק בעברית. אל תשתמש באנגלית בכלל.
+    const prompt = `CRITICAL INSTRUCTION:
 
-אתה אנליסט אשראי בכיר שמקבל החלטת אישור סופית.
+    ענה אך ורק בעברית. אל תשתמש באנגלית בכלל.
 
-חובה:
-- כל נקודה חייבת לכלול מספרים
-- להתייחס להכנסה, הוצאות ותשלום חודשי
-- להסביר יכולת החזר אמיתית
-- לא להשתמש במשפטים כלליים
+    אתה אנליסט אשראי בכיר בבנק שמקבל החלטת אישור סופית.
+    השתמש אך ורק במספרים שסופקו להלן, אל תמציא חישובים. אל תכתוב משפטים כלליים כמו "יציבות תזרימית". 
+    הסבר למה ההלוואה מאושרת בהתבסס על DSR, נזילות בחודשים, ותזרים פנוי (Cash Flow).
 
-נתוני לקוח:
-- הכנסה חודשית: ${income} ש"ח
-- הוצאות קבועות: ${expenses} ש"ח
-- נזילות: ${liquidity} ש"ח
-- עודף חודשי: ${net} ש"ח
+    נתוני לקוח:
+    - הכנסה חודשית: ${income} ₪
+    - הוצאות קבועות: ${expenses} ₪
+    - נזילות כוללת: ${liquidity} ₪ (${liquidityMonths} חודשי כיסוי)
+    - עודף חודשי פנוי (לפני הלוואה): ${net} ₪
 
-אסטרטגיות:
+    אסטרטגיות (לכל אחת, ספק 3 נקודות קצרות המנמקות את הבחירה):
 
-Cash Flow:
-- תשלום חודשי: ${Math.round(strategies?.cash_flow?.metrics?.pmt || 0)} ש"ח
-- DTI: ${Math.round(strategies?.cash_flow?.metrics?.dti || 0)}%
+    1. Cash Flow
+    - תשלום חודשי צפוי: ${Math.round(strategies?.cash_flow?.metrics?.pmt || 0)} ₪
+    - DSR (יחס שירות חוב): ${Math.round(strategies?.cash_flow?.metrics?.dsr || 0)}%
+    - תזרים פנוי נותר: ${Math.round(strategies?.cash_flow?.metrics?.freeCashFlow || 0)} ₪
 
-Exposure:
-- תשלום חודשי: ${Math.round(strategies?.exposure?.metrics?.pmt || 0)} ש"ח
-- DTI: ${Math.round(strategies?.exposure?.metrics?.dti || 0)}%
+    2. Exposure
+    - תשלום חודשי צפוי: ${Math.round(strategies?.exposure?.metrics?.pmt || 0)} ₪
+    - DSR (יחס שירות חוב): ${Math.round(strategies?.exposure?.metrics?.dsr || 0)}%
+    - תזרים פנוי נותר: ${Math.round(strategies?.exposure?.metrics?.freeCashFlow || 0)} ₪
 
-Behavioral:
-- תשלום חודשי: ${Math.round(strategies?.behavioral?.metrics?.pmt || 0)} ש"ח
-- DTI: ${Math.round(strategies?.behavioral?.metrics?.dti || 0)}%
+    3. Behavioral
+    - תשלום חודשי צפוי: ${Math.round(strategies?.behavioral?.metrics?.pmt || 0)} ₪
+    - DSR (יחס שירות חוב): ${Math.round(strategies?.behavioral?.metrics?.dsr || 0)}%
+    - תזרים פנוי נותר: ${Math.round(strategies?.behavioral?.metrics?.freeCashFlow || 0)} ₪
 
-פורמט חובה:
-{
-  "cash_flow": { "bullets": ["...", "...", "..."] },
-  "exposure": { "bullets": ["...", "...", "..."] },
-  "behavioral": { "bullets": ["...", "...", "..."] }
-}
-`;
+    פורמט חובה:
+    {
+    "cash_flow": { "bullets": ["נקודה מבוססת מספרים...", "...", "..."] },
+    "exposure": { "bullets": ["נקודה מבוססת מספרים...", "...", "..."] },
+    "behavioral": { "bullets": ["נקודה מבוססת מספרים...", "...", "..."] }
+    }
+    `;
    
 
     const llmRes = await base44.integrations.Core.InvokeLLM({

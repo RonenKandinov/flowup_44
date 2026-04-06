@@ -87,6 +87,7 @@ Deno.serve(async (req) => {
         });
         
         const avgFixedExpenses = fixedExpenses / monthsCount;
+        const liquidityMonths = avgFixedExpenses > 0 ? liquidAssets / avgFixedExpenses : 12;
 
         // 4. מטריצת 50 סימולציות (Grid Search)
         const terms = [24, 36, 48, 60, 72, 84];
@@ -110,8 +111,9 @@ Deno.serve(async (req) => {
                 const r_monthly = r / 12;
                 // נוסחת שפיצר לחישוב PMT
                 const pmt = (p * r_monthly) / (1 - Math.pow(1 + r_monthly, -t));
-                // DTI עם התחייבויות קיימות
-                const dti = avgIncome > 0 ? ((avgFixedExpenses + pmt) / avgIncome) * 100 : 100;
+                // DSR עם התחייבויות קיימות
+                const dsr = avgIncome > 0 ? ((avgFixedExpenses + pmt) / avgIncome) * 100 : 100;
+                const dti = dsr; // Using interchangeably for backward compatibility
                 // LTV 
                 const ltv = (p / collateralValue) * 100;
                 
@@ -119,12 +121,23 @@ Deno.serve(async (req) => {
                 const freeCashFlow = avgIncome - avgFixedExpenses - pmt;
                 const capacityScore = freeCashFlow > 0 ? freeCashFlow / avgIncome : 0;
 
-                simulations.push({ term: t, downPayment: dp, principal: p, pmt, dti, ltv, rate: r, freeCashFlow, capacityScore });
+                if (dsr <= 100 && freeCashFlow > 0) {
+                    simulations.push({ term: t, downPayment: dp, principal: p, pmt, dti, dsr, ltv, rate: r, freeCashFlow, capacityScore, liquidityMonths });
+                }
             }
         }
 
-        if (simulations.length === 0) {
-             throw new Error("No valid simulations could be generated (perhaps liquid assets > principal)");
+        const isRejected = simulations.length === 0 || liquidityMonths < 2;
+
+        if (isRejected) {
+             return Response.json({
+                 success: true,
+                 isRejected: true,
+                 recommendedStrategyId: null,
+                 recommendedScore: 0,
+                 strategies: {},
+                 context: { avgIncome, avgFixedExpenses, liquidAssets, liquidityMonths }
+             });
         }
 
         // 5. בחירת 3 האסטרטגיות (Rescue Cards)
@@ -166,7 +179,8 @@ Deno.serve(async (req) => {
             context: {
                 avgIncome,
                 avgFixedExpenses,
-                liquidAssets
+                liquidAssets,
+                liquidityMonths
             }
         });
 

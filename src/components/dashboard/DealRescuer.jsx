@@ -44,12 +44,48 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                 throw new Error(res.data?.error || "Failed to run analysis");
             }
 
+            if (res.data.isRejected) {
+                setIsAnalyzing(false);
+                setAnalysisComplete(true);
+                setGeneratedStrategies({});
+                setRecommendedStrategyId(null);
+                if (onSimulate) {
+                    onSimulate({
+                        ...baseMetrics,
+                        score: 30,
+                        status: 'RED',
+                        message: `נדחה אוטומטית: המדדים אינם עומדים בסף המינימלי`
+                    });
+                }
+                
+                base44.functions.invoke('dealRescuerAI', { strategies: {}, context: res.data.context, isRejected: true }).then(aiRes => {
+                    if (aiRes?.data?.success && aiRes.data.logic) {
+                        setGeneratedStrategies({
+                            rejected: {
+                                id: 'rejected',
+                                title: 'סיבת דחייה',
+                                subtitle: 'Automated Rejection',
+                                icon: ShieldCheck,
+                                color: 'text-red-400',
+                                bg: 'bg-red-500/10',
+                                border: 'border-red-500/30',
+                                strategy: 'לא נמצאה אסטרטגיה העומדת בסיכון הסף.',
+                                aiLogic: aiRes.data.logic.rejected?.bullets || [aiRes.data.logic.rejected || "העסקה מסוכנת מדי."],
+                                metrics: {}
+                            }
+                        });
+                        setActiveStrategy('rejected');
+                    }
+                }).catch(err => console.error(err));
+                return;
+            }
+
             const { strategies, recommendedStrategyId, recommendedScore, context } = res.data;
             if (recommendedStrategyId) setRecommendedStrategyId(recommendedStrategyId);
             
-            const ecoPath = { n: strategies.cash_flow.metrics.term, dp: strategies.cash_flow.metrics.downPayment, pmt: strategies.cash_flow.metrics.pmt, newDTI: strategies.cash_flow.metrics.dti, S_new: strategies.cash_flow.score };
-            const secPath = { n: strategies.exposure.metrics.term, dp: strategies.exposure.metrics.downPayment, pmt: strategies.exposure.metrics.pmt, newDTI: strategies.exposure.metrics.dti, S_new: strategies.exposure.score };
-            const aiPath = { n: strategies.behavioral.metrics.term, dp: strategies.behavioral.metrics.downPayment, pmt: strategies.behavioral.metrics.pmt, newDTI: strategies.behavioral.metrics.dti, S_new: strategies.behavioral.score };
+            const ecoPath = { n: strategies.cash_flow.metrics.term, dp: strategies.cash_flow.metrics.downPayment, pmt: strategies.cash_flow.metrics.pmt, newDSR: strategies.cash_flow.metrics.dsr, S_new: strategies.cash_flow.score };
+            const secPath = { n: strategies.exposure.metrics.term, dp: strategies.exposure.metrics.downPayment, pmt: strategies.exposure.metrics.pmt, newDSR: strategies.exposure.metrics.dsr, S_new: strategies.exposure.score };
+            const aiPath = { n: strategies.behavioral.metrics.term, dp: strategies.behavioral.metrics.downPayment, pmt: strategies.behavioral.metrics.pmt, newDSR: strategies.behavioral.metrics.dsr, S_new: strategies.behavioral.score };
 
             setGeneratedStrategies({
                 cash_flow: {
@@ -201,7 +237,19 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                     <div className="flex flex-col h-full animate-in fade-in zoom-in duration-300">
 
 
-                        <div className="grid grid-cols-3 gap-1.5 mb-3">
+                        {activeStrategy !== 'rejected' ? (
+                            <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-2 mb-3 flex items-center justify-center text-emerald-400 text-xs font-bold">
+                                <ShieldCheck className="w-4 h-4 mr-2" />
+                                עסקה נותחה ואושרה אוטומטית בהתאם למדדי החיתום
+                            </div>
+                        ) : (
+                            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-2 mb-3 flex items-center justify-center text-red-400 text-xs font-bold">
+                                <ShieldCheck className="w-4 h-4 mr-2" />
+                                נדחה אוטומטית - סיכון חיתומי גבוה
+                            </div>
+                        )}
+
+                        <div className={`grid gap-1.5 mb-3 ${activeStrategy === 'rejected' ? 'grid-cols-1' : 'grid-cols-3'}`}>
                             {Object.values(strategies).map((strat) => {
                                 const Icon = strat.icon;
                                 const isActive = activeStrategy === strat.id;
