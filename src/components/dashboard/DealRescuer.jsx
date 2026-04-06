@@ -16,8 +16,12 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
     const isUnderperforming = score < 60; // Just an example threshold based on the doc
     const status = baseMetrics?.status || 'GREEN';
     
-    // Automatically trigger analysis if score is below a certain threshold or status is RED/ORANGE
-    // Or we can just let the user click "Run Deal Rescuer"
+    useEffect(() => {
+        if (baseMetrics && !isAnalyzing && !analysisComplete) {
+            runAnalysis();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [baseMetrics?.score]);
     
     const runAnalysis = async () => {
         setIsAnalyzing(true);
