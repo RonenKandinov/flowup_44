@@ -41,50 +41,46 @@ Deno.serve(async (req) => {
         }
       });
     }
+const prompt = `CRITICAL INSTRUCTION:
 
-    const prompt = `CRITICAL INSTRUCTION:
-You are a senior credit underwriter making a FINAL approval decision.
+ענה אך ורק בעברית. אל תשתמש באנגלית בכלל.
 
-You must justify why THIS specific customer can repay the loan.
+אתה אנליסט אשראי בכיר שמקבל החלטת אישור סופית.
 
-STRICT RULES:
-- Each bullet MUST include numbers
-- MUST refer to income, expenses, and monthly payment
-- MUST explain repayment ability
-- NO generic statements
+חובה:
+- כל נקודה חייבת לכלול מספרים
+- להתייחס להכנסה, הוצאות ותשלום חודשי
+- להסביר יכולת החזר אמיתית
+- לא להשתמש במשפטים כלליים
 
-Customer Data:
-- Monthly Income: ${income} ILS
-- Fixed Expenses: ${expenses} ILS
-- Liquid Assets: ${liquidity} ILS
-- Net Free Income: ${net} ILS
+נתוני לקוח:
+- הכנסה חודשית: ${income} ש"ח
+- הוצאות קבועות: ${expenses} ש"ח
+- נזילות: ${liquidity} ש"ח
+- עודף חודשי: ${net} ש"ח
 
-Strategies:
+אסטרטגיות:
 
 Cash Flow:
-- Term: ${strategies?.cash_flow?.metrics?.term || 0} months
-- Monthly Payment: ${Math.round(strategies?.cash_flow?.metrics?.pmt || 0)} ILS
+- תשלום חודשי: ${Math.round(strategies?.cash_flow?.metrics?.pmt || 0)} ש"ח
 - DTI: ${Math.round(strategies?.cash_flow?.metrics?.dti || 0)}%
-- LTV: ${Math.round(strategies?.cash_flow?.metrics?.ltv || 0)}%
 
 Exposure:
-- Term: ${strategies?.exposure?.metrics?.term || 0} months
-- Monthly Payment: ${Math.round(strategies?.exposure?.metrics?.pmt || 0)} ILS
+- תשלום חודשי: ${Math.round(strategies?.exposure?.metrics?.pmt || 0)} ש"ח
 - DTI: ${Math.round(strategies?.exposure?.metrics?.dti || 0)}%
-- LTV: ${Math.round(strategies?.exposure?.metrics?.ltv || 0)}%
 
 Behavioral:
-- Term: ${strategies?.behavioral?.metrics?.term || 0} months
-- Monthly Payment: ${Math.round(strategies?.behavioral?.metrics?.pmt || 0)} ILS
+- תשלום חודשי: ${Math.round(strategies?.behavioral?.metrics?.pmt || 0)} ש"ח
 - DTI: ${Math.round(strategies?.behavioral?.metrics?.dti || 0)}%
-- LTV: ${Math.round(strategies?.behavioral?.metrics?.ltv || 0)}%
 
-OUTPUT (STRICT JSON):
+פורמט חובה:
 {
   "cash_flow": { "bullets": ["...", "...", "..."] },
   "exposure": { "bullets": ["...", "...", "..."] },
   "behavioral": { "bullets": ["...", "...", "..."] }
-}`;
+}
+`;
+   
 
     const llmRes = await base44.integrations.Core.InvokeLLM({
       prompt,
