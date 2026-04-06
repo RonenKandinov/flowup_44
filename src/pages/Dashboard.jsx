@@ -383,7 +383,7 @@ export default function Dashboard() {
             return generateLocalInsights(metricsForInsights) || { error: "Insights unavailable" };
         }
     },
-    enabled: !!(metricsForInsights && hasData && metricsForInsights.score >= 60 && !['RED', 'ORANGE'].includes((metricsForInsights.status || '').toUpperCase())),
+    enabled: !!(metricsForInsights && hasData),
     staleTime: Infinity, // Keep cache indefinitely in memory
     cacheTime: Infinity,
     refetchOnWindowFocus: false, // Don't refetch on window focus
@@ -900,16 +900,17 @@ export default function Dashboard() {
                     />
                 </motion.div>
 
-                {/* Insights / Deal Rescuer: Mobile 3, Desktop 3 */}
-                <div className="order-3 lg:order-3 h-full w-full lg:col-span-2">
-                    {(!originalLoanMetrics || (originalLoanMetrics.score >= 60 && !['RED', 'ORANGE'].includes((originalLoanMetrics.status || '').toUpperCase()))) ? (
-                        <InsightsAgent analysis={serverInsights} isLoading={isInsightsLoading} />
-                    ) : (
-                        <DealRescuer
-                            onSimulate={(metrics) => setSimulatedMetrics(metrics)}
-                            baseMetrics={originalLoanMetrics}
-                        />
-                    )}
+                {/* InsightsAgent: Mobile 3, Desktop 3 (Bottom Left) */}
+                <div className="order-3 lg:order-3 h-full w-full">
+                    <InsightsAgent analysis={serverInsights} isLoading={isInsightsLoading} />
+                </div>
+
+                {/* Deal Rescuer: Mobile 4, Desktop 4 (Bottom Right) */}
+                <div className="order-4 lg:order-4 h-full w-full">
+                    <DealRescuer
+                        onSimulate={(metrics) => setSimulatedMetrics(metrics)}
+                        baseMetrics={originalLoanMetrics}
+                    />
                 </div>
               </div>
 
