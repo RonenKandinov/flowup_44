@@ -10,11 +10,18 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
     const [analysisComplete, setAnalysisComplete] = useState(false);
     const [activeStrategy, setActiveStrategy] = useState(null);
     const [generatedStrategies, setGeneratedStrategies] = useState(null);
+    const [recommendedStrategyId, setRecommendedStrategyId] = useState(null);
 
     // Ensure we don't crash if baseMetrics is missing
     const score = baseMetrics?.score || 0;
-    const isUnderperforming = score < 60; // Just an example threshold based on the doc
+    const isUnderperforming = score < 70 || status === 'RED' || status === 'YELLOW';
     const status = baseMetrics?.status || 'GREEN';
+
+    useEffect(() => {
+        if (isUnderperforming && !analysisComplete && !isAnalyzing) {
+            runAnalysis();
+        }
+    }, [isUnderperforming, analysisComplete, isAnalyzing]);
     
     // Automatically trigger analysis if score is below a certain threshold or status is RED/ORANGE
     // Or we can just let the user click "Run Deal Rescuer"
@@ -37,7 +44,8 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                 throw new Error(res.data?.error || "Failed to run analysis");
             }
 
-            const { strategies } = res.data;
+            const { strategies, recommendedStrategyId } = res.data;
+            if (recommendedStrategyId) setRecommendedStrategyId(recommendedStrategyId);
             
             const ecoPath = { n: strategies.cash_flow.metrics.term, dp: strategies.cash_flow.metrics.downPayment, pmt: strategies.cash_flow.metrics.pmt, newDTI: strategies.cash_flow.metrics.dti, S_new: 85 };
             const secPath = { n: strategies.exposure.metrics.term, dp: strategies.exposure.metrics.downPayment, pmt: strategies.exposure.metrics.pmt, newDTI: strategies.exposure.metrics.dti, S_new: 90 };
@@ -103,7 +111,7 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
             });
             setIsAnalyzing(false);
             setAnalysisComplete(true);
-            setActiveStrategy('cash_flow');
+            setActiveStrategy(recommendedStrategyId || 'cash_flow');
         } catch (err) {
             console.error('LLM error:', err);
             toast.error('שגיאה בניתוח AI');
@@ -197,18 +205,24 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                             {Object.values(strategies).map((strat) => {
                                 const Icon = strat.icon;
                                 const isActive = activeStrategy === strat.id;
+                                const isRecommended = recommendedStrategyId === strat.id;
                                 return (
                                     <button
                                         key={strat.id}
                                         onClick={() => setActiveStrategy(strat.id)}
-                                        className={`flex flex-col items-center justify-center p-1.5 rounded-lg border transition-all ${
+                                        className={`relative flex flex-col items-center justify-center p-2 rounded-lg border transition-all ${
                                             isActive 
-                                                ? `${strat.bg} ${strat.border}` 
+                                                ? `${strat.bg} ${strat.border} ring-1 ring-cyan-500/30` 
                                                 : 'bg-slate-900/50 border-slate-800 hover:bg-slate-800'
-                                        }`}
+                                        } ${isRecommended && !isActive ? 'border-amber-500/30 bg-amber-500/5' : ''}`}
                                     >
-                                        <Icon className={`w-4 h-4 mb-1 ${isActive ? strat.color : 'text-slate-500'}`} />
-                                        <span className={`text-[9px] text-center leading-tight ${isActive ? 'text-white font-medium' : 'text-slate-400'}`}>
+                                        {isRecommended && (
+                                            <span className="absolute -top-2 bg-amber-500 text-slate-950 text-[8px] font-bold px-1.5 py-0.5 rounded-full shadow-lg border border-amber-400 z-10">
+                                                מומלץ
+                                            </span>
+                                        )}
+                                        <Icon className={`w-4 h-4 mb-1 ${isActive ? strat.color : isRecommended ? 'text-amber-400' : 'text-slate-500'}`} />
+                                        <span className={`text-[10px] text-center leading-tight ${isActive || isRecommended ? 'text-white font-medium' : 'text-slate-400'}`}>
                                             {strat.title}
                                         </span>
                                     </button>

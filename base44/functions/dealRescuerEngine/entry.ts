@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
         const avgFixedExpenses = fixedExpenses / monthsCount;
 
         // 4. מטריצת 50 סימולציות (Grid Search)
-        const terms = [24, 36, 48, 60, 72];
+        const terms = [24, 36, 48, 60, 72, 84];
         const downPaymentSteps = 10;
         const stepSize = liquidAssets / Math.max(1, downPaymentSteps - 1);
         
@@ -101,10 +101,11 @@ Deno.serve(async (req) => {
                 const p = principal - dp;
                 if (p <= 0) continue;
 
-                // Risk-Based Pricing
+                // Risk-Based Pricing & Capacity matrix
                 let r = baseRate;
                 if (t >= 49 && t <= 72) r += 0.015;
                 if (t >= 73) r += 0.025;
+                if (dp / principal < 0.1) r += 0.01;
 
                 const r_monthly = r / 12;
                 // נוסחת שפיצר לחישוב PMT
@@ -113,8 +114,12 @@ Deno.serve(async (req) => {
                 const dti = avgIncome > 0 ? ((avgFixedExpenses + pmt) / avgIncome) * 100 : 100;
                 // LTV 
                 const ltv = (p / collateralValue) * 100;
+                
+                // Capacity to pay score
+                const freeCashFlow = avgIncome - avgFixedExpenses - pmt;
+                const capacityScore = freeCashFlow > 0 ? freeCashFlow / avgIncome : 0;
 
-                simulations.push({ term: t, downPayment: dp, principal: p, pmt, dti, ltv, rate: r });
+                simulations.push({ term: t, downPayment: dp, principal: p, pmt, dti, ltv, rate: r, freeCashFlow, capacityScore });
             }
         }
 
@@ -123,20 +128,33 @@ Deno.serve(async (req) => {
         }
 
         // 5. בחירת 3 האסטרטגיות (Rescue Cards)
-        // התאמת יכולת החזר - DTI מינימלי
-        let stratCashFlow = [...simulations].sort((a, b) => a.dti - b.dti)[0];
-        
-        // הפחתת חשיפה - LTV מינימלי
-        let stratExposure = [...simulations].sort((a, b) => a.ltv - b.ltv)[0];
-        
-        // אישור התנהגותי - הלוואה מאוזנת של 60 חודש שמתקרבת ליעד DTI של 35%
-        let stratBehavioral = [...simulations].filter(s => s.term === 60).sort((a, b) => Math.abs(a.dti - 35) - Math.abs(b.dti - 35))[0] || simulations[0];
+        let stratCashFlow = [...simulations].filter(s => s.freeCashFlow > 0).sort((a, b) => b.freeCashFlow - a.freeCashFlow)[0] || simulations[0];
+        let stratExposure = [...simulations].sort((a, b) => (a.ltv + a.dti) - (b.ltv + b.dti))[0];
+        let stratBehavioral = [...simulations].sort((a, b) => {
+             const scoreA = Math.abs(a.dti - 35) + (a.ltv * 0.5) - (a.capacityScore * 100);
+             const scoreB = Math.abs(b.dti - 35) + (b.ltv * 0.5) - (b.capacityScore * 100);
+             return scoreA - scoreB;
+        })[0] || simulations[0];
+
+        const calculateScore = (strat) => {
+            let score = 100;
+            if (strat.dti > 45) score -= 30;
+            if (strat.freeCashFlow < 1000) score -= 20;
+            if (strat.ltv > 80) score -= 15;
+            return score;
+        };
+
+        const scores = {
+            cash_flow: calculateScore(stratCashFlow),
+            exposure: calculateScore(stratExposure),
+            behavioral: calculateScore(stratBehavioral)
+        };
+        const recommendedStrategyId = Object.keys(scores).reduce((a, b) => scores[a] > scores[b] ? a : b);
 
         // 6. ניתוח התנהגותי (AI Advocate)
        const prompt = `CRITICAL INSTRUCTION:
-You are a senior, decisive credit underwriter making a firm approval recommendation.
-DO NOT use robotic phrases like "בהתחשב בנתונים" or "ההנחה היא". Speak directly and authoritatively.
-Explain exactly why this structure makes the loan safe to approve.
+You are a senior, decisive credit underwriter for a non-bank financing company making a firm approval recommendation.
+You must assess the data and provide EXACTLY 3 sharp, professional bullet points for each strategy, explaining why it mitigates risk and makes the loan safe to approve. Focus on DTI, liquidity, and payment capacity.
 
 Data:
 Net Income: ${Math.round(avgIncome)} ILS
@@ -157,7 +175,7 @@ Output EXACTLY this JSON structure. For each strategy, provide EXACTLY 3 short, 
 
         const llmRes = await base44.integrations.Core.InvokeLLM({
             prompt,
-            model: "gpt_5_mini", // Using a faster model for quicker generation
+            model: "gpt_5_mini", // Fast model for low latency
             response_json_schema: {
                 type: "object",
                 properties: {
@@ -171,6 +189,7 @@ Output EXACTLY this JSON structure. For each strategy, provide EXACTLY 3 short, 
 
         return Response.json({
             success: true,
+            recommendedStrategyId,
             strategies: {
                 cash_flow: { metrics: stratCashFlow, logic: llmRes.cash_flow },
                 exposure: { metrics: stratExposure, logic: llmRes.exposure },
