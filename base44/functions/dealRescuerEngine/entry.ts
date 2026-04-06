@@ -48,7 +48,6 @@ Deno.serve(async (req) => {
         let totalIncome = 0;
         let incomeMonths = new Set();
         const categoryExpenses = {};
-        const incomeByMonth = {};
 
         transactions.forEach(tx => {
             let amount = Number(tx.amount?.amount || tx.amount || 0);
@@ -60,9 +59,7 @@ Deno.serve(async (req) => {
             if (amount > 0) {
                  totalIncome += amount;
                  const date = tx.date?.valueDate || tx.creationDate || tx.transactionDate || new Date().toISOString();
-                 const monthStr = date.substring(0, 7);
-                 incomeMonths.add(monthStr);
-                 incomeByMonth[monthStr] = (incomeByMonth[monthStr] || 0) + amount;
+                 incomeMonths.add(date.substring(0, 7));
             } else if (amount < 0) {
                 const cat = (tx.category?.main || tx.categoryName || tx.category || "general").toLowerCase();
                 if (!categoryExpenses[cat]) categoryExpenses[cat] = [];
@@ -90,94 +87,6 @@ Deno.serve(async (req) => {
         });
         
         const avgFixedExpenses = fixedExpenses / monthsCount;
-
-        // --- Hybrid Decision Engine: Data Fusion & Conflict Resolution ---
-        // 1. Mocked Credit Bureau Data & Penalty System
-        const creditBureauData = {
-            score: body?.bureauScore || 620,
-            delinquencies: 1,
-            creditUtilization: 0.75,
-            recentNegativeEvents: 0
-        };
-        
-        let bureauPenalty = 0;
-        if (creditBureauData.score < 600) bureauPenalty += 40;
-        if (creditBureauData.delinquencies > 0) bureauPenalty += 20;
-        if (creditBureauData.creditUtilization > 0.8) bureauPenalty += 15;
-
-        // 2. Open Banking Data metrics & Trend Analysis
-        const avgMonthlyExpenses = cleanTotalExpenses / monthsCount;
-        
-        // Income trend analysis (last 3 vs prev 3)
-        const sortedMonths = Object.keys(incomeByMonth).sort();
-        let incomeTrend = "stable";
-        if (sortedMonths.length >= 6) {
-            const last3 = sortedMonths.slice(-3).reduce((sum, m) => sum + incomeByMonth[m], 0);
-            const prev3 = sortedMonths.slice(-6, -3).reduce((sum, m) => sum + incomeByMonth[m], 0);
-            if (last3 > prev3 * 1.1) incomeTrend = "up";
-            else if (last3 < prev3 * 0.9) incomeTrend = "down";
-        } else if (sortedMonths.length >= 2) {
-            const last = incomeByMonth[sortedMonths[sortedMonths.length - 1]];
-            const prev = incomeByMonth[sortedMonths[0]];
-            if (last > prev * 1.1) incomeTrend = "up";
-            else if (last < prev * 0.9) incomeTrend = "down";
-        }
-
-        const liquidityBufferDays = (liquidAssets > 0 && avgMonthlyExpenses > 0) ? (liquidAssets / (avgMonthlyExpenses / 30)) : 0;
-        let liquidityClassification = "low";
-        if (liquidityBufferDays > 60) liquidityClassification = "high";
-        else if (liquidityBufferDays >= 30) liquidityClassification = "medium";
-
-        const cashflowStress = avgIncome > 0 ? (avgMonthlyExpenses / avgIncome) : 1;
-
-        // 3. Data Fusion Layer
-        const bureauRiskLevel = creditBureauData.score >= 700 ? 'low' : (creditBureauData.score >= 600 ? 'medium' : 'high');
-        const obStrength = (incomeTrend === "up" && cashflowStress < 0.8 && liquidityClassification !== "low") ? "strong" :
-                           ((incomeTrend === "down" || cashflowStress > 0.9 || liquidityClassification === "low") ? "weak" : "medium");
-
-        const data_sources = {
-            bureau: creditBureauData.score >= 700 ? 'strong' : (creditBureauData.score >= 600 ? 'medium' : 'weak'),
-            open_banking: obStrength,
-            dominant_signal: (creditBureauData.score < 600 && obStrength === 'strong') ? 'open_banking' : 'bureau'
-        };
-
-        // 4. Conflict Resolution Logic
-        let engineDecision = 'reject';
-        let engineReasoning = [];
-        let engineConfidence = 100;
-
-        // Adjust confidence
-        if (bureauRiskLevel === 'high' || bureauRiskLevel === 'medium') engineConfidence -= 15;
-        if (cashflowStress > 0.8) engineConfidence -= 10;
-        if (liquidityClassification === 'low') engineConfidence -= 10;
-
-        if (bureauRiskLevel === 'high' && incomeTrend === 'up' && liquidityClassification !== 'low') {
-            engineDecision = 'conditional';
-            engineReasoning.push(`Bureau is weak (${creditBureauData.score}), but income is trending UP. Conditional approval allowed.`);
-            engineReasoning.push(`Liquidity is ${liquidityClassification} (${Math.round(liquidityBufferDays)} days buffer).`);
-            engineReasoning.push(`Cashflow stress is at ${(cashflowStress*100).toFixed(1)}%.`);
-        } else if (bureauRiskLevel === 'low' && (incomeTrend === 'down' || cashflowStress > 0.9)) {
-            engineDecision = 'conditional';
-            engineReasoning.push(`Bureau is strong (${creditBureauData.score}), but cashflow is unstable (Stress: ${(cashflowStress*100).toFixed(1)}%, Trend: ${incomeTrend}). Reducing exposure.`);
-            engineReasoning.push(`Liquidity is ${liquidityClassification}. Required to limit LTV/DTI.`);
-        } else if (bureauRiskLevel === 'low' && obStrength === 'strong') {
-            engineDecision = 'approve';
-            engineReasoning.push(`Both Bureau and Open Banking signals are strong. Optimal business configurations enabled.`);
-            engineReasoning.push(`Strong income trend and low cashflow stress (${(cashflowStress*100).toFixed(1)}%).`);
-            engineReasoning.push(`Excellent liquidity buffer of ${Math.round(liquidityBufferDays)} days.`);
-            engineConfidence = Math.min(100, engineConfidence + 10);
-        } else if (bureauRiskLevel === 'high' && obStrength === 'weak') {
-            engineDecision = 'reject';
-            engineReasoning.push(`Both Bureau (${creditBureauData.score}) and Open Banking (Trend: ${incomeTrend}, Stress: ${(cashflowStress*100).toFixed(1)}%) are weak.`);
-            engineReasoning.push(`Liquidity is ${liquidityClassification} (${Math.round(liquidityBufferDays)} days). Cannot mitigate risk.`);
-        } else {
-             engineDecision = 'conditional';
-             engineReasoning.push(`Mixed signals: Bureau is ${data_sources.bureau}, Open Banking is ${data_sources.open_banking}.`);
-             engineReasoning.push(`Cashflow stress: ${(cashflowStress*100).toFixed(1)}%, Trend: ${incomeTrend}.`);
-             engineReasoning.push(`Proceeding with conditional approval prioritizing lower DTI/LTV.`);
-        }
-        
-        let engineRiskLevel = engineDecision === 'approve' ? 'low' : (engineDecision === 'reject' ? 'high' : 'medium');
 
         // 4. מטריצת 50 סימולציות (Grid Search)
         const terms = [24, 36, 48, 60, 72, 84];
@@ -214,12 +123,6 @@ Deno.serve(async (req) => {
             }
         }
 
-        // Apply Decision Engine Filter
-        if (engineDecision === 'reject') {
-            const strictSims = simulations.filter(s => s.dti <= 35 && s.ltv <= 60);
-            if (strictSims.length > 0) simulations = strictSims;
-        }
-
         if (simulations.length === 0) {
              throw new Error("No valid simulations could be generated (perhaps liquid assets > principal)");
         }
@@ -235,28 +138,9 @@ Deno.serve(async (req) => {
 
         const calculateScore = (strat) => {
             let score = 100;
-            // Base penalties
             if (strat.dti > 45) score -= 30;
             if (strat.freeCashFlow < 1000) score -= 20;
             if (strat.ltv > 80) score -= 15;
-            
-            // Apply Bureau Penalty
-            score -= bureauPenalty;
-            
-            // Apply Capacity & Liquidity
-            score += (strat.capacityScore * 50); // rewarding better free cash flow
-            if (liquidityClassification === 'high') score += 15;
-            else if (liquidityClassification === 'low') score -= 15;
-            
-            // Integrate Hybrid Decision Engine logic into ranking
-            if (engineDecision === 'conditional') {
-                if (strat.ltv < 70) score += 15;
-                if (strat.dti < 35) score += 15;
-                if (strat.freeCashFlow > 1500) score += 10;
-            } else if (engineDecision === 'approve') {
-                if (strat.term >= 60) score += 20; // Allow longer term/profitability
-            }
-
             return score;
         };
 
@@ -303,35 +187,14 @@ Output EXACTLY this JSON structure. For each strategy, provide EXACTLY 3 short, 
             }
         });
 
-        const strategiesObj = {
-            cash_flow: { metrics: stratCashFlow, logic: llmRes.cash_flow },
-            exposure: { metrics: stratExposure, logic: llmRes.exposure },
-            behavioral: { metrics: stratBehavioral, logic: llmRes.behavioral }
-        };
-
-        const recommendedStrat = strategiesObj[recommendedStrategyId].metrics;
-
-        const decisionObject = {
-            decision: engineDecision,
-            recommended_terms: {
-                term: recommendedStrat.term,
-                down_payment: recommendedStrat.downPayment
-            },
-            confidence: engineConfidence,
-            risk_level: engineRiskLevel,
-            reasoning: engineReasoning,
-            data_sources: data_sources,
-            explanation: {
-                why_approved: engineDecision !== 'reject' ? engineReasoning[0] : null,
-                what_changed: engineDecision === 'conditional' && bureauRiskLevel === 'high' ? "Overrode weak bureau score due to strong open banking signals." : null
-            }
-        };
-
         return Response.json({
             success: true,
             recommendedStrategyId,
-            decision_engine: decisionObject,
-            strategies: strategiesObj
+            strategies: {
+                cash_flow: { metrics: stratCashFlow, logic: llmRes.cash_flow },
+                exposure: { metrics: stratExposure, logic: llmRes.exposure },
+                behavioral: { metrics: stratBehavioral, logic: llmRes.behavioral }
+            }
         });
 
     } catch (error) {
