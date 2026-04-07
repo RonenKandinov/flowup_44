@@ -14,8 +14,8 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
 
     // Ensure we don't crash if baseMetrics is missing
     const score = baseMetrics?.score || 0;
-    const status = baseMetrics?.status || 'GREEN';
     const isUnderperforming = score < 70 || status === 'RED' || status === 'YELLOW';
+    const status = baseMetrics?.status || 'GREEN';
 
     useEffect(() => {
         if (isUnderperforming && !analysisComplete && !isAnalyzing) {
