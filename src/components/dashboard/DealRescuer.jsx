@@ -17,11 +17,23 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
     const status = baseMetrics?.status || 'GREEN';
     const isUnderperforming = score < 70 || status === 'RED' || status === 'YELLOW';
 
+    const metricsHash = baseMetrics ? `${Math.round(baseMetrics.totalIncome || 0)}-${Math.round(baseMetrics.liquidAssets || 0)}-${Math.round(baseMetrics.totalFixedExpenses || baseMetrics.totalExpenses || 0)}` : '';
+
+    useEffect(() => {
+        // Reset analysis when underlying metrics significantly change (e.g. account switch)
+        setAnalysisComplete(false);
+        setIsAnalyzing(false);
+        setActiveStrategy(null);
+        setGeneratedStrategies(null);
+        if (onSimulate) onSimulate(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [metricsHash]);
+
     useEffect(() => {
         if (isUnderperforming && !analysisComplete && !isAnalyzing) {
             runAnalysis();
         }
-    }, [isUnderperforming, analysisComplete, isAnalyzing]);
+    }, [isUnderperforming, analysisComplete, isAnalyzing, metricsHash]);
     
     // Automatically trigger analysis if score is below a certain threshold or status is RED/ORANGE
     // Or we can just let the user click "Run Deal Rescuer"
@@ -31,13 +43,16 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
         try {
             const income = baseMetrics?.totalIncome || 10000;
             const liquidAssets = baseMetrics?.liquidAssets || 0;
-            const fixedExpenses = baseMetrics?.totalFixedExpenses || 0;
+            const fixedExpenses = baseMetrics?.totalFixedExpenses || baseMetrics?.totalExpenses || 0;
             const incomeTrend = baseMetrics?.trends?.income || 0;
             
             const res = await base44.functions.invoke('dealRescuerEngine', {
-                userId: "ronenk2424@gmail.com",
+                userId: baseMetrics?.userId || "ronenk2424@gmail.com",
                 principal: 50000,
-                baseRate: 0.09
+                baseRate: 0.09,
+                income: income,
+                liquidAssets: liquidAssets,
+                fixedExpenses: fixedExpenses
             });
 
             if (!res.data || !res.data.success) {

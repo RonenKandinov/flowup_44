@@ -6,87 +6,92 @@ Deno.serve(async (req) => {
         const body = await req.json().catch(() => ({}));
         
         // 1. פרטי הלוואה
-        const userId = body?.userId || "ronenk2424@gmail.com";
         const principal = Number(body?.principal || 50000);
         const baseRate = Number(body?.baseRate || 0.09);
         const collateralValue = Number(body?.collateralValue || principal);
 
-        const API_ROOT = "https://api.open-finance.ai";
-        const API_V2 = "https://api.open-finance.ai/v2";
-        const API_KEY = Deno.env.get("OPEN_FINANCE_API_KEY");
-        const API_SECRET = Deno.env.get("OPEN_FINANCE_API_SECRET");
+        // שימוש בנתונים ישירות מהבקשה במידה והם קיימים (כדי למנוע קריאות מיותרות ואיטיות ל-API)
+        let avgIncome = body?.income;
+        let liquidAssets = body?.liquidAssets;
+        let avgFixedExpenses = body?.fixedExpenses;
 
-        if (!API_KEY || !API_SECRET) {
-            throw new Error("Missing Open Finance API keys");
-        }
+        if (avgIncome === undefined || liquidAssets === undefined || avgFixedExpenses === undefined) {
+            const userId = body?.userId || "ronenk2424@gmail.com";
+            const API_ROOT = "https://api.open-finance.ai";
+            const API_V2 = "https://api.open-finance.ai/v2";
+            const API_KEY = Deno.env.get("OPEN_FINANCE_API_KEY");
+            const API_SECRET = Deno.env.get("OPEN_FINANCE_API_SECRET");
 
-        // קבלת Access Token מ-Open Finance
-        const tokenRes = await fetch(`${API_ROOT}/oauth/token`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId, clientId: API_KEY, clientSecret: API_SECRET })
-        });
-        if (!tokenRes.ok) throw new Error("Auth Error");
-        const { accessToken } = await tokenRes.json();
+            if (!API_KEY || !API_SECRET) {
+                throw new Error("Missing Open Finance API keys");
+            }
 
-        // 2. משיכת נתונים: חשבונות (לנזילות) ועסקאות (להכנסות והוצאות)
-        const accountsRes = await fetch(`${API_V2}/data/accounts`, { headers: { Authorization: `Bearer ${accessToken}` } });
-        let liquidAssets = 0;
-        if (accountsRes.ok) {
-            const accData = await accountsRes.json();
-            const accounts = accData.data || accData.items || [];
-            accounts.forEach(acc => {
-                let bal = Number(acc.availableBalance || acc.currentBalance || acc.balance?.amount || 0);
-                if (bal > 0) liquidAssets += bal;
+            const tokenRes = await fetch(`${API_ROOT}/oauth/token`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userId, clientId: API_KEY, clientSecret: API_SECRET })
             });
+            if (!tokenRes.ok) throw new Error("Auth Error");
+            const { accessToken } = await tokenRes.json();
+
+            const accountsRes = await fetch(`${API_V2}/data/accounts`, { headers: { Authorization: `Bearer ${accessToken}` } });
+            liquidAssets = 0;
+            if (accountsRes.ok) {
+                const accData = await accountsRes.json();
+                const accounts = accData.data || accData.items || [];
+                accounts.forEach(acc => {
+                    let bal = Number(acc.availableBalance || acc.currentBalance || acc.balance?.amount || 0);
+                    if (bal > 0) liquidAssets += bal;
+                });
+            }
+
+            const txRes = await fetch(`${API_V2}/data/transactions`, { headers: { Authorization: `Bearer ${accessToken}` } });
+            const txData = await txRes.json();
+            const transactions = txData.data || txData.items || [];
+
+            let totalIncome = 0;
+            let incomeMonths = new Set();
+            const categoryExpenses = {};
+
+            transactions.forEach(tx => {
+                let amount = Number(tx.amount?.amount || tx.amount || 0);
+                const ind = String(tx.creditDebitIndicator || tx.indicator || "").toUpperCase();
+                if (ind === 'DBIT' || ind === 'DEBIT') amount = -Math.abs(amount);
+                else if (ind === 'CRDT' || ind === 'CREDIT') amount = Math.abs(amount);
+                else if (tx.credit !== undefined || tx.debit !== undefined) amount = (Number(tx.credit) || 0) - (Number(tx.debit) || 0);
+
+                if (amount > 0) {
+                     totalIncome += amount;
+                     const date = tx.date?.valueDate || tx.creationDate || tx.transactionDate || new Date().toISOString();
+                     incomeMonths.add(date.substring(0, 7));
+                } else if (amount < 0) {
+                    const cat = (tx.category?.main || tx.categoryName || tx.category || "general").toLowerCase();
+                    if (!categoryExpenses[cat]) categoryExpenses[cat] = [];
+                    categoryExpenses[cat].push(Math.abs(amount));
+                }
+            });
+
+            const monthsCount = Math.max(1, incomeMonths.size);
+            avgIncome = totalIncome / monthsCount;
+
+            let cleanTotalExpenses = 0;
+            let fixedExpensesSum = 0;
+            Object.entries(categoryExpenses).forEach(([cat, amounts]) => {
+                const catAvg = amounts.reduce((a, b) => a + b, 0) / amounts.length;
+                const threshold = catAvg * 2.5; 
+                const cleanAmounts = amounts.filter(a => a <= threshold);
+                const catCleanTotal = cleanAmounts.reduce((a, b) => a + b, 0);
+                cleanTotalExpenses += catCleanTotal;
+                
+                const fixedKeywords = ["housing", "loan", "insurance", "utilities", "הלוואה", "משכנתא", "ביטוח", "שכירות", "חשמל", "מים", "ארנונה", "תשלום קבוע"];
+                if (fixedKeywords.some(k => cat.includes(k))) {
+                    fixedExpensesSum += catCleanTotal;
+                }
+            });
+            
+            avgFixedExpenses = fixedExpensesSum / monthsCount;
         }
 
-        const txRes = await fetch(`${API_V2}/data/transactions`, { headers: { Authorization: `Bearer ${accessToken}` } });
-        const txData = await txRes.json();
-        const transactions = txData.data || txData.items || [];
-
-        let totalIncome = 0;
-        let incomeMonths = new Set();
-        const categoryExpenses = {};
-
-        transactions.forEach(tx => {
-            let amount = Number(tx.amount?.amount || tx.amount || 0);
-            const ind = String(tx.creditDebitIndicator || tx.indicator || "").toUpperCase();
-            if (ind === 'DBIT' || ind === 'DEBIT') amount = -Math.abs(amount);
-            else if (ind === 'CRDT' || ind === 'CREDIT') amount = Math.abs(amount);
-            else if (tx.credit !== undefined || tx.debit !== undefined) amount = (Number(tx.credit) || 0) - (Number(tx.debit) || 0);
-
-            if (amount > 0) {
-                 totalIncome += amount;
-                 const date = tx.date?.valueDate || tx.creationDate || tx.transactionDate || new Date().toISOString();
-                 incomeMonths.add(date.substring(0, 7));
-            } else if (amount < 0) {
-                const cat = (tx.category?.main || tx.categoryName || tx.category || "general").toLowerCase();
-                if (!categoryExpenses[cat]) categoryExpenses[cat] = [];
-                categoryExpenses[cat].push(Math.abs(amount));
-            }
-        });
-
-        const monthsCount = Math.max(1, incomeMonths.size);
-        const avgIncome = totalIncome / monthsCount;
-
-        // 3. ניקוי הוצאות חריגות (> 2.5x ממוצע קטגוריה)
-        let cleanTotalExpenses = 0;
-        let fixedExpenses = 0;
-        Object.entries(categoryExpenses).forEach(([cat, amounts]) => {
-            const catAvg = amounts.reduce((a, b) => a + b, 0) / amounts.length;
-            const threshold = catAvg * 2.5; // חסם עליון לניקוי הוצאות חריגות
-            const cleanAmounts = amounts.filter(a => a <= threshold);
-            const catCleanTotal = cleanAmounts.reduce((a, b) => a + b, 0);
-            cleanTotalExpenses += catCleanTotal;
-            
-            const fixedKeywords = ["housing", "loan", "insurance", "utilities", "הלוואה", "משכנתא", "ביטוח", "שכירות", "חשמל", "מים", "ארנונה", "תשלום קבוע"];
-            if (fixedKeywords.some(k => cat.includes(k))) {
-                fixedExpenses += catCleanTotal;
-            }
-        });
-        
-        const avgFixedExpenses = fixedExpenses / monthsCount;
         const liquidityMonths = avgFixedExpenses > 0 ? liquidAssets / avgFixedExpenses : 12;
 
         // 4. מטריצת 50 סימולציות (Grid Search)
