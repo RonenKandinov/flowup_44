@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
 
     const llmRes = await base44.integrations.Core.InvokeLLM({
       prompt,
-      model: "gpt_5_mini",
+      model: "gemini_3_flash",
       response_json_schema: {
         type: "object",
         properties: {

@@ -252,12 +252,7 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                     <div className="flex flex-col h-full animate-in fade-in zoom-in duration-300">
 
 
-                        {activeStrategy !== 'rejected' ? (
-                            <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-2 mb-3 flex items-center justify-center text-emerald-400 text-xs font-bold">
-                                <ShieldCheck className="w-4 h-4 mr-2" />
-                                עסקה נותחה ואושרה אוטומטית בהתאם למדדי החיתום
-                            </div>
-                        ) : (
+                        {activeStrategy === 'rejected' && (
                             <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-2 mb-3 flex items-center justify-center text-red-400 text-xs font-bold">
                                 <ShieldCheck className="w-4 h-4 mr-2" />
                                 נדחה אוטומטית - סיכון חיתומי גבוה
