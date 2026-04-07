@@ -556,7 +556,7 @@ ${JSON.stringify(limitedExpenses)}
 
             const isInternalTransfer = ["העברה בין חשבונות", "העברה פנימית", "internal transfer", "own account"].some(kw => category.includes(kw) || txDesc.includes(kw));
             const isLoanDeposit = amount >= 15000 && ["הלוואה", "loan", "משכנתא", "mortgage", "מימון", "הלוואות"].some(kw => category.includes(kw) || txDesc.includes(kw));
-            const isDefiniteSalary = amount > 0 && ["משכורת", "שכר", "salary", "payroll", "קצבה", "ביטוח לאומי", "פנסיה", "מס\"ב"].some(kw => category.includes(kw) || txDesc.includes(kw));
+            const isPersonalIncome = amount > 0 && ["משכורת", "שכר", "salary", "payroll", "קצבה", "ביטוח לאומי", "פנסיה", "ילדים", "מלגה"].some(kw => category.includes(kw) || txDesc.includes(kw));
             const isRefundOrReversal = amount > 0 && ["החזר", "refund", "reversal", "ביטול"].some(kw => category.includes(kw) || txDesc.includes(kw)) && !txDesc.includes("זיכוי");
             
             const investmentKeywords = [
@@ -567,9 +567,9 @@ ${JSON.stringify(limitedExpenses)}
             const isInvestmentTransfer = amount < 0 && investmentKeywords.some(kw => category.includes(kw) || txDesc.includes(kw));
 
             if (amount > 0) {
-                if (!isInternalTransfer && !isLoanDeposit && !isInvestmentTransfer && !isRefundOrReversal) {
+                if (!isInternalTransfer && !isLoanDeposit && !isInvestmentTransfer && !isRefundOrReversal && !isPersonalIncome) {
                     currentMonth.income += amount;
-                    if (isDefiniteSalary || isRecurringIncome) {
+                    if (isRecurringIncome) {
                         currentMonth.primaryIncome += amount;
                     }
                 }
@@ -583,7 +583,10 @@ ${JSON.stringify(limitedExpenses)}
                     console.log(`[Debug] Investment transfer found: ${txDesc} ${category} ${absAmt}`);
                 }
 
-                if (!isInternalTransfer && !isInvestmentTransfer) {
+                const personalExpenseKeywords = ["סופר", "מסעדה", "ביגוד", "בילוי", "supermarket", "restaurant", "clothing", "entertainment", "wolts", "wolt", "תן ביס", "מכולת", "פארם", "קולנוע", "סרט"];
+                const isPersonalExpense = personalExpenseKeywords.some(kw => category.includes(kw) || txDesc.includes(kw));
+
+                if (!isInternalTransfer && !isInvestmentTransfer && !isPersonalExpense) {
                     currentMonth.expenses += absAmt;
                     
                     const key = `${txDesc}|${category}`;
@@ -601,10 +604,12 @@ ${JSON.stringify(limitedExpenses)}
                             // English
                             "housing", "loan", "insurance", "transportation", "utilities", "rent", "fixed", "commitment",
                             "mortgage", "lease", "subscription", "installment", "payment plan",
+                            "supplier", "cloud", "software", "saas", "hosting", "office", "payroll", "salary",
                             // Hebrew
                             "הלוואה", "משכנתא", "ביטוח", "שכירות", "דירה", "חיוב", "תשלום קבוע",
                             "מנוי", "ארנונה", "חשמל", "מים", "גז", "ועד בית", "טלפון", "אינטרנט",
-                            "החזר", "תשלומים", "מס", "היטל", "אגרה"
+                            "החזר", "תשלומים", "מס", "היטל", "אגרה", "מע\"מ", "מעמ", "ביטוח לאומי",
+                            "ספק", "ענן", "תוכנה", "משרד", "משכורת", "שכר עבודה", "רואה חשבון", "ייעוץ", "פרסום", "שיווק", "גוגל", "פייסבוק"
                         ];
                         
                         isFixed = fixedKeywords.some((keyword) => 

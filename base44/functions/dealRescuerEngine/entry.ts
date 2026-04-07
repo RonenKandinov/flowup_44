@@ -60,12 +60,19 @@ Deno.serve(async (req) => {
                 else if (ind === 'CRDT' || ind === 'CREDIT') amount = Math.abs(amount);
                 else if (tx.credit !== undefined || tx.debit !== undefined) amount = (Number(tx.credit) || 0) - (Number(tx.debit) || 0);
 
-                if (amount > 0) {
+                const txDesc = String(tx?.description || tx?.details || "").toLowerCase();
+                const category = (tx.category?.main || tx.categoryName || tx.category || "general").toLowerCase();
+
+                const isPersonalIncome = amount > 0 && ["משכורת", "שכר", "salary", "payroll", "קצבה", "ביטוח לאומי", "פנסיה", "ילדים", "מלגה"].some(kw => category.includes(kw) || txDesc.includes(kw));
+                const personalExpenseKeywords = ["סופר", "מסעדה", "ביגוד", "בילוי", "supermarket", "restaurant", "clothing", "entertainment", "wolts", "wolt", "תן ביס", "מכולת", "פארם", "קולנוע", "סרט"];
+                const isPersonalExpense = amount < 0 && personalExpenseKeywords.some(kw => category.includes(kw) || txDesc.includes(kw));
+
+                if (amount > 0 && !isPersonalIncome) {
                      totalIncome += amount;
                      const date = tx.date?.valueDate || tx.creationDate || tx.transactionDate || new Date().toISOString();
                      incomeMonths.add(date.substring(0, 7));
-                } else if (amount < 0) {
-                    const cat = (tx.category?.main || tx.categoryName || tx.category || "general").toLowerCase();
+                } else if (amount < 0 && !isPersonalExpense) {
+                    const cat = category + " | " + txDesc; // Group by more specific string to apply keywords better
                     if (!categoryExpenses[cat]) categoryExpenses[cat] = [];
                     categoryExpenses[cat].push(Math.abs(amount));
                 }
@@ -83,7 +90,15 @@ Deno.serve(async (req) => {
                 const catCleanTotal = cleanAmounts.reduce((a, b) => a + b, 0);
                 cleanTotalExpenses += catCleanTotal;
                 
-                const fixedKeywords = ["housing", "loan", "insurance", "utilities", "הלוואה", "משכנתא", "ביטוח", "שכירות", "חשמל", "מים", "ארנונה", "תשלום קבוע"];
+                const fixedKeywords = [
+                    "housing", "loan", "insurance", "transportation", "utilities", "rent", "fixed", "commitment",
+                    "mortgage", "lease", "subscription", "installment", "payment plan",
+                    "supplier", "cloud", "software", "saas", "hosting", "office", "payroll", "salary",
+                    "הלוואה", "משכנתא", "ביטוח", "שכירות", "דירה", "חיוב", "תשלום קבוע",
+                    "מנוי", "ארנונה", "חשמל", "מים", "גז", "ועד בית", "טלפון", "אינטרנט",
+                    "החזר", "תשלומים", "מס", "היטל", "אגרה", "מע\"מ", "מעמ", "ביטוח לאומי",
+                    "ספק", "ענן", "תוכנה", "משרד", "משכורת", "שכר עבודה", "רואה חשבון", "ייעוץ", "פרסום", "שיווק", "גוגל", "פייסבוק"
+                ];
                 if (fixedKeywords.some(k => cat.includes(k))) {
                     fixedExpensesSum += catCleanTotal;
                 }
