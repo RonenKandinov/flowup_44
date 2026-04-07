@@ -29,11 +29,7 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [metricsHash]);
 
-    useEffect(() => {
-        if (isUnderperforming && !analysisComplete && !isAnalyzing) {
-            runAnalysis();
-        }
-    }, [isUnderperforming, analysisComplete, isAnalyzing, metricsHash]);
+    // useEffect removed to prevent automatic loop on reset
     
     // Automatically trigger analysis if score is below a certain threshold or status is RED/ORANGE
     // Or we can just let the user click "Run Deal Rescuer"
