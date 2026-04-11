@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldCheck, Crosshair, TrendingUp, Wallet, BrainCircuit, PlayCircle, Loader2, ArrowLeftRight, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -75,7 +75,7 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                             rejected: {
                                 id: 'rejected',
                                 title: 'סיבת דחייה',
-                                subtitle: 'Automated Rejection',
+                                subtitle: 'דחייה אוטומטית',
                                 icon: ShieldCheck,
                                 color: 'text-red-400',
                                 bg: 'bg-red-500/10',
@@ -102,7 +102,7 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                 cash_flow: {
                     id: 'cash_flow',
                     title: 'התאמת החזר',
-                    subtitle: 'Lowest Monthly Payment',
+                    subtitle: 'החזר חודשי נמוך',
                     icon: ArrowLeftRight,
                     color: 'text-blue-400',
                     bg: 'bg-blue-500/10',
@@ -115,7 +115,7 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                 exposure: {
                     id: 'exposure',
                     title: 'הפחתת חשיפה',
-                    subtitle: 'Exposure Reduction',
+                    subtitle: 'הפחתת סיכון',
                     icon: Wallet,
                     color: 'text-emerald-400',
                     bg: 'bg-emerald-500/10',
@@ -128,7 +128,7 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                 behavioral: {
                     id: 'behavioral',
                     title: 'אופטימלי',
-                    subtitle: 'AI Optimal Path',
+                    subtitle: 'מסלול מומלץ',
                     icon: Activity,
                     color: 'text-purple-400',
                     bg: 'bg-purple-500/10',
@@ -152,8 +152,8 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                 });
             }
 
-            // Fetch AI logic in the background
-            base44.functions.invoke('dealRescuerAI', { strategies, context }).then(aiRes => {
+            // Fetch AI logic in the background without blocking the UI
+            Promise.resolve().then(() => base44.functions.invoke('dealRescuerAI', { strategies, context })).then(aiRes => {
                 if (aiRes?.data?.success && aiRes.data.logic) {
                     const extractBullets = (logicData) => {
                         if (!logicData) return ["מסלול מאושר בהתאם לפרמטרים."];
@@ -276,7 +276,7 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                                             </span>
                                         )}
                                         <Icon className={`w-4 h-4 mb-1 ${isActive ? strat.color : isRecommended ? 'text-amber-400' : 'text-slate-500'}`} />
-                                        <span className={`text-[10px] text-center leading-tight ${isActive || isRecommended ? 'text-white font-medium' : 'text-slate-400'}`}>
+                                        <span className={`text-xs text-center leading-tight ${isActive || isRecommended ? 'text-white font-semibold' : 'text-slate-300'}`}>
                                             {strat.title}
                                         </span>
                                     </button>
@@ -302,27 +302,21 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                                         </div>
                                         
                                         <div className="mb-3 space-y-2">
-                                            <p className="text-[10px] text-slate-300 font-medium mb-0.5 border-r-2 border-slate-600 pr-2">האסטרטגיה:</p>
-                                            <p className="text-[10px] text-slate-400 pr-2">{activeStratData.strategy}</p>
-                                            {activeStratData.metrics?.rate !== undefined && (
-                                                <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2">
-                                                    <p className="text-[10px] text-cyan-300">ריבית שנתית</p>
-                                                    <p className="text-lg font-bold text-cyan-400">{((activeStratData.metrics.rate || 0) * 100).toFixed(1)}%</p>
-                                                </div>
-                                            )}
+                                            <p className="text-xs text-slate-200 font-semibold mb-1 border-r-2 border-slate-600 pr-2">האסטרטגיה:</p>
+                                            <p className="text-sm text-slate-300 pr-2 leading-6">{activeStratData.strategy}</p>
                                         </div>
 
                                         <div className="flex-1 bg-slate-950/50 rounded-md p-2.5 border border-slate-800">
                                             {!activeStratData.aiLogic ? (
-                                                <div className="flex items-center gap-2 text-[10px] text-slate-400">
-                                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                                <div className="flex items-center gap-2 text-xs text-slate-300">
+                                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                                     טוען נימוקי AI...
                                                 </div>
                                             ) : (
                                                 <ul className="space-y-2">
                                                     {Array.isArray(activeStratData.aiLogic) ? activeStratData.aiLogic.map((bullet, idx) => (
-                                                        <li key={idx} className="flex items-start gap-2 text-[10px] leading-relaxed text-slate-300">
-                                                            <div className="mt-1 w-1.5 h-1.5 rounded-full bg-cyan-500/50 shrink-0" />
+                                                        <li key={idx} className="flex items-start gap-2 text-xs leading-6 text-slate-200">
+                                                            <div className="mt-2 w-1.5 h-1.5 rounded-full bg-cyan-500/60 shrink-0" />
                                                             <span>{bullet}</span>
                                                         </li>
                                                     )) : (
