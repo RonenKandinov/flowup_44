@@ -107,7 +107,9 @@ Deno.serve(async (req) => {
             avgFixedExpenses = fixedExpensesSum / monthsCount;
         }
 
-        const liquidityMonths = avgFixedExpenses > 0 ? liquidAssets / avgFixedExpenses : 12;
+        const liquidityMonths = body?.liquidityMonths !== undefined
+            ? Number(body.liquidityMonths)
+            : (avgFixedExpenses > 0 ? liquidAssets / avgFixedExpenses : 12);
 
         // 4. מטריצת סימולציות עם מגבלת מקדמה חכמה - לא משתמשים בכל העו"ש
         const terms = [24, 36, 48, 60, 72, 84];
