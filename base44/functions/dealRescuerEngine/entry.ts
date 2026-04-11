@@ -152,7 +152,8 @@ Deno.serve(async (req) => {
             }
         }
 
-        const isRejected = simulations.length === 0 || liquidityMonths < 2;
+        const hasViableSimulation = simulations.length > 0;
+        const isRejected = !hasViableSimulation;
 
         if (isRejected) {
              return Response.json({
