@@ -909,7 +909,7 @@ export default function Dashboard() {
                 <div className="order-4 lg:order-4 h-full w-full">
                     <DealRescuer
                         onSimulate={(metrics) => setSimulatedMetrics(metrics)}
-                        baseMetrics={metricsForInsights || originalLoanMetrics}
+                        baseMetrics={originalLoanMetrics}
                     />
                 </div>
               </div>
