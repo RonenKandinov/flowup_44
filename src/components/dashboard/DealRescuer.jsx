@@ -42,6 +42,10 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
       const fixedExpenses = baseMetrics?.totalFixedExpenses || baseMetrics?.totalExpenses || 0;
       const principal = baseMetrics?.requestedLoanAmount || baseMetrics?.loanAmount || 50000;
 
+      if (!income || fixedExpenses < 0) {
+        throw new Error('Missing underwriting metrics');
+      }
+
       const res = await base44.functions.invoke('dealRescuerEngine', {
         userId: baseMetrics?.userId || 'ronenk2424@gmail.com',
         principal,
