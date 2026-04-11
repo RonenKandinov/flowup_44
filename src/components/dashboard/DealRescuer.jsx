@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldCheck, Crosshair, TrendingUp, Wallet, BrainCircuit, PlayCircle, Loader2, ArrowLeftRight, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 
@@ -12,7 +11,6 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
     const [activeStrategy, setActiveStrategy] = useState(null);
     const [generatedStrategies, setGeneratedStrategies] = useState(null);
     const [recommendedStrategyId, setRecommendedStrategyId] = useState(null);
-    const [loanAmount, setLoanAmount] = useState('50000');
 
     // Ensure we don't crash if baseMetrics is missing
     const score = baseMetrics?.score || 0;
@@ -37,22 +35,16 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
     // Or we can just let the user click "Run Deal Rescuer"
     
     const runAnalysis = async () => {
-        const requestedLoanAmount = Number(String(loanAmount).replace(/,/g, ''));
-
-        if (!requestedLoanAmount || requestedLoanAmount <= 0) {
-            toast.error('יש להזין סכום הלוואה תקין');
-            return;
-        }
-
         setIsAnalyzing(true);
         try {
             const income = baseMetrics?.totalIncome || 10000;
             const liquidAssets = baseMetrics?.liquidAssets || 0;
             const fixedExpenses = baseMetrics?.totalFixedExpenses || baseMetrics?.totalExpenses || 0;
+            const incomeTrend = baseMetrics?.trends?.income || 0;
             
             const res = await base44.functions.invoke('dealRescuerEngine', {
                 userId: baseMetrics?.userId || "ronenk2424@gmail.com",
-                principal: requestedLoanAmount,
+                principal: 50000,
                 baseRate: 0.09,
                 income: income,
                 liquidAssets: liquidAssets,
@@ -193,10 +185,7 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
 
     const handleReset = () => {
         setAnalysisComplete(false);
-        setIsAnalyzing(false);
         setActiveStrategy(null);
-        setGeneratedStrategies(null);
-        setRecommendedStrategyId(null);
         if (onSimulate) onSimulate(null);
     };
 
@@ -237,28 +226,14 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                         <p className="text-[10px] text-slate-500 mb-4 leading-relaxed max-w-[180px] mx-auto">
                             מנוע אופטימיזציה אקטיבית למציאת המבנה הפיננסי המדויק בעזרת AI.
                         </p>
-                        <div className="space-y-3">
-                            <div className="text-right">
-                                <label className="block text-[10px] text-slate-400 mb-1">סכום הלוואה מבוקש</label>
-                                <Input
-                                    type="number"
-                                    min="1"
-                                    step="1000"
-                                    value={loanAmount}
-                                    onChange={(e) => setLoanAmount(e.target.value)}
-                                    placeholder="לדוגמה: 50000"
-                                    className="bg-slate-900/80 border-slate-700 text-white text-xs h-9"
-                                />
-                            </div>
-                            <Button 
-                                onClick={runAnalysis}
-                                className="bg-cyan-600 hover:bg-cyan-500 text-white w-full rounded-lg h-8 text-xs"
-                                size="sm"
-                            >
-                                <PlayCircle className="w-3.5 h-3.5 mr-2 ml-2" />
-                                הפעל חילוץ
-                            </Button>
-                        </div>
+                        <Button 
+                            onClick={runAnalysis}
+                            className="bg-cyan-600 hover:bg-cyan-500 text-white w-full rounded-lg h-8 text-xs"
+                            size="sm"
+                        >
+                            <PlayCircle className="w-3.5 h-3.5 mr-2 ml-2" />
+                            הפעל חילוץ
+                        </Button>
                     </div>
                 )}
 

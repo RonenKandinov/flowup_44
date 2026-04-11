@@ -10,10 +10,6 @@ Deno.serve(async (req) => {
         const baseRate = Number(body?.baseRate || 0.09);
         const collateralValue = Number(body?.collateralValue || principal);
 
-        if (!principal || principal <= 0) {
-            throw new Error("Invalid loan amount");
-        }
-
         // שימוש בנתונים ישירות מהבקשה במידה והם קיימים (כדי למנוע קריאות מיותרות ואיטיות ל-API)
         let avgIncome = body?.income;
         let liquidAssets = body?.liquidAssets;
