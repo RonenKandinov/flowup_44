@@ -28,42 +28,46 @@ Deno.serve(async (req) => {
         });
     }
 
-    const prompt = `CRITICAL INSTRUCTION:
+    const prompt = `הוראה קריטית:
 
-    ענה אך ורק בעברית. אל תשתמש באנגלית בכלל.
-
-    אתה אנליסט אשראי בכיר בבנק שמקבל החלטת אישור סופית.
-    השתמש אך ורק במספרים שסופקו להלן, אל תמציא חישובים. אל תכתוב משפטים כלליים כמו "יציבות תזרימית". 
-    הסבר למה ההלוואה מאושרת בהתבסס על DSR, נזילות בחודשים, ותזרים פנוי (Cash Flow).
+    ענה אך ורק בעברית.
+    אל תכתוב אנגלית, ערבית או מונחים לועזיים מיותרים.
+    אתה אנליסט אשראי בכיר שמנמק החלטת אישור על בסיס מספרים בלבד.
+    השתמש אך ורק בנתונים שסופקו, אל תמציא חישובים ואל תכתוב ניסוחים כלליים.
+    בכל אסטרטגיה הדגש במפורש את הריבית, המקדמה, ההחזר החודשי, ה-DSR והתזרים הפנוי.
 
     נתוני לקוח:
     - הכנסה חודשית: ${income} ₪
     - הוצאות קבועות: ${expenses} ₪
     - נזילות כוללת: ${liquidity} ₪ (${liquidityMonths} חודשי כיסוי)
-    - עודף חודשי פנוי (לפני הלוואה): ${net} ₪
+    - עודף חודשי פנוי לפני הלוואה: ${net} ₪
 
-    אסטרטגיות (לכל אחת, ספק 3 נקודות קצרות המנמקות את הבחירה):
-
-    1. Cash Flow
-    - תשלום חודשי צפוי: ${Math.round(strategies?.cash_flow?.metrics?.pmt || 0)} ₪
-    - DSR (יחס שירות חוב): ${Math.round(strategies?.cash_flow?.metrics?.dsr || 0)}%
+    אסטרטגיה 1 - התאמת החזר:
+    - מקדמה: ${Math.round(strategies?.cash_flow?.metrics?.downPayment || 0)} ₪
+    - ריבית שנתית: ${(((strategies?.cash_flow?.metrics?.rate || 0) * 100).toFixed(1))}%
+    - תשלום חודשי: ${Math.round(strategies?.cash_flow?.metrics?.pmt || 0)} ₪
+    - DSR: ${Math.round(strategies?.cash_flow?.metrics?.dsr || 0)}%
     - תזרים פנוי נותר: ${Math.round(strategies?.cash_flow?.metrics?.freeCashFlow || 0)} ₪
 
-    2. Exposure
-    - תשלום חודשי צפוי: ${Math.round(strategies?.exposure?.metrics?.pmt || 0)} ₪
-    - DSR (יחס שירות חוב): ${Math.round(strategies?.exposure?.metrics?.dsr || 0)}%
+    אסטרטגיה 2 - הפחתת חשיפה:
+    - מקדמה: ${Math.round(strategies?.exposure?.metrics?.downPayment || 0)} ₪
+    - ריבית שנתית: ${(((strategies?.exposure?.metrics?.rate || 0) * 100).toFixed(1))}%
+    - תשלום חודשי: ${Math.round(strategies?.exposure?.metrics?.pmt || 0)} ₪
+    - DSR: ${Math.round(strategies?.exposure?.metrics?.dsr || 0)}%
     - תזרים פנוי נותר: ${Math.round(strategies?.exposure?.metrics?.freeCashFlow || 0)} ₪
 
-    3. Behavioral
-    - תשלום חודשי צפוי: ${Math.round(strategies?.behavioral?.metrics?.pmt || 0)} ₪
-    - DSR (יחס שירות חוב): ${Math.round(strategies?.behavioral?.metrics?.dsr || 0)}%
+    אסטרטגיה 3 - מסלול אופטימלי:
+    - מקדמה: ${Math.round(strategies?.behavioral?.metrics?.downPayment || 0)} ₪
+    - ריבית שנתית: ${(((strategies?.behavioral?.metrics?.rate || 0) * 100).toFixed(1))}%
+    - תשלום חודשי: ${Math.round(strategies?.behavioral?.metrics?.pmt || 0)} ₪
+    - DSR: ${Math.round(strategies?.behavioral?.metrics?.dsr || 0)}%
     - תזרים פנוי נותר: ${Math.round(strategies?.behavioral?.metrics?.freeCashFlow || 0)} ₪
 
     פורמט חובה:
     {
-    "cash_flow": { "bullets": ["נקודה מבוססת מספרים...", "...", "..."] },
-    "exposure": { "bullets": ["נקודה מבוססת מספרים...", "...", "..."] },
-    "behavioral": { "bullets": ["נקודה מבוססת מספרים...", "...", "..."] }
+      "cash_flow": { "bullets": ["...", "...", "..."] },
+      "exposure": { "bullets": ["...", "...", "..."] },
+      "behavioral": { "bullets": ["...", "...", "..."] }
     }
     `;
    

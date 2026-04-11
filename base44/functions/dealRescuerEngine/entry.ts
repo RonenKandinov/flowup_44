@@ -109,16 +109,19 @@ Deno.serve(async (req) => {
 
         const liquidityMonths = avgFixedExpenses > 0 ? liquidAssets / avgFixedExpenses : 12;
 
-        // 4. מטריצת 50 סימולציות (Grid Search)
+        // 4. מטריצת סימולציות עם מגבלת מקדמה חכמה - לא משתמשים בכל העו"ש
         const terms = [24, 36, 48, 60, 72, 84];
         const downPaymentSteps = 10;
-        const stepSize = liquidAssets / Math.max(1, downPaymentSteps - 1);
+        const reserveMonths = 2;
+        const reservedLiquidity = avgFixedExpenses * reserveMonths;
+        const maxUsableDownPayment = Math.max(0, Math.min(liquidAssets * 0.6, liquidAssets - reservedLiquidity));
+        const stepSize = maxUsableDownPayment / Math.max(1, downPaymentSteps - 1);
         
         let simulations = [];
 
         for (let t of terms) {
             for (let i = 0; i < downPaymentSteps; i++) {
-                const dp = Math.min(liquidAssets, i * stepSize);
+                const dp = Math.min(maxUsableDownPayment, i * stepSize);
                 const p = principal - dp;
                 if (p <= 0) continue;
 

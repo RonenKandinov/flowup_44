@@ -179,7 +179,7 @@ export default function InsightsAgent({ analysis, isLoading }) {
                                 {llm_analysis?.behavior_analysis && (
                                     <div className="bg-slate-800/30 p-3 rounded-lg border border-slate-700/50">
                                         <div className="flex items-center justify-between mb-2">
-                                            <p className="text-[10px] text-slate-500 uppercase">ניתוח התנהגות עומק (AI)</p>
+                                            <p className="text-[10px] text-slate-500 uppercase">ניתוח התנהגות מעמיק</p>
                                             {llm_analysis.behavior_analysis.trend && (
                                                 <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
                                                     llm_analysis.behavior_analysis.trend === 'IMPROVING' ? 'bg-emerald-500/20 text-emerald-400' :

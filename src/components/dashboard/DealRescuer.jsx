@@ -94,9 +94,9 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
             const { strategies, recommendedStrategyId, recommendedScore, context } = res.data;
             if (recommendedStrategyId) setRecommendedStrategyId(recommendedStrategyId);
             
-            const ecoPath = { n: strategies.cash_flow.metrics.term, dp: strategies.cash_flow.metrics.downPayment, pmt: strategies.cash_flow.metrics.pmt, newDSR: strategies.cash_flow.metrics.dsr, S_new: strategies.cash_flow.score };
-            const secPath = { n: strategies.exposure.metrics.term, dp: strategies.exposure.metrics.downPayment, pmt: strategies.exposure.metrics.pmt, newDSR: strategies.exposure.metrics.dsr, S_new: strategies.exposure.score };
-            const aiPath = { n: strategies.behavioral.metrics.term, dp: strategies.behavioral.metrics.downPayment, pmt: strategies.behavioral.metrics.pmt, newDSR: strategies.behavioral.metrics.dsr, S_new: strategies.behavioral.score };
+            const ecoPath = { n: strategies.cash_flow.metrics.term, dp: strategies.cash_flow.metrics.downPayment, pmt: strategies.cash_flow.metrics.pmt, newDSR: strategies.cash_flow.metrics.dsr, rate: strategies.cash_flow.metrics.rate, S_new: strategies.cash_flow.score };
+            const secPath = { n: strategies.exposure.metrics.term, dp: strategies.exposure.metrics.downPayment, pmt: strategies.exposure.metrics.pmt, newDSR: strategies.exposure.metrics.dsr, rate: strategies.exposure.metrics.rate, S_new: strategies.exposure.score };
+            const aiPath = { n: strategies.behavioral.metrics.term, dp: strategies.behavioral.metrics.downPayment, pmt: strategies.behavioral.metrics.pmt, newDSR: strategies.behavioral.metrics.dsr, rate: strategies.behavioral.metrics.rate, S_new: strategies.behavioral.score };
 
             setGeneratedStrategies({
                 cash_flow: {
@@ -107,7 +107,7 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                     color: 'text-blue-400',
                     bg: 'bg-blue-500/10',
                     border: 'border-blue-500/30',
-                    strategy: `כלכלי: ${ecoPath.n} חוד', ${Math.round(ecoPath.dp).toLocaleString()}₪ מקדמה.`,
+                    strategy: `כלכלי: ${ecoPath.n} חוד', ${Math.round(ecoPath.dp).toLocaleString()}₪ מקדמה, ריבית ${((ecoPath.rate || 0) * 100).toFixed(1)}%.`,
                     aiLogic: null,
                     simulatedBoost: Math.min(100 - score, Math.round(ecoPath.S_new / 2)),
                     metrics: ecoPath
@@ -120,7 +120,7 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                     color: 'text-emerald-400',
                     bg: 'bg-emerald-500/10',
                     border: 'border-emerald-500/30',
-                    strategy: `ביטחון: ${secPath.n} חוד', ${Math.round(secPath.dp).toLocaleString()}₪ מקדמה.`,
+                    strategy: `ביטחון: ${secPath.n} חוד', ${Math.round(secPath.dp).toLocaleString()}₪ מקדמה, ריבית ${((secPath.rate || 0) * 100).toFixed(1)}%.`,
                     aiLogic: null,
                     simulatedBoost: Math.min(100 - score, Math.round(secPath.S_new / 2)),
                     metrics: secPath
@@ -133,7 +133,7 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                     color: 'text-purple-400',
                     bg: 'bg-purple-500/10',
                     border: 'border-purple-500/30',
-                    strategy: `AI: ${aiPath.n} חוד', ${Math.round(aiPath.dp).toLocaleString()}₪ מקדמה.`,
+                    strategy: `אופטימלי: ${aiPath.n} חוד', ${Math.round(aiPath.dp).toLocaleString()}₪ מקדמה, ריבית ${((aiPath.rate || 0) * 100).toFixed(1)}%.`,
                     aiLogic: null,
                     simulatedBoost: Math.min(100 - score, Math.round(aiPath.S_new / 2)),
                     metrics: aiPath
@@ -301,9 +301,15 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                                             <h4 className="text-xs font-medium text-white">נימוק ה-AI</h4>
                                         </div>
                                         
-                                        <div className="mb-2">
+                                        <div className="mb-3 space-y-2">
                                             <p className="text-[10px] text-slate-300 font-medium mb-0.5 border-r-2 border-slate-600 pr-2">האסטרטגיה:</p>
                                             <p className="text-[10px] text-slate-400 pr-2">{activeStratData.strategy}</p>
+                                            {activeStratData.metrics?.rate !== undefined && (
+                                                <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2">
+                                                    <p className="text-[10px] text-cyan-300">ריבית שנתית</p>
+                                                    <p className="text-lg font-bold text-cyan-400">{((activeStratData.metrics.rate || 0) * 100).toFixed(1)}%</p>
+                                                </div>
+                                            )}
                                         </div>
 
                                         <div className="flex-1 bg-slate-950/50 rounded-md p-2.5 border border-slate-800">
