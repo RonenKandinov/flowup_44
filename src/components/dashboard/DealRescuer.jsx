@@ -93,6 +93,10 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
             }
 
             const { strategies, recommendedStrategyId, recommendedScore, context } = res.data;
+            const boundedRescueScore = Math.max(
+                score,
+                Math.min(95, recommendedScore || Math.min(90, score + 8))
+            );
             if (recommendedStrategyId) setRecommendedStrategyId(recommendedStrategyId);
             
             const ecoPath = { n: strategies.cash_flow.metrics.term, dp: strategies.cash_flow.metrics.downPayment, pmt: strategies.cash_flow.metrics.pmt, newDSR: strategies.cash_flow.metrics.dsr, rate: strategies.cash_flow.metrics.rate, S_new: strategies.cash_flow.score };
@@ -151,8 +155,8 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
             if (onSimulate) {
                 onSimulate({
                     ...baseMetrics,
-                    score: recommendedScore || 85,
-                    status: 'GREEN'
+                    score: boundedRescueScore,
+                    status: boundedRescueScore >= 80 ? 'GREEN' : boundedRescueScore >= 55 ? 'ORANGE' : 'RED'
                 });
             }
 

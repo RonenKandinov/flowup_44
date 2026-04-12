@@ -331,7 +331,7 @@ export default function Dashboard() {
     };
   }, [snapshot, newLoanMetrics, loanLogicData, loanMetrics]);
 
-  const metricsForInsights = newLoanMetrics || (loanLogicData ? loanMetrics : null) || metricsFromSnapshot;
+  const metricsForInsights = originalLoanMetrics || (loanLogicData ? loanMetrics : null) || metricsFromSnapshot;
 
   // Generate a stable hash of the metrics to prevent unnecessary AI re-renders
   const stableMetricsHash = React.useMemo(() => {
