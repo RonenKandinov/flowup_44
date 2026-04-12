@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle, Plus, FileSpreadsheet, ShieldAlert, Settings, Building2, ExternalLink } from 'lucide-react';
+import { Upload, Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle, Plus, FileSpreadsheet, ShieldAlert, Settings, Building2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { generateUnderwritingReport } from '../components/utils/excelReportGenerator';
 import { base44 } from '@/api/base44Client';
 import { appParams } from '@/lib/app-params';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -116,17 +115,32 @@ export default function Dashboard() {
 
   const exportSnapshotsToSheetsMutation = useMutation({
     mutationFn: async () => {
-      const response = await base44.functions.invoke('exportFinancialSnapshotsToGoogleSheets', {});
+      const report = {
+        email: user?.email || '',
+        score: newLoanMetrics?.score ?? '',
+        risk_level: serverInsights?.risk_tier || newLoanMetrics?.status || snapshot?.risk_level || '',
+        dsr: newLoanMetrics?.dsr ?? '',
+        dti: newLoanMetrics?.dti ?? '',
+        ltv: newLoanMetrics?.ltv ?? '',
+        total_income: newLoanMetrics?.totalIncome ?? snapshot?.total_income ?? '',
+        total_expenses: newLoanMetrics?.totalExpenses ?? snapshot?.total_expenses ?? '',
+        fixed_expenses: newLoanMetrics?.totalFixedExpenses ?? '',
+        liquid_assets: newLoanMetrics?.liquidAssets ?? snapshot?.current_balance ?? '',
+        projected_eom_balance: snapshot?.projected_eom_balance ?? '',
+        recommendation: serverInsights?.executive_summary || ''
+      };
+
+      const response = await base44.functions.invoke('exportFinancialSnapshotsToGoogleSheets', { report });
       return response.data;
     },
     onSuccess: (data) => {
-      toast.success(`יוצאו ${data.exportedCount} snapshots לגיליון חדש`);
+      toast.success('דוח החיתום הופק בהצלחה');
       if (data.spreadsheetUrl) {
         window.open(data.spreadsheetUrl, '_blank');
       }
     },
     onError: () => {
-      toast.error('ייצוא ל-Google Sheets נכשל');
+      toast.error('הפקת דוח החיתום נכשלה');
     }
   });
 
@@ -747,31 +761,16 @@ export default function Dashboard() {
               </div>
             )}
             {hasData && (
-              <>
-                <Button
-                  onClick={() => exportSnapshotsToSheetsMutation.mutate()}
-                  disabled={exportSnapshotsToSheetsMutation.isPending}
-                  variant="outline"
-                  size="sm"
-                  className="bg-green-600/20 border border-green-500/40 text-green-300 hover:bg-green-600/40 hover:text-white transition-all h-8 px-3 rounded-md"
-                >
-                  {exportSnapshotsToSheetsMutation.isPending ? (
-                    <RefreshCw className="w-3 h-3 ml-1.5 animate-spin" />
-                  ) : (
-                    <ExternalLink className="w-3 h-3 ml-1.5" />
-                  )}
-                  <span className="text-[11px] font-medium">Export snapshots</span>
-                </Button>
-                <Button
-                  onClick={() => generateUnderwritingReport(metricsForInsights, serverInsights, user)}
-                  variant="outline"
-                  size="sm"
-                  className="bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/40 hover:text-white transition-all h-8 px-3 rounded-md"
-                >
-                  <FileSpreadsheet className="w-3 h-3 ml-1.5" />
-                  <span className="text-[11px] font-medium">הפק דוח חיתום אשראי</span>
-                </Button>
-              </>
+              <Button
+                onClick={() => exportSnapshotsToSheetsMutation.mutate()}
+                disabled={exportSnapshotsToSheetsMutation.isPending}
+                variant="outline"
+                size="sm"
+                className="bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/40 hover:text-white transition-all h-8 px-3 rounded-md"
+              >
+                <RefreshCw className={`w-3 h-3 ml-1.5 ${exportSnapshotsToSheetsMutation.isPending ? 'animate-spin' : ''}`} />
+                <span className="text-[11px] font-medium">הפק דוח חיתום</span>
+              </Button>
             )}
             <Button
               onClick={() => setShowOpenFinance(true)}
