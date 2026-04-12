@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.3';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 export default Deno.serve(async (req) => {
   try {
@@ -152,6 +152,99 @@ export default Deno.serve(async (req) => {
         }
       } catch (e) {
         console.error("Failed to update connection status:", e);
+      }
+
+      if (["ACTIVE", "COMPLETED", "CONNECTED"].includes(connectionStatus)) {
+        try {
+          const accessToken = await getToken(userId);
+
+          const accountsRes = await fetch(`${API_ROOT}/v2/data/accounts`, {
+            headers: { "Authorization": `Bearer ${accessToken}`, "Accept": "application/json" }
+          });
+          const accountsJson = accountsRes.ok ? await accountsRes.json() : {};
+          const accounts = accountsJson?.data || accountsJson?.items || accountsJson?.accounts || [];
+
+          const txRes = await fetch(`${API_ROOT}/v2/data/transactions`, {
+            headers: { "Authorization": `Bearer ${accessToken}`, "Accept": "application/json" }
+          });
+          const txJson = txRes.ok ? await txRes.json() : {};
+          const transactions = txJson?.data || txJson?.items || txJson?.transactions || [];
+
+          const loanLogicRes = await base44.functions.invoke('loanLogicV2', { userId });
+          const loanLogicData = loanLogicRes?.data;
+
+          if (loanLogicData?.success) {
+            const metrics = loanLogicData.metrics || {};
+            const snapshotPayload = {
+              current_balance: metrics.liquidAssets || 0,
+              projected_eom_balance: metrics.netCashFlow || 0,
+              total_income: metrics.totalIncome || 0,
+              total_expenses: metrics.totalExpenses || 0,
+              risk_level: String(loanLogicData.status || 'GREEN').toLowerCase(),
+              risk_day: null,
+              avg_daily_spending: Math.round((metrics.totalExpenses || 0) / 30),
+              upload_date: new Date().toISOString()
+            };
+
+            const existingSnapshots = await base44.entities.FinancialSnapshot.list('-created_date', 50);
+            for (const snapshot of existingSnapshots) {
+              await base44.entities.FinancialSnapshot.delete(snapshot.id);
+            }
+            await base44.entities.FinancialSnapshot.create(snapshotPayload);
+          }
+
+          const existingAccounts = await base44.entities.OpenFinanceAccount.list('-created_date', 500);
+          for (const account of existingAccounts) {
+            await base44.entities.OpenFinanceAccount.delete(account.id);
+          }
+
+          if (accounts.length > 0) {
+            await base44.entities.OpenFinanceAccount.bulkCreate(accounts.map((account) => ({
+              account_id: String(account.id || account.accountId || account.accountNumber || crypto.randomUUID()),
+              connection_id: connectionId,
+              currency: account.currency || account?.balance?.currency || 'ILS',
+              balance: Number(account.availableBalance || account.currentBalance || account?.balance?.amount || account?.balance || 0),
+              balance_type: 'interimAvailable',
+              name: account.name || account.accountName || 'חשבון בנק',
+              type: account.type || account.accountType || 'CHECKING'
+            })));
+          }
+
+          const existingTransactions = await base44.entities.OpenFinanceTransaction.list('-created_date', 1000);
+          for (const tx of existingTransactions) {
+            await base44.entities.OpenFinanceTransaction.delete(tx.id);
+          }
+
+          if (transactions.length > 0) {
+            await base44.entities.OpenFinanceTransaction.bulkCreate(transactions.slice(0, 1000).map((tx, index) => {
+              const txDateObj = tx?.date;
+              const dateStr = tx?.creationDate || (typeof txDateObj === 'string' ? txDateObj : (txDateObj?.valueDate || txDateObj?.bookingDate || txDateObj?.transactionDate)) || tx?.transactionDate || new Date().toISOString();
+              let amount = 0;
+              if (tx.amount !== undefined) {
+                amount = typeof tx.amount === 'object' ? Number(tx.amount.amount || tx.amount.chargedAmount?.amount || 0) : Number(tx.amount);
+                const ind = String(tx.creditDebitIndicator || tx.indicator || '').toUpperCase();
+                if (ind === 'DBIT' || ind === 'DEBIT') amount = -Math.abs(amount);
+                if (ind === 'CRDT' || ind === 'CREDIT') amount = Math.abs(amount);
+              } else if (tx.credit !== undefined || tx.debit !== undefined) {
+                amount = (Number(tx.credit) || 0) - (Number(tx.debit) || 0);
+              }
+
+              return {
+                transaction_id: String(tx.id || tx.transactionId || `${connectionId}-${index}`),
+                account_id: String(tx.accountId || tx.account_id || tx.accountNumber || 'unknown-account'),
+                connection_id: connectionId,
+                amount,
+                currency: tx.currency || tx?.amount?.currency || 'ILS',
+                date: new Date(dateStr).toISOString(),
+                description: tx.description || tx.details || '',
+                category: String(tx?.category?.main || tx?.categoryName || tx?.category || 'general'),
+                status: 'booked'
+              };
+            }));
+          }
+        } catch (e) {
+          console.error("Failed to sync Open Finance data:", e);
+        }
       }
 
       return Response.json({ success: true, status: connectionStatus, connectionId });
