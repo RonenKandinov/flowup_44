@@ -7,23 +7,28 @@ const getLiquidityMonths = (liquidAssets, monthlyExpenses) => {
   return liquidAssets / monthlyExpenses;
 };
 
-const getForecastSupport = ({ projectedEomBalance, riskStatus, forecastConfidence }) => {
+const getForecastSupport = ({ projectedEomBalance, riskStatus, forecastConfidence, avgDailySpending, liquidAssets }) => {
   const normalizedRisk = String(riskStatus || '').toUpperCase();
   const confidence = Number(forecastConfidence || 0);
-  const isSupportive = projectedEomBalance > 0 && normalizedRisk !== 'RED' && confidence >= 60;
+  const dailyBurn = Number(avgDailySpending || 0);
+  const behavioralBufferDays = dailyBurn > 0 ? liquidAssets / dailyBurn : 0;
+  const isSupportive = projectedEomBalance > 0 && normalizedRisk !== 'RED' && confidence >= 60 && behavioralBufferDays >= 21;
 
   return {
     isSupportive,
     bonus: isSupportive ? 4 : 0,
-    label: isSupportive ? 'forecast_supportive' : 'forecast_not_supportive'
+    label: isSupportive ? 'forecast_supportive' : 'forecast_not_supportive',
+    behavioralBufferDays: Number(behavioralBufferDays.toFixed(1))
   };
 };
 
-const buildRiskFactors = ({ currentDsr, monthlyIncome, monthlyExpenses, liquidAssets, projectedEomBalance, riskStatus }) => {
+const buildRiskFactors = ({ currentDsr, monthlyIncome, monthlyExpenses, liquidAssets, projectedEomBalance, riskStatus, avgDailySpending }) => {
   const riskFactors = [];
+  const behavioralBufferDays = avgDailySpending > 0 ? liquidAssets / avgDailySpending : 0;
   if (currentDsr > 45) riskFactors.push('DSR גבוה');
   if (monthlyIncome - monthlyExpenses <= 0) riskFactors.push('תזרים חודשי חלש');
   if (liquidAssets < monthlyExpenses * 2) riskFactors.push('נזילות נמוכה');
+  if (behavioralBufferDays > 0 && behavioralBufferDays < 21) riskFactors.push('כרית התנהגותית קצרה');
   if (projectedEomBalance < 0) riskFactors.push('תחזית יתרה שלילית');
   if (String(riskStatus || '').toUpperCase() === 'RED') riskFactors.push('סיכון תחזיתי גבוה');
   return riskFactors;
@@ -92,7 +97,9 @@ Deno.serve(async (req) => {
     const forecastSupport = getForecastSupport({
       projectedEomBalance,
       riskStatus,
-      forecastConfidence
+      forecastConfidence,
+      avgDailySpending,
+      liquidAssets
     });
 
     const riskFactors = buildRiskFactors({
@@ -101,7 +108,8 @@ Deno.serve(async (req) => {
       monthlyExpenses,
       liquidAssets,
       projectedEomBalance,
-      riskStatus
+      riskStatus,
+      avgDailySpending
     });
 
     const durations = Array.from(new Set([requestedDuration, 36, 48, 60, 72, 84])).sort((a, b) => a - b);
@@ -166,9 +174,10 @@ Deno.serve(async (req) => {
 עקרונות מחייבים:
 1. השתמש רק בנתונים המספריים שסופקו.
 2. השתמש ב-forecasting רק אם הוא תומך באישור; אם הוא שלילי או חלש, אל תשתמש בו כדי להצדיק אישור אלא רק כדי לציין סיכון.
-3. הסבר קצר, חד, פרקטי, עד 2 שורות בלבד.
-4. אל תציע כמה אסטרטגיות. רק את הטובה ביותר.
-5. אם הסיכון עדיין גבוה, כתוב זאת בצורה ברורה.
+3. שלב בהסבר גם behavioral signal: כרית הישרדות יומית/דפוס שריפה, אבל בלי להמציא נתונים.
+4. הסבר קצר, חד, פרקטי, עד 2 שורות בלבד.
+5. אל תציע כמה אסטרטגיות. רק את הטובה ביותר.
+6. אם הסיכון עדיין גבוה, כתוב זאת בצורה ברורה.
 
 נתוני לפני:
 - status: ${currentStatus}
@@ -184,6 +193,7 @@ Deno.serve(async (req) => {
 - forecast_confidence: ${forecastConfidence}
 - avg_daily_spending: ${avgDailySpending}
 - risk_day: ${riskDay || 'unknown'}
+- behavioral_buffer_days: ${forecastSupport.behavioralBufferDays}
 
 גורמי סיכון מרכזיים:
 ${riskFactors.join(', ') || 'ללא גורם דומיננטי אחד'}
@@ -259,7 +269,8 @@ ${riskFactors.join(', ') || 'ללא גורם דומיננטי אחד'}
         risk_status: riskStatus,
         forecast_confidence: forecastConfidence,
         liquidity_months: Number(liquidityMonths.toFixed(1)),
-        forecast_support: forecastSupport.label
+        forecast_support: forecastSupport.label,
+        behavioral_buffer_days: forecastSupport.behavioralBufferDays
       }
     });
   } catch (error) {
