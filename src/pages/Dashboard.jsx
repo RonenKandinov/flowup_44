@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle, Plus, FileSpreadsheet, ShieldAlert, Settings, Building2 } from 'lucide-react';
+import { Upload, Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle, Plus, FileSpreadsheet, ShieldAlert, Settings, Building2, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -113,6 +113,22 @@ export default function Dashboard() {
   const { metrics: originalLoanMetrics, isLoading: isLoanMetricsLoading, error: loanMetricsError, refetch: refetchLoanMetrics } = useLoanMetrics(user?.email || user?.id, targetAccountId || null);
   const newLoanMetrics = simulatedMetrics || originalLoanMetrics;
   const queryClient = useQueryClient();
+
+  const exportSnapshotsToSheetsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await base44.functions.invoke('exportFinancialSnapshotsToGoogleSheets', {});
+      return response.data;
+    },
+    onSuccess: (data) => {
+      toast.success(`יוצאו ${data.exportedCount} snapshots לגיליון חדש`);
+      if (data.spreadsheetUrl) {
+        window.open(data.spreadsheetUrl, '_blank');
+      }
+    },
+    onError: () => {
+      toast.error('ייצוא ל-Google Sheets נכשל');
+    }
+  });
 
   // Load from Local Storage on mount (skip when no token to avoid 500 in console)
   useEffect(() => {
@@ -731,15 +747,31 @@ export default function Dashboard() {
               </div>
             )}
             {hasData && (
-              <Button
-                onClick={() => generateUnderwritingReport(metricsForInsights, serverInsights, user)}
-                variant="outline"
-                size="sm"
-                className="bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/40 hover:text-white transition-all h-8 px-3 rounded-md"
-              >
-                <FileSpreadsheet className="w-3 h-3 ml-1.5" />
-                <span className="text-[11px] font-medium">הפק דוח חיתום אשראי</span>
-              </Button>
+              <>
+                <Button
+                  onClick={() => exportSnapshotsToSheetsMutation.mutate()}
+                  disabled={exportSnapshotsToSheetsMutation.isPending}
+                  variant="outline"
+                  size="sm"
+                  className="bg-green-600/20 border border-green-500/40 text-green-300 hover:bg-green-600/40 hover:text-white transition-all h-8 px-3 rounded-md"
+                >
+                  {exportSnapshotsToSheetsMutation.isPending ? (
+                    <RefreshCw className="w-3 h-3 ml-1.5 animate-spin" />
+                  ) : (
+                    <ExternalLink className="w-3 h-3 ml-1.5" />
+                  )}
+                  <span className="text-[11px] font-medium">Export snapshots</span>
+                </Button>
+                <Button
+                  onClick={() => generateUnderwritingReport(metricsForInsights, serverInsights, user)}
+                  variant="outline"
+                  size="sm"
+                  className="bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/40 hover:text-white transition-all h-8 px-3 rounded-md"
+                >
+                  <FileSpreadsheet className="w-3 h-3 ml-1.5" />
+                  <span className="text-[11px] font-medium">הפק דוח חיתום אשראי</span>
+                </Button>
+              </>
             )}
             <Button
               onClick={() => setShowOpenFinance(true)}
