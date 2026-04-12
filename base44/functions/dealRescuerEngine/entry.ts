@@ -2,6 +2,23 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
+const getLiquidityMonths = (liquidAssets, monthlyExpenses) => {
+  if (monthlyExpenses <= 0) return 0;
+  return liquidAssets / monthlyExpenses;
+};
+
+const getForecastSupport = ({ projectedEomBalance, riskStatus, forecastConfidence }) => {
+  const normalizedRisk = String(riskStatus || '').toUpperCase();
+  const confidence = Number(forecastConfidence || 0);
+  const isSupportive = projectedEomBalance > 0 && normalizedRisk !== 'RED' && confidence >= 60;
+
+  return {
+    isSupportive,
+    bonus: isSupportive ? 4 : 0,
+    label: isSupportive ? 'forecast_supportive' : 'forecast_not_supportive'
+  };
+};
+
 const buildRiskFactors = ({ currentDsr, monthlyIncome, monthlyExpenses, liquidAssets, projectedEomBalance, riskStatus }) => {
   const riskFactors = [];
   if (currentDsr > 45) riskFactors.push('DSR גבוה');
@@ -12,37 +29,42 @@ const buildRiskFactors = ({ currentDsr, monthlyIncome, monthlyExpenses, liquidAs
   return riskFactors;
 };
 
-const calculateScenarioScore = ({ newDsr, disposableIncome, liquidAssets, monthlyExpenses, duration, requestedDuration, ratio, projectedEomBalance, riskStatus, forecastConfidence }) => {
-  let score = 78;
+const calculateScenarioScore = ({ newDsr, disposableIncome, liquidityMonths, duration, requestedDuration, ratio, forecastSupport }) => {
+  let score = 50;
 
-  if (newDsr <= 35) score += 10;
-  else if (newDsr <= 45) score += 4;
-  else if (newDsr > 55) score -= 16;
+  if (newDsr <= 35) score += 22;
+  else if (newDsr <= 40) score += 14;
+  else if (newDsr <= 45) score += 8;
+  else if (newDsr <= 50) score -= 6;
+  else score -= 18;
 
-  if (disposableIncome > 2500) score += 8;
-  else if (disposableIncome > 1000) score += 4;
-  else if (disposableIncome < 0) score -= 22;
+  if (disposableIncome >= 2500) score += 18;
+  else if (disposableIncome >= 1500) score += 12;
+  else if (disposableIncome >= 750) score += 6;
+  else if (disposableIncome < 0) score -= 24;
 
-  if (liquidAssets >= monthlyExpenses * 3) score += 4;
-  else if (liquidAssets < monthlyExpenses * 2) score -= 6;
+  if (liquidityMonths >= 3) score += 10;
+  else if (liquidityMonths >= 2) score += 6;
+  else if (liquidityMonths < 1) score -= 12;
 
-  if (projectedEomBalance > 0) score += 4;
-  else score -= 8;
+  if (ratio < 1) score += 6;
+  if (duration > requestedDuration) score += 4;
+  if (duration < requestedDuration) score -= 2;
 
-  if (String(riskStatus || '').toUpperCase() === 'GREEN') score += 4;
-  if (String(riskStatus || '').toUpperCase() === 'RED') score -= 6;
+  score += forecastSupport.bonus;
 
-  score += clamp((Number(forecastConfidence || 50) - 50) / 10, -3, 5);
-
-  if (ratio < 1) score += 5;
-  if (duration >= requestedDuration) score += 3;
-
-  return Math.round(clamp(score, 35, 92));
+  return Math.round(clamp(score, 20, 92));
 };
 
-const buildStatus = (score, dsr, disposableIncome, projectedEomBalance, currentScore) => {
-  if (score >= 75 && dsr <= 45 && disposableIncome > 0 && projectedEomBalance >= 0) return 'likely_approved';
-  if (score > currentScore && disposableIncome > 0) return 'improved';
+const buildStatus = ({ score, dsr, disposableIncome, liquidityMonths, forecastSupport, currentDsr }) => {
+  if (dsr <= 45 && disposableIncome >= 1000 && liquidityMonths >= 2) {
+    return forecastSupport.isSupportive && score >= 72 ? 'likely_approved' : 'conditionally_approved';
+  }
+
+  if (dsr <= 50 && dsr < currentDsr && disposableIncome > 0 && liquidityMonths >= 1) {
+    return 'improved';
+  }
+
   return 'still_risky';
 };
 
@@ -66,6 +88,13 @@ Deno.serve(async (req) => {
     const avgDailySpending = Number(body?.avgDailySpending || 0);
     const riskDay = body?.riskDay || null;
 
+    const liquidityMonths = getLiquidityMonths(liquidAssets, monthlyExpenses);
+    const forecastSupport = getForecastSupport({
+      projectedEomBalance,
+      riskStatus,
+      forecastConfidence
+    });
+
     const riskFactors = buildRiskFactors({
       currentDsr,
       monthlyIncome,
@@ -87,23 +116,27 @@ Deno.serve(async (req) => {
           ? (adjustedAmount * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -duration))
           : adjustedAmount / duration;
 
-        const addedLoanDsr = monthlyIncome > 0 ? (monthlyPayment / monthlyIncome) * 100 : 100;
-        const newDsr = Math.max(0, currentDsr + addedLoanDsr);
-        const disposableIncome = monthlyIncome - monthlyExpenses - monthlyPayment;
+        const totalObligations = monthlyExpenses + monthlyPayment;
+        const newDsr = monthlyIncome > 0 ? (totalObligations / monthlyIncome) * 100 : 100;
+        const disposableIncome = monthlyIncome - totalObligations;
         const score = calculateScenarioScore({
           newDsr,
           disposableIncome,
-          liquidAssets,
-          monthlyExpenses,
+          liquidityMonths,
           duration,
           requestedDuration,
           ratio,
-          projectedEomBalance,
-          riskStatus,
-          forecastConfidence
+          forecastSupport
         });
 
-        const status = buildStatus(score, newDsr, disposableIncome, projectedEomBalance, currentScore);
+        const status = buildStatus({
+          score,
+          dsr: newDsr,
+          disposableIncome,
+          liquidityMonths,
+          forecastSupport,
+          currentDsr
+        });
 
         scenarios.push({
           adjustedAmount,
@@ -119,7 +152,7 @@ Deno.serve(async (req) => {
     }
 
     scenarios.sort((a, b) => {
-      const rank = { likely_approved: 3, improved: 2, still_risky: 1 };
+      const rank = { likely_approved: 4, conditionally_approved: 3, improved: 2, still_risky: 1 };
       return (rank[b.status] - rank[a.status]) || (b.score - a.score) || (a.dsr - b.dsr) || (b.disposableIncome - a.disposableIncome);
     });
 
@@ -132,7 +165,7 @@ Deno.serve(async (req) => {
 
 עקרונות מחייבים:
 1. השתמש רק בנתונים המספריים שסופקו.
-2. שלב את נתוני ה-forecasting בהיגיון: projected end of month, risk status, confidence, average daily spending, risk day.
+2. השתמש ב-forecasting רק אם הוא תומך באישור; אם הוא שלילי או חלש, אל תשתמש בו כדי להצדיק אישור אלא רק כדי לציין סיכון.
 3. הסבר קצר, חד, פרקטי, עד 2 שורות בלבד.
 4. אל תציע כמה אסטרטגיות. רק את הטובה ביותר.
 5. אם הסיכון עדיין גבוה, כתוב זאת בצורה ברורה.
@@ -163,6 +196,8 @@ ${riskFactors.join(', ') || 'ללא גורם דומיננטי אחד'}
 - new_score: ${best.score}
 - disposable_income: ${best.disposableIncome}
 - scenario_status: ${best.status}
+- liquidity_months: ${Number(liquidityMonths.toFixed(1))}
+- forecast_support: ${forecastSupport.label}
 - approval_probability_increase: ${approvalIncrease}
 - dsr_change: ${Number((best.dsr - currentDsr).toFixed(1))}
 
@@ -222,7 +257,9 @@ ${riskFactors.join(', ') || 'ללא גורם דומיננטי אחד'}
         disposable_income: best.disposableIncome,
         projected_eom_balance: projectedEomBalance,
         risk_status: riskStatus,
-        forecast_confidence: forecastConfidence
+        forecast_confidence: forecastConfidence,
+        liquidity_months: Number(liquidityMonths.toFixed(1)),
+        forecast_support: forecastSupport.label
       }
     });
   } catch (error) {
