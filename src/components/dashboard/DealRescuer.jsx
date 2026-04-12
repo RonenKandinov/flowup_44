@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, Crosshair, TrendingUp, Wallet, BrainCircuit, PlayCircle, Loader2, ArrowLeftRight, Activity } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { ShieldCheck, Crosshair, BrainCircuit, PlayCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
@@ -8,9 +8,7 @@ import { base44 } from '@/api/base44Client';
 export default function DealRescuer({ onSimulate, baseMetrics }) {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [analysisComplete, setAnalysisComplete] = useState(false);
-    const [activeStrategy, setActiveStrategy] = useState(null);
-    const [generatedStrategies, setGeneratedStrategies] = useState(null);
-    const [recommendedStrategyId, setRecommendedStrategyId] = useState(null);
+    const [result, setResult] = useState(null);
 
     // Ensure we don't crash if baseMetrics is missing
     const score = baseMetrics?.score || 0;
@@ -23,8 +21,7 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
         // Reset analysis when underlying metrics significantly change (e.g. account switch)
         setAnalysisComplete(false);
         setIsAnalyzing(false);
-        setActiveStrategy(null);
-        setGeneratedStrategies(null);
+        setResult(null);
         if (onSimulate) onSimulate(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [metricsHash]);
@@ -37,164 +34,51 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
     const runAnalysis = async () => {
         setIsAnalyzing(true);
         try {
-            const income = baseMetrics?.totalIncome || 10000;
+            const income = baseMetrics?.totalIncome || 0;
             const liquidAssets = baseMetrics?.liquidAssets || 0;
             const fixedExpenses = baseMetrics?.totalFixedExpenses || baseMetrics?.totalExpenses || 0;
-            
+
             const res = await base44.functions.invoke('dealRescuerEngine', {
-                userId: baseMetrics?.userId || "ronenk2424@gmail.com",
                 principal: 50000,
+                durationMonths: 48,
                 baseRate: 0.09,
                 income,
                 liquidAssets,
                 fixedExpenses,
-                liquidityMonths: baseMetrics?.runway || 0
+                dsr: baseMetrics?.dsr,
+                score: baseMetrics?.score,
+                currentStatus: score < 55 ? 'rejected' : score < 75 ? 'borderline' : 'approved'
             });
 
-            if (!res.data || !res.data.success) {
-                throw new Error(res.data?.error || "Failed to run analysis");
+            if (!res.data?.after) {
+                throw new Error(res.data?.error || 'Failed to run analysis');
             }
 
-            if (res.data.isRejected) {
-                setIsAnalyzing(false);
-                setAnalysisComplete(true);
-                setGeneratedStrategies({});
-                setRecommendedStrategyId(null);
-                if (onSimulate) {
-                    onSimulate({
-                        ...baseMetrics,
-                        score: 30,
-                        status: 'RED',
-                        message: `נדחה אוטומטית: המדדים אינם עומדים בסף המינימלי`
-                    });
-                }
-                
-                base44.functions.invoke('dealRescuerAI', { strategies: {}, context: res.data.context, isRejected: true }).then(aiRes => {
-                    if (aiRes?.data?.success && aiRes.data.logic) {
-                        setGeneratedStrategies({
-                            rejected: {
-                                id: 'rejected',
-                                title: 'סיבת דחייה',
-                                subtitle: 'דחייה אוטומטית',
-                                icon: ShieldCheck,
-                                color: 'text-red-400',
-                                bg: 'bg-red-500/10',
-                                border: 'border-red-500/30',
-                                strategy: 'לא נמצאה אסטרטגיה העומדת בסיכון הסף.',
-                                rationaleTitle: 'למה העסקה לא חולצה',
-                                aiLogic: aiRes.data.logic.rejected?.analysis || aiRes.data.logic.rejected || "העסקה מסוכנת מדי.",
-                                metrics: {}
-                            }
-                        });
-                        setActiveStrategy('rejected');
-                    }
-                }).catch(err => console.error(err));
-                return;
-            }
-
-            const { strategies, recommendedStrategyId, recommendedScore, context } = res.data;
-            const boundedRescueScore = Math.max(
-                score,
-                Math.min(95, recommendedScore || Math.min(90, score + 8))
-            );
-            if (recommendedStrategyId) setRecommendedStrategyId(recommendedStrategyId);
-            
-            const ecoPath = { n: strategies.cash_flow.metrics.term, dp: strategies.cash_flow.metrics.downPayment, pmt: strategies.cash_flow.metrics.pmt, newDSR: strategies.cash_flow.metrics.dsr, rate: strategies.cash_flow.metrics.rate, S_new: strategies.cash_flow.score };
-            const secPath = { n: strategies.exposure.metrics.term, dp: strategies.exposure.metrics.downPayment, pmt: strategies.exposure.metrics.pmt, newDSR: strategies.exposure.metrics.dsr, rate: strategies.exposure.metrics.rate, S_new: strategies.exposure.score };
-            const aiPath = { n: strategies.behavioral.metrics.term, dp: strategies.behavioral.metrics.downPayment, pmt: strategies.behavioral.metrics.pmt, newDSR: strategies.behavioral.metrics.dsr, rate: strategies.behavioral.metrics.rate, S_new: strategies.behavioral.score };
-
-            setGeneratedStrategies({
-                cash_flow: {
-                    id: 'cash_flow',
-                    title: 'התאמת החזר',
-                    subtitle: 'החזר חודשי נמוך',
-                    icon: ArrowLeftRight,
-                    color: 'text-blue-400',
-                    bg: 'bg-blue-500/10',
-                    border: 'border-blue-500/30',
-                    strategy: `כלכלי: ${ecoPath.n} חוד', ${Math.round(ecoPath.dp).toLocaleString()}₪ מקדמה, ריבית ${((ecoPath.rate || 0) * 100).toFixed(1)}%.`,
-                    rationaleTitle: 'למה נבחר מסלול התאמת החזר',
-                    aiLogic: null,
-                    simulatedBoost: Math.min(100 - score, Math.round(ecoPath.S_new / 2)),
-                    metrics: ecoPath
-                },
-                exposure: {
-                    id: 'exposure',
-                    title: 'הפחתת חשיפה',
-                    subtitle: 'הפחתת סיכון',
-                    icon: Wallet,
-                    color: 'text-emerald-400',
-                    bg: 'bg-emerald-500/10',
-                    border: 'border-emerald-500/30',
-                    strategy: `ביטחון: ${secPath.n} חוד', ${Math.round(secPath.dp).toLocaleString()}₪ מקדמה, ריבית ${((secPath.rate || 0) * 100).toFixed(1)}%.`,
-                    rationaleTitle: 'למה נבחר מסלול הפחתת חשיפה',
-                    aiLogic: null,
-                    simulatedBoost: Math.min(100 - score, Math.round(secPath.S_new / 2)),
-                    metrics: secPath
-                },
-                behavioral: {
-                    id: 'behavioral',
-                    title: 'אופטימלי',
-                    subtitle: 'מסלול מומלץ',
-                    icon: Activity,
-                    color: 'text-purple-400',
-                    bg: 'bg-purple-500/10',
-                    border: 'border-purple-500/30',
-                    strategy: `אופטימלי: ${aiPath.n} חוד', ${Math.round(aiPath.dp).toLocaleString()}₪ מקדמה, ריבית ${((aiPath.rate || 0) * 100).toFixed(1)}%.`,
-                    rationaleTitle: 'למה נבחר המסלול האופטימלי',
-                    aiLogic: null,
-                    simulatedBoost: Math.min(100 - score, Math.round(aiPath.S_new / 2)),
-                    metrics: aiPath
-                }
-            });
-            setIsAnalyzing(false);
+            setResult(res.data);
             setAnalysisComplete(true);
-            const bestStrat = recommendedStrategyId || 'cash_flow';
-            setActiveStrategy(bestStrat);
-            
+
             if (onSimulate) {
                 onSimulate({
                     ...baseMetrics,
-                    score: boundedRescueScore,
-                    status: boundedRescueScore >= 80 ? 'GREEN' : boundedRescueScore >= 55 ? 'ORANGE' : 'RED'
+                    score: res.data.after.score,
+                    dti: res.data.after.dsr,
+                    dsr: res.data.after.dsr,
+                    status: res.data.after.status === 'likely_approved' ? 'GREEN' : res.data.after.status === 'improved' ? 'ORANGE' : 'RED'
                 });
             }
-
-            // Fetch AI logic in the background without blocking the UI
-            Promise.resolve().then(() => base44.functions.invoke('dealRescuerAI', { strategies, context })).then(aiRes => {
-                if (aiRes?.data?.success && aiRes.data.logic) {
-                    const extractAnalysis = (logicData) => {
-                        if (!logicData) return "המסלול נבחר בהתאם לפרמטרים הפיננסיים של הלקוח.";
-                        if (typeof logicData?.analysis === 'string') return logicData.analysis;
-                        if (typeof logicData === 'string') return logicData;
-                        return "המסלול נבחר בהתאם לפרמטרים הפיננסיים של הלקוח.";
-                    };
-
-                    setGeneratedStrategies(prev => ({
-                        ...prev,
-                        cash_flow: { ...prev.cash_flow, aiLogic: extractAnalysis(aiRes.data.logic.cash_flow) },
-                        exposure: { ...prev.exposure, aiLogic: extractAnalysis(aiRes.data.logic.exposure) },
-                        behavioral: { ...prev.behavioral, aiLogic: extractAnalysis(aiRes.data.logic.behavioral) }
-                    }));
-                }
-            }).catch(err => console.error("AI Logic fetch error:", err));
-
         } catch (err) {
             console.error('Analysis error:', err);
             toast.error('שגיאה בניתוח הנתונים');
+        } finally {
             setIsAnalyzing(false);
         }
     };
 
-    const strategies = generatedStrategies || {};
-
     const handleReset = () => {
         setAnalysisComplete(false);
-        setActiveStrategy(null);
+        setResult(null);
         if (onSimulate) onSimulate(null);
     };
-
-    const activeStratData = activeStrategy ? strategies[activeStrategy] : null;
 
     return (
         <motion.div
@@ -249,84 +133,42 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                     </div>
                 )}
 
-                {analysisComplete && (
+                {analysisComplete && result && (
                     <div className="flex flex-col h-full animate-in fade-in zoom-in duration-300">
-
-
-                        {activeStrategy === 'rejected' && (
-                            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-2 mb-3 flex items-center justify-center text-red-400 text-xs font-bold">
-                                <ShieldCheck className="w-4 h-4 mr-2" />
-                                נדחה אוטומטית - סיכון חיתומי גבוה
+                        <div className="bg-slate-900/60 rounded-lg p-3 border border-slate-800/60 flex-1 flex flex-col gap-3">
+                            <div className="flex items-center gap-1.5">
+                                <div className="p-1 rounded-md bg-cyan-500/10">
+                                    <BrainCircuit className="w-3.5 h-3.5 text-cyan-400" />
+                                </div>
+                                <h4 className="text-sm font-semibold text-white">תרחיש חילוץ מיטבי</h4>
                             </div>
-                        )}
 
-                        <div className={`grid gap-1.5 mb-3 ${activeStrategy === 'rejected' ? 'grid-cols-1' : 'grid-cols-3'}`}>
-                            {Object.values(strategies).map((strat) => {
-                                const Icon = strat.icon;
-                                const isActive = activeStrategy === strat.id;
-                                const isRecommended = recommendedStrategyId === strat.id;
-                                return (
-                                    <button
-                                        key={strat.id}
-                                        onClick={() => setActiveStrategy(strat.id)}
-                                        className={`relative flex flex-col items-center justify-center p-2 rounded-lg border transition-all ${
-                                            isActive 
-                                                ? `${strat.bg} ${strat.border} ring-1 ring-cyan-500/30` 
-                                                : 'bg-slate-900/50 border-slate-800 hover:bg-slate-800'
-                                        } ${isRecommended && !isActive ? 'border-amber-500/30 bg-amber-500/5' : ''}`}
-                                    >
-                                        {isRecommended && (
-                                            <span className="absolute -top-2 bg-amber-500 text-slate-950 text-[8px] font-bold px-1.5 py-0.5 rounded-full shadow-lg border border-amber-400 z-10">
-                                                נבחר אוטומטית
-                                            </span>
-                                        )}
-                                        <Icon className={`w-4 h-4 mb-1 ${isActive ? strat.color : isRecommended ? 'text-amber-400' : 'text-slate-500'}`} />
-                                        <span className={`text-xs text-center leading-tight ${isActive || isRecommended ? 'text-white font-semibold' : 'text-slate-300'}`}>
-                                            {strat.title}
-                                        </span>
-                                    </button>
-                                );
-                            })}
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div className="rounded-lg bg-slate-950/50 border border-slate-800 p-2">
+                                    <div className="text-slate-400 mb-1">לפני</div>
+                                    <div className="text-white">סטטוס: {result.before.status}</div>
+                                    <div className="text-white">DSR: {result.before.dsr}%</div>
+                                    <div className="text-white">Score: {result.before.score}</div>
+                                </div>
+                                <div className="rounded-lg bg-slate-950/50 border border-slate-800 p-2">
+                                    <div className="text-slate-400 mb-1">אחרי</div>
+                                    <div className="text-white">סטטוס: {result.after.status}</div>
+                                    <div className="text-white">DSR: {result.after.dsr}%</div>
+                                    <div className="text-white">Score: {result.after.score}</div>
+                                </div>
+                            </div>
+
+                            <div className="rounded-lg bg-slate-950/50 border border-slate-800 p-2 text-sm text-slate-200 leading-6">
+                                <div>תקופה: {result.after.duration_months} חודשים</div>
+                                <div>החזר חודשי: ₪{Number(result.after.monthly_payment || 0).toLocaleString('he-IL')}</div>
+                                <div>שינוי DSR: {result.impact.dsr_change}%</div>
+                                <div>שיפור הסתברות אישור: {result.impact.approval_probability_increase}</div>
+                            </div>
+
+                            <div className="rounded-lg bg-cyan-500/5 border border-cyan-500/20 p-2 text-sm text-slate-100 leading-6">
+                                {result.explanation}
+                            </div>
                         </div>
-
-                        <AnimatePresence mode="wait">
-                            {activeStratData && (
-                                <motion.div
-                                    key={activeStratData.id}
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -10 }}
-                                    className="flex-1 flex flex-col"
-                                >
-                                    <div className="bg-slate-900/60 rounded-lg p-3 border border-slate-800/60 flex-1 flex flex-col">
-                                        <div className="flex items-center gap-1.5 mb-2">
-                                            <div className={`p-1 rounded-md ${activeStratData.bg}`}>
-                                                <BrainCircuit className={`w-3.5 h-3.5 ${activeStratData.color}`} />
-                                            </div>
-                                            <h4 className="text-sm font-semibold text-white">{activeStratData.rationaleTitle || 'נימוק חיתומי'}</h4>
-                                        </div>
-                                        
-                                        <div className="mb-3 space-y-2">
-                                            <p className="text-xs text-slate-200 font-semibold mb-1 border-r-2 border-slate-600 pr-2">האסטרטגיה:</p>
-                                            <p className="text-sm text-slate-300 pr-2 leading-6">{activeStratData.strategy}</p>
-                                        </div>
-
-                                        <div className="flex-1 bg-slate-950/50 rounded-md p-2.5 border border-slate-800">
-                                            {!activeStratData.aiLogic ? (
-                                                <div className="flex items-center gap-2 text-xs text-slate-300">
-                                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                                    טוען נימוקי AI...
-                                                </div>
-                                            ) : (
-                                                <div className="text-sm leading-7 text-slate-200 whitespace-pre-line">
-                                                    {activeStratData.aiLogic}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
                     </div>
                 )}
             </div>
