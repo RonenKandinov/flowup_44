@@ -47,7 +47,12 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                 fixedExpenses,
                 dsr: baseMetrics?.dsr,
                 score: baseMetrics?.score,
-                currentStatus: score < 55 ? 'rejected' : score < 75 ? 'borderline' : 'approved'
+                currentStatus: score < 55 ? 'rejected' : score < 75 ? 'borderline' : 'approved',
+                projectedEomBalance: baseMetrics?.projectedEOM || 0,
+                riskStatus: baseMetrics?.status,
+                forecastConfidence: baseMetrics?.confidence || 50,
+                avgDailySpending: baseMetrics?.avgDailySpending || 0,
+                riskDay: baseMetrics?.riskDay || null
             });
 
             if (!res.data?.after) {
