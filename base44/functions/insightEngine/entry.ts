@@ -53,7 +53,7 @@ Deno.serve(withValidation(schema, async (req, body) => {
     const trends = m.trends || { income: 0, expenses: 0 };
     const history = (m.history || []).filter(h => typeof h.netFlow === "number");
 
-    const liq = income > 0 ? +(assets / income).toFixed(1) : 0;
+    const liq = expenses > 0 ? +(assets / expenses).toFixed(1) : 0;
     const expInc = income > 0 ? +((expenses / income) * 100).toFixed(1) : 0;
 
     // ===== Base Risk =====

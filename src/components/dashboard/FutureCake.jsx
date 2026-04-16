@@ -54,7 +54,7 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
   }
 
   const activeItem = activeIndex !== null ? chartData[activeIndex] : null;
-  const totalExpenses = (isPreviewMode ? 10000 : safeFixed + safeFlex);
+  const totalExpenses = (isPreviewMode ? 10000 : safeFixed + safeFlex + safeTax);
 
   // Custom Tooltip
   const CustomTooltip = ({ active, payload }) => {

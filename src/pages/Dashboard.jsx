@@ -906,14 +906,14 @@ export default function Dashboard() {
                 >
                   <SpeedometerGauge
                     projectedBalance={simulatedMetrics ? simulatedMetrics.score : (newLoanMetrics ? newLoanMetrics.score : (snapshot.projected_eom_balance || 0))}
-                    dti={simulatedMetrics ? simulatedMetrics.dti : (newLoanMetrics ? newLoanMetrics.dti : 0)}
+                    dti={simulatedMetrics ? simulatedMetrics.dsr : (newLoanMetrics ? newLoanMetrics.dti : 0)}
                     label={simulatedMetrics || newLoanMetrics ? "ציון חיתום (FlowUp Score)" : "יתרה צפויה לסוף החודש"}
-                    riskLevel={serverInsights?.risk_tier ? serverInsights.risk_tier.toUpperCase() : (simulatedMetrics ? simulatedMetrics.status : (newLoanMetrics ? newLoanMetrics.status : (snapshot.risk_level || 'green')))}
+                    riskLevel={simulatedMetrics ? simulatedMetrics.status : (serverInsights?.risk_tier ? serverInsights.risk_tier.toUpperCase() : (newLoanMetrics ? newLoanMetrics.status : (snapshot.risk_level || 'green')))}
                     riskDay={simulatedMetrics ? simulatedMetrics.riskDay : (newLoanMetrics ? newLoanMetrics.riskDay : null)}
                     whatIfAmount={whatIfAmount}
                     engineData={null}
                     isScore={!!(simulatedMetrics || newLoanMetrics)}
-                    dtiTrend={newLoanMetrics?.trends?.dti} 
+                    dtiTrend={simulatedMetrics ? null : newLoanMetrics?.trends?.dti} 
                   />
                 </motion.div>
 

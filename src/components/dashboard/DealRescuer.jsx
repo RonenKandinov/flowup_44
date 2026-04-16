@@ -36,7 +36,7 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
         try {
             const income = baseMetrics?.totalIncome || 0;
             const liquidAssets = baseMetrics?.liquidAssets || 0;
-            const fixedExpenses = baseMetrics?.totalFixedExpenses || baseMetrics?.totalExpenses || 0;
+            const fixedExpenses = baseMetrics?.totalExpenses || baseMetrics?.totalFixedExpenses || 0;
 
             const res = await base44.functions.invoke('dealRescuerEngine', {
                 principal: 50000,
@@ -66,9 +66,8 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                 onSimulate({
                     ...baseMetrics,
                     score: res.data.after.score,
-                    dti: res.data.after.dsr,
                     dsr: res.data.after.dsr,
-                    status: res.data.after.status === 'likely_approved' ? 'GREEN' : res.data.after.status === 'improved' ? 'ORANGE' : 'RED'
+                    status: res.data.after.status === 'likely_approved' ? 'GREEN' : res.data.after.status === 'conditionally_approved' || res.data.after.status === 'improved' ? 'ORANGE' : 'RED'
                 });
             }
         } catch (err) {
@@ -166,7 +165,7 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                             <div className="rounded-lg bg-slate-950/50 border border-slate-800 p-2 text-sm text-slate-200 leading-6">
                                 <div>תקופה: {result.after.duration_months} חודשים</div>
                                 <div>החזר חודשי: ₪{Number(result.after.monthly_payment || 0).toLocaleString('he-IL')}</div>
-                                <div>שינוי DSR: {result.impact.dsr_change}%</div>
+                                <div>{result.impact.dsr_change <= 0 ? 'שיפור DSR' : 'עליית DSR'}: {Math.abs(result.impact.dsr_change)}%</div>
                                 <div>שיפור הסתברות אישור: {result.impact.approval_probability_increase}</div>
                             </div>
 

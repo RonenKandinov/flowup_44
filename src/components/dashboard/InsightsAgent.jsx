@@ -75,7 +75,7 @@ export default function InsightsAgent({ analysis, isLoading }) {
 
                     <div className="flex items-center gap-2">
                         <span className="text-[10px] font-mono text-indigo-400 bg-indigo-950/30 px-2 py-0.5 rounded-full border border-indigo-900/30">
-                            DTI: {metrics?.dti ?? 0}%
+                            יחס החזר: {metrics?.dti ?? 0}%
                         </span>
                         {isMobile && (
                             isOpen
@@ -148,14 +148,14 @@ export default function InsightsAgent({ analysis, isLoading }) {
                                 {/* Core Risk Metrics */}
                                 <div className="grid grid-cols-3 gap-3 mt-2">
                                     <EnhancedMetricBox 
-                                        label="DTI (יחס החזר)" 
+                                        label="יחס החזר" 
                                         value={`${metrics?.dti ?? 0}%`} 
                                         isDanger={(metrics?.dti ?? 0) > 40}
                                         isWarning={(metrics?.dti ?? 0) > 30}
                                         icon={Target}
                                     />
                                     <EnhancedMetricBox 
-                                        label="DSR (הוצאות/הכנסות)" 
+                                        label="יחס הוצאות/הכנסות" 
                                         value={`${metrics?.expense_to_income_ratio ?? 0}%`} 
                                         isDanger={(metrics?.expense_to_income_ratio ?? 0) > 90}
                                         isWarning={(metrics?.expense_to_income_ratio ?? 0) > 75}
