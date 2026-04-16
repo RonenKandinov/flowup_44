@@ -62,12 +62,21 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
             setResult(res.data);
             setAnalysisComplete(true);
 
-            if (onSimulate) {
+            const scenarioImprovesRisk = ['likely_approved', 'conditionally_approved', 'improved'].includes(res.data.after.status);
+
+            if (onSimulate && scenarioImprovesRisk) {
                 onSimulate({
                     ...baseMetrics,
                     score: res.data.after.score,
                     dsr: res.data.after.dsr,
-                    status: res.data.after.status === 'likely_approved' ? 'GREEN' : res.data.after.status === 'conditionally_approved' || res.data.after.status === 'improved' ? 'ORANGE' : 'RED'
+                    status: res.data.after.status === 'likely_approved' ? 'GREEN' : 'ORANGE'
+                });
+            } else if (onSimulate) {
+                onSimulate({
+                    ...baseMetrics,
+                    score: baseMetrics?.score,
+                    dsr: baseMetrics?.dsr,
+                    status: baseMetrics?.status
                 });
             }
         } catch (err) {
@@ -149,27 +158,27 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
 
                             <div className="grid grid-cols-2 gap-2 text-xs">
                                 <div className="rounded-lg bg-slate-950/50 border border-slate-800 p-2">
-                                    <div className="text-slate-400 mb-1">לפני</div>
-                                    <div className="text-white">סטטוס: {result.before.status}</div>
-                                    <div className="text-white">DSR: {result.before.dsr}%</div>
-                                    <div className="text-white">Score: {result.before.score}</div>
+                                    <div className="text-slate-400 mb-1">מצב נוכחי</div>
+                                    <div className="text-white">רמת סיכון: {result.before.status}</div>
+                                    <div className="text-white">יחס החזר: {result.before.dsr}%</div>
+                                    <div className="text-white">ציון: {result.before.score}</div>
                                 </div>
                                 <div className="rounded-lg bg-slate-950/50 border border-slate-800 p-2">
-                                    <div className="text-slate-400 mb-1">אחרי</div>
-                                    <div className="text-white">סטטוס: {result.after.status}</div>
-                                    <div className="text-white">DSR: {result.after.dsr}%</div>
-                                    <div className="text-white">Score: {result.after.score}</div>
+                                    <div className="text-slate-400 mb-1">תרחיש מוצע</div>
+                                    <div className="text-white">תוצאה: {result.after.status}</div>
+                                    <div className="text-white">יחס החזר חדש: {result.after.dsr}%</div>
+                                    <div className="text-white">ציון חדש: {result.after.score}</div>
                                 </div>
                             </div>
 
                             <div className="rounded-lg bg-slate-950/50 border border-slate-800 p-2 text-sm text-slate-200 leading-6">
-                                <div>תקופה: {result.after.duration_months} חודשים</div>
-                                <div>החזר חודשי: ₪{Number(result.after.monthly_payment || 0).toLocaleString('he-IL')}</div>
-                                <div>{result.impact.dsr_change <= 0 ? 'שיפור DSR' : 'עליית DSR'}: {Math.abs(result.impact.dsr_change)}%</div>
-                                <div>שיפור הסתברות אישור: {result.impact.approval_probability_increase}</div>
+                                <div>פריסה מוצעת: {result.after.duration_months} חודשים</div>
+                                <div>החזר חודשי מוצע: ₪{Number(result.after.monthly_payment || 0).toLocaleString('he-IL')}</div>
+                                <div>{result.impact.dsr_change <= 0 ? 'שיפור ביחס ההחזר' : 'הרעה ביחס ההחזר'}: {Math.abs(result.impact.dsr_change)}%</div>
+                                <div>שינוי בהסתברות אישור: {result.impact.approval_probability_increase}</div>
                             </div>
 
-                            <div className="rounded-lg bg-cyan-500/5 border border-cyan-500/20 p-2 text-sm text-slate-100 leading-6">
+                            <div className={`rounded-lg p-2 text-sm text-slate-100 leading-6 border ${['likely_approved', 'conditionally_approved', 'improved'].includes(result.after.status) ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-amber-500/5 border-amber-500/20'}`}>
                                 {result.explanation}
                             </div>
                         </div>

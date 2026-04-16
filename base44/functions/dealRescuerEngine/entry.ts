@@ -165,7 +165,8 @@ Deno.serve(async (req) => {
     });
 
     const best = scenarios[0];
-    const approvalIncrease = Math.max(0, best.score - currentScore);
+    const scenarioImprovesRisk = ['likely_approved', 'conditionally_approved', 'improved'].includes(best.status);
+    const approvalIncrease = scenarioImprovesRisk ? Math.max(0, best.score - currentScore) : 0;
 
     const llmPrompt = `ענה בעברית בלבד וב-JSON בלבד.
 אתה מנוע Deal Rescuer של FlowUp.
@@ -219,7 +220,34 @@ ${riskFactors.join(', ') || 'ללא גורם דומיננטי אחד'}
   "explanation": "string"
 }`;
 
-    const llmRes = await base44.integrations.Core.InvokeLLM({
+    const fallbackExplanation = best.status === 'still_risky'
+      ? 'גם אחרי פריסה והקטנת סכום, יחס ההחזר עדיין גבוה מדי ולכן אין כאן חילוץ אמיתי של העסקה.'
+      : 'נמצא תרחיש שמפחית את לחץ ההחזר ומשפר את סיכויי האישור בצורה מדורגת.';
+
+    const fallbackResponse = {
+      before: {
+        status: currentStatus,
+        dsr: Number(currentDsr.toFixed(1)),
+        score: currentScore
+      },
+      after: {
+        status: best.status,
+        dsr: best.dsr,
+        score: best.score,
+        duration_months: best.duration,
+        monthly_payment: best.monthlyPayment
+      },
+      impact: {
+        approval_probability_increase: approvalIncrease,
+        dsr_change: Number((best.dsr - currentDsr).toFixed(1))
+      },
+      explanation: fallbackExplanation
+    };
+
+    let llmRes = fallbackResponse;
+
+    try {
+      llmRes = await base44.integrations.Core.InvokeLLM({
       prompt: llmPrompt,
       model: 'gemini_3_flash',
       response_json_schema: {
@@ -258,6 +286,9 @@ ${riskFactors.join(', ') || 'ללא גורם דומיננטי אחד'}
         required: ['before', 'after', 'impact', 'explanation']
       }
     });
+    } catch (_) {
+      llmRes = fallbackResponse;
+    }
 
     return Response.json({
       ...llmRes,
