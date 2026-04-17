@@ -22,7 +22,7 @@ const adjustRate = (baseRate, insights) => {
 };
 
 // Grid search for all passing combinations (DSR <= 0.4)
-const gridSearch = ({ income, existingDebtPayments, requestedLoanAmount, requestedTermMonths, baseInterestRate, insights }) => {
+const gridSearch = ({ income, existingDebtPayments, requestedLoanAmount, requestedTermMonths, baseInterestRate, insights, maxDownPayment }) => {
   const adjustedBase = adjustRate(baseInterestRate, insights);
   const DSR_LIMIT = 0.4;
   const DSR_CONDITIONAL = 0.45;
@@ -33,6 +33,9 @@ const gridSearch = ({ income, existingDebtPayments, requestedLoanAmount, request
   // Explore rates around the adjusted base (±2%)
   const rateDeltas = [-0.02, -0.01, 0, 0.01, 0.02];
 
+  // Hard cap on down payment: 50% of checking balance (enforced by caller via maxDownPayment)
+  const dpCap = Number.isFinite(maxDownPayment) && maxDownPayment > 0 ? maxDownPayment : Infinity;
+
   const allCandidates = [];
 
   for (const term of terms) {
@@ -40,7 +43,8 @@ const gridSearch = ({ income, existingDebtPayments, requestedLoanAmount, request
       for (const dp of downPaymentRatios) {
         for (const delta of rateDeltas) {
           const grossAmount = requestedLoanAmount * ratio;
-          const downPayment = Math.round(requestedLoanAmount * ratio * dp);
+          let downPayment = Math.round(requestedLoanAmount * ratio * dp);
+          if (downPayment > dpCap) downPayment = Math.floor(dpCap);
           const netLoan = grossAmount - downPayment;
           if (netLoan <= 0) continue;
 
@@ -143,6 +147,7 @@ Deno.serve(async (req) => {
     const requestedLoanAmount = Number(body?.requestedLoanAmount ?? body?.principal ?? 50000);
     const requestedTermMonths = Number(body?.requestedTermMonths ?? body?.durationMonths ?? 48);
     const baseInterestRate = Number(body?.baseInterestRate ?? body?.baseRate ?? 0.09);
+    const maxDownPayment = Number(body?.maxDownPayment ?? Infinity);
     const insights = body?.analysisInsights || null;
 
     // Current DSR (based on existing debt only, per spec)
@@ -157,7 +162,8 @@ Deno.serve(async (req) => {
       requestedLoanAmount,
       requestedTermMonths,
       baseInterestRate,
-      insights
+      insights,
+      maxDownPayment
     });
 
     const strategies = [];

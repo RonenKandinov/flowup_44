@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ShieldCheck, Crosshair, PlayCircle, Loader2, CheckCircle2, AlertTriangle, TrendingDown, Wallet, Brain } from 'lucide-react';
+import { ShieldCheck, Crosshair, PlayCircle, Loader2, CheckCircle2, AlertTriangle, TrendingDown, Wallet, Brain, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 
@@ -33,36 +35,50 @@ const STATUS_META = {
 };
 
 export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights }) {
-    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [step, setStep] = useState('input'); // 'input' | 'analyzing' | 'result'
+    const [loanAmount, setLoanAmount] = useState('');
+    const [termMonths, setTermMonths] = useState('48');
     const [result, setResult] = useState(null);
 
     const score = baseMetrics?.score || 0;
+    // Max down payment = 50% of current checking-account balance
+    const checkingBalance = Number(baseMetrics?.currentBalance ?? baseMetrics?.current_balance ?? baseMetrics?.projectedBalance ?? 0);
+    const maxDownPayment = Math.max(0, Math.floor(checkingBalance * 0.5));
 
     const metricsHash = baseMetrics ? `${Math.round(baseMetrics.totalIncome || 0)}-${Math.round(baseMetrics.liquidAssets || 0)}-${Math.round(baseMetrics.totalFixedExpenses || baseMetrics.totalExpenses || 0)}` : '';
 
     useEffect(() => {
-        setIsAnalyzing(false);
+        setStep('input');
         setResult(null);
+        setLoanAmount('');
+        setTermMonths('48');
         if (onSimulate) onSimulate(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [metricsHash]);
 
     const runAnalysis = async () => {
-        setIsAnalyzing(true);
+        const amount = parseInt(loanAmount, 10);
+        if (!amount || amount < 1000) {
+            toast.error('יש להזין סכום הלוואה של לפחות ₪1,000');
+            return;
+        }
+        const term = parseInt(termMonths, 10) || 48;
+
+        setStep('analyzing');
         try {
             const income = baseMetrics?.totalIncome || 0;
-            // Existing debt payments only (NOT general expenses) per DSR spec
             const existingDebtPayments = baseMetrics?.existingDebtPayments
                 ?? baseMetrics?.debtPayments
                 ?? baseMetrics?.totalDebtPayments
                 ?? Math.round((baseMetrics?.totalFixedExpenses || 0) * 0.4);
 
             const res = await base44.functions.invoke('dealRescuerEngine', {
-                requestedLoanAmount: 50000,
-                requestedTermMonths: 48,
+                requestedLoanAmount: amount,
+                requestedTermMonths: term,
                 baseInterestRate: 0.09,
                 income,
                 existingDebtPayments,
+                maxDownPayment,
                 score: baseMetrics?.score,
                 currentStatus: score < 55 ? 'rejected' : score < 75 ? 'borderline' : 'approved',
                 analysisInsights: analysisInsights || null
@@ -73,6 +89,7 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
             }
 
             setResult(res.data);
+            setStep('result');
 
             const hasWin = res.data.rescueStrategies.some(s => s.status === 'approved' || s.status === 'conditional');
             if (onSimulate && hasWin) {
@@ -88,17 +105,19 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
         } catch (err) {
             console.error('Analysis error:', err);
             toast.error('שגיאה בניתוח הנתונים');
-        } finally {
-            setIsAnalyzing(false);
+            setStep('input');
         }
     };
 
     const handleReset = () => {
+        setStep('input');
         setResult(null);
+        setLoanAmount('');
         if (onSimulate) onSimulate(null);
     };
 
-    const analysisComplete = !!result;
+    const analysisComplete = step === 'result' && !!result;
+    const formatILS = (n) => `₪${Number(n || 0).toLocaleString('he-IL')}`;
 
     return (
         <motion.div
@@ -121,23 +140,68 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
             </div>
 
             <div className="flex-1 flex flex-col justify-center">
-                {!analysisComplete && !isAnalyzing && (
-                    <div className="text-center py-4">
+                {step === 'input' && (
+                    <div className="py-2">
                         <div className="mx-auto w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center mb-3 border border-slate-700">
                             <Crosshair className="w-5 h-5 text-slate-400" />
                         </div>
-                        <p className="text-xs text-slate-300 mb-1 font-medium">3 מסלולים לאישור העסקה</p>
-                        <p className="text-[10px] text-slate-500 mb-4 leading-relaxed max-w-[200px] mx-auto">
-                            ה-Rescuer בונה עד 3 אסטרטגיות מובחנות על בסיס תובנות ה-Analyst.
+                        <p className="text-xs text-slate-300 mb-1 font-medium text-center">איזו הלוואה לבדוק?</p>
+                        <p className="text-[10px] text-slate-500 mb-4 leading-relaxed text-center">
+                            הזן את סכום ההלוואה שהלקוח מבקש. נחפש את 3 המסלולים האופטימליים לאישור.
                         </p>
-                        <Button onClick={runAnalysis} className="bg-cyan-600 hover:bg-cyan-500 text-white w-full rounded-lg h-8 text-xs" size="sm">
-                            <PlayCircle className="w-3.5 h-3.5 mr-2 ml-2" />
-                            הפעל חילוץ
-                        </Button>
+
+                        <div className="space-y-3">
+                            <div>
+                                <Label className="text-[10px] text-slate-400 mb-1 block">סכום הלוואה (₪)</Label>
+                                <Input
+                                    type="number"
+                                    placeholder="לדוגמה: 50000"
+                                    value={loanAmount}
+                                    onChange={(e) => setLoanAmount(e.target.value)}
+                                    className="bg-slate-900/60 border-slate-700 text-white text-sm h-9"
+                                    min="1000"
+                                    step="1000"
+                                />
+                            </div>
+                            <div>
+                                <Label className="text-[10px] text-slate-400 mb-1 block">תקופה מבוקשת (חודשים)</Label>
+                                <Input
+                                    type="number"
+                                    value={termMonths}
+                                    onChange={(e) => setTermMonths(e.target.value)}
+                                    className="bg-slate-900/60 border-slate-700 text-white text-sm h-9"
+                                    min="12"
+                                    max="120"
+                                    step="12"
+                                />
+                            </div>
+
+                            <div className="text-[10px] text-slate-500 border border-slate-700/40 rounded-md p-2 bg-slate-900/40">
+                                <div className="flex justify-between">
+                                    <span>יתרת עו"ש נוכחית</span>
+                                    <span className="text-slate-300">{formatILS(checkingBalance)}</span>
+                                </div>
+                                <div className="flex justify-between mt-0.5">
+                                    <span>מקדמה מקסימלית (50% מעו"ש)</span>
+                                    <span className="text-cyan-400 font-medium">{formatILS(maxDownPayment)}</span>
+                                </div>
+                            </div>
+
+                            <Button
+                                onClick={runAnalysis}
+                                className="bg-cyan-600 hover:bg-cyan-500 text-white w-full rounded-lg h-9 text-xs"
+                                size="sm"
+                                disabled={!loanAmount || parseInt(loanAmount, 10) < 1000}
+                            >
+                                <PlayCircle className="w-3.5 h-3.5 mr-2 ml-2" />
+                                הפעל חילוץ
+                                <ArrowLeft className="w-3 h-3 mr-1" />
+                            </Button>
+                        </div>
                     </div>
                 )}
 
-                {isAnalyzing && (
+                {step === 'analyzing' && (
                     <div className="text-center py-8 flex flex-col items-center">
                         <Loader2 className="w-6 h-6 text-cyan-500 animate-spin mb-3" />
                         <p className="text-xs text-cyan-400 font-medium">בונה אסטרטגיות חילוץ...</p>
@@ -154,7 +218,7 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
                             <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-100 leading-5">
                                 <div className="font-semibold mb-1">הניסיון הקרוב ביותר</div>
                                 <div className="grid grid-cols-3 gap-2 text-[11px] text-slate-300 mb-2">
-                                    <div><div className="text-slate-500 text-[10px]">סכום</div><div className="text-white">₪{result.fallback.closestAttempt.loanAmount.toLocaleString('he-IL')}</div></div>
+                                    <div><div className="text-slate-500 text-[10px]">סכום</div><div className="text-white">{formatILS(result.fallback.closestAttempt.loanAmount)}</div></div>
                                     <div><div className="text-slate-500 text-[10px]">תקופה</div><div className="text-white">{result.fallback.closestAttempt.termMonths} ח׳</div></div>
                                     <div><div className="text-slate-500 text-[10px]">DSR</div><div className="text-red-300">{result.fallback.closestAttempt.dsr}%</div></div>
                                 </div>
@@ -187,7 +251,7 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
                                         <div className="grid grid-cols-3 gap-2 text-[11px] text-slate-300 mb-2">
                                             <div>
                                                 <div className="text-slate-500 text-[10px]">סכום</div>
-                                                <div className="text-white font-medium">₪{s.loanAmount.toLocaleString('he-IL')}</div>
+                                                <div className="text-white font-medium">{formatILS(s.loanAmount)}</div>
                                             </div>
                                             <div>
                                                 <div className="text-slate-500 text-[10px]">תקופה</div>
@@ -195,7 +259,7 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
                                             </div>
                                             <div>
                                                 <div className="text-slate-500 text-[10px]">החזר חודשי</div>
-                                                <div className="text-white font-medium">₪{s.monthlyPayment.toLocaleString('he-IL')}</div>
+                                                <div className="text-white font-medium">{formatILS(s.monthlyPayment)}</div>
                                             </div>
                                             <div>
                                                 <div className="text-slate-500 text-[10px]">ריבית</div>
@@ -203,7 +267,7 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
                                             </div>
                                             <div>
                                                 <div className="text-slate-500 text-[10px]">מקדמה</div>
-                                                <div className="text-white font-medium">{s.downPayment > 0 ? `₪${s.downPayment.toLocaleString('he-IL')}` : '—'}</div>
+                                                <div className="text-white font-medium">{s.downPayment > 0 ? formatILS(s.downPayment) : '—'}</div>
                                             </div>
                                             <div>
                                                 <div className="text-slate-500 text-[10px]">DSR חדש</div>

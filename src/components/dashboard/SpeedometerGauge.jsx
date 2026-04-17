@@ -120,9 +120,10 @@ export default function SpeedometerGauge({
 
   return (
     <div className="relative flex flex-col items-center justify-center w-full p-6 rounded-xl bg-slate-800/30 border border-slate-700/30 backdrop-blur-sm h-full">
-      {/* Gauge SVG */}
+      {/* Gauge SVG - force LTR to prevent RTL parent from mirroring the needle rotation */}
       <svg 
         viewBox="0 0 200 120" 
+        dir="ltr"
         className="w-full max-w-[280px] md:max-w-[320px] mx-auto"
       >
         {/* Background arc segments */}
