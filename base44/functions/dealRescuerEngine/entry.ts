@@ -10,40 +10,43 @@ const pmt = (principal, annualRate, months) => {
   return (principal * r) / (1 - Math.pow(1 + r, -months));
 };
 
-// Dynamic rate adjustment based on analysisInsights
+// Stage 3 — dynamic rate adjustment from analysisInsights
 const adjustRate = (baseRate, insights) => {
   if (!insights) return baseRate;
   let rate = baseRate;
   const riskLevel = String(insights.riskLevel || '').toLowerCase();
   if (riskLevel === 'high') rate += 0.015;
+  if (riskLevel === 'low') rate -= 0.005;
   if (Number(insights.liquidityMonths) > 3) rate -= 0.005;
   if (Number(insights.behavioralScore) >= 0.6) rate -= 0.005;
   return clamp(rate, 0.05, 0.12);
 };
 
-// Grid search for all passing combinations (DSR <= 0.4)
-const gridSearch = ({ income, existingDebtPayments, requestedLoanAmount, requestedTermMonths, baseInterestRate, insights, maxDownPayment }) => {
+// Stage 2 — Grid search within stage constraints
+const gridSearch = ({ income, existingDebtPayments, requestedLoanAmount, baseInterestRate, insights, maxDownPayment, stage }) => {
   const adjustedBase = adjustRate(baseInterestRate, insights);
   const DSR_LIMIT = 0.4;
-  const DSR_CONDITIONAL = 0.45;
+  const DSR_NEAR = 0.45; // "קרוב מאוד" לסף
+  const behavioralFlex = insights?.isFalseNegative || Number(insights?.behavioralScore) >= 0.6;
 
-  const terms = [24, 36, 48, 60, 72, 84];
-  const amountRatios = [1.0, 0.9, 0.8, 0.7, 0.6, 0.5];
-  const downPaymentRatios = [0, 0.05, 0.1, 0.15, 0.2, 0.25];
-  // Explore rates around the adjusted base (±2.5%) with finer granularity
-  const rateDeltas = [-0.025, -0.015, -0.01, -0.005, 0, 0.005, 0.01, 0.015, 0.025];
+  // Stage-bound term and amount ratios
+  const allTerms = [24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84];
+  const terms = allTerms.filter(t => t <= stage.maxTerm);
+  const amountRatios = [1.0, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5]
+    .filter(r => r >= stage.minAmountRatio);
+  const downPaymentRatios = [0, 0.05, 0.1, 0.15, 0.2];
+  // Interest rate grid: 5%-12%
+  const rateDeltas = [-0.04, -0.03, -0.02, -0.01, 0, 0.01, 0.02, 0.03];
 
-  // Hard cap on down payment: 50% of checking balance (enforced by caller via maxDownPayment)
   const dpCap = Number.isFinite(maxDownPayment) && maxDownPayment > 0 ? maxDownPayment : Infinity;
-
-  const allCandidates = [];
+  const candidates = [];
 
   for (const term of terms) {
     for (const ratio of amountRatios) {
       for (const dp of downPaymentRatios) {
         for (const delta of rateDeltas) {
           const grossAmount = requestedLoanAmount * ratio;
-          let downPayment = Math.round(requestedLoanAmount * ratio * dp);
+          let downPayment = Math.round(grossAmount * dp);
           if (downPayment > dpCap) downPayment = Math.floor(dpCap);
           const netLoan = grossAmount - downPayment;
           if (netLoan <= 0) continue;
@@ -52,87 +55,116 @@ const gridSearch = ({ income, existingDebtPayments, requestedLoanAmount, request
           const monthlyPayment = pmt(netLoan, rate, term);
           const dsr = income > 0 ? (existingDebtPayments + monthlyPayment) / income : 1;
 
-          let status = 'failed';
+          let status = null;
           if (dsr <= DSR_LIMIT) status = 'approved';
-          else if (dsr <= DSR_CONDITIONAL && insights?.isFalseNegative) status = 'conditional';
+          else if (dsr <= DSR_NEAR && behavioralFlex) status = 'conditional';
+          if (!status) continue;
 
-          allCandidates.push({
+          candidates.push({
             loanAmount: Math.round(netLoan),
+            grossAmount: Math.round(grossAmount),
             termMonths: term,
             interestRate: Number((rate * 100).toFixed(2)),
             downPayment,
             monthlyPayment: Math.round(monthlyPayment),
-            dsr: Number(dsr.toFixed(3)),
+            dsr: Number(dsr.toFixed(4)),
             status,
-            amountRatio: ratio,
-            termDistance: Math.abs(term - requestedTermMonths)
+            amountRatio: ratio
           });
         }
       }
     }
   }
-
-  return allCandidates;
+  return candidates;
 };
 
-// Pick best candidate for a given strategy flavor.
-// Each strategy uses a distinct scoring profile so interest rate and down payment
-// come out differently — reflecting the actual risk/structure tradeoff.
-const pickStrategy = (candidates, type, insights) => {
-  const passing = candidates.filter(c => c.status === 'approved' || c.status === 'conditional');
-  if (passing.length === 0) return null;
-
-  const score = (c) => {
-    if (type === 'cash_flow_alignment') {
-      // Long term + mild rate premium for term risk, prefer NO down payment (ease cash flow)
-      return (84 - c.termMonths) * 2
-           + (c.interestRate - 7) * 1.5
-           + c.downPayment / 500
-           + c.dsr * 100 * 0.5;
-    }
-    if (type === 'exposure_reduction') {
-      // Reward: smaller loan + larger down payment + lower rate (lower exposure = better pricing)
-      return (c.amountRatio) * 40
-           + (c.interestRate - 6) * 2
-           - (c.downPayment / 250)
-           + c.dsr * 100 * 0.3;
-    }
-    // behavioral_approval: keep structure close to original request; rate reflects behavioral discount
-    return c.termDistance * 3
-         + (1 - c.amountRatio) * 40
-         + (c.interestRate - 6.5) * 1.2
-         + c.downPayment / 400
-         + c.dsr * 100 * 0.4;
-  };
-
-  return [...passing].sort((a, b) => score(a) - score(b))[0];
+// Multi-stage search: run stages in order, stop when we have candidates
+const multiStageSearch = (args) => {
+  const stages = [
+    { name: 'stage1', minAmountRatio: 0.8, maxTerm: 60 },
+    { name: 'stage2', minAmountRatio: 0.7, maxTerm: 72 },
+    { name: 'stage3', minAmountRatio: 0.5, maxTerm: 84 }
+  ];
+  for (const stage of stages) {
+    const found = gridSearch({ ...args, stage });
+    if (found.length > 0) return { candidates: found, stage: stage.name };
+  }
+  return { candidates: [], stage: null };
 };
 
-const reasonFor = (type, candidate, insights) => {
-  const dsrPct = (candidate.dsr * 100).toFixed(1);
+// Stage 4 — composite score (lower = better: we invert parts accordingly)
+const compositeScore = (c, requestedLoanAmount) => {
+  const closeness = clamp(c.grossAmount / requestedLoanAmount, 0, 1);
+  const dsrRatio = clamp(c.dsr / 0.4, 0, 1.5); // dsr as fraction of 40%
+  return (1 - dsrRatio) * 0.4 + closeness * 0.4 + (1 - c.termMonths / 84) * 0.2;
+};
+
+// Stage 5 — pick 3 distinct strategies via per-strategy scoring
+const pickStrategies = (candidates, requestedLoanAmount) => {
+  if (candidates.length === 0) return [];
+
+  const withScore = candidates.map(c => ({ ...c, score: compositeScore(c, requestedLoanAmount) }));
+
+  // cash_flow_alignment: longer term + lower monthly payment, composite acts as tiebreaker
+  const cashFlow = [...withScore].sort((a, b) =>
+    (b.termMonths - a.termMonths) ||
+    (a.monthlyPayment - b.monthlyPayment) ||
+    (b.score - a.score)
+  )[0];
+
+  // exposure_reduction: smaller amount + higher down payment, reward low DSR
+  const exposure = [...withScore].sort((a, b) =>
+    (a.grossAmount - b.grossAmount) ||
+    (b.downPayment - a.downPayment) ||
+    (a.dsr - b.dsr)
+  )[0];
+
+  // behavioral_approval: closest to original request (highest closeness), shortest term among those
+  const behavioral = [...withScore].sort((a, b) =>
+    (b.grossAmount - a.grossAmount) ||
+    (a.termMonths - b.termMonths) ||
+    (b.score - a.score)
+  )[0];
+
+  // Dedup — must not be too similar (same amount+term+rate)
+  const keyOf = (c) => `${c.loanAmount}-${c.termMonths}-${c.interestRate}-${c.downPayment}`;
+  const picks = [
+    { type: 'cash_flow_alignment', c: cashFlow },
+    { type: 'exposure_reduction', c: exposure },
+    { type: 'behavioral_approval', c: behavioral }
+  ];
+
+  const seen = new Set();
+  const out = [];
+  for (const { type, c } of picks) {
+    if (!c) continue;
+    const k = keyOf(c);
+    if (seen.has(k)) {
+      // Find an alternative that isn't already used
+      const alt = withScore
+        .filter(x => !seen.has(keyOf(x)))
+        .sort((a, b) => b.score - a.score)[0];
+      if (!alt) continue;
+      seen.add(keyOf(alt));
+      out.push({ type, c: alt });
+    } else {
+      seen.add(k);
+      out.push({ type, c });
+    }
+  }
+  return out;
+};
+
+const reasonFor = (type, c) => {
+  const dsrPct = (c.dsr * 100).toFixed(1);
   if (type === 'cash_flow_alignment') {
-    return `פריסה ל-${candidate.termMonths} חודשים מורידה את ההחזר ל-₪${candidate.monthlyPayment.toLocaleString('he-IL')} ומיישרת את ה-DSR ל-${dsrPct}%.`;
+    return `פריסה ל-${c.termMonths} חודשים מורידה את ההחזר ל-₪${c.monthlyPayment.toLocaleString('he-IL')} ומיישרת את ה-DSR ל-${dsrPct}%.`;
   }
   if (type === 'exposure_reduction') {
-    const dpTxt = candidate.downPayment > 0 ? ` ומקדמה של ₪${candidate.downPayment.toLocaleString('he-IL')}` : '';
-    return `הקטנת ההלוואה ל-₪${candidate.loanAmount.toLocaleString('he-IL')}${dpTxt} מורידה את החשיפה ומביאה ל-DSR של ${dsrPct}%.`;
+    const dpTxt = c.downPayment > 0 ? ` ומקדמה של ₪${c.downPayment.toLocaleString('he-IL')}` : '';
+    return `הקטנת ההלוואה ל-₪${c.loanAmount.toLocaleString('he-IL')}${dpTxt} מורידה את החשיפה ומביאה ל-DSR של ${dsrPct}%.`;
   }
-  return `שמירה על מבנה קרוב לבקשה המקורית (₪${candidate.loanAmount.toLocaleString('he-IL')} ל-${candidate.termMonths} חודשים) מאפשרת אישור תוך ניצול הפרופיל ההתנהגותי, עם DSR של ${dsrPct}%.`;
-};
-
-const basedOnFor = (type, insights) => {
-  if (!insights) return 'חוקי חיתום סטנדרטיים';
-  if (type === 'cash_flow_alignment') {
-    if (insights.incomeTrend === 'negative') return 'incomeTrend=negative — נדרשת הקלה תזרימית';
-    if (insights.anomalyDetected) return 'anomalyDetected=true — תנודתיות בהוצאות';
-    return `liquidityMonths=${insights.liquidityMonths}`;
-  }
-  if (type === 'exposure_reduction') {
-    if (Number(insights.liquidityMonths) < 1.5) return `liquidityMonths=${insights.liquidityMonths} — נזילות נמוכה`;
-    return 'מטרה: הקטנת חשיפה כוללת';
-  }
-  if (insights.isFalseNegative) return 'isFalseNegative=true — דחייה טכנית על חשבון יכולת אמיתית';
-  return `behavioralScore=${insights.behavioralScore}`;
+  return `שמירה על מבנה קרוב לבקשה המקורית (₪${c.loanAmount.toLocaleString('he-IL')} ל-${c.termMonths} חודשים) מאפשרת אישור תוך ניצול הפרופיל ההתנהגותי, עם DSR של ${dsrPct}%.`;
 };
 
 Deno.serve(async (req) => {
@@ -140,7 +172,6 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const body = await req.json().catch(() => ({}));
 
-    // New contract inputs
     const income = Number(body?.income || 0);
     const existingDebtPayments = Number(
       body?.existingDebtPayments ?? body?.existing_debt_payments ?? body?.debtPayments ?? 0
@@ -151,86 +182,88 @@ Deno.serve(async (req) => {
     const maxDownPayment = Number(body?.maxDownPayment ?? Infinity);
     const insights = body?.analysisInsights || null;
 
-    // Current DSR (based on existing debt only, per spec)
     const currentDsr = income > 0 ? (existingDebtPayments / income) : 1;
     const currentScore = Number(body?.score || clamp(Math.round(85 - currentDsr * 100 * 0.7), 20, 85));
     const currentStatus = String(body?.currentStatus || (currentDsr <= 0.4 ? 'approved' : currentDsr <= 0.5 ? 'borderline' : 'rejected'));
 
-    // Run grid search
-    const candidates = gridSearch({
+    // Multi-stage search
+    const { candidates, stage } = multiStageSearch({
       income,
       existingDebtPayments,
       requestedLoanAmount,
-      requestedTermMonths,
       baseInterestRate,
       insights,
       maxDownPayment
     });
 
-    const strategies = [];
-    const seen = new Set();
-    for (const type of ['cash_flow_alignment', 'exposure_reduction', 'behavioral_approval']) {
-      const pick = pickStrategy(candidates, type, insights);
-      if (!pick) continue;
-      const key = `${pick.loanAmount}-${pick.termMonths}-${pick.interestRate}-${pick.downPayment}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      strategies.push({
-        type,
-        status: pick.status,
-        loanAmount: pick.loanAmount,
-        termMonths: pick.termMonths,
-        interestRate: pick.interestRate,
-        downPayment: pick.downPayment,
-        monthlyPayment: pick.monthlyPayment,
-        dsr: Number((pick.dsr * 100).toFixed(1)),
-        reason: reasonFor(type, pick, insights),
-        basedOn: basedOnFor(type, insights)
-      });
-    }
+    const picks = pickStrategies(candidates, requestedLoanAmount);
+    const strategies = picks.map(({ type, c }) => ({
+      type,
+      status: c.status,
+      loanAmount: c.loanAmount,
+      termMonths: c.termMonths,
+      interestRate: c.interestRate,
+      downPayment: c.downPayment,
+      monthlyPayment: c.monthlyPayment,
+      dsr: Number((c.dsr * 100).toFixed(1)),
+      score: Number(c.score.toFixed(3)),
+      reason: reasonFor(type, c)
+    }));
 
-    // Fallback: no passing combos → expose closest attempt + improvement paths
+    // Fallback: no passing combos in any stage
     let fallback = null;
-    if (strategies.length === 0 && candidates.length > 0) {
-      const closest = [...candidates].sort((a, b) => a.dsr - b.dsr)[0];
-      const overshoot = Math.round((closest.dsr - 0.4) * 100 * 10) / 10;
-      fallback = {
-        closestAttempt: {
-          type: 'closest_attempt',
-          status: 'failed',
-          loanAmount: closest.loanAmount,
-          termMonths: closest.termMonths,
-          interestRate: closest.interestRate,
-          downPayment: closest.downPayment,
-          monthlyPayment: closest.monthlyPayment,
-          dsr: Number((closest.dsr * 100).toFixed(1))
-        },
-        whyFailed: `גם במבנה האופטימלי ה-DSR עומד על ${(closest.dsr * 100).toFixed(1)}% — חורג ב-${overshoot} נק׳ אחוז מהמקסימום של 40%.`,
-        improvements: [
-          `הקטנת סכום הבקשה ב-₪${Math.round(requestedLoanAmount * 0.2).toLocaleString('he-IL')} לפחות`,
-          `הגדלת הכנסה חודשית ב-₪${Math.max(500, Math.round((existingDebtPayments + closest.monthlyPayment) / 0.4 - income)).toLocaleString('he-IL')}`,
-          `הפחתת החזרי חוב קיימים (כיום ₪${existingDebtPayments.toLocaleString('he-IL')})`,
-          `הוספת מקדמה של 20% (₪${Math.round(requestedLoanAmount * 0.2).toLocaleString('he-IL')})`
-        ]
-      };
+    if (strategies.length === 0) {
+      // Run a broad scan with no DSR filter to find the closest attempt
+      const broadBase = adjustRate(baseInterestRate, insights);
+      let closest = null;
+      for (const term of [24, 36, 48, 60, 72, 84]) {
+        for (const ratio of [1.0, 0.8, 0.6, 0.5]) {
+          const grossAmount = requestedLoanAmount * ratio;
+          const monthlyPayment = pmt(grossAmount, broadBase, term);
+          const dsr = income > 0 ? (existingDebtPayments + monthlyPayment) / income : 1;
+          const cand = {
+            loanAmount: Math.round(grossAmount),
+            termMonths: term,
+            interestRate: Number((broadBase * 100).toFixed(2)),
+            downPayment: 0,
+            monthlyPayment: Math.round(monthlyPayment),
+            dsr
+          };
+          if (!closest || cand.dsr < closest.dsr) closest = cand;
+        }
+      }
+      if (closest) {
+        const overshoot = Math.round((closest.dsr - 0.4) * 100 * 10) / 10;
+        fallback = {
+          closestAttempt: { ...closest, dsr: Number((closest.dsr * 100).toFixed(1)), status: 'failed', type: 'closest_attempt' },
+          whyFailed: `גם במבנה האופטימלי ה-DSR עומד על ${(closest.dsr * 100).toFixed(1)}% — חורג ב-${overshoot} נק׳ אחוז מהמקסימום של 40%.`,
+          improvements: [
+            `הקטנת סכום הבקשה ב-₪${Math.round(requestedLoanAmount * 0.2).toLocaleString('he-IL')} לפחות`,
+            `הגדלת הכנסה חודשית ב-₪${Math.max(500, Math.round((existingDebtPayments + closest.monthlyPayment) / 0.4 - income)).toLocaleString('he-IL')}`,
+            `הפחתת החזרי חוב קיימים (כיום ₪${existingDebtPayments.toLocaleString('he-IL')})`,
+            `הוספת מקדמה של 20% (₪${Math.round(requestedLoanAmount * 0.2).toLocaleString('he-IL')})`
+          ]
+        };
+      }
     }
 
     const hasRescue = strategies.length > 0;
     const headline = hasRescue
       ? [...strategies].sort((a, b) => {
-          const rank = { approved: 2, conditional: 1, failed: 0 };
-          return (rank[b.status] - rank[a.status]) || (a.dsr - b.dsr);
+          const rank = { approved: 2, conditional: 1 };
+          return ((rank[b.status] || 0) - (rank[a.status] || 0)) || (b.score - a.score);
         })[0]
       : null;
 
     const explanation = hasRescue
-      ? `נמצאו ${strategies.length} אסטרטגיות שעומדות ב-DSR ≤ 40%. מוביל: ${headline.type.replace(/_/g, ' ')} — DSR ${headline.dsr}%.`
+      ? `נמצאו ${strategies.length} אסטרטגיות בשלב ${stage}. מוביל: ${headline.type.replace(/_/g, ' ')} — DSR ${headline.dsr}%.`
       : 'לא נמצאה קומבינציה שמעמידה את ה-DSR מתחת ל-40%. מוצג הניסיון הקרוב ביותר עם דרכי פעולה לשיפור.';
 
     return Response.json({
       analysisInsights: insights,
       rescueStrategies: strategies,
       fallback,
+      stage,
       before: {
         status: currentStatus,
         dsr: Number((currentDsr * 100).toFixed(1)),
@@ -256,8 +289,8 @@ Deno.serve(async (req) => {
       explanation,
       meta: {
         dsr_limit: 40,
-        grid_size: candidates.length,
-        passing_count: candidates.filter(c => c.status !== 'failed').length,
+        stage,
+        candidates_count: candidates.length,
         income,
         existing_debt_payments: existingDebtPayments
       }
