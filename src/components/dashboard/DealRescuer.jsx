@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import { ShieldCheck, Crosshair, PlayCircle, Loader2, CheckCircle2, AlertTriangle, TrendingDown, Wallet, Brain, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 
@@ -37,12 +36,11 @@ const STATUS_META = {
 export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights }) {
     const [step, setStep] = useState('input'); // 'input' | 'analyzing' | 'result'
     const [loanAmount, setLoanAmount] = useState('');
-    const [termMonths, setTermMonths] = useState('48');
     const [result, setResult] = useState(null);
 
     const score = baseMetrics?.score || 0;
-    // Max down payment = 50% of current checking-account balance
-    const checkingBalance = Number(baseMetrics?.currentBalance ?? baseMetrics?.current_balance ?? baseMetrics?.projectedBalance ?? 0);
+    // Checking-account balance comes straight from banking data (liquidAssets, as synced by the Open-Banking provider)
+    const checkingBalance = Number(baseMetrics?.liquidAssets ?? baseMetrics?.currentBalance ?? baseMetrics?.current_balance ?? 0);
     const maxDownPayment = Math.max(0, Math.floor(checkingBalance * 0.5));
 
     const metricsHash = baseMetrics ? `${Math.round(baseMetrics.totalIncome || 0)}-${Math.round(baseMetrics.liquidAssets || 0)}-${Math.round(baseMetrics.totalFixedExpenses || baseMetrics.totalExpenses || 0)}` : '';
@@ -51,7 +49,6 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
         setStep('input');
         setResult(null);
         setLoanAmount('');
-        setTermMonths('48');
         if (onSimulate) onSimulate(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [metricsHash]);
@@ -62,7 +59,6 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
             toast.error('יש להזין סכום הלוואה של לפחות ₪1,000');
             return;
         }
-        const term = parseInt(termMonths, 10) || 48;
 
         setStep('analyzing');
         try {
@@ -74,7 +70,7 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
 
             const res = await base44.functions.invoke('dealRescuerEngine', {
                 requestedLoanAmount: amount,
-                requestedTermMonths: term,
+                // No requestedTermMonths — engine picks the optimal term from its grid
                 baseInterestRate: 0.09,
                 income,
                 existingDebtPayments,
@@ -147,12 +143,12 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
                         </div>
                         <p className="text-xs text-slate-300 mb-1 font-medium text-center">איזו הלוואה לבדוק?</p>
                         <p className="text-[10px] text-slate-500 mb-4 leading-relaxed text-center">
-                            הזן את סכום ההלוואה שהלקוח מבקש. נחפש את 3 המסלולים האופטימליים לאישור.
+                            הזן את סכום ההלוואה שהלקוח מבקש. נחפש את 3 המסלולים האופטימליים לאישור — כולל תקופה מיטבית.
                         </p>
 
                         <div className="space-y-3">
                             <div>
-                                <Label className="text-[10px] text-slate-400 mb-1 block">סכום הלוואה (₪)</Label>
+                                <div className="text-[10px] text-slate-400 mb-1">סכום הלוואה (₪)</div>
                                 <Input
                                     type="number"
                                     placeholder="לדוגמה: 50000"
@@ -162,29 +158,6 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
                                     min="1000"
                                     step="1000"
                                 />
-                            </div>
-                            <div>
-                                <Label className="text-[10px] text-slate-400 mb-1 block">תקופה מבוקשת (חודשים)</Label>
-                                <Input
-                                    type="number"
-                                    value={termMonths}
-                                    onChange={(e) => setTermMonths(e.target.value)}
-                                    className="bg-slate-900/60 border-slate-700 text-white text-sm h-9"
-                                    min="12"
-                                    max="120"
-                                    step="12"
-                                />
-                            </div>
-
-                            <div className="text-[10px] text-slate-500 border border-slate-700/40 rounded-md p-2 bg-slate-900/40">
-                                <div className="flex justify-between">
-                                    <span>יתרת עו"ש נוכחית</span>
-                                    <span className="text-slate-300">{formatILS(checkingBalance)}</span>
-                                </div>
-                                <div className="flex justify-between mt-0.5">
-                                    <span>מקדמה מקסימלית (50% מעו"ש)</span>
-                                    <span className="text-cyan-400 font-medium">{formatILS(maxDownPayment)}</span>
-                                </div>
                             </div>
 
                             <Button
