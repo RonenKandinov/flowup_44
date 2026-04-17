@@ -2,58 +2,132 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
-const monthlyPaymentFor = (principal, annualRate, months) => {
+// PMT calculation (standard amortization)
+const pmt = (principal, annualRate, months) => {
+  if (principal <= 0 || months <= 0) return 0;
   const r = annualRate / 12;
   if (r <= 0) return principal / months;
   return (principal * r) / (1 - Math.pow(1 + r, -months));
 };
 
-const classifyScenario = ({ dsr, disposableIncome, liquidityMonths }) => {
-  if (dsr <= 35 && disposableIncome >= 1500 && liquidityMonths >= 1) return 'approved';
-  if (dsr <= 45 && disposableIncome >= 500) return 'conditional';
-  return 'failed';
+// Dynamic rate adjustment based on analysisInsights
+const adjustRate = (baseRate, insights) => {
+  if (!insights) return baseRate;
+  let rate = baseRate;
+  const riskLevel = String(insights.riskLevel || '').toLowerCase();
+  if (riskLevel === 'high') rate += 0.015;
+  if (Number(insights.liquidityMonths) > 3) rate -= 0.005;
+  if (Number(insights.behavioralScore) >= 0.6) rate -= 0.005;
+  return clamp(rate, 0.05, 0.12);
 };
 
-const scoreScenario = ({ dsr, disposableIncome, liquidityMonths }) => {
-  let s = 50;
-  if (dsr <= 30) s += 25; else if (dsr <= 35) s += 18; else if (dsr <= 40) s += 10; else if (dsr <= 45) s += 4; else s -= 12;
-  if (disposableIncome >= 2500) s += 18; else if (disposableIncome >= 1500) s += 12; else if (disposableIncome >= 750) s += 6; else if (disposableIncome < 0) s -= 20;
-  if (liquidityMonths >= 3) s += 8; else if (liquidityMonths >= 1.5) s += 4; else if (liquidityMonths < 1) s -= 8;
-  return Math.round(clamp(s, 20, 95));
+// Grid search for all passing combinations (DSR <= 0.4)
+const gridSearch = ({ income, existingDebtPayments, requestedLoanAmount, requestedTermMonths, baseInterestRate, insights }) => {
+  const adjustedBase = adjustRate(baseInterestRate, insights);
+  const DSR_LIMIT = 0.4;
+  const DSR_CONDITIONAL = 0.45;
+
+  const terms = [24, 36, 48, 60, 72, 84];
+  const amountRatios = [1.0, 0.9, 0.8, 0.7, 0.6, 0.5];
+  const downPaymentRatios = [0, 0.05, 0.1, 0.15, 0.2];
+  // Explore rates around the adjusted base (±2%)
+  const rateDeltas = [-0.02, -0.01, 0, 0.01, 0.02];
+
+  const allCandidates = [];
+
+  for (const term of terms) {
+    for (const ratio of amountRatios) {
+      for (const dp of downPaymentRatios) {
+        for (const delta of rateDeltas) {
+          const grossAmount = requestedLoanAmount * ratio;
+          const downPayment = Math.round(requestedLoanAmount * ratio * dp);
+          const netLoan = grossAmount - downPayment;
+          if (netLoan <= 0) continue;
+
+          const rate = clamp(adjustedBase + delta, 0.05, 0.12);
+          const monthlyPayment = pmt(netLoan, rate, term);
+          const dsr = income > 0 ? (existingDebtPayments + monthlyPayment) / income : 1;
+
+          let status = 'failed';
+          if (dsr <= DSR_LIMIT) status = 'approved';
+          else if (dsr <= DSR_CONDITIONAL && insights?.isFalseNegative) status = 'conditional';
+
+          allCandidates.push({
+            loanAmount: Math.round(netLoan),
+            termMonths: term,
+            interestRate: Number((rate * 100).toFixed(2)),
+            downPayment,
+            monthlyPayment: Math.round(monthlyPayment),
+            dsr: Number(dsr.toFixed(3)),
+            status,
+            amountRatio: ratio,
+            termDistance: Math.abs(term - requestedTermMonths)
+          });
+        }
+      }
+    }
+  }
+
+  return allCandidates;
 };
 
-const buildStrategy = ({ type, title, principal, termMonths, annualRate, monthlyIncome, monthlyExpenses, liquidityMonths, insight, reason }) => {
-  const monthlyPayment = monthlyPaymentFor(principal, annualRate, termMonths);
-  const totalObligations = monthlyExpenses + monthlyPayment;
-  const dsr = monthlyIncome > 0 ? (totalObligations / monthlyIncome) * 100 : 100;
-  const disposableIncome = monthlyIncome - totalObligations;
-  const status = classifyScenario({ dsr, disposableIncome, liquidityMonths });
-  const score = scoreScenario({ dsr, disposableIncome, liquidityMonths });
+// Pick best candidate for a given strategy flavor
+const pickStrategy = (candidates, type, insights) => {
+  const passing = candidates.filter(c => c.status === 'approved' || c.status === 'conditional');
+  if (passing.length === 0) return null;
 
-  return {
-    type,
-    title,
-    status,
-    loanAmount: Math.round(principal),
-    termMonths,
-    interestRate: Number((annualRate * 100).toFixed(2)),
-    monthlyPayment: Math.round(monthlyPayment),
-    dsr: Number(dsr.toFixed(1)),
-    disposableIncome: Math.round(disposableIncome),
-    score,
-    reason,
-    basedOn: insight
-  };
+  let ranked;
+  if (type === 'cash_flow_alignment') {
+    // Prefer longer term (lower monthly payment), keep amount close to request
+    ranked = [...passing].sort((a, b) =>
+      (b.termMonths - a.termMonths) ||
+      (b.amountRatio - a.amountRatio) ||
+      (a.dsr - b.dsr)
+    );
+  } else if (type === 'exposure_reduction') {
+    // Prefer smaller amount / higher down payment, keep term close to request
+    ranked = [...passing].sort((a, b) =>
+      (a.amountRatio - b.amountRatio) ||
+      (b.downPayment - a.downPayment) ||
+      (a.dsr - b.dsr)
+    );
+  } else {
+    // behavioral_approval: closest to original request, minimal changes
+    ranked = [...passing].sort((a, b) =>
+      (a.termDistance - b.termDistance) ||
+      (b.amountRatio - a.amountRatio) ||
+      (a.dsr - b.dsr)
+    );
+  }
+
+  return ranked[0];
 };
 
-// Returns the best variant (passing or closest-to-passing) among candidates
-const pickBest = (candidates) => {
-  const passing = candidates.filter(c => c.status !== 'failed');
-  const pool = passing.length ? passing : candidates;
-  return pool.sort((a, b) => {
-    const rank = { approved: 3, conditional: 2, failed: 1 };
-    return (rank[b.status] - rank[a.status]) || (b.score - a.score) || (a.dsr - b.dsr);
-  })[0];
+const reasonFor = (type, candidate, insights) => {
+  const dsrPct = (candidate.dsr * 100).toFixed(1);
+  if (type === 'cash_flow_alignment') {
+    return `פריסה ל-${candidate.termMonths} חודשים מורידה את ההחזר ל-₪${candidate.monthlyPayment.toLocaleString('he-IL')} ומיישרת את ה-DSR ל-${dsrPct}%.`;
+  }
+  if (type === 'exposure_reduction') {
+    const dpTxt = candidate.downPayment > 0 ? ` ומקדמה של ₪${candidate.downPayment.toLocaleString('he-IL')}` : '';
+    return `הקטנת ההלוואה ל-₪${candidate.loanAmount.toLocaleString('he-IL')}${dpTxt} מורידה את החשיפה ומביאה ל-DSR של ${dsrPct}%.`;
+  }
+  return `שמירה על מבנה קרוב לבקשה המקורית (₪${candidate.loanAmount.toLocaleString('he-IL')} ל-${candidate.termMonths} חודשים) מאפשרת אישור תוך ניצול הפרופיל ההתנהגותי, עם DSR של ${dsrPct}%.`;
+};
+
+const basedOnFor = (type, insights) => {
+  if (!insights) return 'חוקי חיתום סטנדרטיים';
+  if (type === 'cash_flow_alignment') {
+    if (insights.incomeTrend === 'negative') return 'incomeTrend=negative — נדרשת הקלה תזרימית';
+    if (insights.anomalyDetected) return 'anomalyDetected=true — תנודתיות בהוצאות';
+    return `liquidityMonths=${insights.liquidityMonths}`;
+  }
+  if (type === 'exposure_reduction') {
+    if (Number(insights.liquidityMonths) < 1.5) return `liquidityMonths=${insights.liquidityMonths} — נזילות נמוכה`;
+    return 'מטרה: הקטנת חשיפה כוללת';
+  }
+  if (insights.isFalseNegative) return 'isFalseNegative=true — דחייה טכנית על חשבון יכולת אמיתית';
+  return `behavioralScore=${insights.behavioralScore}`;
 };
 
 Deno.serve(async (req) => {
@@ -61,138 +135,126 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const body = await req.json().catch(() => ({}));
 
-    const monthlyIncome = Number(body?.income || 0);
-    const monthlyExpenses = Number(body?.fixedExpenses || 0);
-    const liquidAssets = Number(body?.liquidAssets || 0);
-    const requestedAmount = Number(body?.principal || 50000);
-    const requestedDuration = Number(body?.durationMonths || 48);
-    const annualRate = Number(body?.baseRate || 0.09);
-    const currentStatus = String(body?.currentStatus || 'borderline').toLowerCase();
-    const currentDsr = Number(body?.dsr || (monthlyIncome > 0 ? (monthlyExpenses / monthlyIncome) * 100 : 100));
-    const currentScore = Number(body?.score || clamp(Math.round(85 - currentDsr * 0.7), 30, 85));
+    // New contract inputs
+    const income = Number(body?.income || 0);
+    const existingDebtPayments = Number(
+      body?.existingDebtPayments ?? body?.existing_debt_payments ?? body?.debtPayments ?? 0
+    );
+    const requestedLoanAmount = Number(body?.requestedLoanAmount ?? body?.principal ?? 50000);
+    const requestedTermMonths = Number(body?.requestedTermMonths ?? body?.durationMonths ?? 48);
+    const baseInterestRate = Number(body?.baseInterestRate ?? body?.baseRate ?? 0.09);
+    const insights = body?.analysisInsights || null;
 
-    const insights = body?.analysisInsights || {};
-    const isFalseNegative = !!insights.isFalseNegative;
-    const incomeTrend = insights.incomeTrend || 'stable';
-    const anomalyDetected = !!insights.anomalyDetected;
-    const liquidityMonths = Number(insights.liquidityMonths ?? (monthlyExpenses > 0 ? liquidAssets / monthlyExpenses : 0));
-    const behavioralScore = Number(insights.behavioralScore ?? 0);
-    const keyInsights = Array.isArray(insights.keyInsights) ? insights.keyInsights : [];
+    // Current DSR (based on existing debt only, per spec)
+    const currentDsr = income > 0 ? (existingDebtPayments / income) : 1;
+    const currentScore = Number(body?.score || clamp(Math.round(85 - currentDsr * 100 * 0.7), 20, 85));
+    const currentStatus = String(body?.currentStatus || (currentDsr <= 0.4 ? 'approved' : currentDsr <= 0.5 ? 'borderline' : 'rejected'));
 
-    // ---- Strategy 1: Cash Flow Alignment (extend term, keep amount) ----
-    const cashFlowCandidates = [60, 72, 84].map(term => buildStrategy({
-      type: 'cash_flow_alignment',
-      title: 'התאמת תזרים',
-      principal: requestedAmount,
-      termMonths: term,
-      annualRate,
-      monthlyIncome,
-      monthlyExpenses,
-      liquidityMonths,
-      insight: anomalyDetected
-        ? 'זוהו תנודות חריגות בהוצאות — הארכת תקופה מייצבת את התזרים'
-        : incomeTrend === 'negative'
-          ? 'מגמת ההכנסה שלילית — הקטנת ההחזר החודשי מקנה מרווח בטחון'
-          : 'הארכת תקופה מפחיתה את ההחזר החודשי ומיישרת את התזרים',
-      reason: 'פריסה ארוכה יותר מקטינה את ההחזר החודשי ומשפרת את יחס ההחזר (DSR) מבלי לוותר על סכום ההלוואה.'
-    }));
-    const cashFlow = pickBest(cashFlowCandidates);
+    // Run grid search
+    const candidates = gridSearch({
+      income,
+      existingDebtPayments,
+      requestedLoanAmount,
+      requestedTermMonths,
+      baseInterestRate,
+      insights
+    });
 
-    // ---- Strategy 2: Exposure Reduction (lower principal) ----
-    const exposureCandidates = [0.7, 0.6, 0.5, 0.4].map(ratio => buildStrategy({
-      type: 'exposure_reduction',
-      title: 'הפחתת חשיפה',
-      principal: requestedAmount * ratio,
-      termMonths: requestedDuration,
-      annualRate,
-      monthlyIncome,
-      monthlyExpenses,
-      liquidityMonths,
-      insight: liquidityMonths < 1
-        ? `נזילות של ${liquidityMonths.toFixed(1)} חודשים נמוכה — הקטנת סכום מקטינה סיכון`
-        : 'יחס החזר גבוה — הקטנת סכום ההלוואה מורידה את הסיכון לרמה בטוחה',
-      reason: 'הקטנת סכום ההלוואה מפחיתה את החשיפה הכוללת ומאפשרת אישור בתנאים רגילים.'
-    }));
-    const exposure = pickBest(exposureCandidates);
-
-    // ---- Strategy 3: Behavioral Approval (small adjustment + behavioral signal) ----
-    const behavioralTermBase = behavioralScore >= 0.5 || isFalseNegative ? requestedDuration + 12 : requestedDuration + 24;
-    const behavioralCandidates = [behavioralTermBase, behavioralTermBase + 12].flatMap(term => (
-      [0.9, 0.85].map(ratio => buildStrategy({
-        type: 'behavioral_approval',
-        title: 'אישור מבוסס התנהגות',
-        principal: requestedAmount * ratio,
-        termMonths: term,
-        annualRate,
-        monthlyIncome,
-        monthlyExpenses,
-        liquidityMonths,
-        insight: isFalseNegative
-          ? 'זוהה False Negative — הדחייה הטכנית לא משקפת את יכולת ההחזר'
-          : `ציון התנהגותי ${behavioralScore.toFixed(2)} מצדיק שקילה מחודשת תחת תנאים מותאמים`,
-        reason: 'שילוב של התאמה קלה בסכום ובתקופה יחד עם הסיגנלים ההתנהגותיים החיוביים מאפשר אישור בתנאים מיוחדים.'
-      }))
-    ));
-    const behavioral = pickBest(behavioralCandidates);
-
-    // Keep only non-failed strategies; if behavioral failed entirely, hide it
-    const raw = [cashFlow, exposure, behavioral];
-    let rescueStrategies = raw.filter(s => s && s.status !== 'failed');
-
-    // Rules: if nothing passes, fall back to the two best non-failed strategies from cash flow + exposure
-    if (rescueStrategies.length === 0) {
-      rescueStrategies = raw.filter(Boolean).sort((a, b) => b.score - a.score).slice(0, 2);
+    const strategies = [];
+    const seen = new Set();
+    for (const type of ['cash_flow_alignment', 'exposure_reduction', 'behavioral_approval']) {
+      const pick = pickStrategy(candidates, type, insights);
+      if (!pick) continue;
+      const key = `${pick.loanAmount}-${pick.termMonths}-${pick.interestRate}-${pick.downPayment}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      strategies.push({
+        type,
+        status: pick.status,
+        loanAmount: pick.loanAmount,
+        termMonths: pick.termMonths,
+        interestRate: pick.interestRate,
+        downPayment: pick.downPayment,
+        monthlyPayment: pick.monthlyPayment,
+        dsr: Number((pick.dsr * 100).toFixed(1)),
+        reason: reasonFor(type, pick, insights),
+        basedOn: basedOnFor(type, insights)
+      });
     }
 
-    // Pick headline "after" from the strongest strategy
-    const headline = [...rescueStrategies].sort((a, b) => {
-      const rank = { approved: 3, conditional: 2, failed: 1 };
-      return (rank[b.status] - rank[a.status]) || (b.score - a.score);
-    })[0] || null;
+    // Fallback: no passing combos → expose closest attempt + improvement paths
+    let fallback = null;
+    if (strategies.length === 0 && candidates.length > 0) {
+      const closest = [...candidates].sort((a, b) => a.dsr - b.dsr)[0];
+      const overshoot = Math.round((closest.dsr - 0.4) * 100 * 10) / 10;
+      fallback = {
+        closestAttempt: {
+          type: 'closest_attempt',
+          status: 'failed',
+          loanAmount: closest.loanAmount,
+          termMonths: closest.termMonths,
+          interestRate: closest.interestRate,
+          downPayment: closest.downPayment,
+          monthlyPayment: closest.monthlyPayment,
+          dsr: Number((closest.dsr * 100).toFixed(1))
+        },
+        whyFailed: `גם במבנה האופטימלי ה-DSR עומד על ${(closest.dsr * 100).toFixed(1)}% — חורג ב-${overshoot} נק׳ אחוז מהמקסימום של 40%.`,
+        improvements: [
+          `הקטנת סכום הבקשה ב-₪${Math.round(requestedLoanAmount * 0.2).toLocaleString('he-IL')} לפחות`,
+          `הגדלת הכנסה חודשית ב-₪${Math.max(500, Math.round((existingDebtPayments + closest.monthlyPayment) / 0.4 - income)).toLocaleString('he-IL')}`,
+          `הפחתת החזרי חוב קיימים (כיום ₪${existingDebtPayments.toLocaleString('he-IL')})`,
+          `הוספת מקדמה של 20% (₪${Math.round(requestedLoanAmount * 0.2).toLocaleString('he-IL')})`
+        ]
+      };
+    }
 
-    const hasRealRescue = !!headline && headline.status !== 'failed';
-    const approvalIncrease = hasRealRescue ? Math.max(0, headline.score - currentScore) : 0;
+    const hasRescue = strategies.length > 0;
+    const headline = hasRescue
+      ? [...strategies].sort((a, b) => {
+          const rank = { approved: 2, conditional: 1, failed: 0 };
+          return (rank[b.status] - rank[a.status]) || (a.dsr - b.dsr);
+        })[0]
+      : null;
 
-    const explanation = hasRealRescue
-      ? `נמצאו ${rescueStrategies.length} מסלולי חילוץ ריאליים. ההמלצה המובילה: ${headline.title} — יחס החזר חדש ${headline.dsr}%.`
-      : 'לא נמצא מסלול שמעביר את העסקה לאישור בתנאים הנוכחיים. נדרש שיפור בהכנסה או הקטנת התחייבויות לפני בקשה חוזרת.';
+    const explanation = hasRescue
+      ? `נמצאו ${strategies.length} אסטרטגיות שעומדות ב-DSR ≤ 40%. מוביל: ${headline.type.replace(/_/g, ' ')} — DSR ${headline.dsr}%.`
+      : 'לא נמצאה קומבינציה שמעמידה את ה-DSR מתחת ל-40%. מוצג הניסיון הקרוב ביותר עם דרכי פעולה לשיפור.';
 
-    const response = {
+    return Response.json({
       analysisInsights: insights,
-      rescueStrategies,
+      rescueStrategies: strategies,
+      fallback,
       before: {
         status: currentStatus,
-        dsr: Number(currentDsr.toFixed(1)),
+        dsr: Number((currentDsr * 100).toFixed(1)),
         score: currentScore
       },
-      after: hasRealRescue ? {
+      after: hasRescue ? {
         status: headline.status,
         dsr: headline.dsr,
-        score: headline.score,
+        score: clamp(Math.round(85 - headline.dsr * 0.7), 30, 95),
         duration_months: headline.termMonths,
         monthly_payment: headline.monthlyPayment
       } : {
         status: 'still_risky',
-        dsr: Number(currentDsr.toFixed(1)),
+        dsr: Number((currentDsr * 100).toFixed(1)),
         score: currentScore,
-        duration_months: requestedDuration,
-        monthly_payment: Math.round(monthlyPaymentFor(requestedAmount, annualRate, requestedDuration))
+        duration_months: requestedTermMonths,
+        monthly_payment: Math.round(pmt(requestedLoanAmount, baseInterestRate, requestedTermMonths))
       },
       impact: {
-        approval_probability_increase: approvalIncrease,
-        dsr_change: hasRealRescue ? Number((headline.dsr - currentDsr).toFixed(1)) : 0
+        approval_probability_increase: hasRescue ? Math.max(0, clamp(Math.round(85 - headline.dsr * 0.7), 30, 95) - currentScore) : 0,
+        dsr_change: hasRescue ? Number((headline.dsr - currentDsr * 100).toFixed(1)) : 0
       },
       explanation,
       meta: {
-        key_insights: keyInsights,
-        income_trend: incomeTrend,
-        is_false_negative: isFalseNegative,
-        behavioral_score: behavioralScore,
-        liquidity_months: Number(liquidityMonths.toFixed(1))
+        dsr_limit: 40,
+        grid_size: candidates.length,
+        passing_count: candidates.filter(c => c.status !== 'failed').length,
+        income,
+        existing_debt_payments: existingDebtPayments
       }
-    };
-
-    return Response.json(response);
+    });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
