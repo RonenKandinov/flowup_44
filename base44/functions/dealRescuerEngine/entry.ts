@@ -29,9 +29,9 @@ const gridSearch = ({ income, existingDebtPayments, requestedLoanAmount, request
 
   const terms = [24, 36, 48, 60, 72, 84];
   const amountRatios = [1.0, 0.9, 0.8, 0.7, 0.6, 0.5];
-  const downPaymentRatios = [0, 0.05, 0.1, 0.15, 0.2];
-  // Explore rates around the adjusted base (±2%)
-  const rateDeltas = [-0.02, -0.01, 0, 0.01, 0.02];
+  const downPaymentRatios = [0, 0.05, 0.1, 0.15, 0.2, 0.25];
+  // Explore rates around the adjusted base (±2.5%) with finer granularity
+  const rateDeltas = [-0.025, -0.015, -0.01, -0.005, 0, 0.005, 0.01, 0.015, 0.025];
 
   // Hard cap on down payment: 50% of checking balance (enforced by caller via maxDownPayment)
   const dpCap = Number.isFinite(maxDownPayment) && maxDownPayment > 0 ? maxDownPayment : Infinity;
@@ -75,36 +75,37 @@ const gridSearch = ({ income, existingDebtPayments, requestedLoanAmount, request
   return allCandidates;
 };
 
-// Pick best candidate for a given strategy flavor
+// Pick best candidate for a given strategy flavor.
+// Each strategy uses a distinct scoring profile so interest rate and down payment
+// come out differently — reflecting the actual risk/structure tradeoff.
 const pickStrategy = (candidates, type, insights) => {
   const passing = candidates.filter(c => c.status === 'approved' || c.status === 'conditional');
   if (passing.length === 0) return null;
 
-  let ranked;
-  if (type === 'cash_flow_alignment') {
-    // Prefer longer term (lower monthly payment), keep amount close to request
-    ranked = [...passing].sort((a, b) =>
-      (b.termMonths - a.termMonths) ||
-      (b.amountRatio - a.amountRatio) ||
-      (a.dsr - b.dsr)
-    );
-  } else if (type === 'exposure_reduction') {
-    // Prefer smaller amount / higher down payment, keep term close to request
-    ranked = [...passing].sort((a, b) =>
-      (a.amountRatio - b.amountRatio) ||
-      (b.downPayment - a.downPayment) ||
-      (a.dsr - b.dsr)
-    );
-  } else {
-    // behavioral_approval: closest to original request, minimal changes
-    ranked = [...passing].sort((a, b) =>
-      (a.termDistance - b.termDistance) ||
-      (b.amountRatio - a.amountRatio) ||
-      (a.dsr - b.dsr)
-    );
-  }
+  const score = (c) => {
+    if (type === 'cash_flow_alignment') {
+      // Long term + mild rate premium for term risk, prefer NO down payment (ease cash flow)
+      return (84 - c.termMonths) * 2
+           + (c.interestRate - 7) * 1.5
+           + c.downPayment / 500
+           + c.dsr * 100 * 0.5;
+    }
+    if (type === 'exposure_reduction') {
+      // Reward: smaller loan + larger down payment + lower rate (lower exposure = better pricing)
+      return (c.amountRatio) * 40
+           + (c.interestRate - 6) * 2
+           - (c.downPayment / 250)
+           + c.dsr * 100 * 0.3;
+    }
+    // behavioral_approval: keep structure close to original request; rate reflects behavioral discount
+    return c.termDistance * 3
+         + (1 - c.amountRatio) * 40
+         + (c.interestRate - 6.5) * 1.2
+         + c.downPayment / 400
+         + c.dsr * 100 * 0.4;
+  };
 
-  return ranked[0];
+  return [...passing].sort((a, b) => score(a) - score(b))[0];
 };
 
 const reasonFor = (type, candidate, insights) => {
