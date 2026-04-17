@@ -5,30 +5,56 @@
 const POLICY_DSR_THRESHOLD = 40; // %
 
 /**
- * Classify risk based on safety margin from policy threshold.
- * margin > 15  → low
- * 5 ≤ margin ≤ 15 → medium
- * margin < 5   → borderline
+ * Classify approval type and risk level based on DSR vs. policy threshold.
+ * DSR <= threshold:
+ *   margin > 15  → standard_approval / low risk
+ *   5 ≤ margin ≤ 15 → standard_approval / medium risk
+ *   margin < 5   → conditional_approval / borderline risk
+ * DSR > threshold:
+ *   overflow ≤ 5  → conditional_approval / elevated risk
+ *   overflow > 5  → exception_case / high risk
  */
-function classifyRisk(dsr, threshold = POLICY_DSR_THRESHOLD) {
-    const margin = threshold - dsr;
-    if (margin > 15) return { level: 'low', margin };
-    if (margin >= 5) return { level: 'medium', margin };
-    return { level: 'borderline', margin };
+function classify(dsr, threshold = POLICY_DSR_THRESHOLD) {
+    if (dsr <= threshold) {
+        const margin = threshold - dsr;
+        if (margin > 15) return { approvalType: 'standard_approval', risk: 'low', withinPolicy: true };
+        if (margin >= 5) return { approvalType: 'standard_approval', risk: 'medium', withinPolicy: true };
+        return { approvalType: 'conditional_approval', risk: 'borderline', withinPolicy: true };
+    }
+    const overflow = dsr - threshold;
+    if (overflow <= 5) return { approvalType: 'conditional_approval', risk: 'elevated', withinPolicy: false };
+    return { approvalType: 'exception_case', risk: 'high', withinPolicy: false };
 }
 
-function riskControlSentence(level) {
-    if (level === 'low') return 'רמת הסיכון נמוכה ומבוקרת.';
-    if (level === 'medium') return 'רמת הסיכון נמצאת בטווח מבוקר.';
-    return 'האישור ניתן תחת תנאים שמרניים לניהול סיכון.';
+function policyComplianceSentence(dsr, withinPolicy, approvalType) {
+    if (withinPolicy) {
+        return `המבנה המוצע עומד במדיניות האשראי ביחס החזר של ${dsr}%`;
+    }
+    if (approvalType === 'conditional_approval') {
+        return `הבקשה חורגת ממדיניות האשראי ביחס החזר של ${dsr}% ומוגדרת כאישור מותנה הדורש שיקול דעת נוסף`;
+    }
+    return `הבקשה חורגת באופן מהותי ממדיניות האשראי ביחס החזר של ${dsr}% ומוגדרת כחריגה הדורשת אישור פרטני ושיקול דעת מנהלתי`;
 }
 
-function affordabilitySentence(level) {
-    // High margin → emphasize buffer, otherwise stick to baseline affordability.
-    if (level === 'low') {
+function affordabilitySentence(risk, withinPolicy) {
+    if (!withinPolicy) {
+        return 'ההחזר החודשי נבחן אל מול כושר ההחזר של הלקוח ותחת בחינה מוגברת של עמידה עתידית בהתחייבות';
+    }
+    if (risk === 'low') {
         return 'ההחזר החודשי תואם את כושר ההחזר של הלקוח ומשאיר מרווח ביטחון מספק בתזרים החודשי';
     }
     return 'ההחזר החודשי תואם את כושר ההחזר של הלקוח';
+}
+
+function riskControlSentence(risk) {
+    switch (risk) {
+        case 'low': return 'רמת הסיכון נמוכה ומבוקרת.';
+        case 'medium': return 'רמת הסיכון נמצאת בטווח מבוקר.';
+        case 'borderline': return 'האישור ניתן תחת תנאים שמרניים לניהול סיכון.';
+        case 'elevated': return 'רמת הסיכון גבוהה מהסטנדרט ומנוהלת תחת מעקב מוגבר.';
+        case 'high': return 'רמת הסיכון גבוהה ומחייבת ניהול הדוק, מעקב תקופתי ותנאים מגבילים.';
+        default: return 'רמת הסיכון נמצאת תחת ניהול שוטף.';
+    }
 }
 
 function supportingFactors(strategy, insights) {
@@ -50,34 +76,24 @@ function supportingFactors(strategy, insights) {
 }
 
 /**
- * Build the full credit justification paragraph.
- * @param {object} strategy  - rescue strategy { type, dsr, ... }
- * @param {object} insights  - optional analysis insights from the engine
- * @returns {string}
+ * Build the full credit justification paragraph + classification.
+ * @param {object} strategy - { type, dsr, ... }
+ * @param {object} insights - optional analysis insights
+ * @returns {{ paragraph: string, approvalType: string, risk: string, withinPolicy: boolean }}
  */
 export function buildCreditJustification(strategy, insights = {}) {
     const dsr = Number(strategy?.dsr ?? 0);
-    const threshold = POLICY_DSR_THRESHOLD;
-    const { level } = classifyRisk(dsr, threshold);
+    const { approvalType, risk, withinPolicy } = classify(dsr);
 
-    const sentences = [];
+    const sentences = [
+        policyComplianceSentence(dsr, withinPolicy, approvalType),
+        affordabilitySentence(risk, withinPolicy)
+    ];
 
-    // 1. Policy compliance
-    sentences.push(
-        `המבנה המוצע עומד ביחס החזר של ${dsr}%, הנמוך מסף המדיניות (${threshold}%)`
-    );
-
-    // 2. Affordability
-    sentences.push(affordabilitySentence(level));
-
-    // 3. Supporting factors (optional)
     const supporting = supportingFactors(strategy, insights);
-    if (supporting.length > 0) {
-        sentences.push(supporting.join(', '));
-    }
+    if (supporting.length > 0) sentences.push(supporting.join(', '));
 
-    // 4. Risk control
-    const paragraph = sentences.join(', ') + '. ' + riskControlSentence(level);
+    const paragraph = sentences.join(', ') + '. ' + riskControlSentence(risk);
 
-    return paragraph;
+    return { paragraph, approvalType, risk, withinPolicy };
 }

@@ -245,13 +245,32 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
                                             </div>
                                         </div>
 
-                                        <div className="text-[10px] text-slate-400 border-t border-slate-800 pt-2 leading-4">
-                                            <div className="text-slate-300 font-medium mb-1">נימוק אשראי</div>
-                                            <div className="text-slate-300 leading-5">
-                                                {buildCreditJustification(s, analysisInsights)}
-                                            </div>
-                                            <div className="text-slate-500 mt-1.5">ההחלטה תואמת את מדיניות הסיכון הקיימת.</div>
-                                        </div>
+                                        {(() => {
+                                            const cj = buildCreditJustification(s, analysisInsights);
+                                            const typeLabel = {
+                                                standard_approval: 'אישור סטנדרטי',
+                                                conditional_approval: 'אישור מותנה',
+                                                exception_case: 'מקרה חריג'
+                                            }[cj.approvalType] || 'אישור';
+                                            const typeColor = {
+                                                standard_approval: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30',
+                                                conditional_approval: 'bg-amber-500/10 text-amber-300 border-amber-500/30',
+                                                exception_case: 'bg-red-500/10 text-red-300 border-red-500/30'
+                                            }[cj.approvalType] || 'bg-slate-700/40 text-slate-300 border-slate-600';
+                                            const closingLine = cj.withinPolicy
+                                                ? 'ההחלטה תואמת את מדיניות הסיכון הקיימת.'
+                                                : 'ההחלטה מתועדת כחריגה ומחייבת אישור פרטני בהתאם לנהלי ניהול הסיכון.';
+                                            return (
+                                                <div className="text-[10px] text-slate-400 border-t border-slate-800 pt-2 leading-4">
+                                                    <div className="flex items-center justify-between mb-1.5">
+                                                        <div className="text-slate-300 font-medium">נימוק אשראי</div>
+                                                        <span className={`text-[10px] px-2 py-0.5 rounded-full border ${typeColor}`}>{typeLabel}</span>
+                                                    </div>
+                                                    <div className="text-slate-300 leading-5">{cj.paragraph}</div>
+                                                    <div className="text-slate-500 mt-1.5">{closingLine}</div>
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                 );
                             })}
