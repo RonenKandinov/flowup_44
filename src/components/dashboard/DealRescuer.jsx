@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
+import { buildCreditJustification } from './creditJustification';
 
 const STRATEGY_META = {
     cash_flow_alignment: {
@@ -244,15 +245,12 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
                                             </div>
                                         </div>
 
-                                        <p className="text-[11px] text-slate-300 leading-5 mb-1.5">{s.reason}</p>
-                                        <div className="text-[10px] text-slate-400 border-t border-slate-800 pt-1.5 leading-4">
-                                            <div className="text-slate-300 font-medium mb-0.5">נימוק אשראי</div>
-                                            <div>
-                                                {s.type === 'cash_flow_alignment' && `מבנה ההלוואה עומד ביחס החזר תקין (DSR ${s.dsr}%) בהתאם למדיניות, תוך התאמה ליכולת ההחזר החודשית של הלקוח.`}
-                                                {s.type === 'exposure_reduction' && `הקטנת סכום ההלוואה מביאה את יחס ההחזר לטווח בטוח (DSR ${s.dsr}%) ומפחיתה את רמת החשיפה הכוללת של הארגון.`}
-                                                {s.type === 'behavioral_approval' && `הבקשה עומדת ביחס החזר תקין (DSR ${s.dsr}%) ומגובה בהתנהלות פיננסית יציבה, המאפשרת אישור תחת מדיניות הסיכון.`}
+                                        <div className="text-[10px] text-slate-400 border-t border-slate-800 pt-2 leading-4">
+                                            <div className="text-slate-300 font-medium mb-1">נימוק אשראי</div>
+                                            <div className="text-slate-300 leading-5">
+                                                {buildCreditJustification(s, analysisInsights)}
                                             </div>
-                                            <div className="text-slate-500 mt-1">ההחלטה תואמת את מדיניות הסיכון הקיימת.</div>
+                                            <div className="text-slate-500 mt-1.5">ההחלטה תואמת את מדיניות הסיכון הקיימת.</div>
                                         </div>
                                     </div>
                                 );
