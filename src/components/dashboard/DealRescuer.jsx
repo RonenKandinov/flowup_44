@@ -183,10 +183,6 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
 
                 {analysisComplete && result && (
                     <div className="flex flex-col gap-3 animate-in fade-in zoom-in duration-300">
-                        <div className={`rounded-lg p-2.5 border text-xs leading-5 ${result.rescueStrategies.length > 0 ? 'bg-cyan-500/5 border-cyan-500/20 text-slate-200' : 'bg-amber-500/5 border-amber-500/20 text-amber-100'}`}>
-                            {result.explanation}
-                        </div>
-
                         {result.rescueStrategies.length === 0 && result.fallback && (
                             <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-100 leading-5">
                                 <div className="font-semibold mb-1">הניסיון הקרוב ביותר</div>
@@ -249,8 +245,11 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
                                         </div>
 
                                         <p className="text-[11px] text-slate-300 leading-5 mb-1.5">{s.reason}</p>
-                                        <div className="text-[10px] text-slate-500 border-t border-slate-800 pt-1.5">
-                                            <span className="text-slate-400">מבוסס על תובנה: </span>{s.basedOn}
+                                        <div className="text-[10px] text-slate-400 border-t border-slate-800 pt-1.5 leading-4">
+                                            <span className="text-slate-300 font-medium">למה אישרנו: </span>
+                                            {s.type === 'cash_flow_alignment' && 'פרסנו את ההלוואה לתקופה ארוכה יותר כדי להקטין את ההחזר החודשי ולהתאים אותו ליכולת התזרים של הלקוח.'}
+                                            {s.type === 'exposure_reduction' && 'הקטנו את סכום ההלוואה והוספנו מקדמה — כך החשיפה הכוללת נמוכה יותר וההחזר נכנס בנוחות בתוך התקציב.'}
+                                            {s.type === 'behavioral_approval' && 'ההתנהגות הפיננסית של הלקוח יציבה ועקבית, מה שמאפשר אישור קרוב לבקשה המקורית עם התאמות קטנות בלבד.'}
                                         </div>
                                     </div>
                                 );
