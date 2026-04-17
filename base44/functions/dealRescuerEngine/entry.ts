@@ -2,75 +2,58 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
-const getLiquidityMonths = (liquidAssets, monthlyExpenses) => {
-  if (monthlyExpenses <= 0) return 0;
-  return liquidAssets / monthlyExpenses;
+const monthlyPaymentFor = (principal, annualRate, months) => {
+  const r = annualRate / 12;
+  if (r <= 0) return principal / months;
+  return (principal * r) / (1 - Math.pow(1 + r, -months));
 };
 
-const getForecastSupport = ({ projectedEomBalance, riskStatus, forecastConfidence, avgDailySpending, liquidAssets }) => {
-  const normalizedRisk = String(riskStatus || '').toUpperCase();
-  const confidence = Number(forecastConfidence || 0);
-  const dailyBurn = Number(avgDailySpending || 0);
-  const behavioralBufferDays = dailyBurn > 0 ? liquidAssets / dailyBurn : 0;
-  const isSupportive = projectedEomBalance > 0 && normalizedRisk !== 'RED' && confidence >= 60 && behavioralBufferDays >= 21;
+const classifyScenario = ({ dsr, disposableIncome, liquidityMonths }) => {
+  if (dsr <= 35 && disposableIncome >= 1500 && liquidityMonths >= 1) return 'approved';
+  if (dsr <= 45 && disposableIncome >= 500) return 'conditional';
+  return 'failed';
+};
+
+const scoreScenario = ({ dsr, disposableIncome, liquidityMonths }) => {
+  let s = 50;
+  if (dsr <= 30) s += 25; else if (dsr <= 35) s += 18; else if (dsr <= 40) s += 10; else if (dsr <= 45) s += 4; else s -= 12;
+  if (disposableIncome >= 2500) s += 18; else if (disposableIncome >= 1500) s += 12; else if (disposableIncome >= 750) s += 6; else if (disposableIncome < 0) s -= 20;
+  if (liquidityMonths >= 3) s += 8; else if (liquidityMonths >= 1.5) s += 4; else if (liquidityMonths < 1) s -= 8;
+  return Math.round(clamp(s, 20, 95));
+};
+
+const buildStrategy = ({ type, title, principal, termMonths, annualRate, monthlyIncome, monthlyExpenses, liquidityMonths, insight, reason }) => {
+  const monthlyPayment = monthlyPaymentFor(principal, annualRate, termMonths);
+  const totalObligations = monthlyExpenses + monthlyPayment;
+  const dsr = monthlyIncome > 0 ? (totalObligations / monthlyIncome) * 100 : 100;
+  const disposableIncome = monthlyIncome - totalObligations;
+  const status = classifyScenario({ dsr, disposableIncome, liquidityMonths });
+  const score = scoreScenario({ dsr, disposableIncome, liquidityMonths });
 
   return {
-    isSupportive,
-    bonus: isSupportive ? 4 : 0,
-    label: isSupportive ? 'forecast_supportive' : 'forecast_not_supportive',
-    behavioralBufferDays: Number(behavioralBufferDays.toFixed(1))
+    type,
+    title,
+    status,
+    loanAmount: Math.round(principal),
+    termMonths,
+    interestRate: Number((annualRate * 100).toFixed(2)),
+    monthlyPayment: Math.round(monthlyPayment),
+    dsr: Number(dsr.toFixed(1)),
+    disposableIncome: Math.round(disposableIncome),
+    score,
+    reason,
+    basedOn: insight
   };
 };
 
-const buildRiskFactors = ({ currentDsr, monthlyIncome, monthlyExpenses, liquidAssets, projectedEomBalance, riskStatus, avgDailySpending }) => {
-  const riskFactors = [];
-  const behavioralBufferDays = avgDailySpending > 0 ? liquidAssets / avgDailySpending : 0;
-  if (currentDsr > 45) riskFactors.push('DSR גבוה');
-  if (monthlyIncome - monthlyExpenses <= 0) riskFactors.push('תזרים חודשי חלש');
-  if (liquidAssets < monthlyExpenses * 2) riskFactors.push('נזילות נמוכה');
-  if (behavioralBufferDays > 0 && behavioralBufferDays < 21) riskFactors.push('כרית התנהגותית קצרה');
-  if (projectedEomBalance < 0) riskFactors.push('תחזית יתרה שלילית');
-  if (String(riskStatus || '').toUpperCase() === 'RED') riskFactors.push('סיכון תחזיתי גבוה');
-  return riskFactors;
-};
-
-const calculateScenarioScore = ({ newDsr, disposableIncome, liquidityMonths, duration, requestedDuration, ratio, forecastSupport }) => {
-  let score = 50;
-
-  if (newDsr <= 35) score += 22;
-  else if (newDsr <= 40) score += 14;
-  else if (newDsr <= 45) score += 8;
-  else if (newDsr <= 50) score -= 6;
-  else score -= 18;
-
-  if (disposableIncome >= 2500) score += 18;
-  else if (disposableIncome >= 1500) score += 12;
-  else if (disposableIncome >= 750) score += 6;
-  else if (disposableIncome < 0) score -= 24;
-
-  if (liquidityMonths >= 3) score += 10;
-  else if (liquidityMonths >= 2) score += 6;
-  else if (liquidityMonths < 1) score -= 12;
-
-  if (ratio < 1) score += 6;
-  if (duration > requestedDuration) score += 4;
-  if (duration < requestedDuration) score -= 2;
-
-  score += forecastSupport.bonus;
-
-  return Math.round(clamp(score, 20, 92));
-};
-
-const buildStatus = ({ score, dsr, disposableIncome, liquidityMonths, forecastSupport, currentDsr }) => {
-  if (dsr <= 45 && disposableIncome >= 1000 && liquidityMonths >= 2) {
-    return forecastSupport.isSupportive && score >= 72 ? 'likely_approved' : 'conditionally_approved';
-  }
-
-  if (dsr <= 50 && dsr < currentDsr && disposableIncome > 0 && liquidityMonths >= 1) {
-    return 'improved';
-  }
-
-  return 'still_risky';
+// Returns the best variant (passing or closest-to-passing) among candidates
+const pickBest = (candidates) => {
+  const passing = candidates.filter(c => c.status !== 'failed');
+  const pool = passing.length ? passing : candidates;
+  return pool.sort((a, b) => {
+    const rank = { approved: 3, conditional: 2, failed: 1 };
+    return (rank[b.status] - rank[a.status]) || (b.score - a.score) || (a.dsr - b.dsr);
+  })[0];
 };
 
 Deno.serve(async (req) => {
@@ -87,223 +70,129 @@ Deno.serve(async (req) => {
     const currentStatus = String(body?.currentStatus || 'borderline').toLowerCase();
     const currentDsr = Number(body?.dsr || (monthlyIncome > 0 ? (monthlyExpenses / monthlyIncome) * 100 : 100));
     const currentScore = Number(body?.score || clamp(Math.round(85 - currentDsr * 0.7), 30, 85));
-    const projectedEomBalance = Number(body?.projectedEomBalance || 0);
-    const riskStatus = body?.riskStatus || '';
-    const forecastConfidence = Number(body?.forecastConfidence || 50);
-    const avgDailySpending = Number(body?.avgDailySpending || 0);
-    const riskDay = body?.riskDay || null;
 
-    const liquidityMonths = getLiquidityMonths(liquidAssets, monthlyExpenses);
-    const forecastSupport = getForecastSupport({
-      projectedEomBalance,
-      riskStatus,
-      forecastConfidence,
-      avgDailySpending,
-      liquidAssets
-    });
+    const insights = body?.analysisInsights || {};
+    const isFalseNegative = !!insights.isFalseNegative;
+    const incomeTrend = insights.incomeTrend || 'stable';
+    const anomalyDetected = !!insights.anomalyDetected;
+    const liquidityMonths = Number(insights.liquidityMonths ?? (monthlyExpenses > 0 ? liquidAssets / monthlyExpenses : 0));
+    const behavioralScore = Number(insights.behavioralScore ?? 0);
+    const keyInsights = Array.isArray(insights.keyInsights) ? insights.keyInsights : [];
 
-    const riskFactors = buildRiskFactors({
-      currentDsr,
+    // ---- Strategy 1: Cash Flow Alignment (extend term, keep amount) ----
+    const cashFlowCandidates = [60, 72, 84].map(term => buildStrategy({
+      type: 'cash_flow_alignment',
+      title: 'התאמת תזרים',
+      principal: requestedAmount,
+      termMonths: term,
+      annualRate,
       monthlyIncome,
       monthlyExpenses,
-      liquidAssets,
-      projectedEomBalance,
-      riskStatus,
-      avgDailySpending
-    });
+      liquidityMonths,
+      insight: anomalyDetected
+        ? 'זוהו תנודות חריגות בהוצאות — הארכת תקופה מייצבת את התזרים'
+        : incomeTrend === 'negative'
+          ? 'מגמת ההכנסה שלילית — הקטנת ההחזר החודשי מקנה מרווח בטחון'
+          : 'הארכת תקופה מפחיתה את ההחזר החודשי ומיישרת את התזרים',
+      reason: 'פריסה ארוכה יותר מקטינה את ההחזר החודשי ומשפרת את יחס ההחזר (DSR) מבלי לוותר על סכום ההלוואה.'
+    }));
+    const cashFlow = pickBest(cashFlowCandidates);
 
-    const durations = Array.from(new Set([requestedDuration, 36, 48, 60, 72, 84])).sort((a, b) => a - b);
-    const amountAdjustments = [1, 0.9, 0.8];
-    const scenarios = [];
+    // ---- Strategy 2: Exposure Reduction (lower principal) ----
+    const exposureCandidates = [0.7, 0.6, 0.5, 0.4].map(ratio => buildStrategy({
+      type: 'exposure_reduction',
+      title: 'הפחתת חשיפה',
+      principal: requestedAmount * ratio,
+      termMonths: requestedDuration,
+      annualRate,
+      monthlyIncome,
+      monthlyExpenses,
+      liquidityMonths,
+      insight: liquidityMonths < 1
+        ? `נזילות של ${liquidityMonths.toFixed(1)} חודשים נמוכה — הקטנת סכום מקטינה סיכון`
+        : 'יחס החזר גבוה — הקטנת סכום ההלוואה מורידה את הסיכון לרמה בטוחה',
+      reason: 'הקטנת סכום ההלוואה מפחיתה את החשיפה הכוללת ומאפשרת אישור בתנאים רגילים.'
+    }));
+    const exposure = pickBest(exposureCandidates);
 
-    for (const duration of durations) {
-      for (const ratio of amountAdjustments) {
-        const adjustedAmount = Math.round(requestedAmount * ratio);
-        const monthlyRate = annualRate / 12;
-        const monthlyPayment = monthlyRate > 0
-          ? (adjustedAmount * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -duration))
-          : adjustedAmount / duration;
+    // ---- Strategy 3: Behavioral Approval (small adjustment + behavioral signal) ----
+    const behavioralTermBase = behavioralScore >= 0.5 || isFalseNegative ? requestedDuration + 12 : requestedDuration + 24;
+    const behavioralCandidates = [behavioralTermBase, behavioralTermBase + 12].flatMap(term => (
+      [0.9, 0.85].map(ratio => buildStrategy({
+        type: 'behavioral_approval',
+        title: 'אישור מבוסס התנהגות',
+        principal: requestedAmount * ratio,
+        termMonths: term,
+        annualRate,
+        monthlyIncome,
+        monthlyExpenses,
+        liquidityMonths,
+        insight: isFalseNegative
+          ? 'זוהה False Negative — הדחייה הטכנית לא משקפת את יכולת ההחזר'
+          : `ציון התנהגותי ${behavioralScore.toFixed(2)} מצדיק שקילה מחודשת תחת תנאים מותאמים`,
+        reason: 'שילוב של התאמה קלה בסכום ובתקופה יחד עם הסיגנלים ההתנהגותיים החיוביים מאפשר אישור בתנאים מיוחדים.'
+      }))
+    ));
+    const behavioral = pickBest(behavioralCandidates);
 
-        const totalObligations = monthlyExpenses + monthlyPayment;
-        const newDsr = monthlyIncome > 0 ? (totalObligations / monthlyIncome) * 100 : 100;
-        const disposableIncome = monthlyIncome - totalObligations;
-        const score = calculateScenarioScore({
-          newDsr,
-          disposableIncome,
-          liquidityMonths,
-          duration,
-          requestedDuration,
-          ratio,
-          forecastSupport
-        });
+    // Keep only non-failed strategies; if behavioral failed entirely, hide it
+    const raw = [cashFlow, exposure, behavioral];
+    let rescueStrategies = raw.filter(s => s && s.status !== 'failed');
 
-        const status = buildStatus({
-          score,
-          dsr: newDsr,
-          disposableIncome,
-          liquidityMonths,
-          forecastSupport,
-          currentDsr
-        });
-
-        scenarios.push({
-          adjustedAmount,
-          duration,
-          monthlyPayment: Math.round(monthlyPayment),
-          dsr: Number(newDsr.toFixed(1)),
-          score,
-          disposableIncome: Math.round(disposableIncome),
-          status,
-          ratio
-        });
-      }
+    // Rules: if nothing passes, fall back to the two best non-failed strategies from cash flow + exposure
+    if (rescueStrategies.length === 0) {
+      rescueStrategies = raw.filter(Boolean).sort((a, b) => b.score - a.score).slice(0, 2);
     }
 
-    scenarios.sort((a, b) => {
-      const rank = { likely_approved: 4, conditionally_approved: 3, improved: 2, still_risky: 1 };
-      return (rank[b.status] - rank[a.status]) || (b.score - a.score) || (a.dsr - b.dsr) || (b.disposableIncome - a.disposableIncome);
-    });
+    // Pick headline "after" from the strongest strategy
+    const headline = [...rescueStrategies].sort((a, b) => {
+      const rank = { approved: 3, conditional: 2, failed: 1 };
+      return (rank[b.status] - rank[a.status]) || (b.score - a.score);
+    })[0] || null;
 
-    const best = scenarios[0];
-    const scenarioImprovesRisk = ['likely_approved', 'conditionally_approved', 'improved'].includes(best.status);
-    const approvalIncrease = scenarioImprovesRisk ? Math.max(0, best.score - currentScore) : 0;
+    const hasRealRescue = !!headline && headline.status !== 'failed';
+    const approvalIncrease = hasRealRescue ? Math.max(0, headline.score - currentScore) : 0;
 
-    const llmPrompt = `ענה בעברית בלבד וב-JSON בלבד.
-אתה מנוע Deal Rescuer של FlowUp.
-המטרה: לבחור תרחיש אחד בלבד שמגדיל את סיכוי האישור בצורה ריאלית, על בסיס נתוני חיתום + תחזית התזרים ההיברידית של FlowUp.
+    const explanation = hasRealRescue
+      ? `נמצאו ${rescueStrategies.length} מסלולי חילוץ ריאליים. ההמלצה המובילה: ${headline.title} — יחס החזר חדש ${headline.dsr}%.`
+      : 'לא נמצא מסלול שמעביר את העסקה לאישור בתנאים הנוכחיים. נדרש שיפור בהכנסה או הקטנת התחייבויות לפני בקשה חוזרת.';
 
-עקרונות מחייבים:
-1. השתמש רק בנתונים המספריים שסופקו.
-2. השתמש ב-forecasting רק אם הוא תומך באישור; אם הוא שלילי או חלש, אל תשתמש בו כדי להצדיק אישור אלא רק כדי לציין סיכון.
-3. שלב בהסבר גם behavioral signal: כרית הישרדות יומית/דפוס שריפה, אבל בלי להמציא נתונים.
-4. הסבר קצר, חד, פרקטי, עד 2 שורות בלבד.
-5. אל תציע כמה אסטרטגיות. רק את הטובה ביותר.
-6. אם הסיכון עדיין גבוה, כתוב זאת בצורה ברורה.
-
-נתוני לפני:
-- status: ${currentStatus}
-- dsr: ${Number(currentDsr.toFixed(1))}
-- score: ${currentScore}
-- monthly_income: ${monthlyIncome}
-- monthly_expenses: ${monthlyExpenses}
-- liquid_assets: ${liquidAssets}
-
-נתוני תחזית FlowUp:
-- projected_eom_balance: ${projectedEomBalance}
-- risk_status: ${riskStatus}
-- forecast_confidence: ${forecastConfidence}
-- avg_daily_spending: ${avgDailySpending}
-- risk_day: ${riskDay || 'unknown'}
-- behavioral_buffer_days: ${forecastSupport.behavioralBufferDays}
-
-גורמי סיכון מרכזיים:
-${riskFactors.join(', ') || 'ללא גורם דומיננטי אחד'}
-
-התרחיש הנבחר:
-- adjusted_loan_amount: ${best.adjustedAmount}
-- duration_months: ${best.duration}
-- monthly_payment: ${best.monthlyPayment}
-- new_dsr: ${best.dsr}
-- new_score: ${best.score}
-- disposable_income: ${best.disposableIncome}
-- scenario_status: ${best.status}
-- liquidity_months: ${Number(liquidityMonths.toFixed(1))}
-- forecast_support: ${forecastSupport.label}
-- approval_probability_increase: ${approvalIncrease}
-- dsr_change: ${Number((best.dsr - currentDsr).toFixed(1))}
-
-החזר JSON בדיוק בסכמה הזו:
-{
-  "before": { "status": "string", "dsr": 0, "score": 0 },
-  "after": { "status": "string", "dsr": 0, "score": 0, "duration_months": 0, "monthly_payment": 0 },
-  "impact": { "approval_probability_increase": 0, "dsr_change": 0 },
-  "explanation": "string"
-}`;
-
-    const fallbackExplanation = best.status === 'still_risky'
-      ? 'גם אחרי פריסה והקטנת סכום, יחס ההחזר עדיין גבוה מדי ולכן אין כאן חילוץ אמיתי של העסקה.'
-      : 'נמצא תרחיש שמפחית את לחץ ההחזר ומשפר את סיכויי האישור בצורה מדורגת.';
-
-    const fallbackResponse = {
+    const response = {
+      analysisInsights: insights,
+      rescueStrategies,
       before: {
         status: currentStatus,
         dsr: Number(currentDsr.toFixed(1)),
         score: currentScore
       },
-      after: {
-        status: best.status,
-        dsr: best.dsr,
-        score: best.score,
-        duration_months: best.duration,
-        monthly_payment: best.monthlyPayment
+      after: hasRealRescue ? {
+        status: headline.status,
+        dsr: headline.dsr,
+        score: headline.score,
+        duration_months: headline.termMonths,
+        monthly_payment: headline.monthlyPayment
+      } : {
+        status: 'still_risky',
+        dsr: Number(currentDsr.toFixed(1)),
+        score: currentScore,
+        duration_months: requestedDuration,
+        monthly_payment: Math.round(monthlyPaymentFor(requestedAmount, annualRate, requestedDuration))
       },
       impact: {
         approval_probability_increase: approvalIncrease,
-        dsr_change: Number((best.dsr - currentDsr).toFixed(1))
+        dsr_change: hasRealRescue ? Number((headline.dsr - currentDsr).toFixed(1)) : 0
       },
-      explanation: fallbackExplanation
+      explanation,
+      meta: {
+        key_insights: keyInsights,
+        income_trend: incomeTrend,
+        is_false_negative: isFalseNegative,
+        behavioral_score: behavioralScore,
+        liquidity_months: Number(liquidityMonths.toFixed(1))
+      }
     };
 
-    let llmRes = fallbackResponse;
-
-    try {
-      llmRes = await base44.integrations.Core.InvokeLLM({
-      prompt: llmPrompt,
-      model: 'gemini_3_flash',
-      response_json_schema: {
-        type: 'object',
-        properties: {
-          before: {
-            type: 'object',
-            properties: {
-              status: { type: 'string' },
-              dsr: { type: 'number' },
-              score: { type: 'number' }
-            },
-            required: ['status', 'dsr', 'score']
-          },
-          after: {
-            type: 'object',
-            properties: {
-              status: { type: 'string' },
-              dsr: { type: 'number' },
-              score: { type: 'number' },
-              duration_months: { type: 'number' },
-              monthly_payment: { type: 'number' }
-            },
-            required: ['status', 'dsr', 'score', 'duration_months', 'monthly_payment']
-          },
-          impact: {
-            type: 'object',
-            properties: {
-              approval_probability_increase: { type: 'number' },
-              dsr_change: { type: 'number' }
-            },
-            required: ['approval_probability_increase', 'dsr_change']
-          },
-          explanation: { type: 'string' }
-        },
-        required: ['before', 'after', 'impact', 'explanation']
-      }
-    });
-    } catch (_) {
-      llmRes = fallbackResponse;
-    }
-
-    return Response.json({
-      ...llmRes,
-      meta: {
-        risk_factors: riskFactors,
-        adjusted_amount: best.adjustedAmount,
-        disposable_income: best.disposableIncome,
-        projected_eom_balance: projectedEomBalance,
-        risk_status: riskStatus,
-        forecast_confidence: forecastConfidence,
-        liquidity_months: Number(liquidityMonths.toFixed(1)),
-        forecast_support: forecastSupport.label,
-        behavioral_buffer_days: forecastSupport.behavioralBufferDays
-      }
-    });
+    return Response.json(response);
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }

@@ -1,36 +1,52 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ShieldCheck, Crosshair, BrainCircuit, PlayCircle, Loader2 } from 'lucide-react';
+import { ShieldCheck, Crosshair, PlayCircle, Loader2, CheckCircle2, AlertTriangle, TrendingDown, Wallet, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 
-export default function DealRescuer({ onSimulate, baseMetrics }) {
+const STRATEGY_META = {
+    cash_flow_alignment: {
+        label: 'התאמת תזרים',
+        icon: Wallet,
+        accent: 'text-blue-400',
+        ring: 'border-blue-500/30'
+    },
+    exposure_reduction: {
+        label: 'הפחתת חשיפה',
+        icon: TrendingDown,
+        accent: 'text-emerald-400',
+        ring: 'border-emerald-500/30'
+    },
+    behavioral_approval: {
+        label: 'אישור מבוסס התנהגות',
+        icon: Brain,
+        accent: 'text-purple-400',
+        ring: 'border-purple-500/30'
+    }
+};
+
+const STATUS_META = {
+    approved: { label: 'אישור', color: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' },
+    conditional: { label: 'אישור מותנה', color: 'bg-amber-500/15 text-amber-300 border-amber-500/30' },
+    failed: { label: 'לא עובר', color: 'bg-red-500/15 text-red-300 border-red-500/30' }
+};
+
+export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights }) {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [analysisComplete, setAnalysisComplete] = useState(false);
     const [result, setResult] = useState(null);
 
-    // Ensure we don't crash if baseMetrics is missing
     const score = baseMetrics?.score || 0;
-    const status = baseMetrics?.status || 'GREEN';
-    const isUnderperforming = score < 70 || status === 'RED' || status === 'YELLOW';
 
     const metricsHash = baseMetrics ? `${Math.round(baseMetrics.totalIncome || 0)}-${Math.round(baseMetrics.liquidAssets || 0)}-${Math.round(baseMetrics.totalFixedExpenses || baseMetrics.totalExpenses || 0)}` : '';
 
     useEffect(() => {
-        // Reset analysis when underlying metrics significantly change (e.g. account switch)
-        setAnalysisComplete(false);
         setIsAnalyzing(false);
         setResult(null);
         if (onSimulate) onSimulate(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [metricsHash]);
 
-    // useEffect removed to prevent automatic loop on reset
-    
-    // Automatically trigger analysis if score is below a certain threshold or status is RED/ORANGE
-    // Or we can just let the user click "Run Deal Rescuer"
-    
     const runAnalysis = async () => {
         setIsAnalyzing(true);
         try {
@@ -48,36 +64,25 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                 dsr: baseMetrics?.dsr,
                 score: baseMetrics?.score,
                 currentStatus: score < 55 ? 'rejected' : score < 75 ? 'borderline' : 'approved',
-                projectedEomBalance: baseMetrics?.projectedEOM || 0,
-                riskStatus: baseMetrics?.status,
-                forecastConfidence: baseMetrics?.confidence || 50,
-                avgDailySpending: baseMetrics?.avgDailySpending || 0,
-                riskDay: baseMetrics?.riskDay || null
+                analysisInsights: analysisInsights || null
             });
 
-            if (!res.data?.after) {
+            if (!res.data?.rescueStrategies) {
                 throw new Error(res.data?.error || 'Failed to run analysis');
             }
 
             setResult(res.data);
-            setAnalysisComplete(true);
 
-            const scenarioImprovesRisk = ['likely_approved', 'conditionally_approved', 'improved'].includes(res.data.after.status);
-
-            if (onSimulate && scenarioImprovesRisk) {
+            const hasWin = res.data.rescueStrategies.some(s => s.status === 'approved' || s.status === 'conditional');
+            if (onSimulate && hasWin) {
                 onSimulate({
                     ...baseMetrics,
                     score: res.data.after.score,
                     dsr: res.data.after.dsr,
-                    status: res.data.after.status === 'likely_approved' ? 'GREEN' : 'ORANGE'
+                    status: res.data.after.status === 'approved' ? 'GREEN' : 'ORANGE'
                 });
             } else if (onSimulate) {
-                onSimulate({
-                    ...baseMetrics,
-                    score: baseMetrics?.score,
-                    dsr: baseMetrics?.dsr,
-                    status: baseMetrics?.status
-                });
+                onSimulate(null);
             }
         } catch (err) {
             console.error('Analysis error:', err);
@@ -88,10 +93,11 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
     };
 
     const handleReset = () => {
-        setAnalysisComplete(false);
         setResult(null);
         if (onSimulate) onSimulate(null);
     };
+
+    const analysisComplete = !!result;
 
     return (
         <motion.div
@@ -107,12 +113,7 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                     Deal Rescuer
                 </h3>
                 {analysisComplete && (
-                    <Button
-                        onClick={handleReset}
-                        variant="ghost"
-                        size="sm"
-                        className="text-slate-400 hover:text-white text-[10px] h-6 px-2"
-                    >
+                    <Button onClick={handleReset} variant="ghost" size="sm" className="text-slate-400 hover:text-white text-[10px] h-6 px-2">
                         איפוס
                     </Button>
                 )}
@@ -124,15 +125,11 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                         <div className="mx-auto w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center mb-3 border border-slate-700">
                             <Crosshair className="w-5 h-5 text-slate-400" />
                         </div>
-                        <p className="text-xs text-slate-300 mb-1 font-medium">מערכת הצלת עסקאות</p>
-                        <p className="text-[10px] text-slate-500 mb-4 leading-relaxed max-w-[180px] mx-auto">
-                            מנוע אופטימיזציה אקטיבית למציאת המבנה הפיננסי המדויק בעזרת AI.
+                        <p className="text-xs text-slate-300 mb-1 font-medium">3 מסלולים לאישור העסקה</p>
+                        <p className="text-[10px] text-slate-500 mb-4 leading-relaxed max-w-[200px] mx-auto">
+                            ה-Rescuer בונה עד 3 אסטרטגיות מובחנות על בסיס תובנות ה-Analyst.
                         </p>
-                        <Button 
-                            onClick={runAnalysis}
-                            className="bg-cyan-600 hover:bg-cyan-500 text-white w-full rounded-lg h-8 text-xs"
-                            size="sm"
-                        >
+                        <Button onClick={runAnalysis} className="bg-cyan-600 hover:bg-cyan-500 text-white w-full rounded-lg h-8 text-xs" size="sm">
                             <PlayCircle className="w-3.5 h-3.5 mr-2 ml-2" />
                             הפעל חילוץ
                         </Button>
@@ -142,45 +139,68 @@ export default function DealRescuer({ onSimulate, baseMetrics }) {
                 {isAnalyzing && (
                     <div className="text-center py-8 flex flex-col items-center">
                         <Loader2 className="w-6 h-6 text-cyan-500 animate-spin mb-3" />
-                        <p className="text-xs text-cyan-400 font-medium">מנתח תרחישים ב-AI...</p>
+                        <p className="text-xs text-cyan-400 font-medium">בונה אסטרטגיות חילוץ...</p>
                     </div>
                 )}
 
                 {analysisComplete && result && (
-                    <div className="flex flex-col h-full animate-in fade-in zoom-in duration-300">
-                        <div className="bg-slate-900/60 rounded-lg p-3 border border-slate-800/60 flex-1 flex flex-col gap-3">
-                            <div className="flex items-center gap-1.5">
-                                <div className="p-1 rounded-md bg-cyan-500/10">
-                                    <BrainCircuit className="w-3.5 h-3.5 text-cyan-400" />
-                                </div>
-                                <h4 className="text-sm font-semibold text-white">תרחיש חילוץ מיטבי</h4>
-                            </div>
+                    <div className="flex flex-col gap-3 animate-in fade-in zoom-in duration-300">
+                        <div className={`rounded-lg p-2.5 border text-xs leading-5 ${result.rescueStrategies.some(s => s.status !== 'failed') ? 'bg-cyan-500/5 border-cyan-500/20 text-slate-200' : 'bg-amber-500/5 border-amber-500/20 text-amber-100'}`}>
+                            {result.explanation}
+                        </div>
 
-                            <div className="grid grid-cols-2 gap-2 text-xs">
-                                <div className="rounded-lg bg-slate-950/50 border border-slate-800 p-2">
-                                    <div className="text-slate-400 mb-1">מצב נוכחי</div>
-                                    <div className="text-white">רמת סיכון: {result.before.status}</div>
-                                    <div className="text-white">יחס החזר: {result.before.dsr}%</div>
-                                    <div className="text-white">ציון: {result.before.score}</div>
-                                </div>
-                                <div className="rounded-lg bg-slate-950/50 border border-slate-800 p-2">
-                                    <div className="text-slate-400 mb-1">תרחיש מוצע</div>
-                                    <div className="text-white">תוצאה: {result.after.status}</div>
-                                    <div className="text-white">יחס החזר חדש: {result.after.dsr}%</div>
-                                    <div className="text-white">ציון חדש: {result.after.score}</div>
-                                </div>
-                            </div>
+                        <div className="flex flex-col gap-2">
+                            {result.rescueStrategies.map((s, idx) => {
+                                const meta = STRATEGY_META[s.type] || { label: s.title, icon: ShieldCheck, accent: 'text-slate-300', ring: 'border-slate-700/40' };
+                                const statusMeta = STATUS_META[s.status] || STATUS_META.conditional;
+                                const Icon = meta.icon;
+                                return (
+                                    <div key={`${s.type}-${idx}`} className={`rounded-lg border bg-slate-900/60 p-3 ${meta.ring}`}>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className={`flex items-center gap-1.5 text-xs font-semibold ${meta.accent}`}>
+                                                <Icon className="w-3.5 h-3.5" />
+                                                {meta.label}
+                                            </div>
+                                            <span className={`text-[10px] px-2 py-0.5 rounded-full border ${statusMeta.color} flex items-center gap-1`}>
+                                                {s.status === 'approved' ? <CheckCircle2 className="w-3 h-3" /> : s.status === 'conditional' ? <AlertTriangle className="w-3 h-3" /> : null}
+                                                {statusMeta.label}
+                                            </span>
+                                        </div>
 
-                            <div className="rounded-lg bg-slate-950/50 border border-slate-800 p-2 text-sm text-slate-200 leading-6">
-                                <div>פריסה מוצעת: {result.after.duration_months} חודשים</div>
-                                <div>החזר חודשי מוצע: ₪{Number(result.after.monthly_payment || 0).toLocaleString('he-IL')}</div>
-                                <div>{result.impact.dsr_change <= 0 ? 'שיפור ביחס ההחזר' : 'הרעה ביחס ההחזר'}: {Math.abs(result.impact.dsr_change)}%</div>
-                                <div>שינוי בהסתברות אישור: {result.impact.approval_probability_increase}</div>
-                            </div>
+                                        <div className="grid grid-cols-3 gap-2 text-[11px] text-slate-300 mb-2">
+                                            <div>
+                                                <div className="text-slate-500 text-[10px]">סכום</div>
+                                                <div className="text-white font-medium">₪{s.loanAmount.toLocaleString('he-IL')}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-slate-500 text-[10px]">תקופה</div>
+                                                <div className="text-white font-medium">{s.termMonths} ח׳</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-slate-500 text-[10px]">החזר חודשי</div>
+                                                <div className="text-white font-medium">₪{s.monthlyPayment.toLocaleString('he-IL')}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-slate-500 text-[10px]">ריבית</div>
+                                                <div className="text-white font-medium">{s.interestRate}%</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-slate-500 text-[10px]">DSR חדש</div>
+                                                <div className={`font-medium ${s.dsr <= 35 ? 'text-emerald-300' : s.dsr <= 45 ? 'text-amber-300' : 'text-red-300'}`}>{s.dsr}%</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-slate-500 text-[10px]">ציון</div>
+                                                <div className="text-white font-medium">{s.score}</div>
+                                            </div>
+                                        </div>
 
-                            <div className={`rounded-lg p-2 text-sm text-slate-100 leading-6 border ${['likely_approved', 'conditionally_approved', 'improved'].includes(result.after.status) ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-amber-500/5 border-amber-500/20'}`}>
-                                {result.explanation}
-                            </div>
+                                        <p className="text-[11px] text-slate-300 leading-5 mb-1.5">{s.reason}</p>
+                                        <div className="text-[10px] text-slate-500 border-t border-slate-800 pt-1.5">
+                                            <span className="text-slate-400">מבוסס על תובנה: </span>{s.basedOn}
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 )}

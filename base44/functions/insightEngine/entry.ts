@@ -409,8 +409,32 @@ ${isExtremeReject ?
       console.error("Audit log failed:", err);
     }
 
+    // ===== Layer 1 Contract: analysisInsights =====
+    const incomeTrendMap = signals.incomeTrend === 'UP' ? 'positive' : signals.incomeTrend === 'DOWN' ? 'negative' : 'stable';
+    const anomalyDetected = signals.expenseTrend === 'INCREASING' || (trends.expenses || 0) > 15;
+    const behavioralScore = Math.max(0, Math.min(1, Number((secondChanceScore / 10).toFixed(2))));
+    const keyInsights = [];
+    if (highDti) keyInsights.push(`יחס החזר (DTI) ${dti}% חורג מהמקסימום ${rules.max_dti_review}%`);
+    if (lowLiq) keyInsights.push(`נזילות של ${liq} חודשים נמוכה מהנדרש (${rules.min_liquidity_months})`);
+    if (neg) keyInsights.push(`יחס הוצאות/הכנסות ${expInc}% מעל המדיניות (${rules.max_expense_income_ratio}%)`);
+    if (income < rules.min_income) keyInsights.push(`הכנסה ₪${Math.round(income)} מתחת למינימום ₪${rules.min_income}`);
+    if (signals.netFlowTrend === 'UP') keyInsights.push('תזרים מזומנים במגמת עלייה');
+    if (behavior === 'IMPROVING') keyInsights.push('מגמת שיפור התנהגותית עקבית');
+    if (isSecondChance) keyInsights.push('זוהה פוטנציאל False Negative — גורמים מפצים חזקים');
+    if (keyInsights.length === 0) keyInsights.push('הפרופיל עומד במדיניות החיתום');
+
+    const analysisInsights = {
+      isFalseNegative: !!(llmAnalysis?.is_false_negative || isSecondChance),
+      incomeTrend: incomeTrendMap,
+      anomalyDetected,
+      liquidityMonths: liq,
+      behavioralScore,
+      keyInsights
+    };
+
     return Response.json({
       success: true,
+      analysisInsights,
       insights: {
         narrative,
         behaviorSignals: signals,
@@ -429,6 +453,7 @@ ${isExtremeReject ?
           reasons: strengths
         },
         llm_analysis: llmAnalysis,
+        analysisInsights,
         analyst_recommendation: {
           recommendation: { decision: rec, confidence: conf },
           options,
