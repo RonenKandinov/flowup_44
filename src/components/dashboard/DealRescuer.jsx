@@ -246,10 +246,13 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
 
                                         <p className="text-[11px] text-slate-300 leading-5 mb-1.5">{s.reason}</p>
                                         <div className="text-[10px] text-slate-400 border-t border-slate-800 pt-1.5 leading-4">
-                                            <span className="text-slate-300 font-medium">למה אישרנו: </span>
-                                            {s.type === 'cash_flow_alignment' && 'פרסנו את ההלוואה לתקופה ארוכה יותר כדי להקטין את ההחזר החודשי ולהתאים אותו ליכולת התזרים של הלקוח.'}
-                                            {s.type === 'exposure_reduction' && 'הקטנו את סכום ההלוואה והוספנו מקדמה — כך החשיפה הכוללת נמוכה יותר וההחזר נכנס בנוחות בתוך התקציב.'}
-                                            {s.type === 'behavioral_approval' && 'ההתנהגות הפיננסית של הלקוח יציבה ועקבית, מה שמאפשר אישור קרוב לבקשה המקורית עם התאמות קטנות בלבד.'}
+                                            <div className="text-slate-300 font-medium mb-0.5">נימוק אשראי</div>
+                                            <div>
+                                                {s.type === 'cash_flow_alignment' && `מבנה ההלוואה עומד ביחס החזר תקין (DSR ${s.dsr}%) בהתאם למדיניות, תוך התאמה ליכולת ההחזר החודשית של הלקוח.`}
+                                                {s.type === 'exposure_reduction' && `הקטנת סכום ההלוואה מביאה את יחס ההחזר לטווח בטוח (DSR ${s.dsr}%) ומפחיתה את רמת החשיפה הכוללת של הארגון.`}
+                                                {s.type === 'behavioral_approval' && `הבקשה עומדת ביחס החזר תקין (DSR ${s.dsr}%) ומגובה בהתנהלות פיננסית יציבה, המאפשרת אישור תחת מדיניות הסיכון.`}
+                                            </div>
+                                            <div className="text-slate-500 mt-1">ההחלטה תואמת את מדיניות הסיכון הקיימת.</div>
                                         </div>
                                     </div>
                                 );
