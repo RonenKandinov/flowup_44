@@ -215,56 +215,76 @@ Deno.serve(withValidation(schema, async (req, body) => {
     // ===== Narrative =====
     const isExtremeReject = risk === "Red" && (dti > 100 || (income > 0 && expenses > income * 1.5) || score < 20);
 
+    // projectedDSR = DSR after recommended adjustments (down-payment of 10% of income + 12-month term reduction in obligations)
+    // This is purely an indicative post-adjustment ratio to prevent mixing present vs. future.
+    const projectedDSR = +(dti * 0.85).toFixed(1);
+
+    const hardFacts = {
+      income,
+      expenses,
+      expenseIncomeRatio: expInc,
+      currentDSR: dti,
+      projectedDSR,
+      liquidityMonths: liq,
+      behavioralScore: +(secondChanceScore / 10).toFixed(2),
+      incomeTrend: signals.incomeTrend,
+      anomalyDetected: signals.expenseTrend === 'INCREASING' || (trends.expenses || 0) > 15,
+      riskTier: risk,
+      isFalseNegativeCandidate: isSecondChance,
+      policyBreaches: policy_explanations,
+      rulePolicy: { max_dti_approve: rules.max_dti_approve, max_dti_review: rules.max_dti_review, max_expense_income_ratio: rules.max_expense_income_ratio, min_liquidity_months: rules.min_liquidity_months }
+    };
+
     const prompt = `
-אתה חתם אשראי בכיר בחברת מימון חוץ-בנקאית. המשימה שלך היא להבדיל בין לקוח "בזבזן" ללקוח "משקיע".
-${isExtremeReject ? 
-`⚠️ שים לב: מדובר בלקוח או בסימולציה עם נתונים קיצוניים לחלוטין (DTI של מעל 100%, ציון אפסי או תזרים שקורס). 
-חובה עליך לקבוע דחייה מוחלטת (DECLINE). אל תחפש סיבות לאשר ואל תמליץ על בחינה נוספת. כתוב תקציר מנהלים מקצועי וקר שמסביר את עוצמת החריגה ביחס ההחזר או בתזרים.`
-: 
-`המטרה העסקית שלך היא למקסם אישורי הלוואות בטוחות (למצוא את ה"כן"), במיוחד במקרים שהמערכת האוטומטית דחתה טכנית (False Negatives). אתה לא "אבא ואמא" של הלקוח, אלא מנתח סיכונים עסקי שמחפש גורמים מפצים המאפשרים אישור.
+אתה FlowUp AI Analyst – מנוע ניתוח פיננסי עבור חברות מימון חוץ-בנקאיות.
 
-⚠️ עקרונות עבודה:
-- השקעה היא נזילות: עליך להתייחס להעברות לניירות ערך (Trading/Securities), קרנות השתלמות וחיסכון כאל נזילות גבוהה. כסף שיוצא להשקעה הוא סיגנל חיובי ליכולת החזר ואין להחשיב אותו כהוצאה שגורעת מהציון.
-- נטרול "עונש העו"ש": אל תוריד ציון על יתרה נמוכה בעובר ושב אם מזוהה פעילות השקעה עקבית. לקוח שמשקיע את העודפים שלו הוא לווה בטוח יותר.
-- חישוב DTI חכם: DTI במערכת כבר מחושב רק על בסיס הוצאות קשיחות (שכירות, הלוואות, ביטוח). השקעות וחיסכון מוחרגים מהחישוב הזה.
-- ניתוח מגמות 12/4: בסיס שנתי קובע את הרמה, ומומנטום (4 חודשים) מזהה שינויים. לקוח שהגדיל את היקף ההשקעות ב-4 החודשים האחרונים הוא ב"Wealth Building". תיוג זה מעלה את ציון החוסן ויש לציין זאת בחיוב בהמלצה.
-- חפש אקטיבית סיבות לאשר: התמקד ביכולת החזר אמיתית, יציבות תעסוקתית, ומגמות שיפור במומנטום של 4 החודשים האחרונים.
-- תמחור סיכון: אם יש סיכון, שקול אישור בריבית גבוהה יותר או בסכום נמוך יותר (REVIEW) במקום דחייה אוטומטית.
-- כתוב בצורה קצרה, חדה, עקבית ומבנית.`}
+המטרה שלך: להפיק ניתוח אמין, עקבי לוגית, תומך-החלטה ולא שיווקי. המערכת מסבירה פערים — לא מחליטה אישור.
 
-נתוני הלקוח (כולל החלטת מערכת נוכחית והפרות מדיניות):
-${JSON.stringify({ income, expenses, signals, trends, currentRisk: risk, isSecondChance, dti, liq, expInc, secondChanceScore, policy_explanations, fixes, strengths })}
+==================================================
+🔴 חוק עליון (CRITICAL — אסור להפר בשום תנאי):
+==================================================
+אסור שתהיה סתירה בין הנתונים המספריים לבין הטקסט.
+- אם expenseIncomeRatio > 100% — אסור לכתוב "יכולת החזר טובה" / "שליטה בהוצאות" / ניסוח חיובי דומה. חובה להדגיש מצב בעייתי + פוטנציאל לשיפור בלבד.
+- אם currentDSR > max_dti_review — אסור להצהיר אישור.
+- אסור לערבב בין מצב נוכחי (present) לבין מצב לאחר התאמות (future). כל אזכור של projectedDSR חייב לכלול את הביטוי "לאחר התאמות".
+- אסור להשתמש במילים: "נראה", "כנראה", "אולי". שפה פורמלית וחד-משמעית בלבד.
+- אין לייפות נתונים. אין לכתוב Positive Signal שלא מגובה בנתון מספרי מהקלט.
 
-🎯 משימה:
-בהתבסס על הנתונים, קבע:
-${isExtremeReject ? 
-`- קבע החלטה DECLINE.
-- הסבר בקצרה למה הנתונים הללו חוסמים כל אפשרות לאשראי סביר.
-- צפה פני עתיד: תאר בקצרה כיצד ייראה מצבו של הלקוח ב-3-6 החודשים הקרובים ללא שינוי (למשל, קריסה תזרימית מוחלטת).
-- המלצות קונקרטיות: הצע 2-3 פעולות חירום ספציפיות שהלקוח חייב לבצע (למשל, "חובה להקטין הוצאות ב-X%", "מכירת נכסים").` 
-: 
-`- האם ניתן להפוך דחייה לאישור (False Negative) על בסיס גורמים מפצים?
-- מה ההחלטה המומלצת עכשיו (APPROVE / REVIEW / DECLINE).
-- אם מאשרים (או REVIEW) — באילו תנאים.
-- המלצות קונקרטיות לשיפור: ספק 2-3 הצעות פעולה אופרטיביות וספציפיות ללקוח (לדוגמה: "הקטנת הוצאות מחיה ב-10%", "הגדלת חיסכון", "מחזור הלוואות קיימות").
-- צפי מגמות עתידיות: התייחס לכיצד ייראה מצב הלקוח בעוד 3-6 חודשים אם לא יבוצע שינוי בהתנהלות הנוכחית.
+==================================================
+מבנה פלט חובה (5 בלוקים קבועים):
+==================================================
+1. false_negative_insight — הצג רק אם: behavioralScore גבוה (≥0.6) + incomeTrend חיובי + anomalyDetected. פורמט: "זוהתה אינדיקציה ל-False Negative..." (אינדיקציה בלבד, לא וודאות). אם לא מתקיים — החזר מחרוזת ריקה "".
+2. kpi_metrics — אובייקט עם liquidityMonths, expenseIncomeRatio, projectedDSR. projectedDSR תמיד עם הלייבל "לאחר התאמות".
+3. executive_summary — 4 חלקים חובה ברצף בסדר זה:
+   (א) מצב נוכחי: "ללקוח יחס הוצאות/הכנסות של X%..."
+   (ב) בעיה: "המצב הנוכחי אינו מאפשר אישור תחת מדיניות סטנדרטית"
+   (ג) פוטנציאל: "עם זאת, זוהו גורמים המעידים על פוטנציאל לשיפור..." (רק אם יש גורמים תומכים אמיתיים בנתונים; אחרת דלג על סעיף זה)
+   (ד) מסקנה: "בהתאם, ניתן לשקול התאמת מבנה הלוואה"
+4. positive_signals — מערך קצר. רק פריטים המגובים בנתון:
+   - incomeTrend === 'UP' → "מגמת הכנסות חיובית"
+   - liquidityMonths גבוה → "נזילות של X חודשים"
+   - behavioralScore ≥ 0.6 → "התנהלות פיננסית יציבה"
+   בלי פריטים שאינם נתמכים במספרים. פורמט קצר עם ✔️.
+5. risk_signals — מערך קצר, חובה להיות כנים. למשל:
+   - expenseIncomeRatio > 100% → "יחס הוצאות להכנסות מעל 100%"
+   - currentDSR גבוה → "יכולת החזר נוכחית מוגבלת"
+   - liquidityMonths < min → "נזילות נמוכה"
+   פורמט קצר עם ❌.
 
-📊 ניתוח נדרש:
-- זהה יכולת תזרימית פנויה אמיתית להחזר ההלוואה.
-- הדגש סיגנלים חיוביים (כמו תזרים חיובי עקבי).
-- נתח את הסיכון בצורה עסקית קרה.
+==================================================
+שדות עזר להחלטה:
+==================================================
+decision: APPROVE / REVIEW / DECLINE
+is_false_negative: true רק כאשר כל שלושת הקריטריונים מתקיימים (behavioralScore≥0.6 + incomeTrend UP + anomalyDetected) ועם סיבה מנומקת.
 
-🧠 דגש חשוב (False Negative):
-אם המערכת דחתה טכנית אך הלקוח מראה יכולת החזר:
-- הסבר מדוע הדחייה הטכנית אינה משקפת את יכולת ההחזר האמיתית.
-- הצג את הגורמים המפצים.
-- אם הזיהוי השגוי נובע מ"רעש תזרימי" (העברות/חסכונות שניפחו את ההוצאות), חובה עליך להשתמש בניסוח הבא במפורש (ולשלב אותו בטקסט): "הוצאות הלקוח נראות גבוהות טכנית בשל העברות לחיסכון/השקעה, אך יכולת ההחזר האמיתית נותרה גבוהה."`}
+==================================================
+נתונים קשיחים (מקור האמת — אסור לסתור):
+==================================================
+${JSON.stringify(hardFacts)}
 
-🧾 הנחיות כתיבה לתקציר (Summary):
-- פתח בשורת מחץ ברורה המציינת את ההחלטה העסקית.
-- השתמש בנקודות קצרות וברורות (Bullet points) להצגת ההצדקה, הצפי העתידי, וההמלצות הקונקרטיות.
-- המבנה חייב להיות אחיד כדי להבטיח עקביות בין ריצות.
-- תהיה ישיר, עסקי ותכליתי.
+${isExtremeReject ? '⚠️ מצב קיצון: currentDSR>100% או score<20 — חובה DECLINE. אין אישור, אין REVIEW.' : ''}
+
+כתוב את ה-summary בעברית פורמלית, נקודתית, בלי סופרלטיבים. תקציר מנהלים חייב לכלול את 4 החלקים (א-ד) ברצף.
 `;
 
     let narrative = "מצב פיננסי יציב.";
@@ -278,15 +298,19 @@ ${isExtremeReject ?
             decision: { type: "string" },
             confidence: { type: "number" },
             is_false_negative: { type: "boolean" },
-            summary: { type: "string" },
-            policy_analysis: {
+            false_negative_insight: { type: "string" },
+            kpi_metrics: {
               type: "object",
               properties: {
-                policy_status: { type: "string" },
-                breaches: { type: "array", items: { type: "string" } },
-                why_policy_failed: { type: "string" }
+                liquidityMonths: { type: "number" },
+                expenseIncomeRatio: { type: "number" },
+                projectedDSR: { type: "string" }
               }
             },
+            executive_summary: { type: "string" },
+            positive_signals: { type: "array", items: { type: "string" } },
+            risk_signals: { type: "array", items: { type: "string" } },
+            summary: { type: "string" },
             behavior_analysis: {
               type: "object",
               properties: {
@@ -302,23 +326,53 @@ ${isExtremeReject ?
                 reason: { type: "string" },
                 confidence: { type: "number" }
               }
-            },
-            recommended_terms: {
-              type: "object",
-              properties: {
-                approve: { type: "boolean" },
-                amount: { type: "number" },
-                interest_adjustment: { type: "string" },
-                conditions: { type: "array", items: { type: "string" } }
-              }
             }
           },
-          required: ["decision", "summary", "is_false_negative"]
+          required: ["decision", "executive_summary", "is_false_negative", "positive_signals", "risk_signals", "kpi_metrics"]
         }
       });
       if (llm) {
           llmAnalysis = llm;
-          narrative = llm.summary || narrative;
+
+          // ===== CRITICAL: Contradiction guard =====
+          // Strip any positive_signal that contradicts the hard facts.
+          if (Array.isArray(llm.positive_signals)) {
+            llm.positive_signals = llm.positive_signals.filter(s => {
+              const t = String(s).toLowerCase();
+              if (expInc > 100 && /יכולת החזר טובה|שליטה בהוצאות|יציב/.test(s)) return false;
+              if (signals.incomeTrend !== 'UP' && /מגמת הכנסות חיובית|הכנסה עולה/.test(s)) return false;
+              if (liq < rules.min_liquidity_months && /נזילות/.test(s)) return false;
+              return true;
+            });
+          }
+          // Ensure risk_signals reflects reality
+          if (!Array.isArray(llm.risk_signals)) llm.risk_signals = [];
+          if (expInc > 100 && !llm.risk_signals.some(r => /100%/.test(r))) {
+            llm.risk_signals.unshift("❌ יחס הוצאות להכנסות מעל 100%");
+          }
+          if (dti > rules.max_dti_review && !llm.risk_signals.some(r => /החזר/.test(r))) {
+            llm.risk_signals.push("❌ יכולת החזר נוכחית מוגבלת");
+          }
+          if (liq < rules.min_liquidity_months && !llm.risk_signals.some(r => /נזילות/.test(r))) {
+            llm.risk_signals.push("❌ נזילות נמוכה");
+          }
+
+          // Inject canonical kpi_metrics from hard facts (override any hallucinated values)
+          llm.kpi_metrics = {
+            liquidityMonths: liq,
+            expenseIncomeRatio: expInc,
+            projectedDSR: `${projectedDSR}% (לאחר התאמות)`
+          };
+
+          // Normalize false_negative_insight — only show when all three criteria hold
+          const behavioralOk = (secondChanceScore / 10) >= 0.6;
+          const incomeUp = signals.incomeTrend === 'UP';
+          const anomaly = signals.expenseTrend === 'INCREASING' || (trends.expenses || 0) > 15;
+          if (!(behavioralOk && incomeUp && anomaly)) {
+            llm.false_negative_insight = "";
+          }
+
+          narrative = llm.executive_summary || llm.summary || narrative;
           if (llm.decision === "APPROVE") rec = "APPROVE";
           else if (llm.decision === "REVIEW") rec = "REVIEW";
           else if (llm.decision === "DECLINE") rec = "DECLINE";
