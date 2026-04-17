@@ -92,67 +92,86 @@ const multiStageSearch = (args) => {
   return { candidates: [], stage: null };
 };
 
-// Stage 4 — composite score (lower = better: we invert parts accordingly)
+// Stage 4 — composite score (higher = better)
 const compositeScore = (c, requestedLoanAmount) => {
   const closeness = clamp(c.grossAmount / requestedLoanAmount, 0, 1);
-  const dsrRatio = clamp(c.dsr / 0.4, 0, 1.5); // dsr as fraction of 40%
+  const dsrRatio = clamp(c.dsr / 0.4, 0, 1.5);
   return (1 - dsrRatio) * 0.4 + closeness * 0.4 + (1 - c.termMonths / 84) * 0.2;
 };
 
-// Stage 5 — pick 3 distinct strategies via per-strategy scoring
-const pickStrategies = (candidates, requestedLoanAmount) => {
+// Per-strategy scoring — each strategy optimizes a DIFFERENT objective
+// so the three results are meaningfully distinct.
+const strategyScore = (type, c, requestedLoanAmount, insights) => {
+  const closeness = clamp(c.grossAmount / requestedLoanAmount, 0, 1);
+  const dsrHeadroom = clamp((0.4 - c.dsr) / 0.4, -0.5, 1); // how far below 40%
+  const termRatio = c.termMonths / 84;
+  const dpRatio = c.downPayment / Math.max(1, c.grossAmount);
+  const statusBonus = c.status === 'approved' ? 0.1 : 0;
+
+  if (type === 'cash_flow_alignment') {
+    // Goal: keep requested amount, lower monthly payment via longer term.
+    // Reward: high closeness + long term + low monthly burden.
+    const monthlyBurden = c.monthlyPayment / Math.max(1, requestedLoanAmount / 48);
+    return closeness * 0.55 + termRatio * 0.25 + (1 - clamp(monthlyBurden, 0, 2) / 2) * 0.15 + statusBonus;
+  }
+  if (type === 'exposure_reduction') {
+    // Goal: reduce exposure — smaller principal and/or higher down payment.
+    // Reward: low amount + high DP + large DSR headroom + shorter term.
+    return (1 - closeness) * 0.4 + dpRatio * 0.25 + dsrHeadroom * 0.25 + (1 - termRatio) * 0.1 + statusBonus;
+  }
+  // behavioral_approval — Goal: closest to the original request, leveraging behavioral flexibility.
+  const behavioralBoost = (insights?.isFalseNegative || Number(insights?.behavioralScore) >= 0.6) ? 0.1 : 0;
+  // Encourage using the flexibility band (dsr closer to limit) while staying closest to request.
+  const nearLimit = 1 - clamp(Math.abs(c.dsr - 0.38) / 0.1, 0, 1);
+  return closeness * 0.6 + nearLimit * 0.2 + (1 - termRatio) * 0.1 + behavioralBoost + statusBonus;
+};
+
+// Stage 5 — pick 3 distinct strategies
+const pickStrategies = (candidates, requestedLoanAmount, insights) => {
   if (candidates.length === 0) return [];
 
   const withScore = candidates.map(c => ({ ...c, score: compositeScore(c, requestedLoanAmount) }));
 
-  // cash_flow_alignment: longer term + lower monthly payment, composite acts as tiebreaker
-  const cashFlow = [...withScore].sort((a, b) =>
-    (b.termMonths - a.termMonths) ||
-    (a.monthlyPayment - b.monthlyPayment) ||
-    (b.score - a.score)
-  )[0];
+  const bestFor = (type) => {
+    const ranked = [...withScore]
+      .map(c => ({ c, s: strategyScore(type, c, requestedLoanAmount, insights) }))
+      .sort((a, b) => b.s - a.s);
+    return ranked[0]?.c || null;
+  };
 
-  // exposure_reduction: smaller amount + higher down payment, reward low DSR
-  const exposure = [...withScore].sort((a, b) =>
-    (a.grossAmount - b.grossAmount) ||
-    (b.downPayment - a.downPayment) ||
-    (a.dsr - b.dsr)
-  )[0];
+  const primary = {
+    cash_flow_alignment: bestFor('cash_flow_alignment'),
+    exposure_reduction: bestFor('exposure_reduction'),
+    behavioral_approval: bestFor('behavioral_approval')
+  };
 
-  // behavioral_approval: closest to original request (highest closeness), shortest term among those
-  const behavioral = [...withScore].sort((a, b) =>
-    (b.grossAmount - a.grossAmount) ||
-    (a.termMonths - b.termMonths) ||
-    (b.score - a.score)
-  )[0];
+  // Distinctness: require meaningful differences between picks.
+  const tooSimilar = (a, b) => {
+    if (!a || !b) return false;
+    const amountDiff = Math.abs(a.grossAmount - b.grossAmount) / Math.max(1, requestedLoanAmount);
+    const termDiff = Math.abs(a.termMonths - b.termMonths);
+    const rateDiff = Math.abs(a.interestRate - b.interestRate);
+    const dpDiff = Math.abs(a.downPayment - b.downPayment) / Math.max(1, requestedLoanAmount);
+    return amountDiff < 0.05 && termDiff < 12 && rateDiff < 0.5 && dpDiff < 0.05;
+  };
 
-  // Dedup — must not be too similar (same amount+term+rate)
-  const keyOf = (c) => `${c.loanAmount}-${c.termMonths}-${c.interestRate}-${c.downPayment}`;
-  const picks = [
-    { type: 'cash_flow_alignment', c: cashFlow },
-    { type: 'exposure_reduction', c: exposure },
-    { type: 'behavioral_approval', c: behavioral }
-  ];
-
-  const seen = new Set();
-  const out = [];
-  for (const { type, c } of picks) {
-    if (!c) continue;
-    const k = keyOf(c);
-    if (seen.has(k)) {
-      // Find an alternative that isn't already used
-      const alt = withScore
-        .filter(x => !seen.has(keyOf(x)))
-        .sort((a, b) => b.score - a.score)[0];
-      if (!alt) continue;
-      seen.add(keyOf(alt));
-      out.push({ type, c: alt });
-    } else {
-      seen.add(k);
-      out.push({ type, c });
+  const order = ['cash_flow_alignment', 'exposure_reduction', 'behavioral_approval'];
+  const chosen = {};
+  for (const type of order) {
+    let pick = primary[type];
+    // If this pick is too similar to a previously-chosen one, find an alternative
+    // that still maximizes this strategy's objective but is distinct.
+    const ranked = [...withScore]
+      .map(c => ({ c, s: strategyScore(type, c, requestedLoanAmount, insights) }))
+      .sort((a, b) => b.s - a.s);
+    for (const { c } of ranked) {
+      const conflict = Object.values(chosen).some(existing => tooSimilar(existing, c));
+      if (!conflict) { pick = c; break; }
     }
+    if (pick) chosen[type] = pick;
   }
-  return out;
+
+  return order.filter(t => chosen[t]).map(t => ({ type: t, c: chosen[t] }));
 };
 
 const reasonFor = (type, c) => {
@@ -196,7 +215,7 @@ Deno.serve(async (req) => {
       maxDownPayment
     });
 
-    const picks = pickStrategies(candidates, requestedLoanAmount);
+    const picks = pickStrategies(candidates, requestedLoanAmount, insights);
     const strategies = picks.map(({ type, c }) => ({
       type,
       status: c.status,
