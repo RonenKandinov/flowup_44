@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
-import { buildCreditJustification } from './creditJustification';
+import CreditJustificationBlock from './CreditJustificationBlock';
 
 const STRATEGY_META = {
     cash_flow_alignment: {
@@ -251,15 +251,11 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
                                             </div>
                                         </div>
 
-                                        {(() => {
-                                            const cj = buildCreditJustification(s, analysisInsights);
-                                            return (
-                                                <div className="text-[10px] text-slate-400 border-t border-slate-800 pt-2 leading-4">
-                                                    <div className="text-slate-300 font-medium mb-1">נימוק אשראי</div>
-                                                    <div className="text-slate-300 leading-5">{cj.paragraph}</div>
-                                                </div>
-                                            );
-                                        })()}
+                                        <CreditJustificationBlock
+                                            strategy={s}
+                                            analysisInsights={analysisInsights}
+                                            originalStatus={score < 55 ? 'rejected' : score < 75 ? 'borderline' : 'approved'}
+                                        />
                                     </div>
                                 );
                             })}
