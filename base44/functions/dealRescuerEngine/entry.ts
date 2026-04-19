@@ -291,7 +291,13 @@ Deno.serve(async (req) => {
       after: hasRescue ? {
         status: headline.status,
         dsr: headline.dsr,
-        score: clamp(Math.round(85 - headline.dsr * 0.7), 30, 95),
+        // Rescued score must reflect IMPROVEMENT over the original: never drop below currentScore.
+        // We compute a DSR-based score and then take max(currentScore + delta, currentScore).
+        score: (() => {
+          const dsrBasedScore = clamp(Math.round(85 - headline.dsr * 0.7), 30, 95);
+          const improvement = headline.status === 'approved' ? 8 : 4; // guaranteed uplift
+          return clamp(Math.max(dsrBasedScore, currentScore + improvement), 30, 95);
+        })(),
         duration_months: headline.termMonths,
         monthly_payment: headline.monthlyPayment
       } : {

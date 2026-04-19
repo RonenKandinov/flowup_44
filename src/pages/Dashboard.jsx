@@ -905,15 +905,17 @@ export default function Dashboard() {
                   className="order-1 lg:order-1 relative rounded-xl p-0 border-none bg-transparent flex flex-col items-center h-full min-h-[240px]"
                 >
                   <SpeedometerGauge
-                    projectedBalance={simulatedMetrics ? simulatedMetrics.score : (newLoanMetrics ? newLoanMetrics.score : (snapshot.projected_eom_balance || 0))}
+                    projectedBalance={simulatedMetrics
+                        ? Math.max(simulatedMetrics.score, originalLoanMetrics?.score ?? 0)
+                        : (newLoanMetrics ? newLoanMetrics.score : (snapshot.projected_eom_balance || 0))}
                     dti={simulatedMetrics ? simulatedMetrics.dsr : (newLoanMetrics ? newLoanMetrics.dti : 0)}
-                    label={simulatedMetrics || newLoanMetrics ? "ציון חיתום (FlowUp Score)" : "יתרה צפויה לסוף החודש"}
+                    label={simulatedMetrics ? "ציון חיתום — לאחר חילוץ" : (newLoanMetrics ? "ציון חיתום (FlowUp Score)" : "יתרה צפויה לסוף החודש")}
                     riskLevel={simulatedMetrics ? simulatedMetrics.status : (serverInsights?.risk_tier ? serverInsights.risk_tier.toUpperCase() : (newLoanMetrics ? newLoanMetrics.status : (snapshot.risk_level || 'green')))}
                     riskDay={simulatedMetrics ? simulatedMetrics.riskDay : (newLoanMetrics ? newLoanMetrics.riskDay : null)}
                     whatIfAmount={whatIfAmount}
                     engineData={null}
                     isScore={!!(simulatedMetrics || newLoanMetrics)}
-                    dtiTrend={simulatedMetrics ? null : newLoanMetrics?.trends?.dti} 
+                    dtiTrend={simulatedMetrics ? null : newLoanMetrics?.trends?.dti}
                   />
                 </motion.div>
 
@@ -933,7 +935,16 @@ export default function Dashboard() {
 
                 {/* InsightsAgent: Mobile 3, Desktop 3 (Bottom Left) */}
                 <div className="order-3 lg:order-3 h-full w-full">
-                    <InsightsAgent analysis={serverInsights} isLoading={isInsightsLoading} />
+                    <InsightsAgent
+                        analysis={serverInsights}
+                        isLoading={isInsightsLoading}
+                        rescueOverlay={simulatedMetrics ? {
+                            active: true,
+                            score: simulatedMetrics.score,
+                            dsr: simulatedMetrics.dsr,
+                            status: simulatedMetrics.status
+                        } : null}
+                    />
                 </div>
 
                 {/* Deal Rescuer: Mobile 4, Desktop 4 (Bottom Right) */}

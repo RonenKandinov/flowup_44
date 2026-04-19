@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp, AlertTriangle, BrainCircuit, Activity, FileText, CheckCircle2, XCircle, Zap, ShieldCheck, AlertOctagon, TrendingUp, TrendingDown, Target, Focus } from 'lucide-react';
 import ExportDecisionModal from './ExportDecisionModal';
 
-export default function InsightsAgent({ analysis, isLoading }) {
+export default function InsightsAgent({ analysis, isLoading, rescueOverlay = null }) {
     const [isOpen, setIsOpen] = useState(true);
     const [isMobile, setIsMobile] = useState(false);
 
@@ -96,29 +96,49 @@ export default function InsightsAgent({ analysis, isLoading }) {
                         >
                             <div className="p-4 flex-1 flex flex-col space-y-4 overflow-y-auto">
 
-                                {/* Decision Banner */}
-                                <div className={`p-3 rounded-lg border flex items-center justify-between ${
-                                    recommendation.decision === 'APPROVE' ? 'bg-emerald-900/20 border-emerald-500/30' :
-                                    recommendation.decision === 'REVIEW' ? 'bg-amber-900/20 border-amber-500/30' :
-                                    'bg-red-900/20 border-red-500/30'
-                                }`}>
-                                    <div className="flex items-center gap-3">
-                                        {recommendation.decision === 'APPROVE' ? <CheckCircle2 className="w-6 h-6 text-emerald-400" /> :
-                                         recommendation.decision === 'REVIEW' ? <AlertTriangle className="w-6 h-6 text-amber-400" /> :
-                                         <XCircle className="w-6 h-6 text-red-400" />}
-                                        <div>
-                                            <p className="text-[10px] text-slate-400 uppercase font-bold">המלצת מערכת</p>
-                                            <p className={`text-base font-bold ${
-                                                recommendation.decision === 'APPROVE' ? 'text-emerald-400' :
-                                                recommendation.decision === 'REVIEW' ? 'text-amber-400' :
-                                                'text-red-400'
-                                            }`}>
-                                                {recommendation.decision === 'APPROVE' ? 'אישור' :
-                                                 recommendation.decision === 'REVIEW' ? 'בחינה נוספת' : 'דחייה'}
-                                            </p>
+                                {/* Decision Banner — synced with Deal Rescuer simulation */}
+                                {(() => {
+                                    const isRescued = !!rescueOverlay?.active;
+                                    const rescuedStatus = rescueOverlay?.status; // 'GREEN' | 'ORANGE' | 'RED'
+                                    const effectiveDecision = isRescued
+                                        ? (rescuedStatus === 'GREEN' ? 'APPROVE' : rescuedStatus === 'ORANGE' ? 'REVIEW' : recommendation.decision)
+                                        : recommendation.decision;
+                                    const labelMap = {
+                                        APPROVE: isRescued ? 'אישור — בתנאי חילוץ' : 'אישור',
+                                        REVIEW: isRescued ? 'בחינה נוספת — מחולצת' : 'בחינה נוספת',
+                                        REJECT: 'דחייה'
+                                    };
+                                    return (
+                                        <div className={`p-3 rounded-lg border flex items-center justify-between ${
+                                            effectiveDecision === 'APPROVE' ? 'bg-emerald-900/20 border-emerald-500/30' :
+                                            effectiveDecision === 'REVIEW' ? 'bg-amber-900/20 border-amber-500/30' :
+                                            'bg-red-900/20 border-red-500/30'
+                                        }`}>
+                                            <div className="flex items-center gap-3">
+                                                {effectiveDecision === 'APPROVE' ? <CheckCircle2 className="w-6 h-6 text-emerald-400" /> :
+                                                 effectiveDecision === 'REVIEW' ? <AlertTriangle className="w-6 h-6 text-amber-400" /> :
+                                                 <XCircle className="w-6 h-6 text-red-400" />}
+                                                <div>
+                                                    <p className="text-[10px] text-slate-400 uppercase font-bold">המלצת מערכת</p>
+                                                    <p className={`text-base font-bold ${
+                                                        effectiveDecision === 'APPROVE' ? 'text-emerald-400' :
+                                                        effectiveDecision === 'REVIEW' ? 'text-amber-400' :
+                                                        'text-red-400'
+                                                    }`}>
+                                                        {labelMap[effectiveDecision] || labelMap.REJECT}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            {isRescued && (
+                                                <div className="text-left">
+                                                    <p className="text-[9px] text-slate-400 uppercase font-bold">ציון לאחר חילוץ</p>
+                                                    <p className="text-sm font-bold text-cyan-300">{rescueOverlay.score}/100</p>
+                                                    <p className="text-[10px] text-slate-400">DSR: <span className="text-cyan-300">{rescueOverlay.dsr}%</span></p>
+                                                </div>
+                                            )}
                                         </div>
-                                    </div>
-                                </div>
+                                    );
+                                })()}
 
                                 {/* False Negative Banner */}
                                 {llm_analysis?.is_false_negative && (
