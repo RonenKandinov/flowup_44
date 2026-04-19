@@ -45,12 +45,18 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
     const maxDownPayment = Math.max(0, Math.floor(checkingBalance * 0.5));
 
     const metricsHash = baseMetrics ? `${Math.round(baseMetrics.totalIncome || 0)}-${Math.round(baseMetrics.liquidAssets || 0)}-${Math.round(baseMetrics.totalFixedExpenses || baseMetrics.totalExpenses || 0)}` : '';
+    const lastHashRef = React.useRef(metricsHash);
 
     useEffect(() => {
-        setStep('input');
-        setResult(null);
-        setLoanAmount('');
-        if (onSimulate) onSimulate(null);
+        // Only reset when the underlying metrics truly change (new data loaded),
+        // not on every render. This prevents the "loads and returns to normal" bug.
+        if (lastHashRef.current !== metricsHash && lastHashRef.current !== '') {
+            setStep('input');
+            setResult(null);
+            setLoanAmount('');
+            if (onSimulate) onSimulate(null);
+        }
+        lastHashRef.current = metricsHash;
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [metricsHash]);
 
