@@ -15,10 +15,10 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Missing strategy' }, { status: 400 });
         }
 
-        const strategyLabels = {
-            cash_flow_alignment: 'התאמת תזרים (פריסה ארוכה יותר להקטנת החזר חודשי)',
-            exposure_reduction: 'הפחתת חשיפה (סכום נמוך יותר או מקדמה גדולה יותר)',
-            behavioral_approval: 'אישור מבוסס התנהגות פיננסית יציבה'
+        const strategyAngles = {
+            cash_flow_alignment: 'זווית תזרימית — מה בנתוני התזרים של הלקוח (יציבות הכנסה, מרווח חודשי, קצב הוצאות) הופך דווקא אותו למתאים למסלול הזה',
+            exposure_reduction: 'זווית חשיפתית — מה בפרופיל הסיכון של הלקוח (יחס חוב, נזילות, רמת מינוף) הופך דווקא אותו למתאים להקטנת חשיפה',
+            behavioral_approval: 'זווית התנהגותית — מה בדפוסי ההתנהלות של הלקוח (עקביות בתשלומים, יציבות, משמעת פיננסית) הופך דווקא אותו למתאים לאישור על סמך התנהגות'
         };
 
         const statusLabels = {
@@ -27,33 +27,32 @@ Deno.serve(async (req) => {
             failed: 'לא עובר את סף המדיניות'
         };
 
-        const prompt = `אתה אנליסט אשראי בכיר. כתוב נימוק אשראי קצר (2-3 משפטים) בעברית, בשפה עסקית-אנושית (לא טכנית מדי), שמסביר מדוע אסטרטגיית החילוץ הספציפית הזו הגיונית ללקוח.
+        const prompt = `אתה אנליסט אשראי בכיר. כתוב נימוק אשראי קצר (2-3 משפטים) בעברית, שמסביר למה **הלקוח הספציפי הזה** עובר דרך הגישה הזו — לפי הסיפור האישי שלו מהנתונים.
 
 מצב מקורי של הבקשה: ${originalStatus || 'לא ידוע'}
-
-אסטרטגיית חילוץ: ${strategyLabels[strategy.type] || strategy.type}
 סטטוס לאחר חילוץ: ${statusLabels[strategy.status] || strategy.status}
 
-פרטי המבנה המוצע:
-- סכום הלוואה: ₪${Number(strategy.loanAmount || 0).toLocaleString('he-IL')}
-- תקופה: ${strategy.termMonths} חודשים
-- החזר חודשי: ₪${Number(strategy.monthlyPayment || 0).toLocaleString('he-IL')}
-- ריבית: ${strategy.interestRate}%
-- מקדמה: ${strategy.downPayment > 0 ? '₪' + Number(strategy.downPayment).toLocaleString('he-IL') : 'אין'}
-- DSR חדש: ${strategy.dsr}% (סף מדיניות: 40%)
+זווית הניתוח: ${strategyAngles[strategy.type] || strategy.type}
 
-תובנות נוספות על הלקוח:
-${analysisInsights?.liquidityMonths ? '- נזילות זמינה: ' + Number(analysisInsights.liquidityMonths).toFixed(1) + ' חודשים' : ''}
-${analysisInsights?.incomeTrend ? '- מגמת הכנסה: ' + analysisInsights.incomeTrend : ''}
-${analysisInsights?.riskTier ? '- רמת סיכון: ' + analysisInsights.riskTier : ''}
+נתוני הלקוח (השתמש רק במה שרלוונטי לזווית):
+${analysisInsights?.metrics?.liquidity_buffer_months != null ? '- נזילות זמינה: ' + Number(analysisInsights.metrics.liquidity_buffer_months).toFixed(1) + ' חודשים' : ''}
+${analysisInsights?.metrics?.structural_dti != null ? '- DTI מבני: ' + analysisInsights.metrics.structural_dti + '%' : ''}
+${analysisInsights?.metrics?.adjusted_dti != null ? '- DTI מתואם: ' + analysisInsights.metrics.adjusted_dti + '%' : ''}
+${analysisInsights?.metrics?.income_volatility != null ? '- תנודתיות הכנסה: ' + analysisInsights.metrics.income_volatility + '%' : ''}
+${analysisInsights?.risk_tier ? '- רמת סיכון: ' + analysisInsights.risk_tier : ''}
+${analysisInsights?.behavioral_classification ? '- סיווג התנהגותי: ' + analysisInsights.behavioral_classification : ''}
+${analysisInsights?.classification_reason ? '- הסבר סיווג: ' + analysisInsights.classification_reason : ''}
+${analysisInsights?.risk_flags?.length ? '- דגלי סיכון: ' + analysisInsights.risk_flags.join('; ') : '- אין דגלי סיכון פעילים'}
 
-הנחיות לכתיבה:
-1. התייחס ספציפית לאסטרטגיה (למשל "הפריסה הארוכה יותר" להתאמת תזרים, או "הקטנת הסכום והמקדמה" להפחתת חשיפה).
-2. הסבר מה זה נותן ללקוח במונחים אנושיים, לא רק מספרים.
-3. אם זה אישור מותנה — הסבר בקצרה למה זה עדיין הגיוני.
-4. השתמש בטון עסקי אך נגיש, לא פורמלי מדי ולא טכני מדי.
-5. אל תחזור על המספרים שכבר מוצגים בטבלה למעלה — התמקד ב"למה" זה עובד.
-6. עד 3 משפטים. ללא רשימות או כותרות.`;
+DSR חדש לאחר החילוץ: ${strategy.dsr}% (סף מדיניות: 40%)
+
+הנחיות קריטיות לכתיבה:
+1. **אסור** להסביר מה הגישה עושה באופן כללי (לא "הפריסה הארוכה יותר מפחיתה עומס"). זה כבר ברור.
+2. **חובה** להסביר מה בנתונים האישיים של הלקוח הזה גורם לו לעבור דווקא דרך הזווית הזו. למשל: "הנזילות של 2.3 חודשים והמגמה היציבה בהכנסות הן מה שמצדיקים לקבל את הסיכון התזרימי הזה", או "שיעור החיסכון של 18% והיעדר דגלי סיכון הם מה שבונים את האמון ההתנהגותי".
+3. כל נימוק חייב להיות שונה לחלוטין מהאחרים — לא אותה מוזיקה בווריאציות שונות.
+4. שפה עסקית־אנושית, לא טכנית, לא פורמלית יתר על המידה.
+5. אל תחזור על המספרים מהטבלה (סכום, תקופה, החזר, ריבית, מקדמה).
+6. עד 3 משפטים. ללא כותרות וללא רשימות.`;
 
         const response = await base44.integrations.Core.InvokeLLM({
             prompt,
