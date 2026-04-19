@@ -55,12 +55,6 @@ export default function CreditJustificationBlock({ strategy, analysisInsights, o
                 {isLoading && !aiText && (
                     <Loader2 className="w-2.5 h-2.5 text-cyan-400 animate-spin" />
                 )}
-                {aiText && (
-                    <span className="flex items-center gap-1 text-[9px] text-cyan-400/80">
-                        <Sparkles className="w-2.5 h-2.5" />
-                        AI
-                    </span>
-                )}
             </div>
             <div className="text-slate-300 leading-5 transition-opacity duration-300">{text}</div>
         </div>

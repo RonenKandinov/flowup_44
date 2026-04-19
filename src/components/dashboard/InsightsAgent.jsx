@@ -129,13 +129,7 @@ export default function InsightsAgent({ analysis, isLoading, rescueOverlay = nul
                                                     </p>
                                                 </div>
                                             </div>
-                                            {isRescued && (
-                                                <div className="text-left">
-                                                    <p className="text-[9px] text-slate-400 uppercase font-bold">ציון לאחר חילוץ</p>
-                                                    <p className="text-sm font-bold text-cyan-300">{rescueOverlay.score}/100</p>
-                                                    <p className="text-[10px] text-slate-400">DSR: <span className="text-cyan-300">{rescueOverlay.dsr}%</span></p>
-                                                </div>
-                                            )}
+
                                         </div>
                                     );
                                 })()}
