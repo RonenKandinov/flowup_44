@@ -75,6 +75,93 @@ function getMedian(array) {
     return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
+/**
+ * Weighted Rolling Average — gives more weight to recent months.
+ * For a 12-month window: last 3 months carry 50% of the weight, prior 9 months share the other 50%.
+ * Mathematically: recent months reflect current financial reality more accurately than older data,
+ * which is critical for both salaried employees (raises, job changes) and freelancers (momentum).
+ */
+function getWeightedAverage(values) {
+    if (!values || values.length === 0) return 0;
+    if (values.length < 4) {
+        // Not enough data for weighting — fall back to simple average
+        return values.reduce((a, b) => a + b, 0) / values.length;
+    }
+
+    const recentCount = Math.min(3, Math.floor(values.length / 2));
+    const recent = values.slice(-recentCount);
+    const prior = values.slice(0, -recentCount);
+
+    const recentAvg = recent.reduce((a, b) => a + b, 0) / recent.length;
+    const priorAvg = prior.length > 0 ? prior.reduce((a, b) => a + b, 0) / prior.length : recentAvg;
+
+    // 50/50 split: recent vs prior — smooths out one-off spikes while capturing current momentum
+    return (recentAvg * 0.5) + (priorAvg * 0.5);
+}
+
+/**
+ * Coefficient of Variation (CV) — dimensionless measure of relative volatility.
+ * CV = StdDev / Mean. Unlike raw StdDev, CV allows fair comparison across income levels.
+ * Used for risk-adjusted "haircut" on income to price volatility mathematically.
+ */
+function getCoefficientOfVariation(values) {
+    if (!values || values.length < 2) return 0;
+    const mean = values.reduce((a, b) => a + b, 0) / values.length;
+    if (mean === 0) return 0;
+    const sd = getStandardDeviation(values);
+    return sd / mean;
+}
+
+/**
+ * Detects cross-account self-transfers: same amount (± small fee tolerance) moving OUT of one
+ * account and IN to another within a 48-hour window. These are NOT real income/expense —
+ * they don't change total net worth and must be excluded to avoid artificially inflating averages.
+ * Critical for both salaried (savings transfers) and freelancers (business↔personal).
+ */
+function detectSelfTransfers(transactions, parseAmount) {
+    const matched = new Set();
+    const FEE_TOLERANCE = 0.02; // 2% tolerance for transfer fees
+    const TIME_WINDOW_MS = 48 * 60 * 60 * 1000;
+
+    // Index transactions with parsed amount + date + account
+    const indexed = transactions.map((tx, idx) => {
+        const amount = parseAmount(tx);
+        const txDateObj = tx?.date;
+        const dateStr = tx?.creationDate ||
+            (typeof txDateObj === 'string' ? txDateObj : (txDateObj?.valueDate || txDateObj?.bookingDate || txDateObj?.transactionDate)) ||
+            tx?.transactionDate;
+        const date = dateStr ? new Date(dateStr) : null;
+        const accId = String(tx?.accountId || tx?.account_id || tx?.accountNumber || "");
+        return { idx, amount, date, accId, tx };
+    }).filter(x => x.date && !isNaN(x.date.getTime()) && !isNaN(x.amount));
+
+    // Separate outflows and inflows
+    const outflows = indexed.filter(x => x.amount < 0);
+    const inflows = indexed.filter(x => x.amount > 0);
+
+    for (const out of outflows) {
+        if (matched.has(out.idx)) continue;
+        const outAbs = Math.abs(out.amount);
+
+        for (const inf of inflows) {
+            if (matched.has(inf.idx)) continue;
+            if (out.accId && inf.accId && out.accId === inf.accId) continue; // same account — not a transfer
+
+            const timeDiff = Math.abs(inf.date.getTime() - out.date.getTime());
+            if (timeDiff > TIME_WINDOW_MS) continue;
+
+            const amountDiff = Math.abs(inf.amount - outAbs) / outAbs;
+            if (amountDiff <= FEE_TOLERANCE) {
+                matched.add(out.idx);
+                matched.add(inf.idx);
+                break;
+            }
+        }
+    }
+
+    return matched;
+}
+
 function extractBalance(acc) {
     let balance = 0;
     let extractionPath = 'none';
@@ -423,6 +510,13 @@ Deno.serve(withValidation(loanLogicSchema, async (req) => {
         const today = new Date();
         let investmentTransfers = 0;
 
+        // --- CROSS-ACCOUNT SELF-TRANSFER DETECTION ---
+        // Only run when aggregating across all accounts — single-account view won't have cross-account pairs.
+        const selfTransferIndices = (!activeTargetAccountId || activeTargetAccountId === 'all')
+            ? detectSelfTransfers(transactions, parseTransactionAmount)
+            : new Set();
+        console.log(`[Self-Transfers] Detected ${selfTransferIndices.size / 2} cross-account transfer pairs (${selfTransferIndices.size} transactions excluded)`);
+
         // --- RECURRING INCOME PRE-PROCESSING ---
         const incomeDescCount = new Map();
         transactions.forEach((tx) => {
@@ -518,9 +612,12 @@ ${JSON.stringify(limitedExpenses)}
             }
         }
 
-        transactions.forEach((tx) => {
+        transactions.forEach((tx, txIdx) => {
             const amount = parseTransactionAmount(tx);
             if (isNaN(amount)) return;
+
+            // Skip cross-account self-transfers — they don't represent real income or expense
+            if (selfTransferIndices.has(txIdx)) return;
 
             const category = (tx?.category?.main || tx?.categoryName || tx?.category || "").toLowerCase();
             // tx.date from Open Finance is an object {valueDate, bookingDate, transactionDate} — not a string
@@ -699,23 +796,42 @@ ${JSON.stringify(limitedExpenses)}
         // Generate a deterministic session key based on userId to ensure consistent shadow vectors
         const SESSION_KEY = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) || 777;
 
-        // 5. Underwriting Feature Engineering
-        // Use average of ACTIVE months to avoid 0-months pulling the average down artificially
+        // 5. Underwriting Feature Engineering — Weighted Rolling Average + CV Haircut
+        // Use active months (income/expense > 0) to avoid zero-months dragging the average down artificially,
+        // then apply weighted averaging that favors recent months for responsiveness to current reality.
         const activeIncomeMonths = history.filter(m => m.income > 0);
-        const avgIncome = activeIncomeMonths.length > 0 
-            ? activeIncomeMonths.reduce((sum, m) => sum + m.income, 0) / activeIncomeMonths.length 
-            : 0;
-            
         const activeExpenseMonths = history.filter(m => m.expenses > 0);
-        const avgExpenses = activeExpenseMonths.length > 0 
-            ? activeExpenseMonths.reduce((sum, m) => sum + m.expenses, 0) / activeExpenseMonths.length 
-            : 0;
-            
-        const avgFixedExpenses = activeExpenseMonths.length > 0 
-            ? activeExpenseMonths.reduce((sum, m) => sum + m.fixedExpenses, 0) / activeExpenseMonths.length 
+
+        const rawAvgIncome = activeIncomeMonths.length > 0
+            ? getWeightedAverage(activeIncomeMonths.map(m => m.income))
             : 0;
 
-        const incomeVolatility = getStandardDeviation(history.map(m => m.income)) / (avgIncome || 1);
+        const avgExpenses = activeExpenseMonths.length > 0
+            ? getWeightedAverage(activeExpenseMonths.map(m => m.expenses))
+            : 0;
+
+        const avgFixedExpenses = activeExpenseMonths.length > 0
+            ? getWeightedAverage(activeExpenseMonths.map(m => m.fixedExpenses))
+            : 0;
+
+        // CV-based Income Haircut — risk-adjusted income for underwriting.
+        // High volatility (common for freelancers, but also affects salaried with bonuses/commissions)
+        // leads to a proportional reduction in "reliable" income used for DTI/runway.
+        // Tiers: CV<=0.15 → no haircut | 0.15-0.30 → up to 10% | 0.30-0.50 → up to 20% | >0.50 → up to 30% (capped).
+        const incomeCV = getCoefficientOfVariation(activeIncomeMonths.map(m => m.income));
+        let incomeHaircut = 0;
+        if (incomeCV > 0.15 && incomeCV <= 0.30) {
+            incomeHaircut = ((incomeCV - 0.15) / 0.15) * 0.10;
+        } else if (incomeCV > 0.30 && incomeCV <= 0.50) {
+            incomeHaircut = 0.10 + ((incomeCV - 0.30) / 0.20) * 0.10;
+        } else if (incomeCV > 0.50) {
+            incomeHaircut = Math.min(0.30, 0.20 + ((incomeCV - 0.50) / 0.50) * 0.10);
+        }
+        const avgIncome = rawAvgIncome * (1 - incomeHaircut);
+        console.log(`[Income Haircut] CV=${incomeCV.toFixed(3)}, Haircut=${(incomeHaircut * 100).toFixed(1)}%, Raw=${Math.round(rawAvgIncome)}, Adjusted=${Math.round(avgIncome)}`);
+
+        // Legacy incomeVolatility retained for scoring (same definition as CV)
+        const incomeVolatility = incomeCV;
         const DTI = avgIncome > 0 ? avgFixedExpenses / avgIncome : 1;
         const runwayMonths = avgExpenses > 0 ? (liquidAssets / avgExpenses) : 12;
 
@@ -888,6 +1004,10 @@ ${JSON.stringify(limitedExpenses)}
             },
             metrics: {
                 totalIncome: Math.round(avgIncome),
+                rawIncome: Math.round(rawAvgIncome),
+                incomeCV: parseFloat(incomeCV.toFixed(3)),
+                incomeHaircutPct: parseFloat((incomeHaircut * 100).toFixed(1)),
+                selfTransfersExcluded: selfTransferIndices.size / 2,
                 totalExpenses: Math.round(avgExpenses),
                 fixedExpenses: Math.round(avgFixedExpenses),
                 lifestyleExpenses: Math.round(avgExpenses - avgFixedExpenses),
