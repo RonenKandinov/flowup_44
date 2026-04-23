@@ -567,9 +567,9 @@ ${JSON.stringify(limitedExpenses)}
             const isInvestmentTransfer = amount < 0 && investmentKeywords.some(kw => category.includes(kw) || txDesc.includes(kw));
 
             if (amount > 0) {
-                if (!isInternalTransfer && !isLoanDeposit && !isInvestmentTransfer && !isRefundOrReversal && !isPersonalIncome) {
+                if (!isInternalTransfer && !isLoanDeposit && !isInvestmentTransfer && !isRefundOrReversal) {
                     currentMonth.income += amount;
-                    if (isRecurringIncome) {
+                    if (isRecurringIncome || isPersonalIncome) {
                         currentMonth.primaryIncome += amount;
                     }
                 }
@@ -583,10 +583,7 @@ ${JSON.stringify(limitedExpenses)}
                     console.log(`[Debug] Investment transfer found: ${txDesc} ${category} ${absAmt}`);
                 }
 
-                const personalExpenseKeywords = ["סופר", "מסעדה", "ביגוד", "בילוי", "supermarket", "restaurant", "clothing", "entertainment", "wolts", "wolt", "תן ביס", "מכולת", "פארם", "קולנוע", "סרט"];
-                const isPersonalExpense = personalExpenseKeywords.some(kw => category.includes(kw) || txDesc.includes(kw));
-
-                if (!isInternalTransfer && !isInvestmentTransfer && !isPersonalExpense) {
+                if (!isInternalTransfer && !isInvestmentTransfer) {
                     currentMonth.expenses += absAmt;
                     
                     const key = `${txDesc}|${category}`;
