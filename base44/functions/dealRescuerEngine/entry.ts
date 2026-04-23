@@ -10,6 +10,72 @@ const pmt = (principal, annualRate, months) => {
   return (principal * r) / (1 - Math.pow(1 + r, -months));
 };
 
+// Internal stress-test — runs silently inside the engine and can downgrade a strategy's status.
+// NOT exposed to the UI as separate data; its effect is reflected only via the final status.
+const STRESS_SCENARIOS = [
+  { incomeShock: 0.05, rateShock: 0.005 }, // mild: -5% income, +0.5% rate
+  { incomeShock: 0.10, rateShock: 0.010 }  // moderate: -10% income, +1.0% rate
+];
+
+// High-exposure guard — large principals must survive stricter stress before approval.
+// Prevents easy approvals of oversized loans (e.g. ₪700k) even with strong portfolios.
+const HIGH_EXPOSURE_THRESHOLD = 200000; // ILS — above this, stricter rules apply
+const VERY_HIGH_EXPOSURE_THRESHOLD = 400000;
+
+const runStressTest = ({ candidate, income, existingDebtPayments, dsrLimit, requestedLoanAmount }) => {
+  // Returns the (possibly downgraded) status after silent stress testing.
+  // Never upgrades a status — only downgrades.
+  if (!income || income <= 0) return candidate.status;
+
+  const principal = candidate.loanAmount;
+  const rateDecimal = candidate.interestRate / 100;
+  const isHighExposure = principal >= HIGH_EXPOSURE_THRESHOLD;
+  const isVeryHighExposure = principal >= VERY_HIGH_EXPOSURE_THRESHOLD;
+
+  // For high-exposure loans, require a tighter stress DSR buffer.
+  // Normal: stressed DSR must stay <= dsrLimit + 0.05
+  // High exposure: stressed DSR must stay <= dsrLimit (no buffer)
+  // Very high exposure: stressed DSR must stay <= dsrLimit - 0.03 (tighter)
+  const stressCeiling = isVeryHighExposure ? dsrLimit - 0.03
+                      : isHighExposure ? dsrLimit
+                      : dsrLimit + 0.05;
+
+  let failures = 0;
+  let severeFailure = false;
+
+  for (const scenario of STRESS_SCENARIOS) {
+    const stressedIncome = income * (1 - scenario.incomeShock);
+    const stressedRate = Math.min(0.12, rateDecimal + scenario.rateShock);
+    const stressedPayment = pmt(principal, stressedRate, candidate.termMonths);
+    const stressedDsr = (existingDebtPayments + stressedPayment) / Math.max(1, stressedIncome);
+
+    if (stressedDsr > stressCeiling) failures += 1;
+    if (stressedDsr > dsrLimit + 0.10) severeFailure = true;
+  }
+
+  // Very-high-exposure loans must pass ALL scenarios cleanly, regardless of original status.
+  if (isVeryHighExposure && failures > 0) {
+    return severeFailure ? 'rejected' : 'conditional';
+  }
+
+  // High-exposure loans: any failure downgrades.
+  if (isHighExposure && failures > 0) {
+    if (candidate.status === 'approved') return 'conditional';
+    if (candidate.status === 'conditional' || severeFailure) return 'rejected';
+  }
+
+  // Normal exposure: only severe failures cause downgrade.
+  if (severeFailure) {
+    if (candidate.status === 'approved') return 'conditional';
+    if (candidate.status === 'conditional') return 'rejected';
+  } else if (failures >= STRESS_SCENARIOS.length) {
+    // Failing all scenarios (even mildly) downgrades approved → conditional.
+    if (candidate.status === 'approved') return 'conditional';
+  }
+
+  return candidate.status;
+};
+
 // Stage 3 — dynamic rate adjustment from analysisInsights
 const adjustRate = (baseRate, insights) => {
   if (!insights) return baseRate;
@@ -222,7 +288,7 @@ Deno.serve(async (req) => {
     const currentStatus = String(body?.currentStatus || (currentDsr <= dsrLimit ? 'approved' : currentDsr <= dsrLimit + 0.1 ? 'borderline' : 'rejected'));
 
     // Multi-stage search
-    const { candidates, stage } = multiStageSearch({
+    const { candidates: rawCandidates, stage } = multiStageSearch({
       income,
       existingDebtPayments,
       requestedLoanAmount,
@@ -232,6 +298,22 @@ Deno.serve(async (req) => {
       dsrLimit
     });
 
+    // Silent internal stress testing — may downgrade candidate statuses.
+    // Candidates whose status drops to 'rejected' are removed from consideration.
+    const stressedCandidates = rawCandidates
+      .map(c => {
+        const newStatus = runStressTest({
+          candidate: c,
+          income,
+          existingDebtPayments,
+          dsrLimit,
+          requestedLoanAmount
+        });
+        return { ...c, status: newStatus };
+      })
+      .filter(c => c.status === 'approved' || c.status === 'conditional');
+
+    const candidates = stressedCandidates;
     const picks = pickStrategies(candidates, requestedLoanAmount, insights, dsrLimit);
     const strategies = picks.map(({ type, c }) => ({
       type,
