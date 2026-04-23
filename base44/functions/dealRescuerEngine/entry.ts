@@ -23,10 +23,10 @@ const adjustRate = (baseRate, insights) => {
 };
 
 // Stage 2 — Grid search within stage constraints
-const gridSearch = ({ income, existingDebtPayments, requestedLoanAmount, baseInterestRate, insights, maxDownPayment, stage }) => {
+const gridSearch = ({ income, existingDebtPayments, requestedLoanAmount, baseInterestRate, insights, maxDownPayment, stage, dsrLimit }) => {
   const adjustedBase = adjustRate(baseInterestRate, insights);
-  const DSR_LIMIT = 0.4;
-  const DSR_NEAR = 0.45; // "קרוב מאוד" לסף
+  const DSR_LIMIT = dsrLimit;
+  const DSR_NEAR = dsrLimit + 0.05; // 5pp above the policy threshold = "קרוב מאוד" לסף
   const behavioralFlex = insights?.isFalseNegative || Number(insights?.behavioralScore) >= 0.6;
 
   // Stage-bound term and amount ratios
@@ -92,18 +92,30 @@ const multiStageSearch = (args) => {
   return { candidates: [], stage: null };
 };
 
+// Load the policy DSR threshold from UnderwritingRule — falls back to 40% if missing.
+const loadPolicyDsrLimit = async (base44) => {
+  try {
+    const rules = await base44.asServiceRole.entities.UnderwritingRule.list();
+    const max = Number(rules?.[0]?.max_dti_approve);
+    if (Number.isFinite(max) && max > 0 && max < 100) return max / 100;
+  } catch (e) {
+    console.warn('dealRescuerEngine: could not load UnderwritingRule, using default 40%', e);
+  }
+  return 0.4;
+};
+
 // Stage 4 — composite score (higher = better)
-const compositeScore = (c, requestedLoanAmount) => {
+const compositeScore = (c, requestedLoanAmount, dsrLimit) => {
   const closeness = clamp(c.grossAmount / requestedLoanAmount, 0, 1);
-  const dsrRatio = clamp(c.dsr / 0.4, 0, 1.5);
+  const dsrRatio = clamp(c.dsr / dsrLimit, 0, 1.5);
   return (1 - dsrRatio) * 0.4 + closeness * 0.4 + (1 - c.termMonths / 84) * 0.2;
 };
 
 // Per-strategy scoring — each strategy optimizes a DIFFERENT objective
 // so the three results are meaningfully distinct.
-const strategyScore = (type, c, requestedLoanAmount, insights) => {
+const strategyScore = (type, c, requestedLoanAmount, insights, dsrLimit) => {
   const closeness = clamp(c.grossAmount / requestedLoanAmount, 0, 1);
-  const dsrHeadroom = clamp((0.4 - c.dsr) / 0.4, -0.5, 1); // how far below 40%
+  const dsrHeadroom = clamp((dsrLimit - c.dsr) / dsrLimit, -0.5, 1); // how far below policy threshold
   const termRatio = c.termMonths / 84;
   const dpRatio = c.downPayment / Math.max(1, c.grossAmount);
   const statusBonus = c.status === 'approved' ? 0.1 : 0;
@@ -122,19 +134,19 @@ const strategyScore = (type, c, requestedLoanAmount, insights) => {
   // behavioral_approval — Goal: closest to the original request, leveraging behavioral flexibility.
   const behavioralBoost = (insights?.isFalseNegative || Number(insights?.behavioralScore) >= 0.6) ? 0.1 : 0;
   // Encourage using the flexibility band (dsr closer to limit) while staying closest to request.
-  const nearLimit = 1 - clamp(Math.abs(c.dsr - 0.38) / 0.1, 0, 1);
+  const nearLimit = 1 - clamp(Math.abs(c.dsr - (dsrLimit - 0.02)) / 0.1, 0, 1);
   return closeness * 0.6 + nearLimit * 0.2 + (1 - termRatio) * 0.1 + behavioralBoost + statusBonus;
 };
 
 // Stage 5 — pick 3 distinct strategies
-const pickStrategies = (candidates, requestedLoanAmount, insights) => {
+const pickStrategies = (candidates, requestedLoanAmount, insights, dsrLimit) => {
   if (candidates.length === 0) return [];
 
-  const withScore = candidates.map(c => ({ ...c, score: compositeScore(c, requestedLoanAmount) }));
+  const withScore = candidates.map(c => ({ ...c, score: compositeScore(c, requestedLoanAmount, dsrLimit) }));
 
   const bestFor = (type) => {
     const ranked = [...withScore]
-      .map(c => ({ c, s: strategyScore(type, c, requestedLoanAmount, insights) }))
+      .map(c => ({ c, s: strategyScore(type, c, requestedLoanAmount, insights, dsrLimit) }))
       .sort((a, b) => b.s - a.s);
     return ranked[0]?.c || null;
   };
@@ -162,7 +174,7 @@ const pickStrategies = (candidates, requestedLoanAmount, insights) => {
     // If this pick is too similar to a previously-chosen one, find an alternative
     // that still maximizes this strategy's objective but is distinct.
     const ranked = [...withScore]
-      .map(c => ({ c, s: strategyScore(type, c, requestedLoanAmount, insights) }))
+      .map(c => ({ c, s: strategyScore(type, c, requestedLoanAmount, insights, dsrLimit) }))
       .sort((a, b) => b.s - a.s);
     for (const { c } of ranked) {
       const conflict = Object.values(chosen).some(existing => tooSimilar(existing, c));
@@ -201,9 +213,13 @@ Deno.serve(async (req) => {
     const maxDownPayment = Number(body?.maxDownPayment ?? Infinity);
     const insights = body?.analysisInsights || null;
 
+    // Load policy DSR threshold from UnderwritingRule — makes the engine responsive to Underwriting Settings.
+    const dsrLimit = await loadPolicyDsrLimit(base44);
+    const dsrLimitPct = Math.round(dsrLimit * 1000) / 10; // e.g. 0.4 → 40.0
+
     const currentDsr = income > 0 ? (existingDebtPayments / income) : 1;
     const currentScore = Number(body?.score || clamp(Math.round(85 - currentDsr * 100 * 0.7), 20, 85));
-    const currentStatus = String(body?.currentStatus || (currentDsr <= 0.4 ? 'approved' : currentDsr <= 0.5 ? 'borderline' : 'rejected'));
+    const currentStatus = String(body?.currentStatus || (currentDsr <= dsrLimit ? 'approved' : currentDsr <= dsrLimit + 0.1 ? 'borderline' : 'rejected'));
 
     // Multi-stage search
     const { candidates, stage } = multiStageSearch({
@@ -212,10 +228,11 @@ Deno.serve(async (req) => {
       requestedLoanAmount,
       baseInterestRate,
       insights,
-      maxDownPayment
+      maxDownPayment,
+      dsrLimit
     });
 
-    const picks = pickStrategies(candidates, requestedLoanAmount, insights);
+    const picks = pickStrategies(candidates, requestedLoanAmount, insights, dsrLimit);
     const strategies = picks.map(({ type, c }) => ({
       type,
       status: c.status,
@@ -252,13 +269,13 @@ Deno.serve(async (req) => {
         }
       }
       if (closest) {
-        const overshoot = Math.round((closest.dsr - 0.4) * 100 * 10) / 10;
+        const overshoot = Math.round((closest.dsr - dsrLimit) * 100 * 10) / 10;
         fallback = {
           closestAttempt: { ...closest, dsr: Number((closest.dsr * 100).toFixed(1)), status: 'failed', type: 'closest_attempt' },
-          whyFailed: `גם במבנה האופטימלי ה-DSR עומד על ${(closest.dsr * 100).toFixed(1)}% — חורג ב-${overshoot} נק׳ אחוז מהמקסימום של 40%.`,
+          whyFailed: `גם במבנה האופטימלי ה-DSR עומד על ${(closest.dsr * 100).toFixed(1)}% — חורג ב-${overshoot} נק׳ אחוז מהמקסימום של ${dsrLimitPct}%.`,
           improvements: [
             `הקטנת סכום הבקשה ב-₪${Math.round(requestedLoanAmount * 0.2).toLocaleString('he-IL')} לפחות`,
-            `הגדלת הכנסה חודשית ב-₪${Math.max(500, Math.round((existingDebtPayments + closest.monthlyPayment) / 0.4 - income)).toLocaleString('he-IL')}`,
+            `הגדלת הכנסה חודשית ב-₪${Math.max(500, Math.round((existingDebtPayments + closest.monthlyPayment) / dsrLimit - income)).toLocaleString('he-IL')}`,
             `הפחתת החזרי חוב קיימים (כיום ₪${existingDebtPayments.toLocaleString('he-IL')})`,
             `הוספת מקדמה של 20% (₪${Math.round(requestedLoanAmount * 0.2).toLocaleString('he-IL')})`
           ]
@@ -276,7 +293,7 @@ Deno.serve(async (req) => {
 
     const explanation = hasRescue
       ? `נמצאו ${strategies.length} אסטרטגיות בשלב ${stage}. מוביל: ${headline.type.replace(/_/g, ' ')} — DSR ${headline.dsr}%.`
-      : 'לא נמצאה קומבינציה שמעמידה את ה-DSR מתחת ל-40%. מוצג הניסיון הקרוב ביותר עם דרכי פעולה לשיפור.';
+      : `לא נמצאה קומבינציה שמעמידה את ה-DSR מתחת ל-${dsrLimitPct}%. מוצג הניסיון הקרוב ביותר עם דרכי פעולה לשיפור.`;
 
     return Response.json({
       analysisInsights: insights,
@@ -313,7 +330,7 @@ Deno.serve(async (req) => {
       },
       explanation,
       meta: {
-        dsr_limit: 40,
+        dsr_limit: dsrLimitPct,
         stage,
         candidates_count: candidates.length,
         income,

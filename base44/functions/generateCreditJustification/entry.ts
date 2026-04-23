@@ -10,10 +10,21 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { strategy, analysisInsights, originalStatus } = await req.json();
+        const { strategy, analysisInsights, originalStatus, policyThreshold } = await req.json();
         if (!strategy) {
             return Response.json({ error: 'Missing strategy' }, { status: 400 });
         }
+
+        // Resolve the active DSR policy threshold: prefer value from caller, else load from UnderwritingRule, else default 40.
+        let threshold = Number(policyThreshold);
+        if (!Number.isFinite(threshold) || threshold <= 0) {
+            try {
+                const rules = await base44.asServiceRole.entities.UnderwritingRule.list();
+                const max = Number(rules?.[0]?.max_dti_approve);
+                if (Number.isFinite(max) && max > 0 && max < 100) threshold = max;
+            } catch (e) { /* fall through to default */ }
+        }
+        if (!Number.isFinite(threshold) || threshold <= 0) threshold = 40;
 
         const strategyAngles = {
             cash_flow_alignment: 'זווית תזרימית — מה בנתוני התזרים של הלקוח (יציבות הכנסה, מרווח חודשי, קצב הוצאות) הופך דווקא אותו למתאים למסלול הזה',
@@ -44,7 +55,7 @@ ${analysisInsights?.behavioral_classification ? '- סיווג התנהגותי: 
 ${analysisInsights?.classification_reason ? '- הסבר סיווג: ' + analysisInsights.classification_reason : ''}
 ${analysisInsights?.risk_flags?.length ? '- דגלי סיכון: ' + analysisInsights.risk_flags.join('; ') : '- אין דגלי סיכון פעילים'}
 
-DSR חדש לאחר החילוץ: ${strategy.dsr}% (סף מדיניות: 40%)
+DSR חדש לאחר החילוץ: ${strategy.dsr}% (סף מדיניות: ${threshold}%)
 
 הנחיות קריטיות לכתיבה:
 1. **כתוב בעברית תקנית בלבד**. אסור בהחלט להשתמש באותיות או מילים בשפות אחרות (רוסית, אנגלית, וכו'). אם יש שם של דגל סיכון בשפה זרה — תרגם אותו לעברית במלואו.

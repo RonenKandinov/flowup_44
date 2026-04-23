@@ -255,6 +255,7 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
                                             strategy={s}
                                             analysisInsights={analysisInsights}
                                             originalStatus={score < 55 ? 'rejected' : score < 75 ? 'borderline' : 'approved'}
+                                            policyThreshold={result?.meta?.dsr_limit}
                                         />
                                     </div>
                                 );

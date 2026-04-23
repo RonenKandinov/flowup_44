@@ -2,19 +2,20 @@
 // Generates formal, audit-ready credit justifications per strategy.
 // Aligned with Deal Rescuer spec (Stage 6): risk level by margin, strategy-aware language.
 
-const POLICY_DSR_THRESHOLD = 40; // %
+const POLICY_DSR_THRESHOLD_DEFAULT = 40; // %, only used as a fallback when no threshold is passed
 
 /**
- * Classify by DSR margin/overflow vs policy threshold.
- *   DSR <= 40:   margin = 40 - dsr
+ * Classify by DSR margin/overflow vs the ACTIVE policy threshold
+ * (comes from UnderwritingRule.max_dti_approve — pass it in as `threshold`).
+ *   DSR <= threshold:   margin = threshold - dsr
  *     margin > 15 → low
  *     5 ≤ margin ≤ 15 → medium
  *     margin < 5 → borderline
- *   DSR > 40:
+ *   DSR > threshold:
  *     overflow ≤ 5 → elevated (conditional)
  *     overflow > 5 → high (exception)
  */
-function classify(dsr, threshold = POLICY_DSR_THRESHOLD) {
+function classify(dsr, threshold = POLICY_DSR_THRESHOLD_DEFAULT) {
     if (dsr <= threshold) {
         const margin = threshold - dsr;
         if (margin > 15) return { approvalType: 'standard_approval', risk: 'low', withinPolicy: true };
@@ -27,9 +28,9 @@ function classify(dsr, threshold = POLICY_DSR_THRESHOLD) {
 }
 
 // 1) Policy compliance / deviation
-function policyComplianceSentence(dsr, withinPolicy, approvalType) {
+function policyComplianceSentence(dsr, withinPolicy, approvalType, threshold) {
     if (withinPolicy) {
-        return `המבנה המוצע עומד ביחס החזר של ${dsr}%, הנמוך מסף המדיניות של 40%`;
+        return `המבנה המוצע עומד ביחס החזר של ${dsr}%, הנמוך מסף המדיניות של ${threshold}%`;
     }
     if (approvalType === 'conditional_approval') {
         return `הבקשה חורגת ממדיניות האשראי ביחס החזר של ${dsr}% ומוגדרת כאישור מותנה הדורש שיקול דעת נוסף`;
@@ -81,13 +82,14 @@ function supportingFactor(strategy, insights) {
     return null;
 }
 
-export function buildCreditJustification(strategy, insights = {}) {
+export function buildCreditJustification(strategy, insights = {}, policyThreshold = POLICY_DSR_THRESHOLD_DEFAULT) {
     const dsr = Number(strategy?.dsr ?? 0);
     const strategyType = strategy?.type || 'behavioral_approval';
-    const { approvalType, risk, withinPolicy } = classify(dsr);
+    const threshold = Number(policyThreshold) || POLICY_DSR_THRESHOLD_DEFAULT;
+    const { approvalType, risk, withinPolicy } = classify(dsr, threshold);
 
     const sentences = [
-        policyComplianceSentence(dsr, withinPolicy, approvalType),
+        policyComplianceSentence(dsr, withinPolicy, approvalType, threshold),
         affordabilitySentence(strategyType, risk, withinPolicy)
     ];
     const support = supportingFactor(strategy, insights);

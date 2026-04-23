@@ -9,10 +9,10 @@ import { buildCreditJustification } from './creditJustification';
  * - In parallel, calls the LLM to generate a human-friendly version.
  * - When the LLM responds, smoothly swaps the text.
  */
-export default function CreditJustificationBlock({ strategy, analysisInsights, originalStatus }) {
+export default function CreditJustificationBlock({ strategy, analysisInsights, originalStatus, policyThreshold }) {
     const fallback = React.useMemo(
-        () => buildCreditJustification(strategy, analysisInsights),
-        [strategy, analysisInsights]
+        () => buildCreditJustification(strategy, analysisInsights, policyThreshold),
+        [strategy, analysisInsights, policyThreshold]
     );
 
     const [aiText, setAiText] = useState(null);
@@ -29,7 +29,8 @@ export default function CreditJustificationBlock({ strategy, analysisInsights, o
                 const res = await base44.functions.invoke('generateCreditJustification', {
                     strategy,
                     analysisInsights: analysisInsights || null,
-                    originalStatus: originalStatus || null
+                    originalStatus: originalStatus || null,
+                    policyThreshold: policyThreshold || null
                 });
                 if (cancelledRef.current) return;
                 if (res.data?.success && res.data.justification) {
@@ -44,7 +45,7 @@ export default function CreditJustificationBlock({ strategy, analysisInsights, o
         })();
 
         return () => { cancelledRef.current = true; };
-    }, [strategy, analysisInsights, originalStatus]);
+    }, [strategy, analysisInsights, originalStatus, policyThreshold]);
 
     const text = aiText || fallback.paragraph;
 
