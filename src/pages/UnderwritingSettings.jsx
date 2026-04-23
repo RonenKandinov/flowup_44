@@ -5,7 +5,6 @@ import { Settings, Save, ShieldCheck, AlertCircle, ArrowRight } from 'lucide-rea
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 
 export default function UnderwritingSettings() {
@@ -38,17 +37,20 @@ export default function UnderwritingSettings() {
 
     const saveMutation = useMutation({
         mutationFn: async (data) => {
-            if (data.id) {
-                return await base44.entities.UnderwritingRule.update(data.id, data);
+            // Second Chance is always enabled as part of FlowUp's dynamic analysis core.
+            const payload = { ...data, enable_second_chance: true };
+            if (payload.id) {
+                return await base44.entities.UnderwritingRule.update(payload.id, payload);
             } else {
-                return await base44.entities.UnderwritingRule.create(data);
+                return await base44.entities.UnderwritingRule.create(payload);
             }
         },
         onSuccess: () => {
+            // Invalidate all downstream caches so Dashboard recomputes with the new policy.
             queryClient.invalidateQueries(['underwritingRules']);
             queryClient.invalidateQueries(['ai-insights-v2']);
             queryClient.invalidateQueries(['loanMetrics']);
-            
+
             // Clear ALL loan metrics cache versions so Dashboard refetches with new rules
             Object.keys(sessionStorage).forEach(key => {
                 if (key.startsWith('loanMetricsCache')) {
@@ -58,7 +60,7 @@ export default function UnderwritingSettings() {
             // Clear AI insights cache too
             try { localStorage.removeItem('flowup_ai_insights_cache_v2'); } catch (_) {}
 
-            toast.success('מדיניות החיתום עודכנה בהצלחה. הדף יתרענן בפעם הבאה שתכנס.');
+            toast.success('המדיניות עודכנה — כל ההחלטות יחושבו מחדש לפי הספים החדשים.');
         },
         onError: (err) => {
             toast.error('שגיאה בשמירת הנתונים: ' + err.message);
@@ -176,26 +178,6 @@ export default function UnderwritingSettings() {
                                 className="bg-slate-800/50 border-slate-700 text-white"
                             />
                         </div>
-                    </div>
-                </section>
-
-                <div className="h-px bg-slate-800 w-full" />
-
-                {/* AI & Behavior */}
-                <section>
-                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                        <Settings className="w-5 h-5 text-indigo-400" />
-                        הגדרות מנוע AI והתנהגות
-                    </h3>
-                    <div className="flex items-center justify-between bg-slate-800/30 p-4 rounded-lg border border-slate-700/50">
-                        <div>
-                            <p className="text-sm font-medium text-white">מנגנון הזדמנות שנייה (Second Chance)</p>
-                            <p className="text-xs text-slate-400 mt-1">מאפשר למנוע ה-AI לאשר לקוחות גבוליים אם זוהתה מגמת שיפור עקבית בהתנהלות הפיננסית.</p>
-                        </div>
-                        <Switch 
-                            checked={formData.enable_second_chance}
-                            onCheckedChange={(checked) => handleChange('enable_second_chance', checked)}
-                        />
                     </div>
                 </section>
 
