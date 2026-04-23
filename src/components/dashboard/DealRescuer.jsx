@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { ShieldCheck, Crosshair, PlayCircle, Loader2, CheckCircle2, AlertTriangle, TrendingDown, Wallet, Brain, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -38,6 +38,9 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
     const [step, setStep] = useState('input'); // 'input' | 'analyzing' | 'result'
     const [loanAmount, setLoanAmount] = useState('');
     const [result, setResult] = useState(null);
+    const [justifications, setJustifications] = useState([]);
+    const [justificationsLoading, setJustificationsLoading] = useState(false);
+    const [justificationsError, setJustificationsError] = useState(false);
 
     const score = baseMetrics?.score || 0;
     // Checking-account balance comes straight from banking data (liquidAssets, as synced by the Open-Banking provider)
@@ -45,7 +48,7 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
     const maxDownPayment = Math.max(0, Math.floor(checkingBalance * 0.5));
 
     const metricsHash = baseMetrics ? `${Math.round(baseMetrics.totalIncome || 0)}-${Math.round(baseMetrics.liquidAssets || 0)}-${Math.round(baseMetrics.totalFixedExpenses || baseMetrics.totalExpenses || 0)}` : '';
-    const lastHashRef = React.useRef(metricsHash);
+    const lastHashRef = useRef(metricsHash);
 
     useEffect(() => {
         // Only reset when the underlying metrics truly change (new data loaded),
@@ -116,8 +119,49 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
         setStep('input');
         setResult(null);
         setLoanAmount('');
+        setJustifications([]);
+        setJustificationsLoading(false);
+        setJustificationsError(false);
         if (onSimulate) onSimulate(null);
     };
+
+    // Fetch all credit justifications in a single parallel batch as soon as the analysis completes.
+    // This replaces N separate round-trips (one per card) with one request that runs the LLM calls
+    // in parallel server-side — cutting total latency roughly to the slowest single call instead of
+    // the sum of all calls, plus removes N × auth/DB overhead.
+    useEffect(() => {
+        if (step !== 'result' || !result?.rescueStrategies?.length) return;
+
+        let cancelled = false;
+        const strategies = result.rescueStrategies;
+        setJustifications(new Array(strategies.length).fill(null));
+        setJustificationsLoading(true);
+        setJustificationsError(false);
+
+        (async () => {
+            try {
+                const res = await base44.functions.invoke('generateCreditJustification', {
+                    strategies,
+                    analysisInsights: analysisInsights || null,
+                    originalStatus: score < 55 ? 'rejected' : score < 75 ? 'borderline' : 'approved',
+                    policyThreshold: result?.meta?.dsr_limit || null
+                });
+                if (cancelled) return;
+                if (res.data?.success && Array.isArray(res.data.justifications)) {
+                    setJustifications(res.data.justifications);
+                } else {
+                    setJustificationsError(true);
+                }
+            } catch (e) {
+                if (!cancelled) setJustificationsError(true);
+            } finally {
+                if (!cancelled) setJustificationsLoading(false);
+            }
+        })();
+
+        return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [step, result]);
 
     const analysisComplete = step === 'result' && !!result;
     const formatILS = (n) => `₪${Number(n || 0).toLocaleString('he-IL')}`;
@@ -252,10 +296,9 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
                                         </div>
 
                                         <CreditJustificationBlock
-                                            strategy={s}
-                                            analysisInsights={analysisInsights}
-                                            originalStatus={score < 55 ? 'rejected' : score < 75 ? 'borderline' : 'approved'}
-                                            policyThreshold={result?.meta?.dsr_limit}
+                                            aiText={justifications[idx]}
+                                            isLoading={justificationsLoading}
+                                            error={justificationsError && !justifications[idx]}
                                         />
                                     </div>
                                 );

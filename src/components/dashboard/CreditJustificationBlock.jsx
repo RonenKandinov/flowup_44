@@ -1,47 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import { Loader2 } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
 
 /**
  * Displays the AI-generated credit justification for a single rescue strategy.
- * Shows a loader until the LLM responds — no technical fallback text.
+ * Receives the text (or loading/error state) from the parent, which fetches all
+ * justifications in a single parallel batch for minimal latency.
  */
-export default function CreditJustificationBlock({ strategy, analysisInsights, originalStatus, policyThreshold }) {
-    const [aiText, setAiText] = useState(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState(false);
-    const cancelledRef = useRef(false);
-
-    useEffect(() => {
-        cancelledRef.current = false;
-        setAiText(null);
-        setIsLoading(true);
-        setError(false);
-
-        (async () => {
-            try {
-                const res = await base44.functions.invoke('generateCreditJustification', {
-                    strategy,
-                    analysisInsights: analysisInsights || null,
-                    originalStatus: originalStatus || null,
-                    policyThreshold: policyThreshold || null
-                });
-                if (cancelledRef.current) return;
-                if (res.data?.success && res.data.justification) {
-                    setAiText(res.data.justification);
-                } else {
-                    setError(true);
-                }
-            } catch (e) {
-                if (!cancelledRef.current) setError(true);
-            } finally {
-                if (!cancelledRef.current) setIsLoading(false);
-            }
-        })();
-
-        return () => { cancelledRef.current = true; };
-    }, [strategy, analysisInsights, originalStatus, policyThreshold]);
-
+export default function CreditJustificationBlock({ aiText, isLoading, error }) {
     return (
         <div className="text-[10px] text-slate-400 border-t border-slate-800 pt-2 leading-4">
             <div className="flex items-center gap-1.5 mb-1">
