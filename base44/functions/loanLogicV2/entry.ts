@@ -796,29 +796,28 @@ ${JSON.stringify(limitedExpenses)}
         // Generate a deterministic session key based on userId to ensure consistent shadow vectors
         const SESSION_KEY = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) || 777;
 
-        // 5. Underwriting Feature Engineering — Weighted Rolling Average + CV Haircut
-        // Use active months (income/expense > 0) to avoid zero-months dragging the average down artificially,
-        // then apply weighted averaging that favors recent months for responsiveness to current reality.
-        const activeIncomeMonths = history.filter(m => m.income > 0);
-        const activeExpenseMonths = history.filter(m => m.expenses > 0);
+        // 5. Underwriting Feature Engineering — Simple Arithmetic Average over ALL months in window
+        // Every month in the 12-month window carries equal weight (1/N), including zero-income/zero-expense months.
+        // This is the transparent, auditable standard used by underwriting companies — no bias, no "active-only" trick.
+        // Zero months are part of reality and must be reflected in the average.
+        const totalMonths = history.length;
 
-        const rawAvgIncome = activeIncomeMonths.length > 0
-            ? getWeightedAverage(activeIncomeMonths.map(m => m.income))
+        const rawAvgIncome = totalMonths > 0
+            ? history.reduce((sum, m) => sum + m.income, 0) / totalMonths
             : 0;
 
-        const avgExpenses = activeExpenseMonths.length > 0
-            ? getWeightedAverage(activeExpenseMonths.map(m => m.expenses))
+        const avgExpenses = totalMonths > 0
+            ? history.reduce((sum, m) => sum + m.expenses, 0) / totalMonths
             : 0;
 
-        const avgFixedExpenses = activeExpenseMonths.length > 0
-            ? getWeightedAverage(activeExpenseMonths.map(m => m.fixedExpenses))
+        const avgFixedExpenses = totalMonths > 0
+            ? history.reduce((sum, m) => sum + m.fixedExpenses, 0) / totalMonths
             : 0;
 
         // CV-based Income Haircut — risk-adjusted income for underwriting.
-        // High volatility (common for freelancers, but also affects salaried with bonuses/commissions)
-        // leads to a proportional reduction in "reliable" income used for DTI/runway.
+        // CV computed over ALL months (including zeros) to capture true volatility.
         // Tiers: CV<=0.15 → no haircut | 0.15-0.30 → up to 10% | 0.30-0.50 → up to 20% | >0.50 → up to 30% (capped).
-        const incomeCV = getCoefficientOfVariation(activeIncomeMonths.map(m => m.income));
+        const incomeCV = getCoefficientOfVariation(history.map(m => m.income));
         let incomeHaircut = 0;
         if (incomeCV > 0.15 && incomeCV <= 0.30) {
             incomeHaircut = ((incomeCV - 0.15) / 0.15) * 0.10;
@@ -828,7 +827,8 @@ ${JSON.stringify(limitedExpenses)}
             incomeHaircut = Math.min(0.30, 0.20 + ((incomeCV - 0.50) / 0.50) * 0.10);
         }
         const avgIncome = rawAvgIncome * (1 - incomeHaircut);
-        console.log(`[Income Haircut] CV=${incomeCV.toFixed(3)}, Haircut=${(incomeHaircut * 100).toFixed(1)}%, Raw=${Math.round(rawAvgIncome)}, Adjusted=${Math.round(avgIncome)}`);
+        console.log(`[Avg] Months=${totalMonths}, Raw Avg Income=${Math.round(rawAvgIncome)}, Avg Expenses=${Math.round(avgExpenses)}`);
+        console.log(`[Income Haircut] CV=${incomeCV.toFixed(3)}, Haircut=${(incomeHaircut * 100).toFixed(1)}%, Adjusted=${Math.round(avgIncome)}`);
 
         // Legacy incomeVolatility retained for scoring (same definition as CV)
         const incomeVolatility = incomeCV;
