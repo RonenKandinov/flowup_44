@@ -76,27 +76,29 @@ function getMedian(array) {
 }
 
 /**
- * Weighted Rolling Average — gives more weight to recent months.
- * For a 12-month window: last 3 months carry 50% of the weight, prior 9 months share the other 50%.
- * Mathematically: recent months reflect current financial reality more accurately than older data,
- * which is critical for both salaried employees (raises, job changes) and freelancers (momentum).
+ * Weighted Rolling Average — Base + Recent Trend model.
+ *   final = 0.6 × avg(full window, up to 12 months)   [PAST — stability base]
+ *         + 0.4 × avg(last 3 months)                  [PRESENT — recent trend]
+ *
+ * Regular average = past. Weighted = present. CV = risk.
+ * This split keeps long-term stability as the anchor (60%) while giving
+ * meaningful weight (40%) to the most recent financial reality —
+ * works for both salaried employees (raises, bonuses) and freelancers (momentum).
  */
 function getWeightedAverage(values) {
     if (!values || values.length === 0) return 0;
-    if (values.length < 4) {
-        // Not enough data for weighting — fall back to simple average
-        return values.reduce((a, b) => a + b, 0) / values.length;
-    }
 
-    const recentCount = Math.min(3, Math.floor(values.length / 2));
+    const baseAvg = values.reduce((a, b) => a + b, 0) / values.length;
+
+    // Not enough history for a meaningful "recent trend" — return the simple base average.
+    if (values.length < 4) return baseAvg;
+
+    const recentCount = Math.min(3, values.length);
     const recent = values.slice(-recentCount);
-    const prior = values.slice(0, -recentCount);
-
     const recentAvg = recent.reduce((a, b) => a + b, 0) / recent.length;
-    const priorAvg = prior.length > 0 ? prior.reduce((a, b) => a + b, 0) / prior.length : recentAvg;
 
-    // 50/50 split: recent vs prior — smooths out one-off spikes while capturing current momentum
-    return (recentAvg * 0.5) + (priorAvg * 0.5);
+    // 60% past baseline + 40% recent trend
+    return (baseAvg * 0.6) + (recentAvg * 0.4);
 }
 
 /**
