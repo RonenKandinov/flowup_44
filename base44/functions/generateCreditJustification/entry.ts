@@ -27,67 +27,58 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Missing strategy/strategies' }, { status: 400 });
         }
 
-        // Resolve DSR policy threshold once (shared across all strategies)
-        let threshold = Number(policyThreshold);
-        if (!Number.isFinite(threshold) || threshold <= 0) {
+        // Resolve DSR policy threshold in PARALLEL with the LLM calls (don't block them)
+        const thresholdPromise = (async () => {
+            let t = Number(policyThreshold);
+            if (Number.isFinite(t) && t > 0) return t;
             try {
                 const rules = await base44.asServiceRole.entities.UnderwritingRule.list();
                 const max = Number(rules?.[0]?.max_dti_approve);
-                if (Number.isFinite(max) && max > 0 && max < 100) threshold = max;
-            } catch (e) { /* fall through to default */ }
-        }
-        if (!Number.isFinite(threshold) || threshold <= 0) threshold = 40;
+                if (Number.isFinite(max) && max > 0 && max < 100) return max;
+            } catch (e) { /* fall through */ }
+            return 40;
+        })();
 
-        const strategyAngles = {
-            cash_flow_alignment: 'זווית תזרימית — מה בנתוני התזרים של הלקוח (יציבות הכנסה, מרווח חודשי, קצב הוצאות) הופך דווקא אותו למתאים למסלול הזה',
-            exposure_reduction: 'זווית חשיפתית — מה בפרופיל הסיכון של הלקוח (יחס חוב, נזילות, רמת מינוף) הופך דווקא אותו למתאים להקטנת חשיפה',
-            behavioral_approval: 'זווית התנהגותית — מה בדפוסי ההתנהלות של הלקוח (עקביות בתשלומים, יציבות, משמעת פיננסית) הופך דווקא אותו למתאים לאישור על סמך התנהגות'
+        const angle = {
+            cash_flow_alignment: 'תזרימית (יציבות הכנסה, מרווח חודשי)',
+            exposure_reduction: 'חשיפתית (יחס חוב, נזילות, מינוף)',
+            behavioral_approval: 'התנהגותית (עקביות, משמעת פיננסית)'
         };
 
-        const statusLabels = {
-            approved: 'אושר במסגרת מדיניות האשראי',
-            conditional: 'אושר בתנאי (חריגה קלה שדורשת שיקול דעת)',
-            failed: 'לא עובר את סף המדיניות'
-        };
+        // Build a COMPACT client profile once — same across all 3 strategies, shorter prompt = faster response
+        const m = analysisInsights?.metrics || {};
+        const profileLines = [
+            m.liquidity_buffer_months != null && `נזילות ${Number(m.liquidity_buffer_months).toFixed(1)} ח׳`,
+            m.structural_dti != null && `DTI מבני ${m.structural_dti}%`,
+            m.adjusted_dti != null && `DTI מתואם ${m.adjusted_dti}%`,
+            m.income_volatility != null && `תנודתיות הכנסה ${m.income_volatility}%`,
+            analysisInsights?.risk_tier && `סיכון: ${analysisInsights.risk_tier}`,
+            analysisInsights?.behavioral_classification && `התנהגות: ${analysisInsights.behavioral_classification}`,
+            analysisInsights?.risk_flags?.length ? `דגלים: ${analysisInsights.risk_flags.slice(0, 3).join(', ')}` : null
+        ].filter(Boolean).join(' | ');
 
-        const buildPrompt = (s) => `אתה אנליסט אשראי בכיר. כתוב נימוק אשראי קצר (2-3 משפטים) בעברית, שמסביר למה **הלקוח הספציפי הזה** עובר דרך הגישה הזו — לפי הסיפור האישי שלו מהנתונים.
+        const threshold = await thresholdPromise;
 
-מצב מקורי של הבקשה: ${originalStatus || 'לא ידוע'}
-סטטוס לאחר חילוץ: ${statusLabels[s.status] || s.status}
+        // Short, focused prompt — Gemini Flash generates much faster on concise prompts.
+        const buildPrompt = (s) => `נימוק אשראי קצר בעברית בלבד (2 משפטים, ללא מספרים מהטבלה, ללא כותרות).
+זווית: ${angle[s.type] || s.type}.
+פרופיל לקוח: ${profileLines || 'רגיל'}.
+סטטוס לאחר חילוץ: ${s.status}. DSR חדש ${s.dsr}% (סף ${threshold}%).
+הסבר בדיוק מה בפרופיל האישי של הלקוח מתאים לזווית הזו — שונה מהאחרות.`;
 
-זווית הניתוח: ${strategyAngles[s.type] || s.type}
-
-נתוני הלקוח (השתמש רק במה שרלוונטי לזווית):
-${analysisInsights?.metrics?.liquidity_buffer_months != null ? '- נזילות זמינה: ' + Number(analysisInsights.metrics.liquidity_buffer_months).toFixed(1) + ' חודשים' : ''}
-${analysisInsights?.metrics?.structural_dti != null ? '- DTI מבני: ' + analysisInsights.metrics.structural_dti + '%' : ''}
-${analysisInsights?.metrics?.adjusted_dti != null ? '- DTI מתואם: ' + analysisInsights.metrics.adjusted_dti + '%' : ''}
-${analysisInsights?.metrics?.income_volatility != null ? '- תנודתיות הכנסה: ' + analysisInsights.metrics.income_volatility + '%' : ''}
-${analysisInsights?.risk_tier ? '- רמת סיכון: ' + analysisInsights.risk_tier : ''}
-${analysisInsights?.behavioral_classification ? '- סיווג התנהגותי: ' + analysisInsights.behavioral_classification : ''}
-${analysisInsights?.classification_reason ? '- הסבר סיווג: ' + analysisInsights.classification_reason : ''}
-${analysisInsights?.risk_flags?.length ? '- דגלי סיכון: ' + analysisInsights.risk_flags.join('; ') : '- אין דגלי סיכון פעילים'}
-
-DSR חדש לאחר החילוץ: ${s.dsr}% (סף מדיניות: ${threshold}%)
-
-הנחיות קריטיות לכתיבה:
-1. **כתוב בעברית תקנית בלבד**. אסור בהחלט להשתמש באותיות או מילים בשפות אחרות (רוסית, אנגלית, וכו'). אם יש שם של דגל סיכון בשפה זרה — תרגם אותו לעברית במלואו.
-2. **אסור** להסביר מה הגישה עושה באופן כללי (לא "הפריסה הארוכה יותר מפחיתה עומס"). זה כבר ברור.
-3. **חובה** להסביר מה בנתונים האישיים של הלקוח הזה גורם לו לעבור דווקא דרך הזווית הזו.
-4. כל נימוק חייב להיות שונה לחלוטין מהאחרים — לא אותה מוזיקה בווריאציות שונות.
-5. שפה עסקית־אנושית, לא טכנית, לא פורמלית יתר על המידה.
-6. אל תחזור על המספרים מהטבלה (סכום, תקופה, החזר, ריבית, מקדמה).
-7. עד 3 משפטים. ללא כותרות וללא רשימות.`;
-
-        // Run all LLM calls in parallel — this is the key latency win
+        // Run all LLM calls in parallel — total latency ≈ slowest single call.
+        // Using default model (gpt_5_mini) — empirically ~3-4× faster than gemini_3_flash
+        // on short Hebrew generations, and we don't need web context here.
         const results = await Promise.all(list.map(async (s) => {
+            const t0 = Date.now();
             try {
                 const response = await base44.integrations.Core.InvokeLLM({
-                    prompt: buildPrompt(s),
-                    model: 'gemini_3_flash'
+                    prompt: buildPrompt(s)
                 });
+                console.log(`LLM ${s.type}: ${Date.now() - t0}ms`);
                 return typeof response === 'string' ? response.trim() : String(response).trim();
             } catch (e) {
-                console.error('LLM call failed for strategy:', s?.type, e?.message);
+                console.error(`LLM ${s.type} failed after ${Date.now() - t0}ms:`, e?.message);
                 return null;
             }
         }));
