@@ -862,19 +862,19 @@ export default function Dashboard() {
 
           {/* Loading Skeleton */}
           {(!loanMetricsError && (isLoading || isLoanMetricsLoading)) ? (
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-pulse">
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-5 animate-pulse">
                 <div className="h-36 bg-slate-800/50 rounded-2xl" />
                 <div className="h-36 bg-slate-800/50 rounded-2xl" />
                 <div className="h-36 bg-slate-800/50 rounded-2xl" />
-                <div className="col-span-1 md:col-span-2 h-72 bg-slate-800/50 rounded-2xl mt-8" />
-                <div className="h-72 bg-slate-800/50 rounded-2xl mt-8" />
+                <div className="col-span-1 md:col-span-2 h-72 bg-slate-800/50 rounded-2xl mt-6" />
+                <div className="h-72 bg-slate-800/50 rounded-2xl mt-6" />
              </div>
           ) : (!loanMetricsError && !hasData) ? (
             <EmptyState onDataParsed={handleDataParsed} onUploadCSV={() => setShowUploader(true)} />
           ) : (!loanMetricsError && (
             <>
-              {/* Stats Row — generous spacing on all breakpoints */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8 items-stretch">
+              {/* Stats Row — balanced spacing for analyst workflows */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5 mb-5 md:mb-6 items-stretch">
                 {/* Replaced Balance StatCard with LiquidAssetsCard */}
                 <LiquidAssetsCard 
                     cash={newLoanMetrics?.liquidAssetsBreakdown?.cash ?? (loanLogicData ? loanMetrics?.liquidAssetsBreakdown?.cash : (snapshot.current_balance || 0))} 
@@ -899,8 +899,8 @@ export default function Dashboard() {
                 />
               </div>
 
-              {/* Main Dashboard Grid — more breathing room between panels */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-stretch">
+              {/* Main Dashboard Grid — balanced spacing */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
                 {/* Speedometer: Mobile 1, Desktop 1 (Top Left) */}
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
