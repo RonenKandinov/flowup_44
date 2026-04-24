@@ -731,22 +731,25 @@ export default function Dashboard() {
           backgroundSize: '40px 40px'
         }} />
       </div>
+      {/* Ambient glow accents */}
+      <div className="fixed top-0 right-0 w-[600px] h-[600px] bg-cyan-500/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="fixed bottom-0 left-0 w-[600px] h-[600px] bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
 
       {/* Header */}
-      <header className="relative z-10 px-4 py-6 md:px-8">
-        <div className="max-w-6xl mx-auto flex items-center justify-between border-b border-slate-800/60 pb-6">
+      <header className="relative z-10 px-6 py-8 md:px-10 lg:px-12">
+        <div className="max-w-7xl mx-auto flex items-center justify-between border-b border-slate-800/60 pb-8 gap-4 flex-wrap">
           <div>
-            <h1 className="text-3xl font-bold text-white tracking-tight">
+            <h1 className="text-4xl font-bold text-white tracking-tight bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
               FlowUp
             </h1>
-            <p className="text-slate-500 text-xs mt-1 tracking-wide uppercase">FutureFlow Dashboard</p>
+            <p className="text-slate-500 text-xs mt-2 tracking-[0.2em] uppercase">FutureFlow Dashboard</p>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3 flex-wrap">
             {originalLoanMetrics?.availableAccounts?.length > 0 && (
               <div className="w-56">
                 <Select value={targetAccountId || originalLoanMetrics.activeTargetAccountId || ''} onValueChange={setTargetAccountId}>
-                  <SelectTrigger className="h-8 bg-slate-800/50 border-slate-700/50 text-xs">
+                  <SelectTrigger className="h-9 bg-slate-800/60 border-slate-700/60 text-xs backdrop-blur-sm">
                     <SelectValue placeholder="בחר חשבון" />
                   </SelectTrigger>
                   <SelectContent>
@@ -766,30 +769,30 @@ export default function Dashboard() {
                 disabled={exportSnapshotsToSheetsMutation.isPending}
                 variant="outline"
                 size="sm"
-                className="bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/40 hover:text-white transition-all h-8 px-3 rounded-md"
+                className="bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/40 hover:text-white hover:border-emerald-400/60 transition-all h-9 px-4 rounded-lg shadow-sm shadow-emerald-500/10"
               >
-                <RefreshCw className={`w-3 h-3 ml-1.5 ${exportSnapshotsToSheetsMutation.isPending ? 'animate-spin' : ''}`} />
-                <span className="text-[11px] font-medium">הפק דוח חיתום</span>
+                <RefreshCw className={`w-3.5 h-3.5 ml-2 ${exportSnapshotsToSheetsMutation.isPending ? 'animate-spin' : ''}`} />
+                <span className="text-xs font-medium">הפק דוח חיתום</span>
               </Button>
             )}
             <Button
               onClick={() => setShowOpenFinance(true)}
               variant="ghost"
               size="sm"
-              className="bg-blue-600/20 border border-blue-500/40 text-blue-300 hover:bg-blue-600/40 hover:text-white transition-all h-8 px-3 rounded-md"
+              className="bg-blue-600/20 border border-blue-500/40 text-blue-300 hover:bg-blue-600/40 hover:text-white hover:border-blue-400/60 transition-all h-9 px-4 rounded-lg shadow-sm shadow-blue-500/10"
             >
-              <Plus className="w-3 h-3 ml-1.5" />
-              <span className="text-[11px] font-medium">חבר חשבון בנק</span>
+              <Plus className="w-3.5 h-3.5 ml-2" />
+              <span className="text-xs font-medium">חבר חשבון בנק</span>
             </Button>
               <DropdownMenu dir="rtl">
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white transition-all h-8 px-3 rounded-md"
+                    className="bg-slate-800/60 border border-slate-700/60 text-slate-300 hover:bg-slate-700 hover:text-white transition-all h-9 px-4 rounded-lg backdrop-blur-sm"
                   >
-                    <Settings className="w-3 h-3 ml-1.5" />
-                    <span className="text-[11px] font-medium">הגדרות מערכת</span>
+                    <Settings className="w-3.5 h-3.5 ml-2" />
+                    <span className="text-xs font-medium">הגדרות מערכת</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48 bg-slate-900 border-slate-800 text-slate-200">
@@ -835,8 +838,8 @@ export default function Dashboard() {
       </header>
 
       {/* Main content */}
-      <main className="relative z-10 px-4 pb-8 md:px-8">
-        <div className="max-w-6xl mx-auto">
+      <main className="relative z-10 px-6 pb-12 md:px-10 lg:px-12 pt-2">
+        <div className="max-w-7xl mx-auto">
           {/* System Calibration Error State */}
           {loanMetricsError && (
              <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
@@ -859,19 +862,19 @@ export default function Dashboard() {
 
           {/* Loading Skeleton */}
           {(!loanMetricsError && (isLoading || isLoanMetricsLoading)) ? (
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-pulse">
-                <div className="h-32 bg-slate-800/50 rounded-xl" />
-                <div className="h-32 bg-slate-800/50 rounded-xl" />
-                <div className="h-32 bg-slate-800/50 rounded-xl" />
-                <div className="col-span-1 md:col-span-2 h-64 bg-slate-800/50 rounded-xl mt-6" />
-                <div className="h-64 bg-slate-800/50 rounded-xl mt-6" />
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-pulse">
+                <div className="h-36 bg-slate-800/50 rounded-2xl" />
+                <div className="h-36 bg-slate-800/50 rounded-2xl" />
+                <div className="h-36 bg-slate-800/50 rounded-2xl" />
+                <div className="col-span-1 md:col-span-2 h-72 bg-slate-800/50 rounded-2xl mt-8" />
+                <div className="h-72 bg-slate-800/50 rounded-2xl mt-8" />
              </div>
           ) : (!loanMetricsError && !hasData) ? (
             <EmptyState onDataParsed={handleDataParsed} onUploadCSV={() => setShowUploader(true)} />
           ) : (!loanMetricsError && (
             <>
-              {/* Stats Row - Compact on Mobile */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-4 mb-4 md:mb-6 items-stretch">
+              {/* Stats Row — generous spacing on all breakpoints */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8 items-stretch">
                 {/* Replaced Balance StatCard with LiquidAssetsCard */}
                 <LiquidAssetsCard 
                     cash={newLoanMetrics?.liquidAssetsBreakdown?.cash ?? (loanLogicData ? loanMetrics?.liquidAssetsBreakdown?.cash : (snapshot.current_balance || 0))} 
@@ -896,8 +899,8 @@ export default function Dashboard() {
                 />
               </div>
 
-              {/* Main Dashboard Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 items-stretch">
+              {/* Main Dashboard Grid — more breathing room between panels */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-stretch">
                 {/* Speedometer: Mobile 1, Desktop 1 (Top Left) */}
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
