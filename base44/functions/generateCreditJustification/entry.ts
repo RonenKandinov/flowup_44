@@ -59,12 +59,21 @@ Deno.serve(async (req) => {
 
         const threshold = await thresholdPromise;
 
-        // Short, focused prompt — Gemini Flash generates much faster on concise prompts.
-        const buildPrompt = (s) => `נימוק אשראי קצר בעברית בלבד (2 משפטים, ללא מספרים מהטבלה, ללא כותרות).
-זווית: ${angle[s.type] || s.type}.
-פרופיל לקוח: ${profileLines || 'רגיל'}.
-סטטוס לאחר חילוץ: ${s.status}. DSR חדש ${s.dsr}% (סף ${threshold}%).
-הסבר בדיוק מה בפרופיל האישי של הלקוח מתאים לזווית הזו — שונה מהאחרות.`;
+        // Short, focused prompt — compact but emphasizes Hebrew-only + human storytelling.
+        const buildPrompt = (s) => `אתה אנליסט אשראי בכיר. כתוב נימוק חי ואישי (2-3 משפטים) שמסביר למה **ללקוח הזה ספציפית** מתאים המסלול הזה — כאילו אתה מציג לוועדת אשראי מדוע הבקשה שלו עוברת.
+
+זווית הניתוח: ${angle[s.type] || s.type}.
+פרופיל הלקוח: ${profileLines || 'סטנדרטי'}.
+סטטוס לאחר חילוץ: ${s.status}. DSR חדש ${s.dsr}% (סף מדיניות ${threshold}%).
+
+חוקים מחייבים:
+1. **כתוב בעברית בלבד**. אסור לחלוטין להשתמש במילים, ביטויים או מונחים באנגלית או בכל שפה אחרת. כל מונח מקצועי — תרגם לעברית (למשל "Payment History" → "היסטוריית תשלומים", "DTI" ניתן להשאיר כראשי תיבות).
+2. דבר על הלקוח כאדם, לא כמקרה — "הלקוח הוכיח...", "ההתנהלות שלו מעידה...".
+3. חבר בין נתון ספציפי בפרופיל לבין הסיבה שדווקא המסלול הזה מתאים לו.
+4. אל תחזור על המספרים מהטבלה (סכום, תקופה, החזר, ריבית, מקדמה).
+5. אל תסביר מה המסלול עושה באופן כללי — רק למה הוא מתאים ללקוח הזה.
+6. כל נימוק חייב להיות שונה מהאחרים בזווית ובסיפור.
+7. ללא כותרות, ללא רשימות, טקסט רץ בלבד.`;
 
         // Run all LLM calls in parallel — total latency ≈ slowest single call.
         // Using default model (gpt_5_mini) — empirically ~3-4× faster than gemini_3_flash
