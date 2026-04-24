@@ -134,20 +134,6 @@ export default function InsightsAgent({ analysis, isLoading, rescueOverlay = nul
                                     );
                                 })()}
 
-                                {/* False Negative Banner */}
-                                {llm_analysis?.is_false_negative && (
-                                    <div className="bg-fuchsia-900/30 border border-fuchsia-500/30 p-3 rounded-lg flex items-start gap-3">
-                                        <BrainCircuit className="w-5 h-5 text-fuchsia-400 shrink-0 mt-0.5" />
-                                        <div>
-                                            <p className="text-xs font-bold text-fuchsia-300">זיהוי False Negative (שגיאת מדיניות)</p>
-                                            <p className="text-xs text-fuchsia-200/80 mt-1">מערכת ה-AI זיהתה שהלקוח נדחה בגלל "סיבה טכנית", למרות התנהגות פיננסית חיובית המצדיקה אישור.</p>
-                                            {llm_analysis.override_analysis?.reason && (
-                                                <p className="text-xs text-fuchsia-300 mt-2 font-medium bg-fuchsia-950/50 p-2 rounded border-l-2 border-fuchsia-500">"{llm_analysis.override_analysis.reason}"</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-
                                 {/* Second Chance Banner */}
                                 {!llm_analysis?.is_false_negative && second_chance_analysis?.eligible && (
                                     <div className="bg-indigo-900/30 border border-indigo-500/30 p-3 rounded-lg flex items-start gap-3">

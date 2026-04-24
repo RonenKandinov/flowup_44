@@ -234,17 +234,6 @@ export default function SpeedometerGauge({
           </div>
         )}
 
-        {isScore && statusColor !== 'green' && (
-          <div className="mt-4 text-xs text-slate-300 bg-slate-800/50 p-3 rounded-lg text-right border border-slate-700/50">
-            <p className="font-semibold mb-1 text-slate-200">המשמעות כרגע:</p>
-            <ul className="list-disc list-inside pr-2 space-y-1 text-slate-400">
-              <li>{statusColor === 'red' ? 'אין כרגע מבנה עסקה בטוח לאישור אוטומטי' : 'נדרש מבנה עסקה שמרני יותר'}</li>
-              <li>{statusColor === 'red' ? 'צריך לשפר הכנסה, להקטין התחייבויות או להגדיל הון עצמי' : 'אפשר לבחון פריסה ארוכה יותר או הקטנת סכום'}</li>
-              <li>{statusColor === 'red' ? 'לא להציג זאת כעסקה מחולצת אם יחס ההחזר הורע' : 'העסקה עדיין דורשת בחינה ידנית'}</li>
-            </ul>
-          </div>
-        )}
-        
         {isScore && dti !== undefined && (
              <div className="mt-4 pt-3 border-t border-slate-700/50 text-xs font-medium text-slate-500 flex flex-col items-center">
                 <div>
