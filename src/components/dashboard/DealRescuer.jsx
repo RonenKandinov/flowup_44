@@ -140,9 +140,22 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
 
         (async () => {
             try {
+                // Send a slim version of analysisInsights — full object can be heavy and the
+                // function only needs metrics + tier + flags. Smaller payload = fewer prod errors.
+                const slimInsights = analysisInsights ? {
+                    metrics: analysisInsights.metrics || null,
+                    risk_tier: analysisInsights.risk_tier || null,
+                    behavioral_classification: analysisInsights.behavioral_classification || null,
+                    risk_flags: Array.isArray(analysisInsights.risk_flags) ? analysisInsights.risk_flags.slice(0, 3) : null
+                } : null;
+
                 const res = await base44.functions.invoke('generateCreditJustification', {
-                    strategies,
-                    analysisInsights: analysisInsights || null,
+                    strategies: strategies.map(s => ({
+                        type: s.type,
+                        status: s.status,
+                        dsr: s.dsr
+                    })),
+                    analysisInsights: slimInsights,
                     originalStatus: score < 55 ? 'rejected' : score < 75 ? 'borderline' : 'approved',
                     policyThreshold: result?.meta?.dsr_limit || null
                 });
@@ -150,9 +163,11 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
                 if (res.data?.success && Array.isArray(res.data.justifications)) {
                     setJustifications(res.data.justifications);
                 } else {
+                    console.warn('generateCreditJustification: unexpected response', res?.data);
                     setJustificationsError(true);
                 }
             } catch (e) {
+                console.error('generateCreditJustification failed:', e?.response?.data || e?.message || e);
                 if (!cancelled) setJustificationsError(true);
             } finally {
                 if (!cancelled) setJustificationsLoading(false);

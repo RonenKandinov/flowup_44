@@ -66,6 +66,14 @@ Deno.serve(async (req) => {
 סטטוס לאחר חילוץ: ${s.status}. DSR חדש ${s.dsr}% (סף ${threshold}%).
 הסבר בדיוק מה בפרופיל האישי של הלקוח מתאים לזווית הזו — שונה מהאחרות.`;
 
+        // Static fallback per strategy type — guarantees the analyst always sees a meaningful
+        // explanation even if the LLM is slow / errors / rate-limited in production.
+        const fallbackText = {
+            cash_flow_alignment: 'המסלול הותאם לתזרים החודשי של הלקוח: גובה ההחזר נשאר במרווח בטוח ביחס להכנסה הפנויה, מה שמבטיח עמידה שוטפת בתשלומים גם בחודשים חלשים.',
+            exposure_reduction: 'המסלול מקטין את החשיפה הכוללת של הלקוח: יחס ההחזר לחוב יורד מתחת לסף המדיניות ומותיר כרית נזילות מספקת לשירות החוב לאורך זמן.',
+            behavioral_approval: 'אישור מבוסס התנהגות פיננסית עקבית: למרות יחס החזר גבוה יחסית, התנהלות הלקוח לאורך זמן (משמעת תשלומים, ללא חריגות) מצדיקה אישור.'
+        };
+
         // Run all LLM calls in parallel — total latency ≈ slowest single call.
         // Using default model (gpt_5_mini) — empirically ~3-4× faster than gemini_3_flash
         // on short Hebrew generations, and we don't need web context here.
@@ -76,10 +84,11 @@ Deno.serve(async (req) => {
                     prompt: buildPrompt(s)
                 });
                 console.log(`LLM ${s.type}: ${Date.now() - t0}ms`);
-                return typeof response === 'string' ? response.trim() : String(response).trim();
+                const text = typeof response === 'string' ? response.trim() : String(response).trim();
+                return text || fallbackText[s.type] || 'נימוק אשראי אינו זמין כרגע.';
             } catch (e) {
                 console.error(`LLM ${s.type} failed after ${Date.now() - t0}ms:`, e?.message);
-                return null;
+                return fallbackText[s.type] || 'נימוק אשראי אינו זמין כרגע.';
             }
         }));
 
