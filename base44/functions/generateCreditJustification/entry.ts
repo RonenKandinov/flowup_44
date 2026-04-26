@@ -59,12 +59,34 @@ Deno.serve(async (req) => {
 
         const threshold = await thresholdPromise;
 
-        // Short, focused prompt — Gemini Flash generates much faster on concise prompts.
-        const buildPrompt = (s) => `נימוק אשראי קצר בעברית בלבד (2 משפטים, ללא מספרים מהטבלה, ללא כותרות).
-זווית: ${angle[s.type] || s.type}.
-פרופיל לקוח: ${profileLines || 'רגיל'}.
-סטטוס לאחר חילוץ: ${s.status}. DSR חדש ${s.dsr}% (סף ${threshold}%).
-הסבר בדיוק מה בפרופיל האישי של הלקוח מתאים לזווית הזו — שונה מהאחרות.`;
+        // Strict Hebrew-only prompt. We explicitly forbid foreign words, transliterations,
+        // and acronym expansions (e.g. LLM expanding "DSR" to "Digital Sustainable Ratio")
+        // because in production gpt_5_mini occasionally mixes English/Arabic into Hebrew output.
+        const buildPrompt = (s) => `אתה חתם אשראי ישראלי. כתוב נימוק קצר בעברית תקנית בלבד.
+
+חוקים מוחלטים:
+- עברית בלבד. אסור בהחלט להשתמש במילים באנגלית, ערבית או כל שפה אחרת.
+- אסור להרחיב ראשי תיבות (לדוגמה: לכתוב "DSR" ולא "Debt Service Ratio").
+- 2 משפטים בלבד. ללא כותרות, ללא רשימות, ללא מספרים מהטבלה.
+- שפה מקצועית, ברורה וזורמת — כפי שחתם בנקאי היה כותב.
+
+זווית הניתוח: ${angle[s.type] || s.type}.
+פרופיל הלקוח: ${profileLines || 'סטנדרטי'}.
+תוצאה: ${s.status}. יחס החזר חדש ${s.dsr}% מתוך סף ${threshold}%.
+
+הסבר מה בפרופיל הספציפי של הלקוח מצדיק את הזווית הזו, באופן שונה משתי הזוויות האחרות.`;
+
+        // Detect non-Hebrew contamination (Latin or Arabic letters). Hebrew-only justifications
+        // may contain digits, punctuation and the % sign, but no foreign-script words.
+        const isContaminated = (text) => {
+            if (!text) return true;
+            // Reject if text contains Arabic letters (U+0600–U+06FF)
+            if (/[\u0600-\u06FF]/.test(text)) return true;
+            // Reject if text contains Latin letters forming a word (>=2 in a row).
+            // Single letters are tolerated only if not present at all is preferred — be strict.
+            if (/[A-Za-z]{2,}/.test(text)) return true;
+            return false;
+        };
 
         // Static fallback per strategy type — guarantees the analyst always sees a meaningful
         // explanation even if the LLM is slow / errors / rate-limited in production.
@@ -80,11 +102,28 @@ Deno.serve(async (req) => {
         const results = await Promise.all(list.map(async (s) => {
             const t0 = Date.now();
             try {
-                const response = await base44.integrations.Core.InvokeLLM({
+                let response = await base44.integrations.Core.InvokeLLM({
                     prompt: buildPrompt(s)
                 });
+                let text = typeof response === 'string' ? response.trim() : String(response).trim();
+
+                // If the model leaked foreign-script words, retry once with an even stricter
+                // re-write instruction. If it still fails — return the static Hebrew fallback.
+                if (isContaminated(text)) {
+                    console.warn(`LLM ${s.type}: contaminated output, retrying. First attempt: ${text.slice(0, 120)}`);
+                    const retry = await base44.integrations.Core.InvokeLLM({
+                        prompt: `שכתב את הטקסט הבא לעברית תקנית בלבד. אסור בהחלט מילים באנגלית או בערבית. אסור ראשי תיבות לועזיים. שמור על 2 משפטים, סגנון של חתם אשראי בנקאי:\n\n${text}`
+                    });
+                    const retryText = typeof retry === 'string' ? retry.trim() : String(retry).trim();
+                    if (!isContaminated(retryText)) {
+                        text = retryText;
+                    } else {
+                        console.error(`LLM ${s.type}: retry still contaminated, using fallback.`);
+                        text = fallbackText[s.type] || 'נימוק אשראי אינו זמין כרגע.';
+                    }
+                }
+
                 console.log(`LLM ${s.type}: ${Date.now() - t0}ms`);
-                const text = typeof response === 'string' ? response.trim() : String(response).trim();
                 return text || fallbackText[s.type] || 'נימוק אשראי אינו זמין כרגע.';
             } catch (e) {
                 console.error(`LLM ${s.type} failed after ${Date.now() - t0}ms:`, e?.message);
