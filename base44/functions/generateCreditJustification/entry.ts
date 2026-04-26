@@ -11,9 +11,19 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
-        const user = await base44.auth.me();
-        if (!user) {
-            return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
+        // Soft auth: we want to know who's calling (audit + future personalization),
+        // but we MUST NOT 401 the request. In production we observed auth.me() failing
+        // on the public B2B-Connect domain because the session cookie doesn't always
+        // propagate cross-origin — that 401 caused the UI to render
+        // "נימוק אשראי לא זמין". When auth fails we mark the request as unauthenticated
+        // and serve static Hebrew fallback justifications instead.
+        let isAuthenticated = false;
+        try {
+            const user = await base44.auth.me();
+            isAuthenticated = !!user;
+        } catch (authErr) {
+            console.warn('generateCreditJustification: auth.me() failed, will use static fallback.', authErr?.message);
         }
 
         const body = await req.json();
@@ -95,6 +105,18 @@ Deno.serve(async (req) => {
             exposure_reduction: 'המסלול מקטין את החשיפה הכוללת של הלקוח: יחס ההחזר לחוב יורד מתחת לסף המדיניות ומותיר כרית נזילות מספקת לשירות החוב לאורך זמן.',
             behavioral_approval: 'אישור מבוסס התנהגות פיננסית עקבית: למרות יחס החזר גבוה יחסית, התנהלות הלקוח לאורך זמן (משמעת תשלומים, ללא חריגות) מצדיקה אישור.'
         };
+
+        // If the caller wasn't authenticated (cross-domain cookie failed), skip the LLM
+        // entirely and return the static Hebrew fallback. Calling InvokeLLM unauthenticated
+        // would also fail and we'd end up showing "לא זמין" to the user — defeating the
+        // whole point of the soft-auth degradation above.
+        if (!isAuthenticated) {
+            const fallbackResults = list.map(s => fallbackText[s.type] || 'נימוק אשראי אינו זמין כרגע.');
+            if (strategies) {
+                return Response.json({ success: true, justifications: fallbackResults, mode: 'fallback' });
+            }
+            return Response.json({ success: true, justification: fallbackResults[0], mode: 'fallback' });
+        }
 
         // Run all LLM calls in parallel — total latency ≈ slowest single call.
         // Using default model (gpt_5_mini) — empirically ~3-4× faster than gemini_3_flash
