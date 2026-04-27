@@ -215,45 +215,83 @@ const strategyScore = (type, c, requestedLoanAmount, insights, dsrLimit) => {
 };
 
 // Stage 5 — pick 3 distinct strategies
+//
+// CRITICAL distinctness rule: when ALL candidates cluster near the DSR ceiling
+// (typical when the requested amount is close to the client's max capacity),
+// the three strategies would otherwise return identical structures. To force
+// meaningful variety, we partition candidates into TYPE-SPECIFIC POOLS that
+// represent each strategy's philosophical "lane":
+//
+//  • cash_flow_alignment → longest available terms (lower monthly payment)
+//  • exposure_reduction  → smaller principals AND/OR larger down payments
+//  • behavioral_approval → closest to original request (largest principal, may use DSR headband)
+//
+// Each strategy picks its winner from its OWN pool, so even when the underlying
+// candidate set is narrow, the three results occupy distinct corners of the grid.
 const pickStrategies = (candidates, requestedLoanAmount, insights, dsrLimit) => {
   if (candidates.length === 0) return [];
 
   const withScore = candidates.map(c => ({ ...c, score: compositeScore(c, requestedLoanAmount, dsrLimit) }));
 
-  const bestFor = (type) => {
-    const ranked = [...withScore]
+  // Sort helpers for the three "lanes"
+  const maxTerm = Math.max(...withScore.map(c => c.termMonths));
+  const minTerm = Math.min(...withScore.map(c => c.termMonths));
+  const maxAmount = Math.max(...withScore.map(c => c.grossAmount));
+  const minAmount = Math.min(...withScore.map(c => c.grossAmount));
+
+  // Lane 1 — cash flow: prefer LONGEST term (lowest monthly burden).
+  // Pool = candidates within the top 1/3 of available terms.
+  const termCutoff = minTerm + (maxTerm - minTerm) * 0.66;
+  const cashFlowPool = withScore.filter(c => c.termMonths >= termCutoff);
+
+  // Lane 2 — exposure: prefer SMALLEST principal or HIGHEST down payment.
+  // Pool = candidates in the bottom 1/2 of amounts OR with non-zero DP.
+  const amountMidpoint = minAmount + (maxAmount - minAmount) * 0.5;
+  const exposurePool = withScore.filter(c => c.grossAmount <= amountMidpoint || c.downPayment > 0);
+
+  // Lane 3 — behavioral: prefer LARGEST principal (closest to request).
+  // Pool = candidates in the top 1/2 of amounts.
+  const behavioralPool = withScore.filter(c => c.grossAmount >= amountMidpoint);
+
+  const pickFromPool = (pool, type) => {
+    const source = pool.length > 0 ? pool : withScore; // fallback to full set if pool is empty
+    const ranked = [...source]
       .map(c => ({ c, s: strategyScore(type, c, requestedLoanAmount, insights, dsrLimit) }))
       .sort((a, b) => b.s - a.s);
     return ranked[0]?.c || null;
   };
 
-  const primary = {
-    cash_flow_alignment: bestFor('cash_flow_alignment'),
-    exposure_reduction: bestFor('exposure_reduction'),
-    behavioral_approval: bestFor('behavioral_approval')
-  };
-
-  // Distinctness: require meaningful differences between picks.
-  const tooSimilar = (a, b) => {
+  // Distinctness: two picks are "too similar" if they share the SAME structural fingerprint.
+  // Using OR logic — different on ANY one of these dimensions is enough to count as distinct.
+  // (The previous AND logic let identical-on-3-dimensions picks slip through.)
+  const isDuplicate = (a, b) => {
     if (!a || !b) return false;
-    const amountDiff = Math.abs(a.grossAmount - b.grossAmount) / Math.max(1, requestedLoanAmount);
-    const termDiff = Math.abs(a.termMonths - b.termMonths);
-    const rateDiff = Math.abs(a.interestRate - b.interestRate);
-    const dpDiff = Math.abs(a.downPayment - b.downPayment) / Math.max(1, requestedLoanAmount);
-    return amountDiff < 0.05 && termDiff < 12 && rateDiff < 0.5 && dpDiff < 0.05;
+    return a.grossAmount === b.grossAmount
+        && a.termMonths === b.termMonths
+        && Math.abs(a.interestRate - b.interestRate) < 0.01
+        && a.downPayment === b.downPayment;
   };
 
   const order = ['cash_flow_alignment', 'exposure_reduction', 'behavioral_approval'];
+  const pools = {
+    cash_flow_alignment: cashFlowPool,
+    exposure_reduction: exposurePool,
+    behavioral_approval: behavioralPool
+  };
+
   const chosen = {};
   for (const type of order) {
-    let pick = primary[type];
-    // If this pick is too similar to a previously-chosen one, find an alternative
-    // that still maximizes this strategy's objective but is distinct.
-    const ranked = [...withScore]
+    const pool = pools[type];
+    const source = pool.length > 0 ? pool : withScore;
+    const ranked = [...source]
       .map(c => ({ c, s: strategyScore(type, c, requestedLoanAmount, insights, dsrLimit) }))
       .sort((a, b) => b.s - a.s);
+
+    // Walk down the ranked list and take the first candidate that isn't a duplicate
+    // of an already-chosen pick. Falls back to top pick if everything collides.
+    let pick = ranked[0]?.c || null;
     for (const { c } of ranked) {
-      const conflict = Object.values(chosen).some(existing => tooSimilar(existing, c));
+      const conflict = Object.values(chosen).some(existing => isDuplicate(existing, c));
       if (!conflict) { pick = c; break; }
     }
     if (pick) chosen[type] = pick;
