@@ -180,6 +180,74 @@ const loadPolicyDsrLimit = async (base44) => {
   return 0.4;
 };
 
+// ─── Dynamic Risk-Adjustment Layer ─────────────────────────────────────────────
+// Adjusts the DSR ceiling around the company policy threshold based on applicant
+// quality signals (liquidity, behavior, risk level). The company policy itself is
+// NEVER overridden — this only widens or tightens the band around it.
+//
+// Result is clamped to [30%, 65%] to prevent extreme drift in either direction.
+// All adjustments are returned for transparency so analysts/auditors can see
+// exactly why the ceiling moved.
+const computeAdjustedDsrLimit = (basePolicyLimit, insights) => {
+  const baseDsrLimitPct = Math.round(basePolicyLimit * 1000) / 10; // e.g. 0.5 → 50.0
+  const adjustments = [];
+
+  if (!insights) {
+    return {
+      adjustedLimit: basePolicyLimit,
+      base_dsr_limit: baseDsrLimitPct,
+      adjusted_dsr_limit: baseDsrLimitPct,
+      adjustments
+    };
+  }
+
+  let adjustedPct = baseDsrLimitPct;
+
+  // ── Liquidity adjustment ────
+  const liquidity = Number(insights.liquidityMonths);
+  if (Number.isFinite(liquidity)) {
+    if (liquidity >= 3) {
+      adjustedPct += 5;
+      adjustments.push('liquidity +5%');
+    } else if (liquidity < 1) {
+      adjustedPct -= 10;
+      adjustments.push('liquidity -10%');
+    }
+  }
+
+  // ── Behavioral adjustment ────
+  const behavior = Number(insights.behavioralScore);
+  if (Number.isFinite(behavior)) {
+    if (behavior >= 0.8) {
+      adjustedPct += 3;
+      adjustments.push('behavior +3%');
+    } else if (behavior < 0.5) {
+      adjustedPct -= 5;
+      adjustments.push('behavior -5%');
+    }
+  }
+
+  // ── Risk level adjustment ────
+  const riskLevel = String(insights.riskLevel || '').toLowerCase();
+  if (riskLevel === 'low') {
+    adjustedPct += 2;
+    adjustments.push('risk level +2%');
+  } else if (riskLevel === 'high') {
+    adjustedPct -= 5;
+    adjustments.push('risk level -5%');
+  }
+
+  // Clamp the final ceiling to a safe band [30%, 65%]
+  adjustedPct = Math.min(65, Math.max(30, adjustedPct));
+
+  return {
+    adjustedLimit: adjustedPct / 100,
+    base_dsr_limit: baseDsrLimitPct,
+    adjusted_dsr_limit: Number(adjustedPct.toFixed(1)),
+    adjustments
+  };
+};
+
 // Stage 4 — composite score (higher = better)
 const compositeScore = (c, requestedLoanAmount, dsrLimit) => {
   const closeness = clamp(c.grossAmount / requestedLoanAmount, 0, 1);
@@ -337,8 +405,14 @@ Deno.serve(async (req) => {
     const disposableIncome = income - existingDebtPayments - estimatedExpenses;
 
     // Load policy DSR threshold from UnderwritingRule — makes the engine responsive to Underwriting Settings.
-    const dsrLimit = await loadPolicyDsrLimit(base44);
-    const dsrLimitPct = Math.round(dsrLimit * 1000) / 10; // e.g. 0.4 → 40.0
+    const basePolicyDsrLimit = await loadPolicyDsrLimit(base44);
+
+    // ── Dynamic risk-adjustment layer ──
+    // Policy stays intact; we tighten/loosen the operational ceiling around it
+    // based on applicant quality (liquidity, behavior, risk level).
+    const riskAdjustment = computeAdjustedDsrLimit(basePolicyDsrLimit, insights);
+    const dsrLimit = riskAdjustment.adjustedLimit;
+    const dsrLimitPct = riskAdjustment.adjusted_dsr_limit;
 
     // currentDsr is informational ("baseline" before any new loan). With the new model,
     // we report it as existing-debt-burden vs. (income − expenses) — i.e. how stretched the
@@ -507,8 +581,14 @@ Deno.serve(async (req) => {
         dsr_change: hasRescue ? Number((headline.dsr - currentDsr * 100).toFixed(1)) : 0
       },
       explanation,
+      risk_adjustment: {
+        base_dsr_limit: riskAdjustment.base_dsr_limit,
+        adjusted_dsr_limit: riskAdjustment.adjusted_dsr_limit,
+        adjustments: riskAdjustment.adjustments
+      },
       meta: {
         dsr_limit: dsrLimitPct,
+        base_policy_dsr_limit: riskAdjustment.base_dsr_limit,
         stage,
         candidates_count: candidates.length,
         income,
