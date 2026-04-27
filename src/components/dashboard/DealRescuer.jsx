@@ -258,6 +258,23 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
                                     <div><div className="text-slate-500 text-[10px]">DSR</div><div className="text-red-300">{result.fallback.closestAttempt.dsr}%</div></div>
                                 </div>
                                 <p className="mb-2 text-amber-200">{result.fallback.whyFailed}</p>
+
+                                {result.fallback.maxApprovableOffer && (
+                                    <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-2.5 mb-3">
+                                        <div className="flex items-center gap-1.5 text-emerald-300 font-semibold mb-1.5">
+                                            <CheckCircle2 className="w-3.5 h-3.5" />
+                                            הסכום המקסימלי שכן ניתן לאשר
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-200 mb-1.5">
+                                            <div><div className="text-slate-500 text-[10px]">סכום מקסימלי</div><div className="text-white font-bold">{formatILS(result.fallback.maxApprovableOffer.loanAmount)}</div></div>
+                                            <div><div className="text-slate-500 text-[10px]">תקופה</div><div className="text-white">{result.fallback.maxApprovableOffer.termMonths} ח׳</div></div>
+                                            <div><div className="text-slate-500 text-[10px]">החזר חודשי</div><div className="text-white">{formatILS(result.fallback.maxApprovableOffer.monthlyPayment)}</div></div>
+                                            <div><div className="text-slate-500 text-[10px]">DSR</div><div className="text-emerald-300">{result.fallback.maxApprovableOffer.dsr}%</div></div>
+                                        </div>
+                                        <p className="text-[10px] text-emerald-100/80 leading-4">{result.fallback.maxApprovableOffer.note}</p>
+                                    </div>
+                                )}
+
                                 <div className="font-semibold text-slate-200 mb-1">דרכים לשיפור:</div>
                                 <ul className="list-disc list-inside space-y-0.5 text-slate-300">
                                     {result.fallback.improvements.map((it, i) => <li key={i}>{it}</li>)}

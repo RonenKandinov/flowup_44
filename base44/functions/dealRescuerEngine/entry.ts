@@ -362,6 +362,40 @@ Deno.serve(async (req) => {
             `הוספת מקדמה של 20% (₪${Math.round(requestedLoanAmount * 0.2).toLocaleString('he-IL')})`
           ]
         };
+
+        // ── Max-approvable offer ──────────────────────────────────────────────
+        // The user asked: "if no rescue works, show me the HIGHEST amount this
+        // person CAN get — give me one valid combination, just not at the
+        // requested amount." We binary-search for the largest principal that
+        // keeps DSR ≤ policy limit, using the most generous structure available:
+        // term = 84 months (lowest monthly payment) and the adjusted base rate.
+        // If even ₪1,000 doesn't fit, we report null (the client truly can't borrow).
+        const maxTerm = 84;
+        const offerRate = adjustRate(baseInterestRate, insights);
+        const headroom = Math.max(0, dsrLimit * income - existingDebtPayments);
+        if (headroom > 0 && income > 0) {
+          let lo = 0;
+          let hi = Math.max(requestedLoanAmount, 1000) * 1.2; // search up to 120% of requested
+          for (let i = 0; i < 32; i++) {
+            const mid = (lo + hi) / 2;
+            const payment = pmt(mid, offerRate, maxTerm);
+            if (payment <= headroom) lo = mid; else hi = mid;
+          }
+          const maxPrincipal = Math.floor(lo / 1000) * 1000; // round down to nearest ₪1k
+          if (maxPrincipal >= 1000) {
+            const monthly = Math.round(pmt(maxPrincipal, offerRate, maxTerm));
+            const finalDsr = (existingDebtPayments + monthly) / income;
+            fallback.maxApprovableOffer = {
+              loanAmount: maxPrincipal,
+              termMonths: maxTerm,
+              interestRate: Number((offerRate * 100).toFixed(2)),
+              monthlyPayment: monthly,
+              dsr: Number((finalDsr * 100).toFixed(1)),
+              status: 'approved',
+              note: `זהו הסכום המקסימלי שניתן לאשר במבנה הנוכחי — פריסה ל-${maxTerm} חודשים שומרת על DSR של ${(finalDsr * 100).toFixed(1)}% (מתחת לסף ${dsrLimitPct}%).`
+            };
+          }
+        }
       }
     }
 
