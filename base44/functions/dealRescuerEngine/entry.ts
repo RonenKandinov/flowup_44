@@ -22,7 +22,7 @@ const STRESS_SCENARIOS = [
 const HIGH_EXPOSURE_THRESHOLD = 200000; // ILS — above this, stricter rules apply
 const VERY_HIGH_EXPOSURE_THRESHOLD = 400000;
 
-const runStressTest = ({ candidate, income, existingDebtPayments, dsrLimit, requestedLoanAmount }) => {
+const runStressTest = ({ candidate, income, existingDebtPayments, estimatedExpenses, dsrLimit, requestedLoanAmount }) => {
   // Returns the (possibly downgraded) status after silent stress testing.
   // Never upgrades a status — only downgrades.
   if (!income || income <= 0) return candidate.status;
@@ -47,7 +47,11 @@ const runStressTest = ({ candidate, income, existingDebtPayments, dsrLimit, requ
     const stressedIncome = income * (1 - scenario.incomeShock);
     const stressedRate = Math.min(0.12, rateDecimal + scenario.rateShock);
     const stressedPayment = pmt(principal, stressedRate, candidate.termMonths);
-    const stressedDsr = (existingDebtPayments + stressedPayment) / Math.max(1, stressedIncome);
+    // CRITICAL: stress test against DISPOSABLE income (after living expenses), not gross income.
+    // Expenses are assumed to scale modestly with income shock — we keep them flat (worst case).
+    const stressedDisposable = stressedIncome - existingDebtPayments - estimatedExpenses;
+    if (stressedDisposable <= 0) { failures += 1; severeFailure = true; continue; }
+    const stressedDsr = stressedPayment / stressedDisposable;
 
     if (stressedDsr > stressCeiling) failures += 1;
     if (stressedDsr > dsrLimit + 0.10) severeFailure = true;
@@ -89,11 +93,16 @@ const adjustRate = (baseRate, insights) => {
 };
 
 // Stage 2 — Grid search within stage constraints
-const gridSearch = ({ income, existingDebtPayments, requestedLoanAmount, baseInterestRate, insights, maxDownPayment, stage, dsrLimit }) => {
+const gridSearch = ({ income, existingDebtPayments, estimatedExpenses, requestedLoanAmount, baseInterestRate, insights, maxDownPayment, stage, dsrLimit }) => {
   const adjustedBase = adjustRate(baseInterestRate, insights);
   const DSR_LIMIT = dsrLimit;
   const DSR_NEAR = dsrLimit + 0.05; // 5pp above the policy threshold = "קרוב מאוד" לסף
   const behavioralFlex = insights?.isFalseNegative || Number(insights?.behavioralScore) >= 0.6;
+
+  // CRITICAL: DSR is computed against DISPOSABLE income (income − existing debt − living expenses).
+  // If disposable is non-positive, the client cannot service ANY new debt — short-circuit.
+  const disposableIncome = income - existingDebtPayments - estimatedExpenses;
+  if (disposableIncome <= 0) return [];
 
   // Stage-bound term and amount ratios
   const allTerms = [24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84];
@@ -119,7 +128,8 @@ const gridSearch = ({ income, existingDebtPayments, requestedLoanAmount, baseInt
 
           const rate = clamp(adjustedBase + delta, 0.05, 0.12);
           const monthlyPayment = pmt(netLoan, rate, term);
-          const dsr = income > 0 ? (existingDebtPayments + monthlyPayment) / income : 1;
+          // DSR = new loan payment ÷ disposable income (after expenses + existing debts).
+          const dsr = monthlyPayment / disposableIncome;
 
           let status = null;
           if (dsr <= DSR_LIMIT) status = 'approved';
@@ -279,18 +289,32 @@ Deno.serve(async (req) => {
     const maxDownPayment = Number(body?.maxDownPayment ?? Infinity);
     const insights = body?.analysisInsights || null;
 
+    // CRITICAL: real repayment capacity is disposable income, not gross income.
+    // Source priority: explicit body.estimatedExpenses → analysisInsights.estimatedExpenses → 70% of income (conservative fallback).
+    const estimatedExpenses = Number(
+      body?.estimatedExpenses ??
+      insights?.estimatedExpenses ??
+      (income * 0.7)
+    );
+    const disposableIncome = income - existingDebtPayments - estimatedExpenses;
+
     // Load policy DSR threshold from UnderwritingRule — makes the engine responsive to Underwriting Settings.
     const dsrLimit = await loadPolicyDsrLimit(base44);
     const dsrLimitPct = Math.round(dsrLimit * 1000) / 10; // e.g. 0.4 → 40.0
 
-    const currentDsr = income > 0 ? (existingDebtPayments / income) : 1;
+    // currentDsr is informational ("baseline" before any new loan). With the new model,
+    // we report it as existing-debt-burden vs. (income − expenses) — i.e. how stretched the
+    // client already is BEFORE adding the requested loan. If disposable ≤ 0 we cap at 1 (100%+).
+    const preLoanCapacity = income - estimatedExpenses;
+    const currentDsr = preLoanCapacity > 0 ? clamp(existingDebtPayments / preLoanCapacity, 0, 2) : 1;
     const currentScore = Number(body?.score || clamp(Math.round(85 - currentDsr * 100 * 0.7), 20, 85));
     const currentStatus = String(body?.currentStatus || (currentDsr <= dsrLimit ? 'approved' : currentDsr <= dsrLimit + 0.1 ? 'borderline' : 'rejected'));
 
-    // Multi-stage search
+    // Multi-stage search — DSR computed on disposable income inside.
     const { candidates: rawCandidates, stage } = multiStageSearch({
       income,
       existingDebtPayments,
+      estimatedExpenses,
       requestedLoanAmount,
       baseInterestRate,
       insights,
@@ -306,6 +330,7 @@ Deno.serve(async (req) => {
           candidate: c,
           income,
           existingDebtPayments,
+          estimatedExpenses,
           dsrLimit,
           requestedLoanAmount
         });
@@ -338,7 +363,8 @@ Deno.serve(async (req) => {
         for (const ratio of [1.0, 0.8, 0.6, 0.5]) {
           const grossAmount = requestedLoanAmount * ratio;
           const monthlyPayment = pmt(grossAmount, broadBase, term);
-          const dsr = income > 0 ? (existingDebtPayments + monthlyPayment) / income : 1;
+          // DSR against disposable income (real capacity); if disposable ≤ 0, DSR is effectively infinite.
+          const dsr = disposableIncome > 0 ? (monthlyPayment / disposableIncome) : 9.99;
           const cand = {
             loanAmount: Math.round(grossAmount),
             termMonths: term,
@@ -364,16 +390,14 @@ Deno.serve(async (req) => {
         };
 
         // ── Max-approvable offer ──────────────────────────────────────────────
-        // The user asked: "if no rescue works, show me the HIGHEST amount this
-        // person CAN get — give me one valid combination, just not at the
-        // requested amount." We binary-search for the largest principal that
-        // keeps DSR ≤ policy limit, using the most generous structure available:
-        // term = 84 months (lowest monthly payment) and the adjusted base rate.
-        // If even ₪1,000 doesn't fit, we report null (the client truly can't borrow).
+        // Highest principal that keeps DSR ≤ policy limit, using the most generous
+        // structure: term = 84 months (lowest monthly payment) + adjusted base rate.
+        // CRITICAL: headroom is computed against DISPOSABLE income (after existing
+        // debts AND living expenses). If disposable ≤ 0, no offer is possible.
         const maxTerm = 84;
         const offerRate = adjustRate(baseInterestRate, insights);
-        const headroom = Math.max(0, dsrLimit * income - existingDebtPayments);
-        if (headroom > 0 && income > 0) {
+        const headroom = disposableIncome > 0 ? dsrLimit * disposableIncome : 0;
+        if (headroom > 0) {
           let lo = 0;
           let hi = Math.max(requestedLoanAmount, 1000) * 1.2; // search up to 120% of requested
           for (let i = 0; i < 32; i++) {
@@ -384,7 +408,7 @@ Deno.serve(async (req) => {
           const maxPrincipal = Math.floor(lo / 1000) * 1000; // round down to nearest ₪1k
           if (maxPrincipal >= 1000) {
             const monthly = Math.round(pmt(maxPrincipal, offerRate, maxTerm));
-            const finalDsr = (existingDebtPayments + monthly) / income;
+            const finalDsr = monthly / disposableIncome;
             fallback.maxApprovableOffer = {
               loanAmount: maxPrincipal,
               termMonths: maxTerm,
@@ -392,7 +416,7 @@ Deno.serve(async (req) => {
               monthlyPayment: monthly,
               dsr: Number((finalDsr * 100).toFixed(1)),
               status: 'approved',
-              note: `זהו הסכום המקסימלי שניתן לאשר במבנה הנוכחי — פריסה ל-${maxTerm} חודשים שומרת על DSR של ${(finalDsr * 100).toFixed(1)}% (מתחת לסף ${dsrLimitPct}%).`
+              note: `זהו הסכום המקסימלי שניתן לאשר במבנה הנוכחי — פריסה ל-${maxTerm} חודשים שומרת על DSR של ${(finalDsr * 100).toFixed(1)}% מההכנסה הפנויה (מתחת לסף ${dsrLimitPct}%).`
             };
           }
         }
@@ -450,7 +474,10 @@ Deno.serve(async (req) => {
         stage,
         candidates_count: candidates.length,
         income,
-        existing_debt_payments: existingDebtPayments
+        existing_debt_payments: existingDebtPayments,
+        estimated_expenses: Math.round(estimatedExpenses),
+        disposable_income: Math.round(disposableIncome),
+        dsr_basis: 'disposable_income'
       }
     });
   } catch (error) {
