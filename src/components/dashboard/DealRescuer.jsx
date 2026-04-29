@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 import CreditJustificationBlock from './CreditJustificationBlock';
+import XAIFactorsPanel from './XAIFactorsPanel';
 
 const STRATEGY_META = {
     cash_flow_alignment: {
@@ -34,7 +35,7 @@ const STATUS_META = {
     failed: { label: 'לא עובר', color: 'bg-red-500/15 text-red-300 border-red-500/30' }
 };
 
-export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights }) {
+export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights, cashFlowProfile }) {
     const [step, setStep] = useState('input'); // 'input' | 'analyzing' | 'result'
     const [loanAmount, setLoanAmount] = useState('');
     const [result, setResult] = useState(null);
@@ -87,7 +88,10 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
                 maxDownPayment,
                 score: baseMetrics?.score,
                 currentStatus: score < 55 ? 'rejected' : score < 75 ? 'borderline' : 'approved',
-                analysisInsights: analysisInsights || null
+                analysisInsights: analysisInsights || null,
+                // Granular OpenFinance cash-flow profile — when present, the engine uses
+                // realRepaymentCapacity instead of the (income − 70%) heuristic.
+                cashFlowProfile: cashFlowProfile || null
             });
 
             if (!res.data?.rescueStrategies) {
@@ -249,6 +253,11 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights 
 
                 {analysisComplete && result && (
                     <div className="flex flex-col gap-3 animate-in fade-in zoom-in duration-300">
+                        {/* XAI factors panel — shown once at the top so credit officers can see
+                            the WHY behind the engine's decision, regardless of how many strategies returned. */}
+                        {result.xai_factors && (result.xai_factors.positive?.length > 0 || result.xai_factors.negative?.length > 0) && (
+                            <XAIFactorsPanel factors={result.xai_factors} />
+                        )}
                         {result.rescueStrategies.length === 0 && result.fallback && (
                             <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-100 leading-5">
                                 <div className="font-semibold mb-1">הניסיון הקרוב ביותר</div>

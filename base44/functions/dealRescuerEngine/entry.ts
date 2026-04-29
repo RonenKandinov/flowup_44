@@ -237,6 +237,42 @@ const computeAdjustedDsrLimit = (basePolicyLimit, insights) => {
     adjustments.push('risk level -5%');
   }
 
+  // ── Cash-flow trust adjustment (granular OpenFinance signal) ────
+  // Higher trust score = stronger evidence of real repayment capacity from
+  // recurring income/savings/utility payments. This widens the band for clients
+  // with verifiable financial discipline, and tightens it for those with overdraft flags.
+  const cashFlowTrust = Number(insights.cashFlowTrustScore);
+  if (Number.isFinite(cashFlowTrust)) {
+    if (cashFlowTrust >= 0.75) {
+      adjustedPct += 4;
+      adjustments.push('cash-flow trust +4%');
+    } else if (cashFlowTrust >= 0.55) {
+      adjustedPct += 2;
+      adjustments.push('cash-flow trust +2%');
+    } else if (cashFlowTrust < 0.30) {
+      adjustedPct -= 4;
+      adjustments.push('cash-flow trust -4%');
+    }
+  }
+
+  // ── Stability anchors bonus ────
+  // Each verified anchor (recurring rent, utilities, savings, salary) adds
+  // a small bonus — capped at +5% so it cannot dominate.
+  const anchorCount = Array.isArray(insights.stabilityAnchors) ? insights.stabilityAnchors.length : 0;
+  if (anchorCount > 0) {
+    const anchorBonus = Math.min(5, anchorCount * 1.5);
+    adjustedPct += anchorBonus;
+    adjustments.push(`stability anchors +${anchorBonus.toFixed(1)}% (${anchorCount} anchors)`);
+  }
+
+  // ── Risk flags penalty ────
+  const flagCount = Array.isArray(insights.riskFlags) ? insights.riskFlags.length : 0;
+  if (flagCount > 0) {
+    const flagPenalty = Math.min(8, flagCount * 3);
+    adjustedPct -= flagPenalty;
+    adjustments.push(`risk flags -${flagPenalty.toFixed(1)}% (${flagCount} flags)`);
+  }
+
   // Clamp the final ceiling to a safe band [30%, 65%]
   adjustedPct = Math.min(65, Math.max(30, adjustedPct));
 
@@ -393,16 +429,44 @@ Deno.serve(async (req) => {
     const requestedTermMonths = Number(body?.requestedTermMonths ?? body?.durationMonths ?? 48);
     const baseInterestRate = Number(body?.baseInterestRate ?? body?.baseRate ?? 0.09);
     const maxDownPayment = Number(body?.maxDownPayment ?? Infinity);
-    const insights = body?.analysisInsights || null;
+    const rawInsights = body?.analysisInsights || null;
+    const cashFlowProfile = body?.cashFlowProfile || null;
 
-    // CRITICAL: real repayment capacity is disposable income, not gross income.
-    // Source priority: explicit body.estimatedExpenses → analysisInsights.estimatedExpenses → 70% of income (conservative fallback).
-    const estimatedExpenses = Number(
-      body?.estimatedExpenses ??
-      insights?.estimatedExpenses ??
-      (income * 0.7)
-    );
-    const disposableIncome = income - existingDebtPayments - estimatedExpenses;
+    // Merge cash-flow profile into insights so the risk-adjustment layer can use it.
+    // Cash-flow profile is the AUTHORITATIVE source when available (granular OpenFinance data).
+    const insights = (rawInsights || cashFlowProfile) ? {
+      ...(rawInsights || {}),
+      ...(cashFlowProfile ? {
+        cashFlowTrustScore: cashFlowProfile.cashFlowTrustScore,
+        stabilityAnchors: cashFlowProfile.stabilityAnchors || [],
+        riskFlags: cashFlowProfile.riskFlags || []
+      } : {})
+    } : null;
+
+    // CRITICAL: real repayment capacity. Priority order:
+    //   1. cashFlowProfile.realRepaymentCapacity — derived from RECURRING income & expenses
+    //      (most accurate; ignores noise like one-off purchases).
+    //   2. body.estimatedExpenses → analysisInsights.estimatedExpenses → 70% of income.
+    let estimatedExpenses;
+    let disposableIncome;
+    let dsrBasis;
+
+    if (cashFlowProfile?.realRepaymentCapacity > 0) {
+      // Use the granular cash-flow capacity directly.
+      // Note: realRepaymentCapacity already nets out recurring expenses but NOT existing debts,
+      // so we still subtract those.
+      estimatedExpenses = cashFlowProfile.expenses?.fixed ?? Math.round(income * 0.7);
+      disposableIncome = Math.max(0, cashFlowProfile.realRepaymentCapacity - existingDebtPayments);
+      dsrBasis = 'recurring_cash_flow';
+    } else {
+      estimatedExpenses = Number(
+        body?.estimatedExpenses ??
+        rawInsights?.estimatedExpenses ??
+        (income * 0.7)
+      );
+      disposableIncome = income - existingDebtPayments - estimatedExpenses;
+      dsrBasis = 'disposable_income';
+    }
 
     // Load policy DSR threshold from UnderwritingRule — makes the engine responsive to Underwriting Settings.
     const basePolicyDsrLimit = await loadPolicyDsrLimit(base44);
@@ -586,6 +650,57 @@ Deno.serve(async (req) => {
         adjusted_dsr_limit: riskAdjustment.adjusted_dsr_limit,
         adjustments: riskAdjustment.adjustments
       },
+      // ── XAI factors: explainable breakdown of what drove the decision ──
+      // Surfaced to the UI/credit officer so they understand WHY a borderline
+      // applicant got approved or rejected — beyond the raw numbers.
+      xai_factors: {
+        positive: [
+          ...(Array.isArray(insights?.stabilityAnchors) ? insights.stabilityAnchors.map(a => ({
+            key: a.key,
+            label: a.label,
+            detail: a.detail,
+            impact: 'positive'
+          })) : []),
+          ...(Number(insights?.cashFlowTrustScore) >= 0.6 ? [{
+            key: 'cash_flow_trust',
+            label: 'אמון תזרימי גבוה',
+            detail: `ציון אמון תזרים מזומנים ${(insights.cashFlowTrustScore * 100).toFixed(0)}% — דפוסי הוצאה והכנסה צפויים`,
+            impact: 'positive'
+          }] : []),
+          ...(Number(insights?.liquidityMonths) >= 3 ? [{
+            key: 'liquidity_strong',
+            label: 'נזילות חזקה',
+            detail: `${insights.liquidityMonths} חודשי הוצאות ברזרבה`,
+            impact: 'positive'
+          }] : []),
+          ...(Number(insights?.behavioralScore) >= 0.7 ? [{
+            key: 'behavioral_strong',
+            label: 'התנהגות פיננסית חזקה',
+            detail: `ציון התנהגות ${(insights.behavioralScore * 100).toFixed(0)}%`,
+            impact: 'positive'
+          }] : [])
+        ],
+        negative: [
+          ...(Array.isArray(insights?.riskFlags) ? insights.riskFlags.map(f => ({
+            key: f.key,
+            label: f.label,
+            detail: f.detail,
+            impact: 'negative'
+          })) : []),
+          ...(Number(insights?.cashFlowTrustScore) < 0.3 ? [{
+            key: 'low_cash_flow_trust',
+            label: 'אמון תזרימי נמוך',
+            detail: 'דפוסי הוצאה לא יציבים או חוסר נתונים',
+            impact: 'negative'
+          }] : []),
+          ...(Number(insights?.liquidityMonths) < 1 ? [{
+            key: 'low_liquidity',
+            label: 'נזילות נמוכה',
+            detail: `${insights.liquidityMonths || 0} חודשי הוצאות בלבד`,
+            impact: 'negative'
+          }] : [])
+        ]
+      },
       meta: {
         dsr_limit: dsrLimitPct,
         base_policy_dsr_limit: riskAdjustment.base_dsr_limit,
@@ -595,7 +710,8 @@ Deno.serve(async (req) => {
         existing_debt_payments: existingDebtPayments,
         estimated_expenses: Math.round(estimatedExpenses),
         disposable_income: Math.round(disposableIncome),
-        dsr_basis: 'disposable_income'
+        dsr_basis: dsrBasis,
+        cash_flow_profile_used: !!cashFlowProfile
       }
     });
   } catch (error) {

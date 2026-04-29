@@ -422,6 +422,28 @@ export default function Dashboard() {
 
   const serverInsights = serverInsightsData || (insightsError ? { error: "Network error" } : null);
 
+  // ── Cash-Flow Intelligence: granular OpenFinance-based repayment capacity ──
+  // Fetched once when we have an active connection; cached indefinitely (recurring
+  // patterns don't change frequently). Powers the DealRescuer's realRepaymentCapacity.
+  const { data: cashFlowProfile } = useQuery({
+    queryKey: ['cash-flow-profile-v1', activeConnection?.connection_id || 'none'],
+    queryFn: async () => {
+      try {
+        const res = await base44.functions.invoke('cashFlowIntelligence', {});
+        return res.data?.cashFlowProfile || null;
+      } catch (e) {
+        // Non-blocking: dealRescuer falls back to the legacy heuristic when this is null
+        console.warn('cashFlowIntelligence unavailable:', e?.message);
+        return null;
+      }
+    },
+    enabled: !!activeConnection?.connection_id,
+    staleTime: Infinity,
+    cacheTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
+
   const forecastData = localData?.forecastData || generateForecastFromTransactions(transactions);
   const currentEngineData = localData?.engineData || engineData;
 
@@ -956,6 +978,7 @@ export default function Dashboard() {
                         onSimulate={(metrics) => setSimulatedMetrics(metrics)}
                         baseMetrics={originalLoanMetrics}
                         analysisInsights={serverInsights?.analysisInsights || null}
+                        cashFlowProfile={cashFlowProfile || null}
                     />
                 </div>
               </div>
