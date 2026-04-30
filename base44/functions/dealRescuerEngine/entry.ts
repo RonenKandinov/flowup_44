@@ -443,21 +443,43 @@ Deno.serve(async (req) => {
       } : {})
     } : null;
 
-    // CRITICAL: real repayment capacity. Priority order:
-    //   1. cashFlowProfile.realRepaymentCapacity — derived from RECURRING income & expenses
-    //      (most accurate; ignores noise like one-off purchases).
-    //   2. body.estimatedExpenses → analysisInsights.estimatedExpenses → 70% of income.
+    // ── Behavioral Credit Engine: Adaptive Discretionary Cut ──────────────────
+    // Instead of "worst-case" (cut 100% of discretionary, like realRepaymentCapacity)
+    // OR "best-case" (assume client cuts everything voluntarily), we use the
+    // cashFlowTrustScore as a behavioral coefficient (β) to MODEL REAL CHANGE CAPACITY:
+    //
+    //   adjustedDiscretionary = discretionary × (1 − β)
+    //   where β = cashFlowTrustScore   (clamped to [0, 1])
+    //
+    // Interpretation:
+    //   • Strong client (β=0.9)  → cuts 90% of discretionary (proven discipline)
+    //   • Average client (β=0.5) → cuts 50% (some flexibility)
+    //   • Weak client (β=0.1)    → cuts 10% (won't actually change behavior)
+    //
+    // This is a PERSONALIZED scenario, not worst-case. It's strictly more generous
+    // than the old realRepaymentCapacity model for clients who earned trust.
     let estimatedExpenses;
     let disposableIncome;
     let dsrBasis;
+    let adaptiveCutMeta = null;
 
-    if (cashFlowProfile?.realRepaymentCapacity > 0) {
-      // Use the granular cash-flow capacity directly.
-      // Note: realRepaymentCapacity already nets out recurring expenses but NOT existing debts,
-      // so we still subtract those.
-      estimatedExpenses = cashFlowProfile.expenses?.fixed ?? Math.round(income * 0.7);
-      disposableIncome = Math.max(0, cashFlowProfile.realRepaymentCapacity - existingDebtPayments);
-      dsrBasis = 'recurring_cash_flow';
+    if (cashFlowProfile && cashFlowProfile.expenses) {
+      const fixedExpenses = Number(cashFlowProfile.expenses.fixed ?? 0);
+      const discretionary = Number(cashFlowProfile.expenses.discretionary ?? 0);
+      const trustScore = clamp(Number(cashFlowProfile.cashFlowTrustScore ?? 0.5), 0, 1);
+      const beta = trustScore;
+      const adjustedDiscretionary = discretionary * (1 - beta);
+
+      estimatedExpenses = fixedExpenses + adjustedDiscretionary;
+      disposableIncome = Math.max(0, income - existingDebtPayments - estimatedExpenses);
+      dsrBasis = 'adaptive_discretionary_cut';
+      adaptiveCutMeta = {
+        fixed_expenses: Math.round(fixedExpenses),
+        original_discretionary: Math.round(discretionary),
+        adjusted_discretionary: Math.round(adjustedDiscretionary),
+        beta: Number(beta.toFixed(2)),
+        cut_percentage: Number((beta * 100).toFixed(1))
+      };
     } else {
       estimatedExpenses = Number(
         body?.estimatedExpenses ??
@@ -711,7 +733,8 @@ Deno.serve(async (req) => {
         estimated_expenses: Math.round(estimatedExpenses),
         disposable_income: Math.round(disposableIncome),
         dsr_basis: dsrBasis,
-        cash_flow_profile_used: !!cashFlowProfile
+        cash_flow_profile_used: !!cashFlowProfile,
+        adaptive_cut: adaptiveCutMeta
       }
     });
   } catch (error) {
