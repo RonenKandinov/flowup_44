@@ -1,0 +1,68 @@
+{
+  "name": "UnderwritingRule",
+  "type": "object",
+  "properties": {
+    "company_name": {
+      "type": "string",
+      "description": "\u05e9\u05dd \u05d7\u05d1\u05e8\u05ea \u05d4\u05de\u05d9\u05de\u05d5\u05df"
+    },
+    "max_dti_approve": {
+      "type": "number",
+      "description": "DTI \u05de\u05e7\u05e1\u05d9\u05de\u05dc\u05d9 \u05dc\u05d0\u05d9\u05e9\u05d5\u05e8 \u05d0\u05d5\u05d8\u05d5\u05de\u05d8\u05d9 (%)",
+      "default": 35
+    },
+    "max_dti_review": {
+      "type": "number",
+      "description": "DTI \u05de\u05e7\u05e1\u05d9\u05de\u05dc\u05d9 \u05dc\u05d1\u05d7\u05d9\u05e0\u05d4 (\u05de\u05e2\u05dc \u05d6\u05d4 - \u05d3\u05d7\u05d9\u05d9\u05d4) (%)",
+      "default": 45
+    },
+    "min_liquidity_months": {
+      "type": "number",
+      "description": "\u05de\u05d9\u05e0\u05d9\u05de\u05d5\u05dd \u05d7\u05d5\u05d3\u05e9\u05d9 \u05e0\u05d6\u05d9\u05dc\u05d5\u05ea \u05e0\u05d3\u05e8\u05e9\u05d9\u05dd",
+      "default": 1
+    },
+    "max_expense_income_ratio": {
+      "type": "number",
+      "description": "\u05d9\u05d7\u05e1 \u05d4\u05d5\u05e6\u05d0\u05d5\u05ea/\u05d4\u05db\u05e0\u05e1\u05d5\u05ea \u05de\u05e7\u05e1\u05d9\u05de\u05dc\u05d9 (%)",
+      "default": 90
+    },
+    "min_income": {
+      "type": "number",
+      "description": "\u05d4\u05db\u05e0\u05e1\u05d4 \u05d7\u05d5\u05d3\u05e9\u05d9\u05ea \u05de\u05d9\u05e0\u05d9\u05de\u05dc\u05d9\u05ea (\u20aa)",
+      "default": 8000
+    },
+    "enable_second_chance": {
+      "type": "boolean",
+      "description": "\u05d4\u05e4\u05e2\u05dc \u05de\u05e0\u05d2\u05e0\u05d5\u05df \u05d4\u05d6\u05d3\u05de\u05e0\u05d5\u05ea \u05e9\u05e0\u05d9\u05d9\u05d4 (Second Chance)",
+      "default": true
+    },
+    "min_discretionary_cut_pct": {
+      "type": "number",
+      "description": "\u05d0\u05d7\u05d5\u05d6 \u05de\u05d9\u05e0\u05d9\u05de\u05dc\u05d9 \u05dc\u05d7\u05d9\u05ea\u05d5\u05da \u05d4\u05d5\u05e6\u05d0\u05d5\u05ea \u05d3\u05d9\u05e1\u05e7\u05e8\u05e6\u05d9\u05d5\u05e0\u05d9\u05d5\u05ea (Guardrail \u05ea\u05d7\u05ea\u05d5\u05df \u05e2\u05dc \u03b2)",
+      "default": 20
+    },
+    "max_discretionary_cut_pct": {
+      "type": "number",
+      "description": "\u05d0\u05d7\u05d5\u05d6 \u05de\u05e7\u05e1\u05d9\u05de\u05dc\u05d9 \u05dc\u05d7\u05d9\u05ea\u05d5\u05da \u05d4\u05d5\u05e6\u05d0\u05d5\u05ea \u05d3\u05d9\u05e1\u05e7\u05e8\u05e6\u05d9\u05d5\u05e0\u05d9\u05d5\u05ea (Guardrail \u05e2\u05dc\u05d9\u05d5\u05df \u05e2\u05dc \u03b2 - \u05de\u05d5\u05e0\u05e2 \u05d0\u05d5\u05e4\u05d8\u05d9\u05de\u05d9\u05d6\u05dd \u05d9\u05ea\u05e8)",
+      "default": 70
+    },
+    "min_liquidity_runway_months": {
+      "type": "number",
+      "description": "\u05d7\u05d5\u05d3\u05e9\u05d9 \u05d4\u05d9\u05e9\u05e8\u05d3\u05d5\u05ea \u05de\u05d9\u05e0\u05d9\u05de\u05dc\u05d9\u05d9\u05dd (Liquidity Runway) - \u05d0\u05dd \u05e4\u05d7\u05d5\u05ea, \u05d4\u05ea\u05d9\u05e7 \u05e2\u05d5\u05d1\u05e8 \u05dc-Conditional/Rejected",
+      "default": 3
+    },
+    "pricing_trust_discount_k1": {
+      "type": "number",
+      "description": "\u05de\u05e7\u05d3\u05dd \u05d4\u05e0\u05d7\u05d4 \u05d1\u05e8\u05d9\u05d1\u05d9\u05ea \u05e2\u05d1\u05d5\u05e8 \u05d0\u05de\u05d5\u05df \u05ea\u05d6\u05e8\u05d9\u05de\u05d9 (k1) - \u05d4\u05e8\u05d9\u05d1\u05d9\u05ea \u05d9\u05d5\u05e8\u05d3\u05ea \u05d1-k1 \u00d7 trustScore",
+      "default": 0.02
+    },
+    "pricing_risk_premium_k2": {
+      "type": "number",
+      "description": "\u05de\u05e7\u05d3\u05dd \u05e4\u05e8\u05de\u05d9\u05d9\u05ea \u05e1\u05d9\u05db\u05d5\u05df \u05dc\u05db\u05dc \u05d3\u05d2\u05dc \u05d0\u05d3\u05d5\u05dd (k2) - \u05d4\u05e8\u05d9\u05d1\u05d9\u05ea \u05e2\u05d5\u05dc\u05d4 \u05d1-k2 \u00d7 #riskFlags",
+      "default": 0.005
+    }
+  },
+  "required": [
+    "company_name"
+  ]
+}

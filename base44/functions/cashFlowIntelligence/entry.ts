@@ -23,6 +23,39 @@ const STABILITY_KEYWORDS = {
   salary: ['משכורת', 'שכר', 'salary', 'payroll', 'wage']
 };
 
+// ─── Discretionary spending classification ────────────────────────────────────
+// Three tiers — each represents how realistically a borrower can cut this category.
+//   • EASY   → subscriptions, streaming, gym, dining-out, entertainment
+//   • MEDIUM → restaurants, leisure, shopping, cafés
+//   • HARD   → fuel, transport, healthcare-lite, school supplies, basic household
+// Anything else falls back to MEDIUM as a safe default.
+const DISCRETIONARY_KEYWORDS = {
+  easy: [
+    'netflix', 'spotify', 'disney', 'apple music', 'youtube', 'amazon prime',
+    'subscription', 'מנוי', 'מינוי', 'חדר כושר', 'gym', 'streaming',
+    'אפל', 'גוגל one', 'icloud', 'cellcom tv', 'yes', 'partner tv', 'hot'
+  ],
+  medium: [
+    'מסעדה', 'restaurant', 'café', 'קפה', 'בר', 'pub', 'בילוי',
+    'shopping', 'קניות', 'בגדים', 'fashion', 'zara', 'h&m', 'castro',
+    'wolt', 'ten bis', '10bis', 'משלוחים', 'glovo', 'cibus', 'leisure'
+  ],
+  hard: [
+    'דלק', 'fuel', 'sonol', 'paz', 'delek', 'תחבורה', 'רכבת', 'אוטובוס',
+    'transport', 'rav kav', 'רב-קו', 'gett', 'uber', 'taxi', 'מונית',
+    'בית מרקחת', 'pharmacy', 'super-pharm', 'סופרפארם', 'תרופות',
+    'ציוד בית ספר', 'ספרי לימוד', 'גן', 'קייטנה'
+  ]
+};
+
+const classifyDiscretionaryTier = (description) => {
+  const desc = String(description || '').toLowerCase();
+  if (DISCRETIONARY_KEYWORDS.easy.some(kw => desc.includes(kw.toLowerCase()))) return 'easy';
+  if (DISCRETIONARY_KEYWORDS.hard.some(kw => desc.includes(kw.toLowerCase()))) return 'hard';
+  if (DISCRETIONARY_KEYWORDS.medium.some(kw => desc.includes(kw.toLowerCase()))) return 'medium';
+  return 'medium'; // safe default
+};
+
 const matchKeyword = (description, list) => {
   const desc = String(description || '').toLowerCase();
   return list.some(kw => desc.includes(kw.toLowerCase()));
@@ -216,10 +249,19 @@ const classifyIncome = (transactions, recurring) => {
 };
 
 // ─── Expense classification ───────────────────────────────────────────────────
+// Now produces a 3-tier discretionary breakdown so the dealRescuerEngine can
+// apply DIFFERENTIATED β coefficients per category (easy/medium/hard).
 const classifyExpenses = (transactions, recurring) => {
   const fixed = recurring
     .filter(r => r.type === 'expense')
     .reduce((s, r) => s + Math.abs(r.avgAmount), 0);
+
+  // Build a set of recurring transaction signatures so we can exclude them
+  // from the discretionary tiering below.
+  const sigOf = (desc) => String(desc || '').toLowerCase().split(/\s+/).slice(0, 3).join(' ').trim() || 'unknown';
+  const recurringSigs = new Set(
+    recurring.filter(r => r.type === 'expense').map(r => r.signature)
+  );
 
   const allExpenseTxs = transactions.filter(t => (Number(t.amount) || 0) < 0);
   const totalExpense = allExpenseTxs.reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
@@ -232,13 +274,77 @@ const classifyExpenses = (transactions, recurring) => {
   }
   const monthlyAverage = totalExpense / monthsSpan;
 
-  // Discretionary = everything that isn't fixed/recurring
-  const discretionary = Math.max(0, monthlyAverage - fixed);
+  // Tier the non-recurring (discretionary) transactions into easy/medium/hard
+  const tierTotals = { easy: 0, medium: 0, hard: 0 };
+  for (const tx of allExpenseTxs) {
+    if (recurringSigs.has(sigOf(tx.description))) continue; // already counted in fixed
+    const tier = classifyDiscretionaryTier(tx.description);
+    tierTotals[tier] += Math.abs(Number(tx.amount) || 0);
+  }
+  // Convert totals → monthly averages
+  const tierMonthly = {
+    easy: Math.round(tierTotals.easy / monthsSpan),
+    medium: Math.round(tierTotals.medium / monthsSpan),
+    hard: Math.round(tierTotals.hard / monthsSpan)
+  };
+  const discretionary = tierMonthly.easy + tierMonthly.medium + tierMonthly.hard;
 
   return {
     fixed: Math.round(fixed),
     discretionary: Math.round(discretionary),
+    discretionaryBreakdown: tierMonthly,
     monthlyAverage: Math.round(monthlyAverage)
+  };
+};
+
+// ─── Confidence layer ─────────────────────────────────────────────────────────
+// Quality-of-data score (0..1). Used downstream to scale capacity conservatively
+// when we don't have enough evidence to trust the projection.
+//   - more transactions  → more confident
+//   - longer time window → more confident
+//   - lower variance     → more confident
+const computeConfidence = (transactions, income) => {
+  if (!transactions || transactions.length === 0) {
+    return { score: 0, dataPoints: 0, monthsCovered: 0, incomeVariance: 1 };
+  }
+  const dates = transactions.map(t => new Date(t.date)).filter(d => !isNaN(d));
+  const minDate = new Date(Math.min(...dates));
+  const maxDate = new Date(Math.max(...dates));
+  const monthsCovered = Math.max(0.1, ((maxDate - minDate) / (1000 * 60 * 60 * 24 * 30)));
+
+  // Volume sub-score: 100+ tx is "full trust", 30 tx → 0.6, 10 tx → 0.3
+  const volumeScore = Math.min(1, transactions.length / 100);
+  // Span sub-score: 3+ months → 1.0, 2 months → 0.7, 1 month → 0.35
+  const spanScore = Math.min(1, monthsCovered / 3);
+
+  // Income variance sub-score
+  const incomeAmounts = transactions
+    .filter(t => (Number(t.amount) || 0) > 0)
+    .map(t => Number(t.amount));
+  let incomeVariance = 0;
+  let varianceScore = 1;
+  if (incomeAmounts.length >= 3) {
+    const avg = incomeAmounts.reduce((a, b) => a + b, 0) / incomeAmounts.length;
+    if (avg > 0) {
+      const v = incomeAmounts.reduce((s, a) => s + (a - avg) ** 2, 0) / incomeAmounts.length;
+      incomeVariance = Math.sqrt(v) / avg; // coefficient of variation
+      // CV<0.2 → 1.0 ; CV>0.6 → 0.3
+      varianceScore = Math.max(0.3, 1 - (incomeVariance - 0.2) * 1.5);
+      varianceScore = Math.min(1, varianceScore);
+    }
+  }
+
+  const score = Number((volumeScore * 0.4 + spanScore * 0.4 + varianceScore * 0.2).toFixed(2));
+  return {
+    score,
+    dataPoints: transactions.length,
+    monthsCovered: Number(monthsCovered.toFixed(1)),
+    incomeVariance: Number(incomeVariance.toFixed(2)),
+    components: {
+      volume: Number(volumeScore.toFixed(2)),
+      span: Number(spanScore.toFixed(2)),
+      variance: Number(varianceScore.toFixed(2))
+    }
   };
 };
 
@@ -359,6 +465,20 @@ Deno.serve(async (req) => {
     // instead of (income − expenses − fixed) — it accounts for the REAL pattern.
     const realRepaymentCapacity = Math.max(0, income.recurring - expenses.fixed);
 
+    // ── Stage 7: confidence + volatility ──
+    const confidence = computeConfidence(transactions, income);
+    // High volatility = income CV above 0.35. Surface a flag downstream so the
+    // dealRescuerEngine penalises β accordingly.
+    const incomeVolatilityHigh = confidence.incomeVariance > 0.35;
+    if (incomeVolatilityHigh) {
+      flags.push({
+        key: 'income_volatility_high',
+        label: 'תנודתיות הכנסה גבוהה',
+        detail: `מקדם שונות הכנסה ${(confidence.incomeVariance * 100).toFixed(0)}% — מעל הסף של 35%`,
+        weight: -0.10
+      });
+    }
+
     return Response.json({
       success: true,
       cashFlowProfile: {
@@ -371,6 +491,11 @@ Deno.serve(async (req) => {
         liquidityForecast,
         cashFlowTrustScore,
         realRepaymentCapacity,
+        confidence,
+        incomeVolatility: {
+          coefficient: confidence.incomeVariance,
+          isHigh: incomeVolatilityHigh
+        },
         dataPoints: transactions.length,
         analyzedPeriodDays: 90
       }

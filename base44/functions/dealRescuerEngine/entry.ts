@@ -81,7 +81,10 @@ const runStressTest = ({ candidate, income, existingDebtPayments, estimatedExpen
 };
 
 // Stage 3 — dynamic rate adjustment from analysisInsights
-const adjustRate = (baseRate, insights) => {
+// Now ALSO factors in cash-flow trust score and risk-flag count for explicit
+// risk-based pricing:  rate = base − k1·trust + k2·#flags
+// (k1, k2 are loaded from UnderwritingRule with sensible defaults)
+const adjustRate = (baseRate, insights, pricingCoeffs = {}) => {
   if (!insights) return baseRate;
   let rate = baseRate;
   const riskLevel = String(insights.riskLevel || '').toLowerCase();
@@ -89,12 +92,83 @@ const adjustRate = (baseRate, insights) => {
   if (riskLevel === 'low') rate -= 0.005;
   if (Number(insights.liquidityMonths) > 3) rate -= 0.005;
   if (Number(insights.behavioralScore) >= 0.6) rate -= 0.005;
+
+  // Risk-based pricing component
+  const k1 = Number(pricingCoeffs.k1 ?? 0.02);   // trust discount
+  const k2 = Number(pricingCoeffs.k2 ?? 0.005);  // per-flag premium
+  const trust = clamp(Number(insights.cashFlowTrustScore ?? 0), 0, 1);
+  const flagCount = Array.isArray(insights.riskFlags) ? insights.riskFlags.length : 0;
+  rate = rate - k1 * trust + k2 * flagCount;
+
   return clamp(rate, 0.05, 0.12);
 };
 
+// ─── β calibration ────────────────────────────────────────────────────────────
+// Non-linear mapping from cashFlowTrustScore → β (discretionary cut coefficient).
+//   β = 0.2 + 0.5 × trust   then clamped to [min_cut, max_cut]
+// Volatility & low-confidence both PENALISE β.
+const calibrateBeta = ({ trustScore, confidence, incomeVolatilityHigh, guardrails }) => {
+  const trust = clamp(Number(trustScore ?? 0.5), 0, 1);
+  let beta = 0.2 + 0.5 * trust;
+
+  // Volatility penalty — unstable income means we cannot rely on the borrower
+  // to actually execute the cut consistently.
+  if (incomeVolatilityHigh) beta *= 0.7;
+
+  // Confidence scaling — sparse data → squeeze β toward the lower guardrail.
+  const conf = clamp(Number(confidence ?? 1), 0, 1);
+  beta = beta * (0.5 + 0.5 * conf); // confidence=0 → β halved; confidence=1 → β intact
+
+  // Guardrails — hard floor & ceiling from policy.
+  const minCut = Number(guardrails?.min ?? 0.20);
+  const maxCut = Number(guardrails?.max ?? 0.70);
+  return clamp(beta, minCut, maxCut);
+};
+
+// ─── Behavioral ramp factor ──────────────────────────────────────────────────
+// Real borrowers don't change spending overnight. We model gradual adoption:
+//   month 1 → 30% of β  ;  month 2 → 60%  ;  month 3+ → 100%
+// For the UNDERWRITING decision we average the ramp over the loan's first
+// 3 months — that's the period where default risk is concentrated.
+const computeRampFactor = () => {
+  const monthlyRamp = [0.3, 0.6, 1.0];
+  return monthlyRamp.reduce((a, b) => a + b, 0) / monthlyRamp.length; // = 0.633
+};
+
+// ─── Tiered discretionary cut ────────────────────────────────────────────────
+// Different categories have different elasticity:
+//   • easy   (subscriptions, streaming) → can cut up to β
+//   • medium (dining, shopping)         → can cut up to 0.6β
+//   • hard   (fuel, transport, pharmacy)→ can cut up to 0.3β
+// If we don't have a breakdown, fall back to single-bucket β.
+const applyTieredCut = (breakdown, totalDiscretionary, beta) => {
+  if (!breakdown || (breakdown.easy === 0 && breakdown.medium === 0 && breakdown.hard === 0)) {
+    // No breakdown → uniform β
+    return {
+      adjustedDiscretionary: totalDiscretionary * (1 - beta),
+      tiers: null
+    };
+  }
+  const easy = Number(breakdown.easy ?? 0);
+  const medium = Number(breakdown.medium ?? 0);
+  const hard = Number(breakdown.hard ?? 0);
+  const adjusted =
+    easy * (1 - beta) +
+    medium * (1 - beta * 0.6) +
+    hard * (1 - beta * 0.3);
+  return {
+    adjustedDiscretionary: adjusted,
+    tiers: {
+      easy: { original: Math.round(easy), adjusted: Math.round(easy * (1 - beta)), cut_pct: Number((beta * 100).toFixed(1)) },
+      medium: { original: Math.round(medium), adjusted: Math.round(medium * (1 - beta * 0.6)), cut_pct: Number((beta * 60).toFixed(1)) },
+      hard: { original: Math.round(hard), adjusted: Math.round(hard * (1 - beta * 0.3)), cut_pct: Number((beta * 30).toFixed(1)) }
+    }
+  };
+};
+
 // Stage 2 — Grid search within stage constraints
-const gridSearch = ({ income, existingDebtPayments, estimatedExpenses, requestedLoanAmount, baseInterestRate, insights, maxDownPayment, stage, dsrLimit }) => {
-  const adjustedBase = adjustRate(baseInterestRate, insights);
+const gridSearch = ({ income, existingDebtPayments, estimatedExpenses, requestedLoanAmount, baseInterestRate, insights, maxDownPayment, stage, dsrLimit, pricingCoeffs }) => {
+  const adjustedBase = adjustRate(baseInterestRate, insights, pricingCoeffs);
   const DSR_LIMIT = dsrLimit;
   const DSR_NEAR = dsrLimit + 0.05; // 5pp above the policy threshold = "קרוב מאוד" לסף
   const behavioralFlex = insights?.isFalseNegative || Number(insights?.behavioralScore) >= 0.6;
@@ -168,16 +242,51 @@ const multiStageSearch = (args) => {
   return { candidates: [], stage: null };
 };
 
-// Load the policy DSR threshold from UnderwritingRule — falls back to 40% if missing.
-const loadPolicyDsrLimit = async (base44) => {
+// ─── Liquidity Runway gate ────────────────────────────────────────────────────
+// Even if DSR is healthy, a borrower with <minRunway months of survival before
+// running out of cash is fragile. We DOWNGRADE every approved strategy in this
+// case — ensures that "clean DSR but 1-month buffer" applicants don't slip through.
+const applyLiquidityRunwayGate = (strategies, runwayMonths, minRunway) => {
+  if (!Number.isFinite(runwayMonths) || runwayMonths >= minRunway) return { strategies, gated: false };
+  return {
+    strategies: strategies.map(s => ({
+      ...s,
+      status: s.status === 'approved' ? 'conditional' : s.status
+    })),
+    gated: true
+  };
+};
+
+// Load the full underwriting policy from UnderwritingRule. Returns DSR limit,
+// β guardrails, liquidity-runway floor, and pricing coefficients — with safe defaults.
+const loadPolicy = async (base44) => {
+  const defaults = {
+    dsrLimit: 0.4,
+    betaGuardrails: { min: 0.20, max: 0.70 },
+    minLiquidityRunwayMonths: 3,
+    pricingCoeffs: { k1: 0.02, k2: 0.005 }
+  };
   try {
     const rules = await base44.asServiceRole.entities.UnderwritingRule.list();
-    const max = Number(rules?.[0]?.max_dti_approve);
-    if (Number.isFinite(max) && max > 0 && max < 100) return max / 100;
+    const r = rules?.[0];
+    if (!r) return defaults;
+    const max = Number(r.max_dti_approve);
+    return {
+      dsrLimit: Number.isFinite(max) && max > 0 && max < 100 ? max / 100 : defaults.dsrLimit,
+      betaGuardrails: {
+        min: Number.isFinite(Number(r.min_discretionary_cut_pct)) ? Number(r.min_discretionary_cut_pct) / 100 : defaults.betaGuardrails.min,
+        max: Number.isFinite(Number(r.max_discretionary_cut_pct)) ? Number(r.max_discretionary_cut_pct) / 100 : defaults.betaGuardrails.max
+      },
+      minLiquidityRunwayMonths: Number.isFinite(Number(r.min_liquidity_runway_months)) ? Number(r.min_liquidity_runway_months) : defaults.minLiquidityRunwayMonths,
+      pricingCoeffs: {
+        k1: Number.isFinite(Number(r.pricing_trust_discount_k1)) ? Number(r.pricing_trust_discount_k1) : defaults.pricingCoeffs.k1,
+        k2: Number.isFinite(Number(r.pricing_risk_premium_k2)) ? Number(r.pricing_risk_premium_k2) : defaults.pricingCoeffs.k2
+      }
+    };
   } catch (e) {
-    console.warn('dealRescuerEngine: could not load UnderwritingRule, using default 40%', e);
+    console.warn('dealRescuerEngine: could not load UnderwritingRule, using defaults', e);
+    return defaults;
   }
-  return 0.4;
 };
 
 // ─── Dynamic Risk-Adjustment Layer ─────────────────────────────────────────────
@@ -432,6 +541,10 @@ Deno.serve(async (req) => {
     const rawInsights = body?.analysisInsights || null;
     const cashFlowProfile = body?.cashFlowProfile || null;
 
+    // Load full underwriting policy (DSR limit, β guardrails, runway floor, pricing coeffs).
+    const policy = await loadPolicy(base44);
+    const basePolicyDsrLimit = policy.dsrLimit;
+
     // Merge cash-flow profile into insights so the risk-adjustment layer can use it.
     // Cash-flow profile is the AUTHORITATIVE source when available (granular OpenFinance data).
     const insights = (rawInsights || cashFlowProfile) ? {
@@ -439,25 +552,22 @@ Deno.serve(async (req) => {
       ...(cashFlowProfile ? {
         cashFlowTrustScore: cashFlowProfile.cashFlowTrustScore,
         stabilityAnchors: cashFlowProfile.stabilityAnchors || [],
-        riskFlags: cashFlowProfile.riskFlags || []
+        riskFlags: cashFlowProfile.riskFlags || [],
+        confidence: cashFlowProfile.confidence,
+        incomeVolatility: cashFlowProfile.incomeVolatility,
+        liquidityForecast: cashFlowProfile.liquidityForecast
       } : {})
     } : null;
 
-    // ── Behavioral Credit Engine: Adaptive Discretionary Cut ──────────────────
-    // Instead of "worst-case" (cut 100% of discretionary, like realRepaymentCapacity)
-    // OR "best-case" (assume client cuts everything voluntarily), we use the
-    // cashFlowTrustScore as a behavioral coefficient (β) to MODEL REAL CHANGE CAPACITY:
+    // ── Behavioral Credit Engine v2: Calibrated · Tiered · Ramped ─────────────
+    // Personalized "real change" model with FIVE refinements over the baseline:
+    //   1. β is calibrated NON-LINEARLY:  β = 0.2 + 0.5·trust  (clamped by guardrails)
+    //   2. Volatility penalty:            high income variance shrinks β by 30%
+    //   3. Confidence scaling:            sparse data shrinks β toward minimum
+    //   4. Behavioral ramp factor:        averages adoption over months 1–3 (≈0.633)
+    //   5. Tiered cut by elasticity:      easy=β · medium=0.6β · hard=0.3β
     //
-    //   adjustedDiscretionary = discretionary × (1 − β)
-    //   where β = cashFlowTrustScore   (clamped to [0, 1])
-    //
-    // Interpretation:
-    //   • Strong client (β=0.9)  → cuts 90% of discretionary (proven discipline)
-    //   • Average client (β=0.5) → cuts 50% (some flexibility)
-    //   • Weak client (β=0.1)    → cuts 10% (won't actually change behavior)
-    //
-    // This is a PERSONALIZED scenario, not worst-case. It's strictly more generous
-    // than the old realRepaymentCapacity model for clients who earned trust.
+    // Result: a fundamentally personalized, regulation-safe disposable-income figure.
     let estimatedExpenses;
     let disposableIncome;
     let dsrBasis;
@@ -466,19 +576,38 @@ Deno.serve(async (req) => {
     if (cashFlowProfile && cashFlowProfile.expenses) {
       const fixedExpenses = Number(cashFlowProfile.expenses.fixed ?? 0);
       const discretionary = Number(cashFlowProfile.expenses.discretionary ?? 0);
-      const trustScore = clamp(Number(cashFlowProfile.cashFlowTrustScore ?? 0.5), 0, 1);
-      const beta = trustScore;
-      const adjustedDiscretionary = discretionary * (1 - beta);
+      const breakdown = cashFlowProfile.expenses.discretionaryBreakdown || null;
+
+      // 1. Calibrate β
+      const calibratedBeta = calibrateBeta({
+        trustScore: cashFlowProfile.cashFlowTrustScore,
+        confidence: cashFlowProfile.confidence?.score,
+        incomeVolatilityHigh: !!cashFlowProfile.incomeVolatility?.isHigh,
+        guardrails: policy.betaGuardrails
+      });
+
+      // 2. Apply behavioral ramp — borrower changes habits gradually
+      const rampFactor = computeRampFactor();
+      const effectiveBeta = calibratedBeta * rampFactor;
+
+      // 3. Tiered cut (or uniform fallback if no breakdown available)
+      const { adjustedDiscretionary, tiers } = applyTieredCut(breakdown, discretionary, effectiveBeta);
 
       estimatedExpenses = fixedExpenses + adjustedDiscretionary;
       disposableIncome = Math.max(0, income - existingDebtPayments - estimatedExpenses);
-      dsrBasis = 'adaptive_discretionary_cut';
+      dsrBasis = 'adaptive_discretionary_cut_v2';
       adaptiveCutMeta = {
         fixed_expenses: Math.round(fixedExpenses),
         original_discretionary: Math.round(discretionary),
         adjusted_discretionary: Math.round(adjustedDiscretionary),
-        beta: Number(beta.toFixed(2)),
-        cut_percentage: Number((beta * 100).toFixed(1))
+        raw_trust_score: Number(Number(cashFlowProfile.cashFlowTrustScore ?? 0).toFixed(2)),
+        calibrated_beta: Number(calibratedBeta.toFixed(2)),
+        ramp_factor: Number(rampFactor.toFixed(2)),
+        effective_beta: Number(effectiveBeta.toFixed(2)),
+        confidence: Number(cashFlowProfile.confidence?.score ?? 0).toFixed(2),
+        volatility_penalty_applied: !!cashFlowProfile.incomeVolatility?.isHigh,
+        tiers,
+        guardrails: { min_pct: policy.betaGuardrails.min * 100, max_pct: policy.betaGuardrails.max * 100 }
       };
     } else {
       estimatedExpenses = Number(
@@ -489,9 +618,6 @@ Deno.serve(async (req) => {
       disposableIncome = income - existingDebtPayments - estimatedExpenses;
       dsrBasis = 'disposable_income';
     }
-
-    // Load policy DSR threshold from UnderwritingRule — makes the engine responsive to Underwriting Settings.
-    const basePolicyDsrLimit = await loadPolicyDsrLimit(base44);
 
     // ── Dynamic risk-adjustment layer ──
     // Policy stays intact; we tighten/loosen the operational ceiling around it
@@ -517,7 +643,8 @@ Deno.serve(async (req) => {
       baseInterestRate,
       insights,
       maxDownPayment,
-      dsrLimit
+      dsrLimit,
+      pricingCoeffs: policy.pricingCoeffs
     });
 
     // Silent internal stress testing — may downgrade candidate statuses.
@@ -538,7 +665,7 @@ Deno.serve(async (req) => {
 
     const candidates = stressedCandidates;
     const picks = pickStrategies(candidates, requestedLoanAmount, insights, dsrLimit);
-    const strategies = picks.map(({ type, c }) => ({
+    let strategies = picks.map(({ type, c }) => ({
       type,
       status: c.status,
       loanAmount: c.loanAmount,
@@ -551,11 +678,17 @@ Deno.serve(async (req) => {
       reason: reasonFor(type, c)
     }));
 
+    // ── Liquidity Runway gate ──
+    // Even if DSR is healthy, downgrade approvals when survival runway < policy floor.
+    const runwayMonths = cashFlowProfile?.liquidityForecast?.worstCaseRunwayMonths;
+    const runwayGate = applyLiquidityRunwayGate(strategies, runwayMonths, policy.minLiquidityRunwayMonths);
+    strategies = runwayGate.strategies;
+
     // Fallback: no passing combos in any stage
     let fallback = null;
     if (strategies.length === 0) {
       // Run a broad scan with no DSR filter to find the closest attempt
-      const broadBase = adjustRate(baseInterestRate, insights);
+      const broadBase = adjustRate(baseInterestRate, insights, policy.pricingCoeffs);
       let closest = null;
       for (const term of [24, 36, 48, 60, 72, 84]) {
         for (const ratio of [1.0, 0.8, 0.6, 0.5]) {
@@ -593,7 +726,7 @@ Deno.serve(async (req) => {
         // CRITICAL: headroom is computed against DISPOSABLE income (after existing
         // debts AND living expenses). If disposable ≤ 0, no offer is possible.
         const maxTerm = 84;
-        const offerRate = adjustRate(baseInterestRate, insights);
+        const offerRate = adjustRate(baseInterestRate, insights, policy.pricingCoeffs);
         const headroom = disposableIncome > 0 ? dsrLimit * disposableIncome : 0;
         if (headroom > 0) {
           let lo = 0;
@@ -678,15 +811,18 @@ Deno.serve(async (req) => {
       xai_factors: {
         positive: [
           ...(Array.isArray(insights?.stabilityAnchors) ? insights.stabilityAnchors.map(a => ({
-            key: a.key,
-            label: a.label,
-            detail: a.detail,
-            impact: 'positive'
+            key: a.key, label: a.label, detail: a.detail, impact: 'positive'
           })) : []),
           ...(Number(insights?.cashFlowTrustScore) >= 0.6 ? [{
             key: 'cash_flow_trust',
             label: 'אמון תזרימי גבוה',
             detail: `ציון אמון תזרים מזומנים ${(insights.cashFlowTrustScore * 100).toFixed(0)}% — דפוסי הוצאה והכנסה צפויים`,
+            impact: 'positive'
+          }] : []),
+          ...(Number(insights?.confidence?.score) >= 0.7 ? [{
+            key: 'high_data_confidence',
+            label: 'איכות נתונים גבוהה',
+            detail: `${insights.confidence.dataPoints} תנועות לאורך ${insights.confidence.monthsCovered} חודשים — בסיס איתן לחיזוי`,
             impact: 'positive'
           }] : []),
           ...(Number(insights?.liquidityMonths) >= 3 ? [{
@@ -704,15 +840,30 @@ Deno.serve(async (req) => {
         ],
         negative: [
           ...(Array.isArray(insights?.riskFlags) ? insights.riskFlags.map(f => ({
-            key: f.key,
-            label: f.label,
-            detail: f.detail,
-            impact: 'negative'
+            key: f.key, label: f.label, detail: f.detail, impact: 'negative'
           })) : []),
           ...(Number(insights?.cashFlowTrustScore) < 0.3 ? [{
             key: 'low_cash_flow_trust',
             label: 'אמון תזרימי נמוך',
             detail: 'דפוסי הוצאה לא יציבים או חוסר נתונים',
+            impact: 'negative'
+          }] : []),
+          ...(Number(insights?.confidence?.score) < 0.5 ? [{
+            key: 'low_data_confidence',
+            label: 'איכות נתונים נמוכה',
+            detail: `רק ${insights.confidence?.dataPoints || 0} תנועות לאורך ${insights.confidence?.monthsCovered || 0} חודשים — חיזוי שמרני`,
+            impact: 'negative'
+          }] : []),
+          ...(insights?.incomeVolatility?.isHigh ? [{
+            key: 'income_volatility_high',
+            label: 'תנודתיות הכנסה',
+            detail: `מקדם שונות ${((insights.incomeVolatility.coefficient || 0) * 100).toFixed(0)}% — קשה לסמוך על ממוצע ההכנסה`,
+            impact: 'negative'
+          }] : []),
+          ...(runwayGate.gated ? [{
+            key: 'liquidity_runway_short',
+            label: 'חודשי הישרדות מתחת לסף',
+            detail: `${runwayMonths || 0} חודשים בלבד עד אזילת מזומן (סף מדיניות ${policy.minLiquidityRunwayMonths}). האסטרטגיות שודרגו ל-תנאי`,
             impact: 'negative'
           }] : []),
           ...(Number(insights?.liquidityMonths) < 1 ? [{
@@ -734,7 +885,24 @@ Deno.serve(async (req) => {
         disposable_income: Math.round(disposableIncome),
         dsr_basis: dsrBasis,
         cash_flow_profile_used: !!cashFlowProfile,
-        adaptive_cut: adaptiveCutMeta
+        adaptive_cut: adaptiveCutMeta,
+        liquidity_runway: {
+          months: runwayMonths ?? null,
+          floor: policy.minLiquidityRunwayMonths,
+          gated: runwayGate.gated
+        },
+        pricing: {
+          base_rate_pct: Number((baseInterestRate * 100).toFixed(2)),
+          adjusted_rate_pct: Number((adjustRate(baseInterestRate, insights, policy.pricingCoeffs) * 100).toFixed(2)),
+          k1_trust_discount: policy.pricingCoeffs.k1,
+          k2_risk_premium: policy.pricingCoeffs.k2,
+          trust_score: Number(insights?.cashFlowTrustScore ?? 0).toFixed(2),
+          risk_flags_count: Array.isArray(insights?.riskFlags) ? insights.riskFlags.length : 0
+        },
+        policy: {
+          beta_guardrails_pct: { min: policy.betaGuardrails.min * 100, max: policy.betaGuardrails.max * 100 },
+          min_runway_months: policy.minLiquidityRunwayMonths
+        }
       }
     });
   } catch (error) {
