@@ -398,16 +398,25 @@ export default function Dashboard() {
 
   // Fetch AI Insights from server using React Query to avoid infinite loops
   const { data: serverInsightsData, isLoading: isInsightsLoading, error: insightsError } = useQuery({
-    queryKey: ['ai-insights-v2', stableMetricsHash],
+    queryKey: ['ai-insights-v3', stableMetricsHash],
     queryFn: async () => {
         if (!metricsForInsights) return { error: "No risk metrics available" };
-        
-        const cacheKey = 'flowup_ai_insights_cache_v2';
+
+        // Cache key bumped to v3 — older caches stored payloads without
+        // analyst_recommendation, which caused the "אין מספיק נתונים" empty state.
+        // Also purge the old v2 cache so users don't carry stale broken payloads.
+        try { localStorage.removeItem('flowup_ai_insights_cache_v2'); } catch (e) {}
+        const cacheKey = 'flowup_ai_insights_cache_v3';
         try {
             const cached = localStorage.getItem(cacheKey);
             if (cached) {
                 const parsedCache = JSON.parse(cached);
-                if (parsedCache.hash === stableMetricsHash && parsedCache.data) {
+                // Only trust the cache if it contains a complete analyst_recommendation
+                if (
+                    parsedCache.hash === stableMetricsHash &&
+                    parsedCache.data &&
+                    parsedCache.data.analyst_recommendation?.recommendation
+                ) {
                     return parsedCache.data;
                 }
             }
@@ -417,7 +426,7 @@ export default function Dashboard() {
 
         try {
             const res = await base44.functions.invoke('insightEngine', { metrics: metricsForInsights });
-            if (res.data?.success && res.data?.insights) {
+            if (res.data?.success && res.data?.insights?.analyst_recommendation) {
                 try {
                     localStorage.setItem(cacheKey, JSON.stringify({
                         hash: stableMetricsHash,
@@ -432,7 +441,7 @@ export default function Dashboard() {
             return generateLocalInsights(metricsForInsights) || { error: "Insights unavailable" };
         }
     },
-    enabled: !!(metricsForInsights && hasData),
+    enabled: !!metricsForInsights,
     staleTime: Infinity, // Keep cache indefinitely in memory
     cacheTime: Infinity,
     refetchOnWindowFocus: false, // Don't refetch on window focus
