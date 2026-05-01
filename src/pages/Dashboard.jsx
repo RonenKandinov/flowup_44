@@ -910,6 +910,7 @@ export default function Dashboard() {
                   color="green"
                   delay={0.1}
                   trend={newLoanMetrics?.trends?.income}
+                  trendLabel={newLoanMetrics?.trends?.periodLabel}
                 />
                 <StatCard
                   title="ממוצע הוצאות (12 חודשים)"
@@ -918,6 +919,7 @@ export default function Dashboard() {
                   color="red"
                   delay={0.2}
                   trend={newLoanMetrics?.trends?.expenses}
+                  trendLabel={newLoanMetrics?.trends?.periodLabel}
                 />
               </div>
 

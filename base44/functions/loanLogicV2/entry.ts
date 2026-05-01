@@ -769,51 +769,54 @@ ${JSON.stringify(limitedExpenses)}
         // (sparse months filtered out) for stability against partial-month outliers.
         // Median is robust to a single one-off month (vacation, bonus, sync gap).
         // Output is clamped to ±50% to avoid showing alarming numbers driven by data noise.
-        let trends = { income: 0, expenses: 0, dti: 0, investments: 0, momentum: "STABLE" };
+        //
+        // CRITICAL: trends are returned as `null` when we don't have enough comparison
+        // data (need ≥4 prior months to compute a meaningful 4-month-vs-prior trend).
+        // This prevents the UI from showing fabricated 50% changes that are actually
+        // artifacts of insufficient history. The StatCard will hide the trend chip
+        // entirely when the value is null, so the lender sees only trustworthy data.
+        let trends = { income: null, expenses: null, dti: null, investments: null, momentum: "STABLE", periodLabel: null };
         const clampPct = (v) => Math.max(-50, Math.min(50, v));
 
-        if (trendHistory.length >= 4) {
+        if (trendHistory.length >= 8) {
+            // Best case: we have at least 8 months of clean data. Compare last 4 vs prior 4+.
             const recent4 = trendHistory.slice(-4);
             const priorMonths = trendHistory.slice(0, -4);
 
             const recentMedIncome = getMedian(recent4.map(m => m.income));
-            const priorMedIncome = priorMonths.length > 0 ? getMedian(priorMonths.map(m => m.income)) : recentMedIncome;
+            const priorMedIncome = getMedian(priorMonths.map(m => m.income));
 
             const recentMedExpenses = getMedian(recent4.map(m => m.expenses));
-            const priorMedExpenses = priorMonths.length > 0 ? getMedian(priorMonths.map(m => m.expenses)) : recentMedExpenses;
+            const priorMedExpenses = getMedian(priorMonths.map(m => m.expenses));
 
             const recentMedFixed = getMedian(recent4.map(m => m.fixedExpenses));
-            const priorMedFixed = priorMonths.length > 0 ? getMedian(priorMonths.map(m => m.fixedExpenses)) : recentMedFixed;
+            const priorMedFixed = getMedian(priorMonths.map(m => m.fixedExpenses));
 
             const recentMedInvestments = getMedian(recent4.map(m => m.investmentTransfers));
-            const priorMedInvestments = priorMonths.length > 0 ? getMedian(priorMonths.map(m => m.investmentTransfers)) : 0;
+            const priorMedInvestments = getMedian(priorMonths.map(m => m.investmentTransfers));
 
-            const prevDti = priorMedIncome > 0 ? (priorMedFixed / priorMedIncome) * 100 : 100;
-            const currDti = recentMedIncome > 0 ? (recentMedFixed / recentMedIncome) * 100 : 100;
+            const prevDti = priorMedIncome > 0 ? (priorMedFixed / priorMedIncome) * 100 : null;
+            const currDti = recentMedIncome > 0 ? (recentMedFixed / recentMedIncome) * 100 : null;
 
-            trends.income = clampPct(priorMedIncome > 0 ? ((recentMedIncome - priorMedIncome) / priorMedIncome) * 100 : 0);
-            trends.expenses = clampPct(priorMedExpenses > 0 ? ((recentMedExpenses - priorMedExpenses) / priorMedExpenses) * 100 : 0);
-            trends.investments = clampPct(priorMedInvestments > 0 ? ((recentMedInvestments - priorMedInvestments) / priorMedInvestments) * 100 : (recentMedInvestments > 0 ? 50 : 0));
-            trends.dti = clampPct(currDti - prevDti);
+            // Only compute a trend when BOTH sides have meaningful data. Otherwise leave null.
+            trends.income = (priorMedIncome > 0 && recentMedIncome > 0)
+                ? clampPct(((recentMedIncome - priorMedIncome) / priorMedIncome) * 100)
+                : null;
+            trends.expenses = (priorMedExpenses > 0 && recentMedExpenses > 0)
+                ? clampPct(((recentMedExpenses - priorMedExpenses) / priorMedExpenses) * 100)
+                : null;
+            trends.investments = (priorMedInvestments > 0 && recentMedInvestments > 0)
+                ? clampPct(((recentMedInvestments - priorMedInvestments) / priorMedInvestments) * 100)
+                : null;
+            trends.dti = (prevDti !== null && currDti !== null) ? clampPct(currDti - prevDti) : null;
+            trends.periodLabel = `4 ח׳ אחרונים מול ${priorMonths.length} ח׳ קודמים`;
 
-            if (trends.investments > 20) trends.momentum = "WEALTH_BUILDING";
-            else if (trends.income > 10 && trends.expenses < 5) trends.momentum = "IMPROVING";
-            else if (trends.expenses > 15 && trends.income < 5) trends.momentum = "DETERIORATING";
-        } else if (trendHistory.length >= 2) {
-            const lastMonth = trendHistory[trendHistory.length - 1];
-            const previousMonths = trendHistory.slice(0, -1);
-
-            const prevMedIncome = getMedian(previousMonths.map(m => m.income));
-            const prevMedExpenses = getMedian(previousMonths.map(m => m.expenses));
-            const prevMedFixed = getMedian(previousMonths.map(m => m.fixedExpenses));
-
-            const prevDti = prevMedIncome > 0 ? (prevMedFixed / prevMedIncome) * 100 : 100;
-            const currDti = lastMonth.income > 0 ? (lastMonth.fixedExpenses / lastMonth.income) * 100 : 100;
-
-            trends.income = clampPct(prevMedIncome > 0 ? ((lastMonth.income - prevMedIncome) / prevMedIncome) * 100 : 0);
-            trends.expenses = clampPct(prevMedExpenses > 0 ? ((lastMonth.expenses - prevMedExpenses) / prevMedExpenses) * 100 : 0);
-            trends.dti = clampPct(currDti - prevDti);
+            if (trends.investments !== null && trends.investments > 20) trends.momentum = "WEALTH_BUILDING";
+            else if (trends.income !== null && trends.expenses !== null && trends.income > 10 && trends.expenses < 5) trends.momentum = "IMPROVING";
+            else if (trends.income !== null && trends.expenses !== null && trends.expenses > 15 && trends.income < 5) trends.momentum = "DETERIORATING";
         }
+        // If we have 2-7 months: NOT enough history for a reliable 4-vs-prior comparison.
+        // We deliberately leave trends as null rather than showing a fabricated number to a lender.
 
         if (history.length === 0) {
             throw new Error("No valid transactions found for the given user in Open Finance.");

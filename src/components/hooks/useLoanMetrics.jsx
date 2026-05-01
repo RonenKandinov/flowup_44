@@ -10,16 +10,16 @@ export const useLoanMetrics = (userId, targetAccountId = null) => {
         setIsLoading(true);
         setError(null);
 
-        // Clean up stale V3 cache keys on every fetch
+        // Clean up stale V3/V4 cache keys on every fetch (V5 introduces null-trend semantics)
         try {
             Object.keys(sessionStorage)
-                .filter(k => k.startsWith('loanMetricsCacheV3'))
+                .filter(k => k.startsWith('loanMetricsCacheV3') || k.startsWith('loanMetricsCacheV4'))
                 .forEach(k => sessionStorage.removeItem(k));
         } catch (_) {}
 
         try {
-            // 1. Session Caching Strategy (V4 Key to bust cache and force updates)
-            const cacheKey = `loanMetricsCacheV4_${targetAccountId || 'all'}`;
+            // 1. Session Caching Strategy (V5 Key to bust cache and force updates)
+            const cacheKey = `loanMetricsCacheV5_${targetAccountId || 'all'}`;
             const cachedData = sessionStorage.getItem(cacheKey);
             // Use caching to reduce latency, force=true bypasses it
             if (!force && cachedData) {
@@ -71,15 +71,16 @@ export const useLoanMetrics = (userId, targetAccountId = null) => {
                     forceRedReason: report.decision?.forceRedReason || metrics.forceRedReason,
                     narrative: report.narrative || null,
                     
-                    // Trends from Backend
-                    trends: report.metrics?.trends || metrics.trends || { income: 0, expenses: 0, dti: 0 },
+                    // Trends from Backend (null = insufficient history → UI hides chip).
+                    // Default to all-null shape so legacy fallbacks never fabricate a 0% trend.
+                    trends: report.metrics?.trends || metrics.trends || { income: null, expenses: null, dti: null, periodLabel: null },
                     history: report.metrics?.history || [],
                     availableAccounts: data.availableAccounts || [],
                     activeTargetAccountId: data.activeTargetAccountId || null
                 };
 
                 setMetrics(transformedMetrics);
-                sessionStorage.setItem(`loanMetricsCacheV4_${targetAccountId || 'all'}`, JSON.stringify(transformedMetrics));
+                sessionStorage.setItem(`loanMetricsCacheV5_${targetAccountId || 'all'}`, JSON.stringify(transformedMetrics));
             } else {
                 throw new Error("Analysis failed to return success status");
             }
