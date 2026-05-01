@@ -104,12 +104,19 @@ const adjustRate = (baseRate, insights, pricingCoeffs = {}) => {
 };
 
 // ─── β calibration ────────────────────────────────────────────────────────────
-// Non-linear mapping from cashFlowTrustScore → β (discretionary cut coefficient).
-//   β = 0.2 + 0.5 × trust   then clamped to [min_cut, max_cut]
+// Realistic "belt-tightening" model: a borrower applying for a loan can cut
+// roughly 25% of variable/discretionary spending — that's the empirical sweet
+// spot between "no real change" and "starvation budget".
+//
+// Mapping:  β = 0.15 + 0.20 × trust   (then clamped to [min_cut, max_cut])
+//   trust = 0   → β = 15%   (low trust, conservative cut)
+//   trust = 0.5 → β = 25%   (typical applicant baseline)
+//   trust = 1.0 → β = 35%   (high-trust upper bound before guardrails)
+//
 // Volatility & low-confidence both PENALISE β.
 const calibrateBeta = ({ trustScore, confidence, incomeVolatilityHigh, guardrails }) => {
   const trust = clamp(Number(trustScore ?? 0.5), 0, 1);
-  let beta = 0.2 + 0.5 * trust;
+  let beta = 0.15 + 0.20 * trust;
 
   // Volatility penalty — unstable income means we cannot rely on the borrower
   // to actually execute the cut consistently.
@@ -866,12 +873,6 @@ Deno.serve(async (req) => {
             detail: `${runwayMonths || 0} חודשים בלבד עד אזילת מזומן (סף מדיניות ${policy.minLiquidityRunwayMonths}). האסטרטגיות שודרגו ל-תנאי`,
             impact: 'negative'
           }] : []),
-          ...(Number(insights?.liquidityMonths) < 1 ? [{
-            key: 'low_liquidity',
-            label: 'נזילות נמוכה',
-            detail: `${insights.liquidityMonths || 0} חודשי הוצאות בלבד`,
-            impact: 'negative'
-          }] : [])
         ]
       },
       meta: {
