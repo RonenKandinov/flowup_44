@@ -58,20 +58,12 @@ function generateLocalInsights(metrics) {
 
   const executiveSummary = `הלקוח מציג ציון חיתום של ${metrics.score || 0}/100, המשקף רמת סיכון ${riskTier === 'Green' ? 'נמוכה' : riskTier === 'Orange' ? 'בינונית' : 'גבוהה'}. הכנסתו הממוצעת עומדת על ₪${Math.round(income).toLocaleString('he-IL')} מול הוצאות של ₪${Math.round(totalExpenses).toLocaleString('he-IL')}, מה שגוזר שיעור חיסכון של ${savingsRate}%. מבחינת כושר החזר, יחס ה-DTI עומד על ${dti}% (${dtiAssessment}), וכרית הנזילות מספיקה ל-${liquidityBufferMonths} חודשים (${liquidityAssessment}). לאור הנתונים, ${riskTier === 'Green' ? 'ניתן לאשר את הבקשה בתנאים רגילים.' : riskTier === 'Orange' ? 'מומלץ לשקול פריסה ארוכה יותר להקטנת ההחזר החודשי.' : 'נדרשת זהירות רבה ובחינה מעמיקה לפני אישור.'}`;
 
-  // Map risk tier → decision used by the InsightsAgent decision banner
-  const decision = riskTier === 'Green' ? 'APPROVE' : riskTier === 'Orange' ? 'REVIEW' : 'REJECT';
-  const expenseToIncomeRatio = income > 1 ? Math.round((totalExpenses / income) * 100) : 0;
-
   return {
     metrics: {
       structural_dti: dti,
       adjusted_dti: adjustedDti,
       liquidity_buffer_months: liquidityBufferMonths,
       income_volatility: incomeVolatility,
-      // Required by InsightsAgent's decision banner & metric grid
-      dti,
-      expense_to_income_ratio: expenseToIncomeRatio,
-      liquidity_months: liquidityBufferMonths,
     },
     risk_tier: riskTier,
     narrative: (metrics.recommendation && metrics.recommendation !== 'N/A') ? metrics.recommendation : executiveSummary,
@@ -83,17 +75,6 @@ function generateLocalInsights(metrics) {
     risk_flags: riskFlags,
     behavioral_classification: riskTier === 'Green' ? 'Stable' : riskTier === 'Red' ? 'High Risk' : 'Stable',
     classification_reason: "הערכה מקומית מבוססת על מדדים סטטיים בלבד (ללא ניתוח AI).",
-    // CRITICAL: InsightsAgent renders the empty-state ("אין מספיק נתונים") whenever
-    // analyst_recommendation is missing. We populate it from the same local signals
-    // so the lender sees a coherent decision panel even when the AI engine is offline.
-    analyst_recommendation: {
-      recommendation: { decision },
-      strengths: savingsRate > 10 ? [`שיעור חיסכון חיובי של ${savingsRate}%`] : [],
-      key_risks: riskFlags,
-      what_to_improve: dti > 40 ? ['הפחתת חובות קבועים להורדת DTI'] : [],
-      options: [],
-      policy_explanations: [],
-    },
   };
 }
 
@@ -398,25 +379,16 @@ export default function Dashboard() {
 
   // Fetch AI Insights from server using React Query to avoid infinite loops
   const { data: serverInsightsData, isLoading: isInsightsLoading, error: insightsError } = useQuery({
-    queryKey: ['ai-insights-v3', stableMetricsHash],
+    queryKey: ['ai-insights-v2', stableMetricsHash],
     queryFn: async () => {
         if (!metricsForInsights) return { error: "No risk metrics available" };
-
-        // Cache key bumped to v3 — older caches stored payloads without
-        // analyst_recommendation, which caused the "אין מספיק נתונים" empty state.
-        // Also purge the old v2 cache so users don't carry stale broken payloads.
-        try { localStorage.removeItem('flowup_ai_insights_cache_v2'); } catch (e) {}
-        const cacheKey = 'flowup_ai_insights_cache_v3';
+        
+        const cacheKey = 'flowup_ai_insights_cache_v2';
         try {
             const cached = localStorage.getItem(cacheKey);
             if (cached) {
                 const parsedCache = JSON.parse(cached);
-                // Only trust the cache if it contains a complete analyst_recommendation
-                if (
-                    parsedCache.hash === stableMetricsHash &&
-                    parsedCache.data &&
-                    parsedCache.data.analyst_recommendation?.recommendation
-                ) {
+                if (parsedCache.hash === stableMetricsHash && parsedCache.data) {
                     return parsedCache.data;
                 }
             }
@@ -426,7 +398,7 @@ export default function Dashboard() {
 
         try {
             const res = await base44.functions.invoke('insightEngine', { metrics: metricsForInsights });
-            if (res.data?.success && res.data?.insights?.analyst_recommendation) {
+            if (res.data?.success && res.data?.insights) {
                 try {
                     localStorage.setItem(cacheKey, JSON.stringify({
                         hash: stableMetricsHash,
@@ -441,7 +413,7 @@ export default function Dashboard() {
             return generateLocalInsights(metricsForInsights) || { error: "Insights unavailable" };
         }
     },
-    enabled: !!metricsForInsights,
+    enabled: !!(metricsForInsights && hasData),
     staleTime: Infinity, // Keep cache indefinitely in memory
     cacheTime: Infinity,
     refetchOnWindowFocus: false, // Don't refetch on window focus
@@ -937,6 +909,7 @@ export default function Dashboard() {
                   icon={TrendingUp}
                   color="green"
                   delay={0.1}
+                  trend={newLoanMetrics?.trends?.income}
                 />
                 <StatCard
                   title="ממוצע הוצאות (12 חודשים)"
@@ -944,6 +917,7 @@ export default function Dashboard() {
                   icon={TrendingDown}
                   color="red"
                   delay={0.2}
+                  trend={newLoanMetrics?.trends?.expenses}
                 />
               </div>
 

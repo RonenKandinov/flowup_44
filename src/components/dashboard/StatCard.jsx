@@ -8,8 +8,7 @@ export default function StatCard({
   icon: Icon, 
   color = 'cyan',
   delay = 0,
-  trend = null,
-  trendLabel = null
+  trend = null
 }) {
   const colorStyles = {
     cyan: {
@@ -68,18 +67,14 @@ export default function StatCard({
             </p>
         </div>
         
-        {/* Trend chip — shown ONLY when backend supplied a real comparison value.
-            null/undefined = insufficient history → render nothing (no chip, no notice).
-            We deliberately removed the comparison-period label and the "insufficient history"
-            notice per product decision: averages stand on their own; trend is shown silently
-            when reliable, hidden otherwise. */}
-        {trend !== null && trend !== undefined && Number.isFinite(trend) && Math.abs(trend) >= 0.1 && (
+        {trend !== null && trend !== undefined && Math.abs(trend) >= 0.1 && (
             <div className={`flex items-center text-[10px] md:text-xs mt-1 font-medium ${
                 Math.abs(trend) < 1 ? 'text-slate-400' : 
                 (color === 'red' ? (trend > 0 ? 'text-red-400' : 'text-emerald-400') : (trend > 0 ? 'text-emerald-400' : 'text-red-400'))
             }`}>
                 {Math.abs(trend) < 1 ? <Minus className="w-3 h-3 mr-1" /> : (trend > 0 ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />)}
                 <span dir="ltr">{Math.abs(trend).toFixed(1)}%</span>
+                <span className="text-slate-500 ml-1 font-normal text-[9px] md:text-[10px] mr-1 hidden sm:inline">ממוצע 4 חודשים</span>
             </div>
         )}
       </div>
