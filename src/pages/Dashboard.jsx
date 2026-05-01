@@ -58,12 +58,20 @@ function generateLocalInsights(metrics) {
 
   const executiveSummary = `הלקוח מציג ציון חיתום של ${metrics.score || 0}/100, המשקף רמת סיכון ${riskTier === 'Green' ? 'נמוכה' : riskTier === 'Orange' ? 'בינונית' : 'גבוהה'}. הכנסתו הממוצעת עומדת על ₪${Math.round(income).toLocaleString('he-IL')} מול הוצאות של ₪${Math.round(totalExpenses).toLocaleString('he-IL')}, מה שגוזר שיעור חיסכון של ${savingsRate}%. מבחינת כושר החזר, יחס ה-DTI עומד על ${dti}% (${dtiAssessment}), וכרית הנזילות מספיקה ל-${liquidityBufferMonths} חודשים (${liquidityAssessment}). לאור הנתונים, ${riskTier === 'Green' ? 'ניתן לאשר את הבקשה בתנאים רגילים.' : riskTier === 'Orange' ? 'מומלץ לשקול פריסה ארוכה יותר להקטנת ההחזר החודשי.' : 'נדרשת זהירות רבה ובחינה מעמיקה לפני אישור.'}`;
 
+  // Map risk tier → decision used by the InsightsAgent decision banner
+  const decision = riskTier === 'Green' ? 'APPROVE' : riskTier === 'Orange' ? 'REVIEW' : 'REJECT';
+  const expenseToIncomeRatio = income > 1 ? Math.round((totalExpenses / income) * 100) : 0;
+
   return {
     metrics: {
       structural_dti: dti,
       adjusted_dti: adjustedDti,
       liquidity_buffer_months: liquidityBufferMonths,
       income_volatility: incomeVolatility,
+      // Required by InsightsAgent's decision banner & metric grid
+      dti,
+      expense_to_income_ratio: expenseToIncomeRatio,
+      liquidity_months: liquidityBufferMonths,
     },
     risk_tier: riskTier,
     narrative: (metrics.recommendation && metrics.recommendation !== 'N/A') ? metrics.recommendation : executiveSummary,
@@ -75,6 +83,17 @@ function generateLocalInsights(metrics) {
     risk_flags: riskFlags,
     behavioral_classification: riskTier === 'Green' ? 'Stable' : riskTier === 'Red' ? 'High Risk' : 'Stable',
     classification_reason: "הערכה מקומית מבוססת על מדדים סטטיים בלבד (ללא ניתוח AI).",
+    // CRITICAL: InsightsAgent renders the empty-state ("אין מספיק נתונים") whenever
+    // analyst_recommendation is missing. We populate it from the same local signals
+    // so the lender sees a coherent decision panel even when the AI engine is offline.
+    analyst_recommendation: {
+      recommendation: { decision },
+      strengths: savingsRate > 10 ? [`שיעור חיסכון חיובי של ${savingsRate}%`] : [],
+      key_risks: riskFlags,
+      what_to_improve: dti > 40 ? ['הפחתת חובות קבועים להורדת DTI'] : [],
+      options: [],
+      policy_explanations: [],
+    },
   };
 }
 
@@ -909,8 +928,6 @@ export default function Dashboard() {
                   icon={TrendingUp}
                   color="green"
                   delay={0.1}
-                  trend={newLoanMetrics?.trends?.income}
-                  trendLabel={newLoanMetrics?.trends?.periodLabel}
                 />
                 <StatCard
                   title="ממוצע הוצאות (12 חודשים)"
@@ -918,8 +935,6 @@ export default function Dashboard() {
                   icon={TrendingDown}
                   color="red"
                   delay={0.2}
-                  trend={newLoanMetrics?.trends?.expenses}
-                  trendLabel={newLoanMetrics?.trends?.periodLabel}
                 />
               </div>
 
