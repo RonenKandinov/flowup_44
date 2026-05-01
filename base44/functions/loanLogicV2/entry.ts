@@ -746,49 +746,73 @@ ${JSON.stringify(limitedExpenses)}
 
         history = history.slice(-12);
 
-        // Calculate trends (12/4 Momentum Analysis)
-        let trends = { income: 0, expenses: 0, dti: 0, investments: 0, momentum: "STABLE" };
-        if (history.length >= 4) {
-            const recent4 = history.slice(-4);
-            const priorMonths = history.slice(0, -4);
-            
-            const recentAvgIncome = recent4.reduce((sum, m) => sum + m.income, 0) / recent4.length;
-            const priorAvgIncome = priorMonths.length > 0 ? priorMonths.reduce((sum, m) => sum + m.income, 0) / priorMonths.length : recentAvgIncome;
-            
-            const recentAvgExpenses = recent4.reduce((sum, m) => sum + m.expenses, 0) / recent4.length;
-            const priorAvgExpenses = priorMonths.length > 0 ? priorMonths.reduce((sum, m) => sum + m.expenses, 0) / priorMonths.length : recentAvgExpenses;
-            
-            const recentAvgFixed = recent4.reduce((sum, m) => sum + m.fixedExpenses, 0) / recent4.length;
-            const priorAvgFixed = priorMonths.length > 0 ? priorMonths.reduce((sum, m) => sum + m.fixedExpenses, 0) / priorMonths.length : recentAvgFixed;
-            
-            const recentAvgInvestments = recent4.reduce((sum, m) => sum + m.investmentTransfers, 0) / recent4.length;
-            const priorAvgInvestments = priorMonths.length > 0 ? priorMonths.reduce((sum, m) => sum + m.investmentTransfers, 0) / priorMonths.length : 0;
-            
-            const prevDti = priorAvgIncome > 0 ? (priorAvgFixed / priorAvgIncome) * 100 : 100;
-            const currDti = recentAvgIncome > 0 ? (recentAvgFixed / recentAvgIncome) * 100 : 100;
+        // ── SPARSE-MONTH FILTERING ──────────────────────────────────────────────
+        // A "sparse month" (one with abnormally low transaction volume — e.g. only the
+        // first few days of a month, or a partial sync) drags both the average and the
+        // 4-vs-prior trend toward zero, producing misleading drops like "−54%" and
+        // "−35%" even when the underlying financial reality hasn't changed.
+        //
+        // Rule: a month whose total volume (income + expenses) is below 30% of the
+        // 12-month MEDIAN is treated as data-thin and excluded from trend computation
+        // (it stays in `history` for context but is not used in the rolling averages).
+        const buildTrendHistory = (full) => {
+            if (full.length < 4) return full;
+            const volumes = full.map(m => m.income + m.expenses).filter(v => v > 0).sort((a, b) => a - b);
+            if (volumes.length === 0) return full;
+            const medianVol = volumes[Math.floor(volumes.length / 2)];
+            const threshold = medianVol * 0.3;
+            return full.filter(m => (m.income + m.expenses) >= threshold);
+        };
+        const trendHistory = buildTrendHistory(history);
 
-            trends.income = priorAvgIncome > 0 ? ((recentAvgIncome - priorAvgIncome) / priorAvgIncome) * 100 : 0;
-            trends.expenses = priorAvgExpenses > 0 ? ((recentAvgExpenses - priorAvgExpenses) / priorAvgExpenses) * 100 : 0;
-            trends.investments = priorAvgInvestments > 0 ? ((recentAvgInvestments - priorAvgInvestments) / priorAvgInvestments) * 100 : (recentAvgInvestments > 0 ? 100 : 0);
-            trends.dti = currDti - prevDti;
-            
+        // Calculate trends (12/4 Momentum Analysis) — uses MEDIAN over `trendHistory`
+        // (sparse months filtered out) for stability against partial-month outliers.
+        // Median is robust to a single one-off month (vacation, bonus, sync gap).
+        // Output is clamped to ±50% to avoid showing alarming numbers driven by data noise.
+        let trends = { income: 0, expenses: 0, dti: 0, investments: 0, momentum: "STABLE" };
+        const clampPct = (v) => Math.max(-50, Math.min(50, v));
+
+        if (trendHistory.length >= 4) {
+            const recent4 = trendHistory.slice(-4);
+            const priorMonths = trendHistory.slice(0, -4);
+
+            const recentMedIncome = getMedian(recent4.map(m => m.income));
+            const priorMedIncome = priorMonths.length > 0 ? getMedian(priorMonths.map(m => m.income)) : recentMedIncome;
+
+            const recentMedExpenses = getMedian(recent4.map(m => m.expenses));
+            const priorMedExpenses = priorMonths.length > 0 ? getMedian(priorMonths.map(m => m.expenses)) : recentMedExpenses;
+
+            const recentMedFixed = getMedian(recent4.map(m => m.fixedExpenses));
+            const priorMedFixed = priorMonths.length > 0 ? getMedian(priorMonths.map(m => m.fixedExpenses)) : recentMedFixed;
+
+            const recentMedInvestments = getMedian(recent4.map(m => m.investmentTransfers));
+            const priorMedInvestments = priorMonths.length > 0 ? getMedian(priorMonths.map(m => m.investmentTransfers)) : 0;
+
+            const prevDti = priorMedIncome > 0 ? (priorMedFixed / priorMedIncome) * 100 : 100;
+            const currDti = recentMedIncome > 0 ? (recentMedFixed / recentMedIncome) * 100 : 100;
+
+            trends.income = clampPct(priorMedIncome > 0 ? ((recentMedIncome - priorMedIncome) / priorMedIncome) * 100 : 0);
+            trends.expenses = clampPct(priorMedExpenses > 0 ? ((recentMedExpenses - priorMedExpenses) / priorMedExpenses) * 100 : 0);
+            trends.investments = clampPct(priorMedInvestments > 0 ? ((recentMedInvestments - priorMedInvestments) / priorMedInvestments) * 100 : (recentMedInvestments > 0 ? 50 : 0));
+            trends.dti = clampPct(currDti - prevDti);
+
             if (trends.investments > 20) trends.momentum = "WEALTH_BUILDING";
             else if (trends.income > 10 && trends.expenses < 5) trends.momentum = "IMPROVING";
             else if (trends.expenses > 15 && trends.income < 5) trends.momentum = "DETERIORATING";
-        } else if (history.length >= 2) {
-            const lastMonth = history[history.length - 1];
-            const previousMonths = history.slice(0, -1);
-            
-            const prevAvgIncome = previousMonths.reduce((sum, m) => sum + m.income, 0) / previousMonths.length;
-            const prevAvgExpenses = previousMonths.reduce((sum, m) => sum + m.expenses, 0) / previousMonths.length;
-            const prevAvgFixed = previousMonths.reduce((sum, m) => sum + m.fixedExpenses, 0) / previousMonths.length;
-            
-            const prevDti = prevAvgIncome > 0 ? (prevAvgFixed / prevAvgIncome) * 100 : 100;
+        } else if (trendHistory.length >= 2) {
+            const lastMonth = trendHistory[trendHistory.length - 1];
+            const previousMonths = trendHistory.slice(0, -1);
+
+            const prevMedIncome = getMedian(previousMonths.map(m => m.income));
+            const prevMedExpenses = getMedian(previousMonths.map(m => m.expenses));
+            const prevMedFixed = getMedian(previousMonths.map(m => m.fixedExpenses));
+
+            const prevDti = prevMedIncome > 0 ? (prevMedFixed / prevMedIncome) * 100 : 100;
             const currDti = lastMonth.income > 0 ? (lastMonth.fixedExpenses / lastMonth.income) * 100 : 100;
 
-            trends.income = prevAvgIncome > 0 ? ((lastMonth.income - prevAvgIncome) / prevAvgIncome) * 100 : 0;
-            trends.expenses = prevAvgExpenses > 0 ? ((lastMonth.expenses - prevAvgExpenses) / prevAvgExpenses) * 100 : 0;
-            trends.dti = currDti - prevDti;
+            trends.income = clampPct(prevMedIncome > 0 ? ((lastMonth.income - prevMedIncome) / prevMedIncome) * 100 : 0);
+            trends.expenses = clampPct(prevMedExpenses > 0 ? ((lastMonth.expenses - prevMedExpenses) / prevMedExpenses) * 100 : 0);
+            trends.dti = clampPct(currDti - prevDti);
         }
 
         if (history.length === 0) {
@@ -799,10 +823,11 @@ ${JSON.stringify(limitedExpenses)}
         const SESSION_KEY = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) || 777;
 
         // 5. Underwriting Feature Engineering — Weighted Rolling Average + CV Haircut
-        // Use active months (income/expense > 0) to avoid zero-months dragging the average down artificially,
-        // then apply weighted averaging that favors recent months for responsiveness to current reality.
-        const activeIncomeMonths = history.filter(m => m.income > 0);
-        const activeExpenseMonths = history.filter(m => m.expenses > 0);
+        // Use active months from `trendHistory` (sparse months excluded) so that a partial-month
+        // sync or a one-off low-volume month doesn't drag the 12-month average down artificially.
+        // Then apply weighted averaging that favors recent months for responsiveness to current reality.
+        const activeIncomeMonths = trendHistory.filter(m => m.income > 0);
+        const activeExpenseMonths = trendHistory.filter(m => m.expenses > 0);
 
         const rawAvgIncome = activeIncomeMonths.length > 0
             ? getWeightedAverage(activeIncomeMonths.map(m => m.income))
