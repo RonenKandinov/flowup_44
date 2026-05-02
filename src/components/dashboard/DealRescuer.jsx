@@ -36,15 +36,6 @@ const STRATEGY_META = {
     }
 };
 
-// Profit-margin → categorical label (matches XAI language; never shows raw ₪).
-const profitabilityLabel = (margin) => {
-    if (!Number.isFinite(margin)) return null;
-    if (margin >= 0.05) return { text: 'רווחיות גבוהה', tone: 'text-emerald-300' };
-    if (margin >= 0.02) return { text: 'רווחיות תקינה', tone: 'text-emerald-300' };
-    if (margin >= 0)    return { text: 'רווחיות גבולית', tone: 'text-amber-300' };
-    return { text: 'סיכון גבוה ביחס לרווח', tone: 'text-red-300' };
-};
-
 const STATUS_META = {
     approved: { label: 'אישור', color: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' },
     conditional: { label: 'אישור מותנה', color: 'bg-amber-500/15 text-amber-300 border-amber-500/30' },
@@ -324,16 +315,8 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights,
                                                 {meta.label}
                                             </div>
                                             <div className="flex items-center gap-1.5">
-                                                {s.tier && (
-                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded border font-bold ${
-                                                        s.tier === 'A' ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' :
-                                                        s.tier === 'B' ? 'bg-blue-500/15 text-blue-300 border-blue-500/30' :
-                                                        s.tier === 'C' ? 'bg-amber-500/15 text-amber-300 border-amber-500/30' :
-                                                        'bg-slate-500/15 text-slate-300 border-slate-500/30'
-                                                    }`}>
-                                                        Tier {s.tier}
-                                                    </span>
-                                                )}
+                                                {/* Tier badge intentionally hidden from UI per CTO direction —
+                                                    tier is preserved in s.tier for internal pricing/meta only. */}
                                                 <span className={`text-[10px] px-2 py-0.5 rounded-full border ${statusMeta.color} flex items-center gap-1`}>
                                                     {s.status === 'approved' ? <CheckCircle2 className="w-3 h-3" /> : s.status === 'conditional' ? <AlertTriangle className="w-3 h-3" /> : null}
                                                     {statusMeta.label}
@@ -368,19 +351,8 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights,
                                             </div>
                                         </div>
 
-                                        {/* Profitability — categorical label only.
-                                            CTO direction: NO raw ₪ EV figures — they read like a casino.
-                                            We translate margin → "רווחיות גבוהה / תקינה / גבולית / סיכון גבוה ביחס לרווח". */}
-                                        {(() => {
-                                            const lbl = profitabilityLabel(s.profitMargin);
-                                            if (!lbl) return null;
-                                            return (
-                                                <div className="rounded-md bg-slate-950/60 border border-slate-800/80 px-2 py-1 mb-2 flex items-center justify-between text-[10px]">
-                                                    <span className="text-slate-500">תמחור מול סיכון</span>
-                                                    <span className={`font-semibold ${lbl.tone}`}>{lbl.text}</span>
-                                                </div>
-                                            );
-                                        })()}
+                                        {/* Profitability label hidden from UI per CTO direction —
+                                            kept internal in s.profitMargin for engine logic only. */}
 
                                         <CreditJustificationBlock
                                             aiText={justifications[idx]}

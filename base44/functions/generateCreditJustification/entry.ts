@@ -50,9 +50,9 @@ Deno.serve(async (req) => {
         })();
 
         const angle = {
-            cash_flow_alignment: 'תזרימית (יציבות הכנסה, מרווח חודשי)',
-            exposure_reduction: 'חשיפתית (יחס חוב, נזילות, מינוף)',
-            behavioral_approval: 'התנהגותית (עקביות, משמעת פיננסית)'
+            cash_flow_alignment: 'תזרימית — יישור ההחזר ליכולת ההחזר בפועל באמצעות פריסה והתאמת הוצאה דיסקרציונית',
+            exposure_reduction: 'חשיפתית — הקטנת מינוף ושמירה על כרית נזילות',
+            behavioral_approval: 'התנהגותית — עקביות, משמעת פיננסית ויציבות לאורך זמן'
         };
 
         // Build a COMPACT client profile once — same across all 3 strategies, shorter prompt = faster response
@@ -79,24 +79,61 @@ Deno.serve(async (req) => {
             ? xaiFactors.negative.map(f => f.label).filter(Boolean).slice(0, 4).join(', ')
             : '';
 
+        // Map status → required narrative tone. This is what makes the 4 archetypes
+        // (Approved / Conditional / Aggressive / Reject) read coherently and
+        // distinctly, as defined by the credit policy document.
+        const narrativeBlueprint = (s) => {
+            const dsrAboveThreshold = Number(s.dsr) > Number(threshold);
+            if (s.status === 'approved' && !dsrAboveThreshold) {
+                // Archetype 1 — Good client (Approved)
+                return `מבנה החובה (3 משפטים, סדר קבוע):
+משפט 1 — חוזקות הפרופיל: התחל ב"הלקוח מציג..." או "הלקוח מאופיין ב..." והדגש לפחות חוזקה אחת מתוך רשימת החוזקות (אמון תזרימי, יציבות התנהלות, נזילות, התנהגות פיננסית).
+משפט 2 — איך המבנה מאזן את יחס ההחזר: השתמש בנוסח "פריסת ההלוואה והתאמת ההוצאה הדיסקרציונית מאפשרות התאמה ליכולת ההחזר בפועל" או דומה. הזכר שיחס ההחזר עומד ביחס לסף, אך אל תצטט מספרים.
+משפט 3 — תמחור מול סיכון: סיים ב"התמחור משקף רמת סיכון נמוכה-בינונית ושומר על רווחיות תקינה" או נוסח דומה.`;
+            }
+            if (s.status === 'approved' && dsrAboveThreshold) {
+                // Archetype 2 — Borderline (Conditional masquerading as approved due to behavioral flex)
+                return `מבנה החובה (3 משפטים, סדר קבוע):
+משפט 1 — מצב יחס ההחזר: התחל ב"יחס ההחזר לאחר ההתאמות עומד מעל סף המדיניות, אך במסגרת טווח הגמישות המקובל" או נוסח דומה.
+משפט 2 — תמונת הסיכון של הלקוח: הזכר שילוב של חוזקה אחת וסיכון אחד מהרשימות (אם קיימים) — לדוגמה "הפרופיל מצביע על יציבות חלקית, עם מספר אינדיקציות לסיכון מתון".
+משפט 3 — תמחור מול סיכון: סיים בנוסח "התמחור הגבוה מפצה על הסיכון ומייצר רווחיות חיובית, ולכן העסקה מאושרת בכפוף לשיקול דעת חתם".`;
+            }
+            if (s.status === 'conditional') {
+                // Archetype 2 — Borderline (Conditional)
+                return `מבנה החובה (3 משפטים, סדר קבוע):
+משפט 1 — מצב יחס ההחזר: התחל ב"יחס ההחזר לאחר ההתאמות עומד מעל סף המדיניות, אך במסגרת טווח ה-Stretch המקובל" או נוסח דומה (אם DSR אכן מעל הסף — אחרת אמור "יחס ההחזר נמצא בטווח גבולי").
+משפט 2 — תמונת הסיכון: שלב חוזקה אחת וסיכון אחד מהרשימות — לדוגמה "הפרופיל מצביע על יציבות חלקית, עם מספר אינדיקציות לסיכון מתון".
+משפט 3 — תמחור מול סיכון: סיים ב"התמחור הגבוה מפצה על הסיכון ומייצר רווחיות גבולית אך חיובית, ולכן העסקה מאושרת בכפוף לשיקול דעת".`;
+            }
+            // Archetype 4 — Reject (failed)
+            return `מבנה החובה (3 משפטים, סדר קבוע):
+משפט 1 — חוסר התאמה: התחל ב"יכולת ההחזר בפועל אינה מספקת ביחס למבנה ההלוואה, גם לאחר ההתאמות".
+משפט 2 — תמונת הסיכון: ציין שילוב של רמת סיכון גבוהה ולפחות סיכון אחד ספציפי מהרשימה (אם קיים).
+משפט 3 — מסקנה כלכלית: סיים ב"התמחור אינו מכסה את ההפסד הצפוי, ולכן העסקה אינה עומדת ברף הכלכלי הנדרש לאישור".`;
+        };
+
         // Strict Hebrew-only prompt. We explicitly forbid foreign words, transliterations,
-        // and acronym expansions (e.g. LLM expanding "DSR" to "Digital Sustainable Ratio")
+        // and acronym expansions (e.g. LLM expanding "DSR" to "Debt Service Ratio")
         // because in production gpt_5_mini occasionally mixes English/Arabic into Hebrew output.
-        const buildPrompt = (s) => `אתה חתם אשראי ישראלי. כתוב נימוק קצר בעברית תקנית בלבד.
+        const buildPrompt = (s) => `אתה חתם אשראי ישראלי בכיר בחברה חוץ-בנקאית. כתוב נימוק אשראי בעברית תקנית בלבד, בסגנון של נימוק רשמי במערכת חיתום.
 
 חוקים מוחלטים:
-- עברית בלבד. אסור בהחלט להשתמש במילים באנגלית, ערבית או כל שפה אחרת.
-- אסור להרחיב ראשי תיבות (לדוגמה: לכתוב "DSR" ולא "Debt Service Ratio").
-- 2 משפטים בלבד. ללא כותרות, ללא רשימות, ללא מספרים מהטבלה.
-- שפה מקצועית, ברורה וזורמת — כפי שחתם בנקאי היה כותב.
+- עברית בלבד. אסור בהחלט מילים באנגלית, ערבית או כל שפה אחרת.
+- אסור להרחיב ראשי תיבות.
+- אסור לצטט מספרים מדויקים מהטבלה (לא אחוזי DSR ספציפיים, לא סכומים בשקלים, לא ריבית באחוזים). השתמש בתיאורים איכותיים: "מעל סף המדיניות", "במרווח בטוח", "במסגרת טווח הגמישות".
+- בדיוק 3 משפטים. ללא כותרות, ללא רשימות. שפה מקצועית, זורמת ומקצועית-בנקאית.
+- כל משפט מתחיל בתוכן ענייני, לא ב"לכן" או ב"בנוסף".
 
-זווית הניתוח: ${angle[s.type] || s.type}.
+זווית הזה ניתוח: ${angle[s.type] || s.type}.
 פרופיל הלקוח: ${profileLines || 'סטנדרטי'}.
-תוצאה: ${s.status}. יחס החזר חדש ${s.dsr}% מתוך סף ${threshold}%.
-${positiveFactors ? `חוזקות שזוהו: ${positiveFactors}.` : ''}
-${negativeFactors ? `סיכונים שזוהו: ${negativeFactors}.` : ''}
+תוצאה רשמית: ${s.status === 'approved' ? 'מאושר' : s.status === 'conditional' ? 'מאושר בתנאי' : 'לא מאושר'}.
+יחס החזר חדש ביחס לסף המדיניות: ${Number(s.dsr) <= Number(threshold) ? 'בתוך הסף' : 'מעל הסף בטווח גמישות'}.
+${positiveFactors ? `חוזקות שזוהו בפרופיל: ${positiveFactors}.` : ''}
+${negativeFactors ? `סיכונים שזוהו בפרופיל: ${negativeFactors}.` : ''}
 
-הסבר מה בפרופיל הספציפי של הלקוח מצדיק את הזווית הזו, באופן שונה משתי הזוויות האחרות. שלב במשפט הראשון לפחות חוזקה אחת או סיכון אחד מהרשימה למעלה (אם קיימים) — כך שהנימוק יתחבר לגורמי ההחלטה שמוצגים ללקוח.`;
+${narrativeBlueprint(s)}
+
+חשוב: הקפד שהנימוק יזרום כסיפור אחד קוהרנטי — לא רשימה של עובדות. כל משפט חייב להתחבר לקודמו.`;
 
         // Detect non-Hebrew contamination (Latin or Arabic letters). Hebrew-only justifications
         // may contain digits, punctuation and the % sign, but no foreign-script words.
@@ -110,12 +147,31 @@ ${negativeFactors ? `סיכונים שזוהו: ${negativeFactors}.` : ''}
             return false;
         };
 
-        // Static fallback per strategy type — guarantees the analyst always sees a meaningful
-        // explanation even if the LLM is slow / errors / rate-limited in production.
-        const fallbackText = {
-            cash_flow_alignment: 'המסלול הותאם לתזרים החודשי של הלקוח: גובה ההחזר נשאר במרווח בטוח ביחס להכנסה הפנויה, מה שמבטיח עמידה שוטפת בתשלומים גם בחודשים חלשים.',
-            exposure_reduction: 'המסלול מקטין את החשיפה הכוללת של הלקוח: יחס ההחזר לחוב יורד מתחת לסף המדיניות ומותיר כרית נזילות מספקת לשירות החוב לאורך זמן.',
-            behavioral_approval: 'אישור מבוסס התנהגות פיננסית עקבית: למרות יחס החזר גבוה יחסית, התנהלות הלקוח לאורך זמן (משמעת תשלומים, ללא חריגות) מצדיקה אישור.'
+        // Static fallback per (strategy × status). Mirrors the 3 narrative archetypes used
+        // in the LLM blueprint above — guarantees the analyst sees a coherent, policy-consistent
+        // explanation even when the LLM is slow, errors out, or unauthenticated.
+        const fallbackByStatus = (s) => {
+            const dsrAboveThreshold = Number(s.dsr) > Number(threshold);
+            // Approved + DSR within threshold → "Good client" archetype
+            if (s.status === 'approved' && !dsrAboveThreshold) {
+                if (s.type === 'cash_flow_alignment') {
+                    return 'הלקוח מציג אמון תזרימי גבוה ודפוסי התנהלות יציבים לאורך זמן. פריסת ההלוואה והתאמת ההוצאה הדיסקרציונית מאפשרות יישור ההחזר ליכולת ההחזר בפועל ושומרות מרווח בטוח ביחס להכנסה הפנויה. התמחור משקף רמת סיכון נמוכה-בינונית ושומר על רווחיות תקינה.';
+                }
+                if (s.type === 'exposure_reduction') {
+                    return 'הלקוח מאופיין בנזילות תקינה ומבנה הוצאות יציב, מה שמאפשר הקטנת חשיפה ללא פגיעה בכרית הביטחון. הקטנת היקף ההלוואה ושימוש במקדמה מורידים את יחס ההחזר אל בתוך סף המדיניות ומחזקים את היציבות הכלכלית של הלקוח. התמחור משקף רמת סיכון נמוכה ושומר על רווחיות תקינה.';
+                }
+                return 'הלקוח מציג התנהלות פיננסית עקבית ומשמעת תשלומים יציבה לאורך זמן. גם כאשר יחס ההחזר נמצא בטווח הגבוה של סף המדיניות, הפרופיל ההתנהגותי מצדיק אישור מלא בהסתמך על יציבות מוכחת. התמחור משקף רמת סיכון בינונית ושומר על רווחיות תקינה.';
+            }
+            // Approved + DSR above threshold (behavioral flex) — borderline approved
+            if (s.status === 'approved' && dsrAboveThreshold) {
+                return 'יחס ההחזר לאחר ההתאמות עומד מעל סף המדיניות, אך במסגרת טווח הגמישות המקובל. הפרופיל מצביע על יציבות חלקית עם מספר אינדיקציות לסיכון מתון. התמחור הגבוה מפצה על הסיכון ומייצר רווחיות חיובית, ולכן העסקה מאושרת בכפוף לשיקול דעת חתם.';
+            }
+            // Conditional — borderline archetype
+            if (s.status === 'conditional') {
+                return 'יחס ההחזר לאחר ההתאמות עומד מעל סף המדיניות, אך במסגרת טווח הגמישות המקובל. הפרופיל מצביע על יציבות חלקית, עם מספר אינדיקציות לסיכון מתון. התמחור הגבוה מפצה על הסיכון ומייצר רווחיות גבולית אך חיובית, ולכן העסקה מאושרת בכפוף לשיקול דעת חתם.';
+            }
+            // Reject archetype
+            return 'יכולת ההחזר בפועל אינה מספקת ביחס למבנה ההלוואה, גם לאחר ההתאמות. רמת הסיכון גבוהה ומלווה במספר אינדיקציות לחוסר יציבות. התמחור אינו מכסה את ההפסד הצפוי, ולכן העסקה אינה עומדת ברף הכלכלי הנדרש לאישור.';
         };
 
         // If the caller wasn't authenticated (cross-domain cookie failed), skip the LLM
@@ -123,7 +179,7 @@ ${negativeFactors ? `סיכונים שזוהו: ${negativeFactors}.` : ''}
         // would also fail and we'd end up showing "לא זמין" to the user — defeating the
         // whole point of the soft-auth degradation above.
         if (!isAuthenticated) {
-            const fallbackResults = list.map(s => fallbackText[s.type] || 'נימוק אשראי אינו זמין כרגע.');
+            const fallbackResults = list.map(s => fallbackByStatus(s));
             if (strategies) {
                 return Response.json({ success: true, justifications: fallbackResults, mode: 'fallback' });
             }
@@ -146,22 +202,22 @@ ${negativeFactors ? `סיכונים שזוהו: ${negativeFactors}.` : ''}
                 if (isContaminated(text)) {
                     console.warn(`LLM ${s.type}: contaminated output, retrying. First attempt: ${text.slice(0, 120)}`);
                     const retry = await base44.integrations.Core.InvokeLLM({
-                        prompt: `שכתב את הטקסט הבא לעברית תקנית בלבד. אסור בהחלט מילים באנגלית או בערבית. אסור ראשי תיבות לועזיים. שמור על 2 משפטים, סגנון של חתם אשראי בנקאי:\n\n${text}`
+                        prompt: `שכתב את הטקסט הבא לעברית תקנית בלבד. אסור בהחלט מילים באנגלית או בערבית. אסור ראשי תיבות לועזיים. שמור על 3 משפטים, סגנון של חתם אשראי בנקאי:\n\n${text}`
                     });
                     const retryText = typeof retry === 'string' ? retry.trim() : String(retry).trim();
                     if (!isContaminated(retryText)) {
                         text = retryText;
                     } else {
                         console.error(`LLM ${s.type}: retry still contaminated, using fallback.`);
-                        text = fallbackText[s.type] || 'נימוק אשראי אינו זמין כרגע.';
+                        text = fallbackByStatus(s);
                     }
                 }
 
                 console.log(`LLM ${s.type}: ${Date.now() - t0}ms`);
-                return text || fallbackText[s.type] || 'נימוק אשראי אינו זמין כרגע.';
+                return text || fallbackByStatus(s);
             } catch (e) {
                 console.error(`LLM ${s.type} failed after ${Date.now() - t0}ms:`, e?.message);
-                return fallbackText[s.type] || 'נימוק אשראי אינו זמין כרגע.';
+                return fallbackByStatus(s);
             }
         }));
 
