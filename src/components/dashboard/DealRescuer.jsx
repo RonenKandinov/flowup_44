@@ -32,6 +32,12 @@ const STRATEGY_META = {
         icon: Zap,
         accent: 'text-amber-400',
         ring: 'border-amber-500/40'
+    },
+    aggressive_approval: {
+        label: 'אישור אגרסיבי (רווחי)',
+        icon: Zap,
+        accent: 'text-amber-400',
+        ring: 'border-amber-500/40'
     }
 };
 
@@ -353,6 +359,31 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights,
                                                 <div className={`font-medium ${s.dsr <= 40 ? 'text-emerald-300' : s.dsr <= 45 ? 'text-amber-300' : 'text-red-300'}`}>{s.dsr}%</div>
                                             </div>
                                         </div>
+
+                                        {/* Profit Engine strip — shows the unit economics behind the approval.
+                                            Only renders when the engine returned EV/PD data (new Profit Engine path). */}
+                                        {(typeof s.expectedValue === 'number' || typeof s.pd === 'number') && (
+                                            <div className="rounded-md bg-slate-950/60 border border-slate-800/80 px-2 py-1.5 mb-2 grid grid-cols-3 gap-2 text-[10px]">
+                                                <div>
+                                                    <div className="text-slate-500">PD</div>
+                                                    <div className={`font-semibold ${s.pd <= 0.05 ? 'text-emerald-300' : s.pd <= 0.15 ? 'text-amber-300' : 'text-red-300'}`}>
+                                                        {(s.pd * 100).toFixed(1)}%
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-slate-500">ערך צפוי (EV)</div>
+                                                    <div className={`font-semibold ${s.expectedValue > 0 ? 'text-emerald-300' : 'text-red-300'}`}>
+                                                        {s.expectedValue >= 0 ? '+' : ''}{formatILS(s.expectedValue)}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-slate-500">מרווח רווח</div>
+                                                    <div className={`font-semibold ${s.profitMargin > 0.05 ? 'text-emerald-300' : s.profitMargin > 0 ? 'text-amber-300' : 'text-red-300'}`}>
+                                                        {(s.profitMargin * 100).toFixed(1)}%
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
 
                                         <CreditJustificationBlock
                                             aiText={justifications[idx]}

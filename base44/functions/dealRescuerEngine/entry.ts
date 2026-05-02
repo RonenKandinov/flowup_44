@@ -80,11 +80,65 @@ const runStressTest = ({ candidate, income, existingDebtPayments, estimatedExpen
   return candidate.status;
 };
 
+// ─── Profit Engine: PD · Risk Premium · Expected Value ─────────────────────────
+// The non-bank lender's core question is NOT "is this customer safe?" — it's
+// "is this loan PROFITABLE in expectation?". We model:
+//
+//   PD (Probability of Default) = pd0 + α·DSR + β·(1−trust) + γ·#flags + δ·runway_penalty
+//   Total Interest = monthlyPayment × term − principal
+//   Expected Loss  = PD × principal × LGD
+//   Expected Value = (1 − PD) × Total Interest − PD × principal × LGD
+//
+// A loan is APPROVED only if EV > min_expected_profit (a small positive margin).
+// This is what lets us approve a high-DSR customer at high rate (Tier C / aggressive)
+// while REJECTING a low-DSR customer at low rate when the math doesn't work.
+
+// PD model — bounded probability ∈ [pd0, 0.55].
+// We cap at 0.55 because beyond that no rate compensates (LGD dominates).
+const computePD = ({ dsr, trust, flagCount, runwayMonths, pdCoeffs }) => {
+  const pd0 = Number(pdCoeffs.base ?? 0.02);
+  const alpha = Number(pdCoeffs.dsrCoeff ?? 0.5);
+  const beta = Number(pdCoeffs.trustCoeff ?? 0.3);
+  const gamma = Number(pdCoeffs.flagsCoeff ?? 0.05);
+  const delta = Number(pdCoeffs.runwayCoeff ?? 0.04);
+
+  const trustGap = clamp(1 - clamp(Number(trust ?? 0.5), 0, 1), 0, 1);
+  const runwayPenalty = (Number.isFinite(runwayMonths) && runwayMonths < 3)
+    ? clamp((3 - runwayMonths) / 3, 0, 1)
+    : 0;
+
+  const pd = pd0
+    + alpha * clamp(dsr, 0, 1)
+    + beta * trustGap
+    + gamma * Math.max(0, flagCount)
+    + delta * runwayPenalty;
+
+  return clamp(pd, pd0, 0.55);
+};
+
+// Expected Value of a loan over its full term.
+// Returns positive number = expected profit, negative = expected loss.
+const computeExpectedValue = ({ principal, monthlyPayment, termMonths, pd, lgd }) => {
+  const totalRevenue = monthlyPayment * termMonths - principal;     // pure interest income
+  const expectedLoss = pd * principal * lgd;                        // expected default loss
+  const survivalProbability = 1 - pd;
+  return survivalProbability * totalRevenue - expectedLoss;
+};
+
+// Risk Premium — what extra rate is needed ABOVE base to compensate the lender
+// for the expected loss. Used as a transparency metric in XAI output.
+//   premium ≈ PD × LGD / (1 − PD)   (annualized, simplified)
+const computeRiskPremium = ({ pd, lgd }) => {
+  if (pd >= 0.99) return 0.5; // saturated
+  return clamp((pd * lgd) / (1 - pd), 0, 0.5);
+};
+
 // Stage 3 — dynamic rate adjustment from analysisInsights
-// Now ALSO factors in cash-flow trust score and risk-flag count for explicit
-// risk-based pricing:  rate = base − k1·trust + k2·#flags
-// (k1, k2 are loaded from UnderwritingRule with sensible defaults)
-const adjustRate = (baseRate, insights, pricingCoeffs = {}) => {
+// Combines:
+//   1. Qualitative signals (risk level, liquidity, behavior)
+//   2. Risk-based pricing:  rate = base − k1·trust + k2·#flags
+//   3. Risk Premium floor:  rate must cover (PD × LGD) margin
+const adjustRate = (baseRate, insights, pricingCoeffs = {}, riskCtx = null) => {
   if (!insights) return baseRate;
   let rate = baseRate;
   const riskLevel = String(insights.riskLevel || '').toLowerCase();
@@ -100,7 +154,14 @@ const adjustRate = (baseRate, insights, pricingCoeffs = {}) => {
   const flagCount = Array.isArray(insights.riskFlags) ? insights.riskFlags.length : 0;
   rate = rate - k1 * trust + k2 * flagCount;
 
-  return clamp(rate, 0.05, 0.12);
+  // Risk Premium floor — the rate must AT LEAST cover the expected loss
+  // when riskCtx is provided (i.e., we know the candidate's PD).
+  if (riskCtx && Number.isFinite(riskCtx.pd) && Number.isFinite(riskCtx.lgd)) {
+    const premium = computeRiskPremium({ pd: riskCtx.pd, lgd: riskCtx.lgd });
+    rate = Math.max(rate, baseRate + premium * 0.5); // half the premium is added as floor
+  }
+
+  return clamp(rate, 0.05, 0.18); // widened ceiling: aggressive tier can reach 18%
 };
 
 // ─── β calibration ────────────────────────────────────────────────────────────
@@ -227,9 +288,13 @@ const rateForTier = (tier, qf, tiers) => {
 };
 
 // Stage 2 — Grid search within stage constraints
-// NOW USES DSR-BASED PRICING: rate is determined by the DSR band the candidate
-// falls into, not by an arbitrary base±delta sweep.
-const gridSearch = ({ income, existingDebtPayments, estimatedExpenses, requestedLoanAmount, baseInterestRate, insights, maxDownPayment, stage, dsrLimit, pricingCoeffs, tiers }) => {
+// NOW USES DSR-BASED PRICING + EXPECTED VALUE FILTER:
+//   1. rate is determined by the DSR band (Tier A/B/C)
+//   2. each candidate's PD is computed from DSR + trust + flags + runway
+//   3. candidates with EV < min_expected_profit are FILTERED OUT
+// This is the core of the Profit Engine — we approve based on profitability,
+// not just on capacity.
+const gridSearch = ({ income, existingDebtPayments, estimatedExpenses, requestedLoanAmount, baseInterestRate, insights, maxDownPayment, stage, dsrLimit, pricingCoeffs, tiers, pdCoeffs, lgd, minExpectedProfitMargin, runwayMonths }) => {
   const DSR_LIMIT = dsrLimit;
   // Widened "approval zone" — non-bank lenders accept up to +15pp above policy
   // when the client falls into a higher pricing tier. This is what unlocks
@@ -251,6 +316,8 @@ const gridSearch = ({ income, existingDebtPayments, estimatedExpenses, requested
   const downPaymentRatios = [0, 0.05, 0.1, 0.15, 0.2];
 
   const dpCap = Number.isFinite(maxDownPayment) && maxDownPayment > 0 ? maxDownPayment : Infinity;
+  const trust = clamp(Number(insights?.cashFlowTrustScore ?? 0.5), 0, 1);
+  const flagCount = Array.isArray(insights?.riskFlags) ? insights.riskFlags.length : 0;
   const candidates = [];
 
   for (const term of terms) {
@@ -285,10 +352,27 @@ const gridSearch = ({ income, existingDebtPayments, estimatedExpenses, requested
         }
         if (tierForDsr(dsr * 100, tiers) === 'D') continue;
 
-        // Status mapping:
-        //   Tier A → approved
-        //   Tier B → approved
-        //   Tier C → conditional (Stretch zone — needs behavioral/trust support)
+        // ─── PROFIT ENGINE ────────────────────────────────────────────────
+        // Compute PD and Expected Value. Reject candidates that are not profitable
+        // in expectation, even if they pass DSR — this is the heart of the
+        // non-bank lender model.
+        const pd = computePD({ dsr, trust, flagCount, runwayMonths, pdCoeffs });
+        const ev = computeExpectedValue({
+          principal: netLoan,
+          monthlyPayment,
+          termMonths: term,
+          pd,
+          lgd
+        });
+        const minProfit = netLoan * minExpectedProfitMargin;
+
+        // Status mapping (now profit-aware):
+        //   Tier A + EV > minProfit → approved
+        //   Tier B + EV > minProfit → approved
+        //   Tier C + EV > minProfit → conditional (Stretch zone)
+        //   ANY tier + EV ≤ minProfit → REJECT (the loan loses money in expectation)
+        if (ev < minProfit) continue; // unprofitable — skip regardless of capacity
+
         let status;
         if (dsr <= DSR_LIMIT) {
           status = 'approved';
@@ -297,6 +381,10 @@ const gridSearch = ({ income, existingDebtPayments, estimatedExpenses, requested
         } else {
           continue;
         }
+
+        const totalRevenue = monthlyPayment * term - netLoan;
+        const expectedLoss = pd * netLoan * lgd;
+        const riskPremium = computeRiskPremium({ pd, lgd });
 
         candidates.push({
           loanAmount: Math.round(netLoan),
@@ -308,7 +396,14 @@ const gridSearch = ({ income, existingDebtPayments, estimatedExpenses, requested
           dsr: Number(dsr.toFixed(4)),
           status,
           tier,
-          amountRatio: ratio
+          amountRatio: ratio,
+          // Profit Engine fields:
+          pd: Number(pd.toFixed(4)),
+          expectedValue: Math.round(ev),
+          totalRevenue: Math.round(totalRevenue),
+          expectedLoss: Math.round(expectedLoss),
+          riskPremium: Number((riskPremium * 100).toFixed(2)),
+          profitMargin: Number((ev / netLoan).toFixed(4))
         });
       }
     }
@@ -316,7 +411,8 @@ const gridSearch = ({ income, existingDebtPayments, estimatedExpenses, requested
   return candidates;
 };
 
-// Multi-stage search: run stages in order, stop when we have candidates
+// Multi-stage search: run stages in order, stop when we have PROFITABLE candidates
+// (gridSearch internally filters out EV-negative candidates).
 const multiStageSearch = (args) => {
   const stages = [
     { name: 'stage1', minAmountRatio: 0.8, maxTerm: 60 },
@@ -330,16 +426,23 @@ const multiStageSearch = (args) => {
   return { candidates: [], stage: null };
 };
 
-// ─── Stretch Offer Search ──────────────────────────────────────────────────────
-// "Stretch" = a higher-amount, higher-rate, higher-DSR option for clients who
-// have:
+// ─── Aggressive Approval Search (formerly Stretch) ──────────────────────────────
+// "aggressive_approval" = a high-rate, high-DSR product for clients who would be
+// REJECTED under standard tiers but generate POSITIVE EXPECTED VALUE at premium
+// rates. This is the key differentiator of non-bank lenders: the willingness to
+// price risk explicitly when the math says it's profitable.
+//
+// Eligibility (still gated by reality — we don't lend to the fragile):
 //   • Sufficient cash-flow trust (≥ stretch_min_trust_score)
 //   • Sufficient liquidity runway (≥ stretch_min_runway_months)
 //   • Few risk flags (≤ stretch_max_risk_flags)
+//   • Loan must clear EV > min_profit_margin × principal
 //
-// This is what real non-bank lenders offer — instead of "rejected", a customer
-// can opt into a more expensive product. We search ABOVE the requested amount
-// and the standard DSR band, but cap at Tier C boundary.
+// Differs from standard tiers by:
+//   • Searching ABOVE requested amount (up to 120%)
+//   • Using EXTENDED DSR ceiling (up to aggressive_max_dsr, default 70%)
+//   • Pricing in the [aggressive_min_rate, aggressive_max_rate] band (14-18%)
+//   • Status is always 'conditional' — never auto-approved
 const isEligibleForStretch = ({ insights, runwayMonths, stretchPolicy }) => {
   if (!stretchPolicy.enabled) return false;
   const trust = Number(insights?.cashFlowTrustScore ?? 0);
@@ -348,62 +451,86 @@ const isEligibleForStretch = ({ insights, runwayMonths, stretchPolicy }) => {
   const flagCount = Array.isArray(insights?.riskFlags) ? insights.riskFlags.length : 0;
   if (flagCount > stretchPolicy.maxFlags) return false;
 
-  // Runway is critical — stretch cannot be offered to fragile borrowers
+  // Runway is critical — aggressive cannot be offered to fragile borrowers
   if (Number.isFinite(runwayMonths) && runwayMonths < stretchPolicy.minRunway) return false;
 
   return true;
 };
 
-const stretchSearch = ({ income, existingDebtPayments, estimatedExpenses, requestedLoanAmount, insights, maxDownPayment, tiers }) => {
+const aggressiveApprovalSearch = ({ income, existingDebtPayments, estimatedExpenses, requestedLoanAmount, insights, maxDownPayment, aggressivePolicy, pdCoeffs, lgd, minExpectedProfitMargin, runwayMonths }) => {
+  if (!aggressivePolicy.enabled) return null;
   const disposableIncome = income - existingDebtPayments - estimatedExpenses;
   if (disposableIncome <= 0) return null;
 
   const qf = qualityFactor(insights);
-  // Stretch always uses Tier C rates (the most expensive band)
-  const stretchRate = rateForTier('C', qf, tiers) / 100;
+  const trust = clamp(Number(insights?.cashFlowTrustScore ?? 0.5), 0, 1);
+  const flagCount = Array.isArray(insights?.riskFlags) ? insights.riskFlags.length : 0;
 
-  // Stretch tries to give MORE than requested — up to 120% — at a longer term
-  const stretchTerms = [60, 72, 84];
-  const stretchRatios = [1.2, 1.15, 1.1, 1.05, 1.0];
+  // Rate is positioned in the aggressive band based on quality factor
+  const aggressiveRate = (aggressivePolicy.minRate + (aggressivePolicy.maxRate - aggressivePolicy.minRate) * qf) / 100;
+  const dsrCeiling = aggressivePolicy.maxDsr / 100;
+
+  // Aggressive tries to give MORE than requested — up to 120% — at a longer term
+  const terms = [60, 72, 84];
+  const ratios = [1.2, 1.15, 1.1, 1.05, 1.0];
   const dpCap = Number.isFinite(maxDownPayment) && maxDownPayment > 0 ? maxDownPayment : Infinity;
 
   const candidates = [];
-  for (const term of stretchTerms) {
-    for (const ratio of stretchRatios) {
+  for (const term of terms) {
+    for (const ratio of ratios) {
       const grossAmount = requestedLoanAmount * ratio;
-      const downPayment = Math.min(0, dpCap); // stretch typically without down payment
+      const downPayment = 0; // aggressive product has no down payment
       const netLoan = grossAmount - downPayment;
-      if (netLoan <= 0) continue;
+      if (netLoan <= 0 || downPayment > dpCap) continue;
 
-      const monthlyPayment = pmt(netLoan, stretchRate, term);
+      const monthlyPayment = pmt(netLoan, aggressiveRate, term);
       const dsr = monthlyPayment / disposableIncome;
 
-      // Must land in Tier C band (between B max and C max)
-      if (dsr * 100 <= tiers.B.maxDsr) continue; // would qualify for cheaper tier — not a stretch
-      if (dsr * 100 > tiers.C.maxDsr) continue; // beyond approval
+      if (dsr > dsrCeiling) continue; // beyond approval ceiling
+
+      // PROFIT ENGINE: this is THE filter that makes aggressive approvals safe.
+      // If EV is negative/marginal, we don't write the loan even at 18%.
+      const pd = computePD({ dsr, trust, flagCount, runwayMonths, pdCoeffs });
+      const ev = computeExpectedValue({
+        principal: netLoan,
+        monthlyPayment,
+        termMonths: term,
+        pd,
+        lgd
+      });
+      const minProfit = netLoan * minExpectedProfitMargin;
+      if (ev < minProfit) continue;
+
+      const totalRevenue = monthlyPayment * term - netLoan;
+      const expectedLoss = pd * netLoan * lgd;
+      const riskPremium = computeRiskPremium({ pd, lgd });
 
       candidates.push({
         loanAmount: Math.round(netLoan),
         grossAmount: Math.round(grossAmount),
         termMonths: term,
-        interestRate: Number((stretchRate * 100).toFixed(2)),
+        interestRate: Number((aggressiveRate * 100).toFixed(2)),
         downPayment: 0,
         monthlyPayment: Math.round(monthlyPayment),
         dsr: Number(dsr.toFixed(4)),
-        status: 'conditional', // stretch is always conditional — never plain "approved"
+        status: 'conditional', // always conditional — credit officer review required
         tier: 'C',
         amountRatio: ratio,
-        isStretch: true
+        isStretch: true,
+        isAggressive: true,
+        pd: Number(pd.toFixed(4)),
+        expectedValue: Math.round(ev),
+        totalRevenue: Math.round(totalRevenue),
+        expectedLoss: Math.round(expectedLoss),
+        riskPremium: Number((riskPremium * 100).toFixed(2)),
+        profitMargin: Number((ev / netLoan).toFixed(4))
       });
     }
   }
 
   if (candidates.length === 0) return null;
-  // Pick the stretch offer that maximises the principal closest to a clean DSR (i.e., lower in the C band)
-  candidates.sort((a, b) => {
-    if (b.grossAmount !== a.grossAmount) return b.grossAmount - a.grossAmount;
-    return a.dsr - b.dsr;
-  });
+  // Pick the aggressive offer with HIGHEST EXPECTED VALUE — pure profit maximization
+  candidates.sort((a, b) => b.expectedValue - a.expectedValue);
   return candidates[0];
 };
 
@@ -436,7 +563,11 @@ const loadPolicy = async (base44) => {
       B: { maxDsr: 55, minRate: 9,  maxRate: 12 },
       C: { maxDsr: 65, minRate: 12, maxRate: 16 }
     },
-    stretch: { enabled: true, minTrust: 0.4, minRunway: 2, maxFlags: 2 }
+    stretch: { enabled: true, minTrust: 0.4, minRunway: 2, maxFlags: 2 },
+    pdCoeffs: { base: 0.02, dsrCoeff: 0.5, trustCoeff: 0.3, flagsCoeff: 0.05, runwayCoeff: 0.04 },
+    lgd: 0.6,
+    minExpectedProfitMargin: 0.02,
+    aggressive: { enabled: true, maxDsr: 70, minRate: 14, maxRate: 18 }
   };
   try {
     const rules = await base44.asServiceRole.entities.UnderwritingRule.list();
@@ -477,6 +608,21 @@ const loadPolicy = async (base44) => {
         minTrust: num(r.stretch_min_trust_score, defaults.stretch.minTrust),
         minRunway: num(r.stretch_min_runway_months, defaults.stretch.minRunway),
         maxFlags: num(r.stretch_max_risk_flags, defaults.stretch.maxFlags)
+      },
+      pdCoeffs: {
+        base:         num(r.pd_base,                 defaults.pdCoeffs.base),
+        dsrCoeff:     num(r.pd_dsr_coefficient,      defaults.pdCoeffs.dsrCoeff),
+        trustCoeff:   num(r.pd_trust_coefficient,    defaults.pdCoeffs.trustCoeff),
+        flagsCoeff:   num(r.pd_flags_coefficient,    defaults.pdCoeffs.flagsCoeff),
+        runwayCoeff:  num(r.pd_runway_coefficient,   defaults.pdCoeffs.runwayCoeff)
+      },
+      lgd: num(r.lgd, defaults.lgd),
+      minExpectedProfitMargin: num(r.min_expected_profit_margin, defaults.minExpectedProfitMargin),
+      aggressive: {
+        enabled: r.enable_aggressive_approval !== false,
+        maxDsr:  num(r.aggressive_max_dsr,  defaults.aggressive.maxDsr),
+        minRate: num(r.aggressive_min_rate, defaults.aggressive.minRate),
+        maxRate: num(r.aggressive_max_rate, defaults.aggressive.maxRate)
       }
     };
   } catch (e) {
@@ -830,8 +976,11 @@ Deno.serve(async (req) => {
     const currentScore = Number(body?.score || clamp(Math.round(85 - currentDsr * 100 * 0.7), 20, 85));
     const currentStatus = String(body?.currentStatus || (currentDsr <= dsrLimit ? 'approved' : currentDsr <= dsrLimit + 0.1 ? 'borderline' : 'rejected'));
 
+    // Pre-compute runway for the Profit Engine (PD model uses it)
+    const preRunwayMonths = cashFlowProfile?.liquidityForecast?.worstCaseRunwayMonths;
+
     // Multi-stage search — DSR computed on disposable income inside.
-    // Now uses DSR-based pricing tiers (A/B/C) instead of arbitrary rate sweep.
+    // Now uses DSR-based pricing tiers (A/B/C) + Profit Engine (PD/EV filter).
     const { candidates: rawCandidates, stage } = multiStageSearch({
       income,
       existingDebtPayments,
@@ -842,7 +991,11 @@ Deno.serve(async (req) => {
       maxDownPayment,
       dsrLimit,
       pricingCoeffs: policy.pricingCoeffs,
-      tiers: policy.tiers
+      tiers: policy.tiers,
+      pdCoeffs: policy.pdCoeffs,
+      lgd: policy.lgd,
+      minExpectedProfitMargin: policy.minExpectedProfitMargin,
+      runwayMonths: preRunwayMonths
     });
 
     // Silent internal stress testing — may downgrade candidate statuses.
@@ -874,50 +1027,70 @@ Deno.serve(async (req) => {
       dsr: Number((c.dsr * 100).toFixed(1)),
       tier: c.tier || tierForDsr(c.dsr * 100, policy.tiers),
       score: Number(c.score.toFixed(3)),
-      reason: reasonFor(type, c)
+      reason: reasonFor(type, c),
+      // ─── Profit Engine fields ───
+      pd: c.pd ?? null,                             // Probability of Default (0..1)
+      expectedValue: c.expectedValue ?? null,       // ₪ expected profit over loan life
+      totalRevenue: c.totalRevenue ?? null,         // ₪ gross interest revenue
+      expectedLoss: c.expectedLoss ?? null,         // ₪ PD × principal × LGD
+      riskPremium: c.riskPremium ?? null,           // % rate floor needed to cover expected loss
+      profitMargin: c.profitMargin ?? null          // EV / principal — the unit profit ratio
     }));
 
     // ── Liquidity Runway gate ──
     // Even if DSR is healthy, downgrade approvals when survival runway < policy floor.
-    const runwayMonths = cashFlowProfile?.liquidityForecast?.worstCaseRunwayMonths;
+    const runwayMonths = preRunwayMonths;
     const runwayGate = applyLiquidityRunwayGate(strategies, runwayMonths, policy.minLiquidityRunwayMonths);
     strategies = runwayGate.strategies;
 
-    // ── Stretch Offer ──
-    // Add a "stretch" strategy when the client is eligible — higher amount,
-    // higher DSR, higher rate (Tier C). This is what real non-bank lenders
-    // offer and what unlocks an additional 10-20% of approvals.
-    // Gated by trust + runway + flags to prevent fueling bad debt.
+    // ── Aggressive Approval (Profit-Optimized) ──
+    // Add a high-rate, high-DSR strategy when the client is eligible AND
+    // the loan generates POSITIVE EXPECTED VALUE at premium pricing.
+    // This is the core profit-maximization mechanism: we approve loans that
+    // standard tiers reject, BUT only when the math says they're profitable.
     const stretchEligible = isEligibleForStretch({
       insights,
       runwayMonths,
       stretchPolicy: policy.stretch
     });
     if (stretchEligible) {
-      const stretchCandidate = stretchSearch({
+      const aggressiveCandidate = aggressiveApprovalSearch({
         income,
         existingDebtPayments,
         estimatedExpenses,
         requestedLoanAmount,
         insights,
         maxDownPayment,
-        tiers: policy.tiers
+        aggressivePolicy: policy.aggressive,
+        pdCoeffs: policy.pdCoeffs,
+        lgd: policy.lgd,
+        minExpectedProfitMargin: policy.minExpectedProfitMargin,
+        runwayMonths
       });
-      if (stretchCandidate) {
-        const dsrPct = (stretchCandidate.dsr * 100).toFixed(1);
+      if (aggressiveCandidate) {
+        const dsrPct = (aggressiveCandidate.dsr * 100).toFixed(1);
+        const evK = Math.round(aggressiveCandidate.expectedValue / 100) / 10; // in thousands
         strategies.push({
-          type: 'stretch_offer',
-          status: stretchCandidate.status,
-          loanAmount: stretchCandidate.loanAmount,
-          termMonths: stretchCandidate.termMonths,
-          interestRate: stretchCandidate.interestRate,
-          downPayment: stretchCandidate.downPayment,
-          monthlyPayment: stretchCandidate.monthlyPayment,
+          type: 'aggressive_approval',
+          status: aggressiveCandidate.status,
+          loanAmount: aggressiveCandidate.loanAmount,
+          termMonths: aggressiveCandidate.termMonths,
+          interestRate: aggressiveCandidate.interestRate,
+          downPayment: aggressiveCandidate.downPayment,
+          monthlyPayment: aggressiveCandidate.monthlyPayment,
           dsr: Number(dsrPct),
           tier: 'C',
           score: 0.5,
-          reason: `הצעת Stretch — סכום מוגדל של ₪${stretchCandidate.loanAmount.toLocaleString('he-IL')} ל-${stretchCandidate.termMonths} חודשים בריבית ${stretchCandidate.interestRate}% (Tier C). DSR של ${dsrPct}% — מאושר עקב פרופיל אמון תזרימי גבוה ונזילות מספקת.`,
-          isStretch: true
+          reason: `אישור אגרסיבי (Profit-Optimized) — סכום מוגדל ₪${aggressiveCandidate.loanAmount.toLocaleString('he-IL')} ל-${aggressiveCandidate.termMonths} חודשים בריבית ${aggressiveCandidate.interestRate}%. DSR ${dsrPct}%, PD ${(aggressiveCandidate.pd * 100).toFixed(1)}%, ערך צפוי ${evK >= 0 ? '+' : ''}₪${evK.toLocaleString('he-IL')}K — רווחי גם בתרחיש סיכון גבוה.`,
+          isStretch: true,
+          isAggressive: true,
+          // ─── Profit Engine fields ───
+          pd: aggressiveCandidate.pd,
+          expectedValue: aggressiveCandidate.expectedValue,
+          totalRevenue: aggressiveCandidate.totalRevenue,
+          expectedLoss: aggressiveCandidate.expectedLoss,
+          riskPremium: aggressiveCandidate.riskPremium,
+          profitMargin: aggressiveCandidate.profitMargin
         });
       }
     }
@@ -1080,6 +1253,12 @@ Deno.serve(async (req) => {
             label: 'זכאי להצעת Stretch',
             detail: `הפרופיל עומד בתנאי Tier C — סכום מוגדל בריבית גבוהה יותר זמין כאופציה נוספת`,
             impact: 'positive'
+          }] : []),
+          ...(headline?.expectedValue > 0 ? [{
+            key: 'positive_expected_value',
+            label: 'ערך צפוי חיובי',
+            detail: `EV של ₪${Math.round(headline.expectedValue / 1000).toLocaleString('he-IL')}K צפוי לאורך חיי ההלוואה (PD ${(headline.pd * 100).toFixed(1)}%, ריבית ${headline.interestRate}%) — ההלוואה רווחית גם בהינתן סיכון הכשל`,
+            impact: 'positive'
           }] : [])
         ],
         negative: [
@@ -1120,6 +1299,20 @@ Deno.serve(async (req) => {
         ? (headline.tier || tierForDsr(headline.dsr, policy.tiers))
         : 'D',
       stretch_offer_eligible: stretchEligible,
+      // ── Profit Engine summary (top-level for easy UI access) ──
+      profit_engine: hasRescue ? {
+        headline_pd: headline.pd ?? null,
+        headline_expected_value: headline.expectedValue ?? null,
+        headline_profit_margin: headline.profitMargin ?? null,
+        headline_risk_premium_pct: headline.riskPremium ?? null,
+        // Portfolio-level: sum of EVs across all offered strategies (if customer takes one)
+        max_expected_value: Math.max(...strategies.map(s => s.expectedValue ?? 0), 0),
+        // The most profitable strategy across the menu
+        most_profitable_strategy: strategies.reduce(
+          (best, s) => (s.expectedValue ?? -Infinity) > (best.expectedValue ?? -Infinity) ? s : best,
+          { expectedValue: -Infinity }
+        )?.type ?? null
+      } : null,
       meta: {
         dsr_limit: dsrLimitPct,
         base_policy_dsr_limit: riskAdjustment.base_dsr_limit,
@@ -1159,6 +1352,12 @@ Deno.serve(async (req) => {
             min_trust: policy.stretch.minTrust,
             min_runway_months: policy.stretch.minRunway,
             max_flags: policy.stretch.maxFlags
+          },
+          profit_engine: {
+            pd_coefficients: policy.pdCoeffs,
+            lgd: policy.lgd,
+            min_expected_profit_margin: policy.minExpectedProfitMargin,
+            aggressive_approval: policy.aggressive
           }
         }
       }
