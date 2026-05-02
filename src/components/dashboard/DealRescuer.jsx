@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { ShieldCheck, Crosshair, PlayCircle, Loader2, CheckCircle2, AlertTriangle, TrendingDown, Wallet, Brain, ArrowLeft } from 'lucide-react';
+import { ShieldCheck, Crosshair, PlayCircle, Loader2, CheckCircle2, AlertTriangle, TrendingDown, Wallet, Brain, ArrowLeft, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
@@ -26,6 +26,12 @@ const STRATEGY_META = {
         icon: Brain,
         accent: 'text-purple-400',
         ring: 'border-purple-500/30'
+    },
+    stretch_offer: {
+        label: 'הצעת Stretch (Tier C)',
+        icon: Zap,
+        accent: 'text-amber-400',
+        ring: 'border-amber-500/40'
     }
 };
 
@@ -303,10 +309,22 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights,
                                                 <Icon className="w-3.5 h-3.5" />
                                                 {meta.label}
                                             </div>
-                                            <span className={`text-[10px] px-2 py-0.5 rounded-full border ${statusMeta.color} flex items-center gap-1`}>
-                                                {s.status === 'approved' ? <CheckCircle2 className="w-3 h-3" /> : s.status === 'conditional' ? <AlertTriangle className="w-3 h-3" /> : null}
-                                                {statusMeta.label}
-                                            </span>
+                                            <div className="flex items-center gap-1.5">
+                                                {s.tier && (
+                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded border font-bold ${
+                                                        s.tier === 'A' ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' :
+                                                        s.tier === 'B' ? 'bg-blue-500/15 text-blue-300 border-blue-500/30' :
+                                                        s.tier === 'C' ? 'bg-amber-500/15 text-amber-300 border-amber-500/30' :
+                                                        'bg-slate-500/15 text-slate-300 border-slate-500/30'
+                                                    }`}>
+                                                        Tier {s.tier}
+                                                    </span>
+                                                )}
+                                                <span className={`text-[10px] px-2 py-0.5 rounded-full border ${statusMeta.color} flex items-center gap-1`}>
+                                                    {s.status === 'approved' ? <CheckCircle2 className="w-3 h-3" /> : s.status === 'conditional' ? <AlertTriangle className="w-3 h-3" /> : null}
+                                                    {statusMeta.label}
+                                                </span>
+                                            </div>
                                         </div>
 
                                         <div className="grid grid-cols-3 gap-2 text-[11px] text-slate-300 mb-2">

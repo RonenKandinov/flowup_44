@@ -60,6 +60,71 @@
       "type": "number",
       "description": "\u05de\u05e7\u05d3\u05dd \u05e4\u05e8\u05de\u05d9\u05d9\u05ea \u05e1\u05d9\u05db\u05d5\u05df \u05dc\u05db\u05dc \u05d3\u05d2\u05dc \u05d0\u05d3\u05d5\u05dd (k2) - \u05d4\u05e8\u05d9\u05d1\u05d9\u05ea \u05e2\u05d5\u05dc\u05d4 \u05d1-k2 \u00d7 #riskFlags",
       "default": 0.005
+    },
+    "pricing_tier_a_max_dsr": {
+      "type": "number",
+      "description": "DSR \u05de\u05e7\u05e1\u05d9\u05de\u05dc\u05d9 \u05dc-Tier A (Prime) - \u05d0\u05d9\u05e9\u05d5\u05e8 \u05d6\u05d5\u05dc",
+      "default": 45
+    },
+    "pricing_tier_a_min_rate": {
+      "type": "number",
+      "description": "\u05e8\u05d9\u05d1\u05d9\u05ea \u05de\u05d9\u05e0\u05d9\u05de\u05dc\u05d9\u05ea \u05dc-Tier A (%)",
+      "default": 7
+    },
+    "pricing_tier_a_max_rate": {
+      "type": "number",
+      "description": "\u05e8\u05d9\u05d1\u05d9\u05ea \u05de\u05e7\u05e1\u05d9\u05de\u05dc\u05d9\u05ea \u05dc-Tier A (%)",
+      "default": 9
+    },
+    "pricing_tier_b_max_dsr": {
+      "type": "number",
+      "description": "DSR \u05de\u05e7\u05e1\u05d9\u05de\u05dc\u05d9 \u05dc-Tier B (Near Prime) - \u05d0\u05d9\u05e9\u05d5\u05e8 \u05e8\u05d2\u05d9\u05dc",
+      "default": 55
+    },
+    "pricing_tier_b_min_rate": {
+      "type": "number",
+      "description": "\u05e8\u05d9\u05d1\u05d9\u05ea \u05de\u05d9\u05e0\u05d9\u05de\u05dc\u05d9\u05ea \u05dc-Tier B (%)",
+      "default": 9
+    },
+    "pricing_tier_b_max_rate": {
+      "type": "number",
+      "description": "\u05e8\u05d9\u05d1\u05d9\u05ea \u05de\u05e7\u05e1\u05d9\u05de\u05dc\u05d9\u05ea \u05dc-Tier B (%)",
+      "default": 12
+    },
+    "pricing_tier_c_max_dsr": {
+      "type": "number",
+      "description": "DSR \u05de\u05e7\u05e1\u05d9\u05de\u05dc\u05d9 \u05dc-Tier C (Subprime) - \u05d0\u05d9\u05e9\u05d5\u05e8 \u05d9\u05e7\u05e8/\u05de\u05d5\u05ea\u05e0\u05d4 (Stretch)",
+      "default": 65
+    },
+    "pricing_tier_c_min_rate": {
+      "type": "number",
+      "description": "\u05e8\u05d9\u05d1\u05d9\u05ea \u05de\u05d9\u05e0\u05d9\u05de\u05dc\u05d9\u05ea \u05dc-Tier C (%)",
+      "default": 12
+    },
+    "pricing_tier_c_max_rate": {
+      "type": "number",
+      "description": "\u05e8\u05d9\u05d1\u05d9\u05ea \u05de\u05e7\u05e1\u05d9\u05de\u05dc\u05d9\u05ea \u05dc-Tier C (%)",
+      "default": 16
+    },
+    "enable_stretch_offer": {
+      "type": "boolean",
+      "description": "\u05d0\u05e4\u05e9\u05e8 \u05d4\u05e6\u05e2\u05ea Stretch (Tier C) - \u05e1\u05db\u05d5\u05dd \u05d2\u05d1\u05d5\u05d4 \u05d9\u05d5\u05ea\u05e8, DSR \u05d2\u05d1\u05d5\u05d4 \u05d9\u05d5\u05ea\u05e8, \u05e8\u05d9\u05d1\u05d9\u05ea \u05d2\u05d1\u05d5\u05d4\u05d4 \u05d9\u05d5\u05ea\u05e8",
+      "default": true
+    },
+    "stretch_min_trust_score": {
+      "type": "number",
+      "description": "\u05e6\u05d9\u05d5\u05df \u05d0\u05de\u05d5\u05df \u05ea\u05d6\u05e8\u05d9\u05de\u05d9 \u05de\u05d9\u05e0\u05d9\u05de\u05dc\u05d9 \u05dc\u05d6\u05db\u05d0\u05d5\u05ea \u05dc-Stretch Offer (0-1)",
+      "default": 0.4
+    },
+    "stretch_min_runway_months": {
+      "type": "number",
+      "description": "\u05d7\u05d5\u05d3\u05e9\u05d9 \u05d4\u05d9\u05e9\u05e8\u05d3\u05d5\u05ea \u05de\u05d9\u05e0\u05d9\u05de\u05dc\u05d9\u05d9\u05dd \u05dc\u05d6\u05db\u05d0\u05d5\u05ea \u05dc-Stretch Offer",
+      "default": 2
+    },
+    "stretch_max_risk_flags": {
+      "type": "number",
+      "description": "\u05de\u05e1\u05e4\u05e8 \u05de\u05e7\u05e1\u05d9\u05de\u05dc\u05d9 \u05e9\u05dc \u05d3\u05d2\u05dc\u05d9 \u05e1\u05d9\u05db\u05d5\u05df \u05d4\u05de\u05d0\u05e4\u05e9\u05e8\u05d9\u05dd Stretch Offer",
+      "default": 2
     }
   },
   "required": [

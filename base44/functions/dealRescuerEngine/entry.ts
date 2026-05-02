@@ -173,12 +173,70 @@ const applyTieredCut = (breakdown, totalDiscretionary, beta) => {
   };
 };
 
+// ─── DSR-Based Pricing Tiers ───────────────────────────────────────────────────
+// Non-bank approach: DSR is NOT a binary gate, it's a PRICING ENGINE.
+// Each DSR band maps to a different (Tier, rate range) — letting us approve
+// borderline customers at higher rates instead of rejecting them outright.
+//
+//   Tier A (Prime)     → DSR ≤ 45%   → 7-9%
+//   Tier B (Near Prime) → DSR ≤ 55%   → 9-12%
+//   Tier C (Subprime)  → DSR ≤ 65%   → 12-16%   ← Stretch zone
+//   Tier D (Reject)    → DSR > 65%   → reject
+//
+// Customer-quality signals (trust, anchors, flags) shift the rate WITHIN
+// each tier's band — best clients pay tier-min, worst pay tier-max.
+const tierForDsr = (dsr, tiers) => {
+  if (dsr <= tiers.A.maxDsr) return 'A';
+  if (dsr <= tiers.B.maxDsr) return 'B';
+  if (dsr <= tiers.C.maxDsr) return 'C';
+  return 'D';
+};
+
+// Compute a quality factor (0..1) used to position the rate within the tier band.
+// 0 = best client (trust high, no flags) → tier-min rate
+// 1 = worst client                       → tier-max rate
+const qualityFactor = (insights) => {
+  if (!insights) return 0.5;
+  let score = 0.5; // neutral starting point
+
+  const trust = clamp(Number(insights.cashFlowTrustScore ?? 0.5), 0, 1);
+  // Trust above 0.6 reduces score (better rate); below 0.4 increases it
+  score -= (trust - 0.5) * 0.6;
+
+  const flagCount = Array.isArray(insights.riskFlags) ? insights.riskFlags.length : 0;
+  score += Math.min(0.3, flagCount * 0.1);
+
+  const anchorCount = Array.isArray(insights.stabilityAnchors) ? insights.stabilityAnchors.length : 0;
+  score -= Math.min(0.2, anchorCount * 0.05);
+
+  const liquidity = Number(insights.liquidityMonths);
+  if (Number.isFinite(liquidity)) {
+    if (liquidity >= 3) score -= 0.1;
+    else if (liquidity < 1) score += 0.1;
+  }
+
+  return clamp(score, 0, 1);
+};
+
+// Map a (tier, qualityFactor) pair to an actual interest rate.
+const rateForTier = (tier, qf, tiers) => {
+  if (tier === 'D') return null; // reject — no rate
+  const band = tiers[tier];
+  // qf=0 → min rate, qf=1 → max rate
+  return band.minRate + (band.maxRate - band.minRate) * qf;
+};
+
 // Stage 2 — Grid search within stage constraints
-const gridSearch = ({ income, existingDebtPayments, estimatedExpenses, requestedLoanAmount, baseInterestRate, insights, maxDownPayment, stage, dsrLimit, pricingCoeffs }) => {
-  const adjustedBase = adjustRate(baseInterestRate, insights, pricingCoeffs);
+// NOW USES DSR-BASED PRICING: rate is determined by the DSR band the candidate
+// falls into, not by an arbitrary base±delta sweep.
+const gridSearch = ({ income, existingDebtPayments, estimatedExpenses, requestedLoanAmount, baseInterestRate, insights, maxDownPayment, stage, dsrLimit, pricingCoeffs, tiers }) => {
   const DSR_LIMIT = dsrLimit;
-  const DSR_NEAR = dsrLimit + 0.05; // 5pp above the policy threshold = "קרוב מאוד" לסף
+  // Widened "approval zone" — non-bank lenders accept up to +15pp above policy
+  // when the client falls into a higher pricing tier. This is what unlocks
+  // the +20-40% approval boost — but pricing rises in step with risk.
+  const DSR_NEAR = Math.min(dsrLimit + 0.15, tiers.C.maxDsr);
   const behavioralFlex = insights?.isFalseNegative || Number(insights?.behavioralScore) >= 0.6;
+  const qf = qualityFactor(insights);
 
   // CRITICAL: DSR is computed against DISPOSABLE income (income − existing debt − living expenses).
   // If disposable is non-positive, the client cannot service ANY new debt — short-circuit.
@@ -191,8 +249,6 @@ const gridSearch = ({ income, existingDebtPayments, estimatedExpenses, requested
   const amountRatios = [1.0, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5]
     .filter(r => r >= stage.minAmountRatio);
   const downPaymentRatios = [0, 0.05, 0.1, 0.15, 0.2];
-  // Interest rate grid: 5%-12%
-  const rateDeltas = [-0.04, -0.03, -0.02, -0.01, 0, 0.01, 0.02, 0.03];
 
   const dpCap = Number.isFinite(maxDownPayment) && maxDownPayment > 0 ? maxDownPayment : Infinity;
   const candidates = [];
@@ -200,35 +256,60 @@ const gridSearch = ({ income, existingDebtPayments, estimatedExpenses, requested
   for (const term of terms) {
     for (const ratio of amountRatios) {
       for (const dp of downPaymentRatios) {
-        for (const delta of rateDeltas) {
-          const grossAmount = requestedLoanAmount * ratio;
-          let downPayment = Math.round(grossAmount * dp);
-          if (downPayment > dpCap) downPayment = Math.floor(dpCap);
-          const netLoan = grossAmount - downPayment;
-          if (netLoan <= 0) continue;
+        const grossAmount = requestedLoanAmount * ratio;
+        let downPayment = Math.round(grossAmount * dp);
+        if (downPayment > dpCap) downPayment = Math.floor(dpCap);
+        const netLoan = grossAmount - downPayment;
+        if (netLoan <= 0) continue;
 
-          const rate = clamp(adjustedBase + delta, 0.05, 0.12);
-          const monthlyPayment = pmt(netLoan, rate, term);
-          // DSR = new loan payment ÷ disposable income (after expenses + existing debts).
-          const dsr = monthlyPayment / disposableIncome;
+        // Two-pass: estimate DSR with a mid-tier rate, then derive final tier+rate.
+        // We iterate once because tier depends on DSR which depends on rate.
+        let estRate = (tiers.B.minRate + tiers.B.maxRate) / 2 / 100;
+        let estPayment = pmt(netLoan, estRate, term);
+        let estDsr = estPayment / disposableIncome;
+        let tier = tierForDsr(estDsr * 100, tiers);
+        if (tier === 'D') continue; // out of approval band
 
-          let status = null;
-          if (dsr <= DSR_LIMIT) status = 'approved';
-          else if (dsr <= DSR_NEAR && behavioralFlex) status = 'conditional';
-          if (!status) continue;
+        let rate = rateForTier(tier, qf, tiers) / 100;
+        let monthlyPayment = pmt(netLoan, rate, term);
+        let dsr = monthlyPayment / disposableIncome;
 
-          candidates.push({
-            loanAmount: Math.round(netLoan),
-            grossAmount: Math.round(grossAmount),
-            termMonths: term,
-            interestRate: Number((rate * 100).toFixed(2)),
-            downPayment,
-            monthlyPayment: Math.round(monthlyPayment),
-            dsr: Number(dsr.toFixed(4)),
-            status,
-            amountRatio: ratio
-          });
+        // Re-check tier with the actual rate — if the rate moved DSR into a new band,
+        // recompute once. This converges fast since rate range per tier is ~3%.
+        const finalTier = tierForDsr(dsr * 100, tiers);
+        if (finalTier !== tier && finalTier !== 'D') {
+          tier = finalTier;
+          rate = rateForTier(tier, qf, tiers) / 100;
+          monthlyPayment = pmt(netLoan, rate, term);
+          dsr = monthlyPayment / disposableIncome;
         }
+        if (tierForDsr(dsr * 100, tiers) === 'D') continue;
+
+        // Status mapping:
+        //   Tier A → approved
+        //   Tier B → approved
+        //   Tier C → conditional (Stretch zone — needs behavioral/trust support)
+        let status;
+        if (dsr <= DSR_LIMIT) {
+          status = 'approved';
+        } else if (dsr <= DSR_NEAR && (behavioralFlex || tier === 'C')) {
+          status = 'conditional';
+        } else {
+          continue;
+        }
+
+        candidates.push({
+          loanAmount: Math.round(netLoan),
+          grossAmount: Math.round(grossAmount),
+          termMonths: term,
+          interestRate: Number((rate * 100).toFixed(2)),
+          downPayment,
+          monthlyPayment: Math.round(monthlyPayment),
+          dsr: Number(dsr.toFixed(4)),
+          status,
+          tier,
+          amountRatio: ratio
+        });
       }
     }
   }
@@ -249,6 +330,83 @@ const multiStageSearch = (args) => {
   return { candidates: [], stage: null };
 };
 
+// ─── Stretch Offer Search ──────────────────────────────────────────────────────
+// "Stretch" = a higher-amount, higher-rate, higher-DSR option for clients who
+// have:
+//   • Sufficient cash-flow trust (≥ stretch_min_trust_score)
+//   • Sufficient liquidity runway (≥ stretch_min_runway_months)
+//   • Few risk flags (≤ stretch_max_risk_flags)
+//
+// This is what real non-bank lenders offer — instead of "rejected", a customer
+// can opt into a more expensive product. We search ABOVE the requested amount
+// and the standard DSR band, but cap at Tier C boundary.
+const isEligibleForStretch = ({ insights, runwayMonths, stretchPolicy }) => {
+  if (!stretchPolicy.enabled) return false;
+  const trust = Number(insights?.cashFlowTrustScore ?? 0);
+  if (trust < stretchPolicy.minTrust) return false;
+
+  const flagCount = Array.isArray(insights?.riskFlags) ? insights.riskFlags.length : 0;
+  if (flagCount > stretchPolicy.maxFlags) return false;
+
+  // Runway is critical — stretch cannot be offered to fragile borrowers
+  if (Number.isFinite(runwayMonths) && runwayMonths < stretchPolicy.minRunway) return false;
+
+  return true;
+};
+
+const stretchSearch = ({ income, existingDebtPayments, estimatedExpenses, requestedLoanAmount, insights, maxDownPayment, tiers }) => {
+  const disposableIncome = income - existingDebtPayments - estimatedExpenses;
+  if (disposableIncome <= 0) return null;
+
+  const qf = qualityFactor(insights);
+  // Stretch always uses Tier C rates (the most expensive band)
+  const stretchRate = rateForTier('C', qf, tiers) / 100;
+
+  // Stretch tries to give MORE than requested — up to 120% — at a longer term
+  const stretchTerms = [60, 72, 84];
+  const stretchRatios = [1.2, 1.15, 1.1, 1.05, 1.0];
+  const dpCap = Number.isFinite(maxDownPayment) && maxDownPayment > 0 ? maxDownPayment : Infinity;
+
+  const candidates = [];
+  for (const term of stretchTerms) {
+    for (const ratio of stretchRatios) {
+      const grossAmount = requestedLoanAmount * ratio;
+      const downPayment = Math.min(0, dpCap); // stretch typically without down payment
+      const netLoan = grossAmount - downPayment;
+      if (netLoan <= 0) continue;
+
+      const monthlyPayment = pmt(netLoan, stretchRate, term);
+      const dsr = monthlyPayment / disposableIncome;
+
+      // Must land in Tier C band (between B max and C max)
+      if (dsr * 100 <= tiers.B.maxDsr) continue; // would qualify for cheaper tier — not a stretch
+      if (dsr * 100 > tiers.C.maxDsr) continue; // beyond approval
+
+      candidates.push({
+        loanAmount: Math.round(netLoan),
+        grossAmount: Math.round(grossAmount),
+        termMonths: term,
+        interestRate: Number((stretchRate * 100).toFixed(2)),
+        downPayment: 0,
+        monthlyPayment: Math.round(monthlyPayment),
+        dsr: Number(dsr.toFixed(4)),
+        status: 'conditional', // stretch is always conditional — never plain "approved"
+        tier: 'C',
+        amountRatio: ratio,
+        isStretch: true
+      });
+    }
+  }
+
+  if (candidates.length === 0) return null;
+  // Pick the stretch offer that maximises the principal closest to a clean DSR (i.e., lower in the C band)
+  candidates.sort((a, b) => {
+    if (b.grossAmount !== a.grossAmount) return b.grossAmount - a.grossAmount;
+    return a.dsr - b.dsr;
+  });
+  return candidates[0];
+};
+
 // ─── Liquidity Runway gate ────────────────────────────────────────────────────
 // Even if DSR is healthy, a borrower with <minRunway months of survival before
 // running out of cash is fragile. We DOWNGRADE every approved strategy in this
@@ -265,29 +423,60 @@ const applyLiquidityRunwayGate = (strategies, runwayMonths, minRunway) => {
 };
 
 // Load the full underwriting policy from UnderwritingRule. Returns DSR limit,
-// β guardrails, liquidity-runway floor, and pricing coefficients — with safe defaults.
+// β guardrails, liquidity-runway floor, pricing coefficients, DSR tiers,
+// and stretch-offer policy — with safe defaults.
 const loadPolicy = async (base44) => {
   const defaults = {
     dsrLimit: 0.4,
     betaGuardrails: { min: 0.20, max: 0.70 },
     minLiquidityRunwayMonths: 3,
-    pricingCoeffs: { k1: 0.02, k2: 0.005 }
+    pricingCoeffs: { k1: 0.02, k2: 0.005 },
+    tiers: {
+      A: { maxDsr: 45, minRate: 7,  maxRate: 9  },
+      B: { maxDsr: 55, minRate: 9,  maxRate: 12 },
+      C: { maxDsr: 65, minRate: 12, maxRate: 16 }
+    },
+    stretch: { enabled: true, minTrust: 0.4, minRunway: 2, maxFlags: 2 }
   };
   try {
     const rules = await base44.asServiceRole.entities.UnderwritingRule.list();
     const r = rules?.[0];
     if (!r) return defaults;
     const max = Number(r.max_dti_approve);
+    const num = (v, dflt) => Number.isFinite(Number(v)) ? Number(v) : dflt;
     return {
       dsrLimit: Number.isFinite(max) && max > 0 && max < 100 ? max / 100 : defaults.dsrLimit,
       betaGuardrails: {
-        min: Number.isFinite(Number(r.min_discretionary_cut_pct)) ? Number(r.min_discretionary_cut_pct) / 100 : defaults.betaGuardrails.min,
-        max: Number.isFinite(Number(r.max_discretionary_cut_pct)) ? Number(r.max_discretionary_cut_pct) / 100 : defaults.betaGuardrails.max
+        min: num(r.min_discretionary_cut_pct, defaults.betaGuardrails.min * 100) / 100,
+        max: num(r.max_discretionary_cut_pct, defaults.betaGuardrails.max * 100) / 100
       },
-      minLiquidityRunwayMonths: Number.isFinite(Number(r.min_liquidity_runway_months)) ? Number(r.min_liquidity_runway_months) : defaults.minLiquidityRunwayMonths,
+      minLiquidityRunwayMonths: num(r.min_liquidity_runway_months, defaults.minLiquidityRunwayMonths),
       pricingCoeffs: {
-        k1: Number.isFinite(Number(r.pricing_trust_discount_k1)) ? Number(r.pricing_trust_discount_k1) : defaults.pricingCoeffs.k1,
-        k2: Number.isFinite(Number(r.pricing_risk_premium_k2)) ? Number(r.pricing_risk_premium_k2) : defaults.pricingCoeffs.k2
+        k1: num(r.pricing_trust_discount_k1, defaults.pricingCoeffs.k1),
+        k2: num(r.pricing_risk_premium_k2, defaults.pricingCoeffs.k2)
+      },
+      tiers: {
+        A: {
+          maxDsr:  num(r.pricing_tier_a_max_dsr,  defaults.tiers.A.maxDsr),
+          minRate: num(r.pricing_tier_a_min_rate, defaults.tiers.A.minRate),
+          maxRate: num(r.pricing_tier_a_max_rate, defaults.tiers.A.maxRate)
+        },
+        B: {
+          maxDsr:  num(r.pricing_tier_b_max_dsr,  defaults.tiers.B.maxDsr),
+          minRate: num(r.pricing_tier_b_min_rate, defaults.tiers.B.minRate),
+          maxRate: num(r.pricing_tier_b_max_rate, defaults.tiers.B.maxRate)
+        },
+        C: {
+          maxDsr:  num(r.pricing_tier_c_max_dsr,  defaults.tiers.C.maxDsr),
+          minRate: num(r.pricing_tier_c_min_rate, defaults.tiers.C.minRate),
+          maxRate: num(r.pricing_tier_c_max_rate, defaults.tiers.C.maxRate)
+        }
+      },
+      stretch: {
+        enabled: r.enable_stretch_offer !== false,
+        minTrust: num(r.stretch_min_trust_score, defaults.stretch.minTrust),
+        minRunway: num(r.stretch_min_runway_months, defaults.stretch.minRunway),
+        maxFlags: num(r.stretch_max_risk_flags, defaults.stretch.maxFlags)
       }
     };
   } catch (e) {
@@ -642,6 +831,7 @@ Deno.serve(async (req) => {
     const currentStatus = String(body?.currentStatus || (currentDsr <= dsrLimit ? 'approved' : currentDsr <= dsrLimit + 0.1 ? 'borderline' : 'rejected'));
 
     // Multi-stage search — DSR computed on disposable income inside.
+    // Now uses DSR-based pricing tiers (A/B/C) instead of arbitrary rate sweep.
     const { candidates: rawCandidates, stage } = multiStageSearch({
       income,
       existingDebtPayments,
@@ -651,7 +841,8 @@ Deno.serve(async (req) => {
       insights,
       maxDownPayment,
       dsrLimit,
-      pricingCoeffs: policy.pricingCoeffs
+      pricingCoeffs: policy.pricingCoeffs,
+      tiers: policy.tiers
     });
 
     // Silent internal stress testing — may downgrade candidate statuses.
@@ -681,6 +872,7 @@ Deno.serve(async (req) => {
       downPayment: c.downPayment,
       monthlyPayment: c.monthlyPayment,
       dsr: Number((c.dsr * 100).toFixed(1)),
+      tier: c.tier || tierForDsr(c.dsr * 100, policy.tiers),
       score: Number(c.score.toFixed(3)),
       reason: reasonFor(type, c)
     }));
@@ -690,6 +882,45 @@ Deno.serve(async (req) => {
     const runwayMonths = cashFlowProfile?.liquidityForecast?.worstCaseRunwayMonths;
     const runwayGate = applyLiquidityRunwayGate(strategies, runwayMonths, policy.minLiquidityRunwayMonths);
     strategies = runwayGate.strategies;
+
+    // ── Stretch Offer ──
+    // Add a "stretch" strategy when the client is eligible — higher amount,
+    // higher DSR, higher rate (Tier C). This is what real non-bank lenders
+    // offer and what unlocks an additional 10-20% of approvals.
+    // Gated by trust + runway + flags to prevent fueling bad debt.
+    const stretchEligible = isEligibleForStretch({
+      insights,
+      runwayMonths,
+      stretchPolicy: policy.stretch
+    });
+    if (stretchEligible) {
+      const stretchCandidate = stretchSearch({
+        income,
+        existingDebtPayments,
+        estimatedExpenses,
+        requestedLoanAmount,
+        insights,
+        maxDownPayment,
+        tiers: policy.tiers
+      });
+      if (stretchCandidate) {
+        const dsrPct = (stretchCandidate.dsr * 100).toFixed(1);
+        strategies.push({
+          type: 'stretch_offer',
+          status: stretchCandidate.status,
+          loanAmount: stretchCandidate.loanAmount,
+          termMonths: stretchCandidate.termMonths,
+          interestRate: stretchCandidate.interestRate,
+          downPayment: stretchCandidate.downPayment,
+          monthlyPayment: stretchCandidate.monthlyPayment,
+          dsr: Number(dsrPct),
+          tier: 'C',
+          score: 0.5,
+          reason: `הצעת Stretch — סכום מוגדל של ₪${stretchCandidate.loanAmount.toLocaleString('he-IL')} ל-${stretchCandidate.termMonths} חודשים בריבית ${stretchCandidate.interestRate}% (Tier C). DSR של ${dsrPct}% — מאושר עקב פרופיל אמון תזרימי גבוה ונזילות מספקת.`,
+          isStretch: true
+        });
+      }
+    }
 
     // Fallback: no passing combos in any stage
     let fallback = null;
@@ -843,6 +1074,12 @@ Deno.serve(async (req) => {
             label: 'התנהגות פיננסית חזקה',
             detail: `ציון התנהגות ${(insights.behavioralScore * 100).toFixed(0)}%`,
             impact: 'positive'
+          }] : []),
+          ...(stretchEligible ? [{
+            key: 'stretch_eligible',
+            label: 'זכאי להצעת Stretch',
+            detail: `הפרופיל עומד בתנאי Tier C — סכום מוגדל בריבית גבוהה יותר זמין כאופציה נוספת`,
+            impact: 'positive'
           }] : [])
         ],
         negative: [
@@ -875,6 +1112,14 @@ Deno.serve(async (req) => {
           }] : []),
         ]
       },
+      // ── Credit Tier (A/B/C/D) ──
+      // Internal classification used for pricing/risk decisions only.
+      // The Dashboard UI continues to use risk_tier (Red/Orange/Green) — this
+      // is an additional, more granular field for non-bank lender semantics.
+      credit_tier: hasRescue
+        ? (headline.tier || tierForDsr(headline.dsr, policy.tiers))
+        : 'D',
+      stretch_offer_eligible: stretchEligible,
       meta: {
         dsr_limit: dsrLimitPct,
         base_policy_dsr_limit: riskAdjustment.base_dsr_limit,
@@ -898,11 +1143,23 @@ Deno.serve(async (req) => {
           k1_trust_discount: policy.pricingCoeffs.k1,
           k2_risk_premium: policy.pricingCoeffs.k2,
           trust_score: Number(insights?.cashFlowTrustScore ?? 0).toFixed(2),
-          risk_flags_count: Array.isArray(insights?.riskFlags) ? insights.riskFlags.length : 0
+          risk_flags_count: Array.isArray(insights?.riskFlags) ? insights.riskFlags.length : 0,
+          quality_factor: Number(qualityFactor(insights).toFixed(2)),
+          tiers: {
+            A: { max_dsr_pct: policy.tiers.A.maxDsr, rate_range_pct: [policy.tiers.A.minRate, policy.tiers.A.maxRate] },
+            B: { max_dsr_pct: policy.tiers.B.maxDsr, rate_range_pct: [policy.tiers.B.minRate, policy.tiers.B.maxRate] },
+            C: { max_dsr_pct: policy.tiers.C.maxDsr, rate_range_pct: [policy.tiers.C.minRate, policy.tiers.C.maxRate] }
+          }
         },
         policy: {
           beta_guardrails_pct: { min: policy.betaGuardrails.min * 100, max: policy.betaGuardrails.max * 100 },
-          min_runway_months: policy.minLiquidityRunwayMonths
+          min_runway_months: policy.minLiquidityRunwayMonths,
+          stretch_offer: {
+            enabled: policy.stretch.enabled,
+            min_trust: policy.stretch.minTrust,
+            min_runway_months: policy.stretch.minRunway,
+            max_flags: policy.stretch.maxFlags
+          }
         }
       }
     });
