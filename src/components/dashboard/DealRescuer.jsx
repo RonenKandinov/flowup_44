@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 import CreditJustificationBlock from './CreditJustificationBlock';
 import XAIFactorsPanel from './XAIFactorsPanel';
+import AggressiveProductCard from './AggressiveProductCard';
 
 const STRATEGY_META = {
     cash_flow_alignment: {
@@ -32,13 +33,16 @@ const STRATEGY_META = {
         icon: Zap,
         accent: 'text-amber-400',
         ring: 'border-amber-500/40'
-    },
-    aggressive_approval: {
-        label: 'אישור אגרסיבי (רווחי)',
-        icon: Zap,
-        accent: 'text-amber-400',
-        ring: 'border-amber-500/40'
     }
+};
+
+// Profit-margin → categorical label (matches XAI language; never shows raw ₪).
+const profitabilityLabel = (margin) => {
+    if (!Number.isFinite(margin)) return null;
+    if (margin >= 0.05) return { text: 'רווחיות גבוהה', tone: 'text-emerald-300' };
+    if (margin >= 0.02) return { text: 'רווחיות תקינה', tone: 'text-emerald-300' };
+    if (margin >= 0)    return { text: 'רווחיות גבולית', tone: 'text-amber-300' };
+    return { text: 'סיכון גבוה ביחס לרווח', tone: 'text-red-300' };
 };
 
 const STATUS_META = {
@@ -360,30 +364,19 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights,
                                             </div>
                                         </div>
 
-                                        {/* Profit Engine strip — shows the unit economics behind the approval.
-                                            Only renders when the engine returned EV/PD data (new Profit Engine path). */}
-                                        {(typeof s.expectedValue === 'number' || typeof s.pd === 'number') && (
-                                            <div className="rounded-md bg-slate-950/60 border border-slate-800/80 px-2 py-1.5 mb-2 grid grid-cols-3 gap-2 text-[10px]">
-                                                <div>
-                                                    <div className="text-slate-500">PD</div>
-                                                    <div className={`font-semibold ${s.pd <= 0.05 ? 'text-emerald-300' : s.pd <= 0.15 ? 'text-amber-300' : 'text-red-300'}`}>
-                                                        {(s.pd * 100).toFixed(1)}%
-                                                    </div>
+                                        {/* Profitability — categorical label only.
+                                            CTO direction: NO raw ₪ EV figures — they read like a casino.
+                                            We translate margin → "רווחיות גבוהה / תקינה / גבולית / סיכון גבוה ביחס לרווח". */}
+                                        {(() => {
+                                            const lbl = profitabilityLabel(s.profitMargin);
+                                            if (!lbl) return null;
+                                            return (
+                                                <div className="rounded-md bg-slate-950/60 border border-slate-800/80 px-2 py-1 mb-2 flex items-center justify-between text-[10px]">
+                                                    <span className="text-slate-500">תמחור מול סיכון</span>
+                                                    <span className={`font-semibold ${lbl.tone}`}>{lbl.text}</span>
                                                 </div>
-                                                <div>
-                                                    <div className="text-slate-500">ערך צפוי (EV)</div>
-                                                    <div className={`font-semibold ${s.expectedValue > 0 ? 'text-emerald-300' : 'text-red-300'}`}>
-                                                        {s.expectedValue >= 0 ? '+' : ''}{formatILS(s.expectedValue)}
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <div className="text-slate-500">מרווח רווח</div>
-                                                    <div className={`font-semibold ${s.profitMargin > 0.05 ? 'text-emerald-300' : s.profitMargin > 0 ? 'text-amber-300' : 'text-red-300'}`}>
-                                                        {(s.profitMargin * 100).toFixed(1)}%
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
+                                            );
+                                        })()}
 
                                         <CreditJustificationBlock
                                             aiText={justifications[idx]}
@@ -394,6 +387,13 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights,
                                 );
                             })}
                         </div>
+
+                        {/* Aggressive Approval — rendered as a SEPARATE PRODUCT CARD,
+                            not as one more strategy. Distinct framing emphasizes that
+                            this offer has its own pricing rules and DSR ceiling. */}
+                        {result.aggressiveProduct && (
+                            <AggressiveProductCard product={result.aggressiveProduct} />
+                        )}
                     </div>
                 )}
             </div>

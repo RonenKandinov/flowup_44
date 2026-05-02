@@ -93,25 +93,35 @@ const runStressTest = ({ candidate, income, existingDebtPayments, estimatedExpen
 // This is what lets us approve a high-DSR customer at high rate (Tier C / aggressive)
 // while REJECTING a low-DSR customer at low rate when the math doesn't work.
 
-// PD model — bounded probability ∈ [pd0, 0.55].
-// We cap at 0.55 because beyond that no rate compensates (LGD dominates).
-const computePD = ({ dsr, trust, flagCount, runwayMonths, pdCoeffs }) => {
+// PD model — LINEAR & EXPLAINABLE, bounded ∈ [pd0, 0.55].
+// Each component contributes additively so a credit officer can read the breakdown.
+//
+//   pd = pd0 + α·DSR + β·(1−trust) + γ·#flags + δ·runway_penalty + ε·volatility
+//
+// We KEEP it linear (not logarithmic) on purpose:
+//   ✓ explainable to humans and auditors
+//   ✓ stable (small input change → small PD change)
+//   ✓ tunable via UnderwritingRule coefficients
+const computePD = ({ dsr, trust, flagCount, runwayMonths, volatilityHigh, pdCoeffs }) => {
   const pd0 = Number(pdCoeffs.base ?? 0.02);
   const alpha = Number(pdCoeffs.dsrCoeff ?? 0.5);
   const beta = Number(pdCoeffs.trustCoeff ?? 0.3);
   const gamma = Number(pdCoeffs.flagsCoeff ?? 0.05);
   const delta = Number(pdCoeffs.runwayCoeff ?? 0.04);
+  const epsilon = Number(pdCoeffs.volatilityCoeff ?? 0.04);
 
   const trustGap = clamp(1 - clamp(Number(trust ?? 0.5), 0, 1), 0, 1);
   const runwayPenalty = (Number.isFinite(runwayMonths) && runwayMonths < 3)
     ? clamp((3 - runwayMonths) / 3, 0, 1)
     : 0;
+  const volatilityPenalty = volatilityHigh ? 1 : 0;
 
   const pd = pd0
     + alpha * clamp(dsr, 0, 1)
     + beta * trustGap
     + gamma * Math.max(0, flagCount)
-    + delta * runwayPenalty;
+    + delta * runwayPenalty
+    + epsilon * volatilityPenalty;
 
   return clamp(pd, pd0, 0.55);
 };
@@ -318,6 +328,7 @@ const gridSearch = ({ income, existingDebtPayments, estimatedExpenses, requested
   const dpCap = Number.isFinite(maxDownPayment) && maxDownPayment > 0 ? maxDownPayment : Infinity;
   const trust = clamp(Number(insights?.cashFlowTrustScore ?? 0.5), 0, 1);
   const flagCount = Array.isArray(insights?.riskFlags) ? insights.riskFlags.length : 0;
+  const volatilityHigh = !!insights?.incomeVolatility?.isHigh;
   const candidates = [];
 
   for (const term of terms) {
@@ -352,11 +363,17 @@ const gridSearch = ({ income, existingDebtPayments, estimatedExpenses, requested
         }
         if (tierForDsr(dsr * 100, tiers) === 'D') continue;
 
-        // ─── PROFIT ENGINE ────────────────────────────────────────────────
-        // Compute PD and Expected Value. Reject candidates that are not profitable
-        // in expectation, even if they pass DSR — this is the heart of the
-        // non-bank lender model.
-        const pd = computePD({ dsr, trust, flagCount, runwayMonths, pdCoeffs });
+        // ─── PROFIT ENGINE — EV is a RANKING signal, not a hard filter ────
+        // Old approach (rejected by CTO):  if (EV < minProfit) skip
+        // New approach: EV influences STATUS, not existence.
+        //   • EV ≥ minProfit  → keep tier-based status (approved / conditional)
+        //   • 0 ≤ EV < minProfit → downgrade approved → conditional (marginal profit)
+        //   • EV_REJECT_THRESHOLD < EV < 0 → conditional (small expected loss, may still write)
+        //   • EV ≤ EV_REJECT_THRESHOLD → REJECT (deep expected loss — uneconomic)
+        //
+        // The threshold scales with principal so a -₪500 EV on a ₪10K loan
+        // is treated more strictly than a -₪500 EV on a ₪200K loan.
+        const pd = computePD({ dsr, trust, flagCount, runwayMonths, volatilityHigh, pdCoeffs });
         const ev = computeExpectedValue({
           principal: netLoan,
           monthlyPayment,
@@ -365,14 +382,11 @@ const gridSearch = ({ income, existingDebtPayments, estimatedExpenses, requested
           lgd
         });
         const minProfit = netLoan * minExpectedProfitMargin;
+        const evRejectThreshold = -netLoan * 0.05; // 5% of principal — deep loss line
 
-        // Status mapping (now profit-aware):
-        //   Tier A + EV > minProfit → approved
-        //   Tier B + EV > minProfit → approved
-        //   Tier C + EV > minProfit → conditional (Stretch zone)
-        //   ANY tier + EV ≤ minProfit → REJECT (the loan loses money in expectation)
-        if (ev < minProfit) continue; // unprofitable — skip regardless of capacity
+        if (ev <= evRejectThreshold) continue; // deep expected loss — uneconomic
 
+        // Tier-based status FIRST, then profit signal can downgrade (never upgrade).
         let status;
         if (dsr <= DSR_LIMIT) {
           status = 'approved';
@@ -380,6 +394,10 @@ const gridSearch = ({ income, existingDebtPayments, estimatedExpenses, requested
           status = 'conditional';
         } else {
           continue;
+        }
+        // Profit-aware downgrade: marginal/negative EV → conditional (never auto-approve)
+        if (ev < minProfit && status === 'approved') {
+          status = 'conditional';
         }
 
         const totalRevenue = monthlyPayment * term - netLoan;
@@ -465,14 +483,20 @@ const aggressiveApprovalSearch = ({ income, existingDebtPayments, estimatedExpen
   const qf = qualityFactor(insights);
   const trust = clamp(Number(insights?.cashFlowTrustScore ?? 0.5), 0, 1);
   const flagCount = Array.isArray(insights?.riskFlags) ? insights.riskFlags.length : 0;
+  const volatilityHigh = !!insights?.incomeVolatility?.isHigh;
 
   // Rate is positioned in the aggressive band based on quality factor
   const aggressiveRate = (aggressivePolicy.minRate + (aggressivePolicy.maxRate - aggressivePolicy.minRate) * qf) / 100;
   const dsrCeiling = aggressivePolicy.maxDsr / 100;
 
-  // Aggressive tries to give MORE than requested — up to 120% — at a longer term
-  const terms = [60, 72, 84];
-  const ratios = [1.2, 1.15, 1.1, 1.05, 1.0];
+  // ── Risk-based STRUCTURE adjustment (not just rate) ──
+  // CTO direction: a true non-bank lender hedges risk via term + amount + DP, not only price.
+  // High-risk profile (low trust OR ≥2 flags OR short runway) → extend term, shrink amount.
+  const isHighRisk = trust < 0.5 || flagCount >= 2 || (Number.isFinite(runwayMonths) && runwayMonths < 3);
+  const baseTerms = [60, 72, 84];
+  const terms = isHighRisk ? [72, 84, 96] : baseTerms; // +12 months in high-risk
+  const baseRatios = [1.2, 1.15, 1.1, 1.05, 1.0];
+  const ratios = isHighRisk ? baseRatios.map(r => r * 0.9) : baseRatios; // shrink amount by 10%
   const dpCap = Number.isFinite(maxDownPayment) && maxDownPayment > 0 ? maxDownPayment : Infinity;
 
   const candidates = [];
@@ -488,9 +512,10 @@ const aggressiveApprovalSearch = ({ income, existingDebtPayments, estimatedExpen
 
       if (dsr > dsrCeiling) continue; // beyond approval ceiling
 
-      // PROFIT ENGINE: this is THE filter that makes aggressive approvals safe.
-      // If EV is negative/marginal, we don't write the loan even at 18%.
-      const pd = computePD({ dsr, trust, flagCount, runwayMonths, pdCoeffs });
+      // PROFIT ENGINE — EV as ranking, not filter.
+      // Aggressive product still rejects on DEEP expected loss, but allows
+      // small/marginal losses (small EV < 0) to keep the dealflow alive.
+      const pd = computePD({ dsr, trust, flagCount, runwayMonths, volatilityHigh, pdCoeffs });
       const ev = computeExpectedValue({
         principal: netLoan,
         monthlyPayment,
@@ -499,7 +524,8 @@ const aggressiveApprovalSearch = ({ income, existingDebtPayments, estimatedExpen
         lgd
       });
       const minProfit = netLoan * minExpectedProfitMargin;
-      if (ev < minProfit) continue;
+      const evRejectThreshold = -netLoan * 0.05;
+      if (ev <= evRejectThreshold) continue; // deep loss only
 
       const totalRevenue = monthlyPayment * term - netLoan;
       const expectedLoss = pd * netLoan * lgd;
@@ -564,7 +590,7 @@ const loadPolicy = async (base44) => {
       C: { maxDsr: 65, minRate: 12, maxRate: 16 }
     },
     stretch: { enabled: true, minTrust: 0.4, minRunway: 2, maxFlags: 2 },
-    pdCoeffs: { base: 0.02, dsrCoeff: 0.5, trustCoeff: 0.3, flagsCoeff: 0.05, runwayCoeff: 0.04 },
+    pdCoeffs: { base: 0.02, dsrCoeff: 0.5, trustCoeff: 0.3, flagsCoeff: 0.05, runwayCoeff: 0.04, volatilityCoeff: 0.04 },
     lgd: 0.6,
     minExpectedProfitMargin: 0.02,
     aggressive: { enabled: true, maxDsr: 70, minRate: 14, maxRate: 18 }
@@ -610,11 +636,12 @@ const loadPolicy = async (base44) => {
         maxFlags: num(r.stretch_max_risk_flags, defaults.stretch.maxFlags)
       },
       pdCoeffs: {
-        base:         num(r.pd_base,                 defaults.pdCoeffs.base),
-        dsrCoeff:     num(r.pd_dsr_coefficient,      defaults.pdCoeffs.dsrCoeff),
-        trustCoeff:   num(r.pd_trust_coefficient,    defaults.pdCoeffs.trustCoeff),
-        flagsCoeff:   num(r.pd_flags_coefficient,    defaults.pdCoeffs.flagsCoeff),
-        runwayCoeff:  num(r.pd_runway_coefficient,   defaults.pdCoeffs.runwayCoeff)
+        base:           num(r.pd_base,                  defaults.pdCoeffs.base),
+        dsrCoeff:       num(r.pd_dsr_coefficient,       defaults.pdCoeffs.dsrCoeff),
+        trustCoeff:     num(r.pd_trust_coefficient,     defaults.pdCoeffs.trustCoeff),
+        flagsCoeff:     num(r.pd_flags_coefficient,     defaults.pdCoeffs.flagsCoeff),
+        runwayCoeff:    num(r.pd_runway_coefficient,    defaults.pdCoeffs.runwayCoeff),
+        volatilityCoeff: num(r.pd_volatility_coefficient, defaults.pdCoeffs.volatilityCoeff)
       },
       lgd: num(r.lgd, defaults.lgd),
       minExpectedProfitMargin: num(r.min_expected_profit_margin, defaults.minExpectedProfitMargin),
@@ -1043,16 +1070,17 @@ Deno.serve(async (req) => {
     const runwayGate = applyLiquidityRunwayGate(strategies, runwayMonths, policy.minLiquidityRunwayMonths);
     strategies = runwayGate.strategies;
 
-    // ── Aggressive Approval (Profit-Optimized) ──
-    // Add a high-rate, high-DSR strategy when the client is eligible AND
-    // the loan generates POSITIVE EXPECTED VALUE at premium pricing.
-    // This is the core profit-maximization mechanism: we approve loans that
-    // standard tiers reject, BUT only when the math says they're profitable.
+    // ── Aggressive Approval — SEPARATE PRODUCT (not a strategy) ──
+    // CTO direction: aggressive_approval is a distinct PRODUCT with its own
+    // pricing rules and DSR ceiling — not one more "strategy" in the menu.
+    // It's surfaced under `aggressiveProduct` at the top level so the UI
+    // can render it as a separate offer card with its own framing.
     const stretchEligible = isEligibleForStretch({
       insights,
       runwayMonths,
       stretchPolicy: policy.stretch
     });
+    let aggressiveProduct = null;
     if (stretchEligible) {
       const aggressiveCandidate = aggressiveApprovalSearch({
         income,
@@ -1069,9 +1097,9 @@ Deno.serve(async (req) => {
       });
       if (aggressiveCandidate) {
         const dsrPct = (aggressiveCandidate.dsr * 100).toFixed(1);
-        const evK = Math.round(aggressiveCandidate.expectedValue / 100) / 10; // in thousands
-        strategies.push({
-          type: 'aggressive_approval',
+        aggressiveProduct = {
+          productKey: 'aggressive_approval',
+          productLabel: 'מוצר אישור אגרסיבי',
           status: aggressiveCandidate.status,
           loanAmount: aggressiveCandidate.loanAmount,
           termMonths: aggressiveCandidate.termMonths,
@@ -1080,10 +1108,7 @@ Deno.serve(async (req) => {
           monthlyPayment: aggressiveCandidate.monthlyPayment,
           dsr: Number(dsrPct),
           tier: 'C',
-          score: 0.5,
-          reason: `אישור אגרסיבי (Profit-Optimized) — סכום מוגדל ₪${aggressiveCandidate.loanAmount.toLocaleString('he-IL')} ל-${aggressiveCandidate.termMonths} חודשים בריבית ${aggressiveCandidate.interestRate}%. DSR ${dsrPct}%, PD ${(aggressiveCandidate.pd * 100).toFixed(1)}%, ערך צפוי ${evK >= 0 ? '+' : ''}₪${evK.toLocaleString('he-IL')}K — רווחי גם בתרחיש סיכון גבוה.`,
-          isStretch: true,
-          isAggressive: true,
+          reason: `מוצר נפרד בתנאים אגרסיביים — סכום ₪${aggressiveCandidate.loanAmount.toLocaleString('he-IL')} ל-${aggressiveCandidate.termMonths} חודשים בריבית ${aggressiveCandidate.interestRate}%. DSR ${dsrPct}% — מחוץ לתנאי האישור הסטנדרטיים, מאושר בזכות תמחור סיכון גבוה.`,
           // ─── Profit Engine fields ───
           pd: aggressiveCandidate.pd,
           expectedValue: aggressiveCandidate.expectedValue,
@@ -1091,7 +1116,7 @@ Deno.serve(async (req) => {
           expectedLoss: aggressiveCandidate.expectedLoss,
           riskPremium: aggressiveCandidate.riskPremium,
           profitMargin: aggressiveCandidate.profitMargin
-        });
+        };
       }
     }
 
@@ -1254,12 +1279,29 @@ Deno.serve(async (req) => {
             detail: `הפרופיל עומד בתנאי Tier C — סכום מוגדל בריבית גבוהה יותר זמין כאופציה נוספת`,
             impact: 'positive'
           }] : []),
-          ...(headline?.expectedValue > 0 ? [{
-            key: 'positive_expected_value',
-            label: 'ערך צפוי חיובי',
-            detail: `EV של ₪${Math.round(headline.expectedValue / 1000).toLocaleString('he-IL')}K צפוי לאורך חיי ההלוואה (PD ${(headline.pd * 100).toFixed(1)}%, ריבית ${headline.interestRate}%) — ההלוואה רווחית גם בהינתן סיכון הכשל`,
-            impact: 'positive'
-          }] : [])
+          // EV → categorical label (CTO direction: don't surface raw ₪ figures —
+          // it reads like a casino). We translate the math to credit-officer language.
+          ...((() => {
+            if (!headline || !Number.isFinite(headline.expectedValue) || !Number.isFinite(headline.profitMargin)) return [];
+            const margin = headline.profitMargin;
+            if (margin >= 0.05) {
+              return [{
+                key: 'profitability_high',
+                label: 'רווחיות גבוהה',
+                detail: 'מחיר ההלוואה מכסה את הסיכון בנדיבות — מרווח רווח חזק מעל סף המדיניות',
+                impact: 'positive'
+              }];
+            }
+            if (margin >= 0.02) {
+              return [{
+                key: 'profitability_normal',
+                label: 'רווחיות תקינה',
+                detail: 'התמחור מאוזן מול הסיכון — המוצר עומד ברף הרווחיות הנדרש',
+                impact: 'positive'
+              }];
+            }
+            return []; // marginal/negative goes to the negative panel below
+          })())
         ],
         negative: [
           ...(Array.isArray(insights?.riskFlags) ? insights.riskFlags.map(f => ({
@@ -1289,6 +1331,28 @@ Deno.serve(async (req) => {
             detail: `${runwayMonths || 0} חודשים בלבד עד אזילת מזומן (סף מדיניות ${policy.minLiquidityRunwayMonths}). האסטרטגיות שודרגו ל-תנאי`,
             impact: 'negative'
           }] : []),
+          // Profitability concerns surfaced as words (not ₪ figures).
+          ...((() => {
+            if (!headline || !Number.isFinite(headline.profitMargin)) return [];
+            const margin = headline.profitMargin;
+            if (margin < 0) {
+              return [{
+                key: 'profitability_negative',
+                label: 'סיכון גבוה ביחס לרווח',
+                detail: 'התמחור הנוכחי לא מכסה את ההפסד הצפוי במלואו — דורש תיקון מחיר או תנאים',
+                impact: 'negative'
+              }];
+            }
+            if (margin < 0.02) {
+              return [{
+                key: 'profitability_marginal',
+                label: 'רווחיות גבולית',
+                detail: 'מרווח הרווח מתחת לסף המדיניות — מומלץ לבחון העלאת ריבית או הקטנת חשיפה',
+                impact: 'negative'
+              }];
+            }
+            return [];
+          })())
         ]
       },
       // ── Credit Tier (A/B/C/D) ──
@@ -1299,6 +1363,9 @@ Deno.serve(async (req) => {
         ? (headline.tier || tierForDsr(headline.dsr, policy.tiers))
         : 'D',
       stretch_offer_eligible: stretchEligible,
+      // Aggressive Approval surfaced as a SEPARATE PRODUCT (not a strategy).
+      // null when the client isn't eligible OR no profitable structure exists.
+      aggressiveProduct,
       // ── Profit Engine summary (top-level for easy UI access) ──
       profit_engine: hasRescue ? {
         headline_pd: headline.pd ?? null,
