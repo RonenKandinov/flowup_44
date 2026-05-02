@@ -14,8 +14,18 @@ import { motion } from 'framer-motion';
 export default function XAIFactorsPanel({ factors }) {
     if (!factors || (!factors.positive?.length && !factors.negative?.length)) return null;
 
-    const positives = factors.positive || [];
-    const negatives = factors.negative || [];
+    // Defensive: some upstream sources (e.g. raw cashFlowIntelligence anchors/flags)
+    // pass items with only {key} and no {label}. Synthesize a readable label from the
+    // key so the panel never renders empty rows.
+    const humanize = (key) => String(key || '').replace(/_/g, ' ').replace(/^./, c => c.toUpperCase());
+    const normalize = (arr) => (arr || [])
+        .map(f => ({ ...f, label: f.label || humanize(f.key) }))
+        .filter(f => f.label);
+
+    const positives = normalize(factors.positive);
+    const negatives = normalize(factors.negative);
+
+    if (!positives.length && !negatives.length) return null;
 
     return (
         <motion.div

@@ -177,7 +177,11 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights,
                     })),
                     analysisInsights: slimInsights,
                     originalStatus: score < 55 ? 'rejected' : score < 75 ? 'borderline' : 'approved',
-                    policyThreshold: result?.meta?.dsr_limit || null
+                    policyThreshold: result?.meta?.dsr_limit || null,
+                    // Pass the XAI factors (same ones shown in XAIFactorsPanel) so the LLM
+                    // weaves the identified strengths/risks into the Hebrew justification text —
+                    // the analyst sees a coherent story instead of two disconnected blocks.
+                    xaiFactors: result?.xai_factors || null
                 });
                 if (cancelled) return;
                 if (res.data?.success && Array.isArray(res.data.justifications)) {

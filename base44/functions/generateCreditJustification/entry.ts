@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
         }
 
         const body = await req.json();
-        const { strategy, strategies, analysisInsights, originalStatus, policyThreshold } = body;
+        const { strategy, strategies, analysisInsights, originalStatus, policyThreshold, xaiFactors } = body;
 
         const list = Array.isArray(strategies) && strategies.length > 0
             ? strategies
@@ -69,6 +69,16 @@ Deno.serve(async (req) => {
 
         const threshold = await thresholdPromise;
 
+        // Compress XAI factors (from dealRescuerEngine) into compact prompt-ready strings.
+        // These are the SAME factors surfaced in the XAIFactorsPanel — passing them to the
+        // LLM ensures the Hebrew justification is consistent with what the analyst sees on screen.
+        const positiveFactors = Array.isArray(xaiFactors?.positive)
+            ? xaiFactors.positive.map(f => f.label).filter(Boolean).slice(0, 4).join(', ')
+            : '';
+        const negativeFactors = Array.isArray(xaiFactors?.negative)
+            ? xaiFactors.negative.map(f => f.label).filter(Boolean).slice(0, 4).join(', ')
+            : '';
+
         // Strict Hebrew-only prompt. We explicitly forbid foreign words, transliterations,
         // and acronym expansions (e.g. LLM expanding "DSR" to "Digital Sustainable Ratio")
         // because in production gpt_5_mini occasionally mixes English/Arabic into Hebrew output.
@@ -83,8 +93,10 @@ Deno.serve(async (req) => {
 זווית הניתוח: ${angle[s.type] || s.type}.
 פרופיל הלקוח: ${profileLines || 'סטנדרטי'}.
 תוצאה: ${s.status}. יחס החזר חדש ${s.dsr}% מתוך סף ${threshold}%.
+${positiveFactors ? `חוזקות שזוהו: ${positiveFactors}.` : ''}
+${negativeFactors ? `סיכונים שזוהו: ${negativeFactors}.` : ''}
 
-הסבר מה בפרופיל הספציפי של הלקוח מצדיק את הזווית הזו, באופן שונה משתי הזוויות האחרות.`;
+הסבר מה בפרופיל הספציפי של הלקוח מצדיק את הזווית הזו, באופן שונה משתי הזוויות האחרות. שלב במשפט הראשון לפחות חוזקה אחת או סיכון אחד מהרשימה למעלה (אם קיימים) — כך שהנימוק יתחבר לגורמי ההחלטה שמוצגים ללקוח.`;
 
         // Detect non-Hebrew contamination (Latin or Arabic letters). Hebrew-only justifications
         // may contain digits, punctuation and the % sign, but no foreign-script words.
