@@ -395,8 +395,13 @@ const gridSearch = ({ income, existingDebtPayments, estimatedExpenses, requested
         } else {
           continue;
         }
-        // Profit-aware downgrade: marginal/negative EV → conditional (never auto-approve)
-        if (ev < minProfit && status === 'approved') {
+        // Profit-aware downgrade: marginal/negative EV → conditional, BUT only when
+        // DSR is actually close to the policy ceiling. When DSR is comfortably below
+        // the limit (≥ 10pp of headroom), the loan is structurally safe and the
+        // status should remain 'approved' regardless of marginal EV — profit concerns
+        // are surfaced via the XAI panel and pricing engine, not via UI status.
+        const dsrHeadroom = DSR_LIMIT - dsr;
+        if (ev < minProfit && status === 'approved' && dsrHeadroom < 0.10) {
           status = 'conditional';
         }
 
@@ -1043,26 +1048,54 @@ Deno.serve(async (req) => {
 
     const candidates = stressedCandidates;
     const picks = pickStrategies(candidates, requestedLoanAmount, insights, dsrLimit);
-    let strategies = picks.map(({ type, c }) => ({
-      type,
-      status: c.status,
-      loanAmount: c.loanAmount,
-      termMonths: c.termMonths,
-      interestRate: c.interestRate,
-      downPayment: c.downPayment,
-      monthlyPayment: c.monthlyPayment,
-      dsr: Number((c.dsr * 100).toFixed(1)),
-      tier: c.tier || tierForDsr(c.dsr * 100, policy.tiers),
-      score: Number(c.score.toFixed(3)),
-      reason: reasonFor(type, c),
-      // ─── Profit Engine fields ───
-      pd: c.pd ?? null,                             // Probability of Default (0..1)
-      expectedValue: c.expectedValue ?? null,       // ₪ expected profit over loan life
-      totalRevenue: c.totalRevenue ?? null,         // ₪ gross interest revenue
-      expectedLoss: c.expectedLoss ?? null,         // ₪ PD × principal × LGD
-      riskPremium: c.riskPremium ?? null,           // % rate floor needed to cover expected loss
-      profitMargin: c.profitMargin ?? null          // EV / principal — the unit profit ratio
-    }));
+    // ── Per-lane rate differentiation ────────────────────────────────────────────
+    // Within the same tier, each strategy lane represents a DIFFERENT risk profile
+    // for the lender, and pricing should reflect that:
+    //   • exposure_reduction  → lowest rate (smaller principal + DP = less exposure)
+    //   • behavioral_approval → middle rate (close to requested, leverages soft signals)
+    //   • cash_flow_alignment → highest rate (longest term = higher duration risk)
+    // The offset is small (±0.4pp) and clamped inside the candidate's tier band so
+    // the pricing stays internally consistent with the tier policy.
+    const laneRateOffset = {
+      exposure_reduction: -0.4,
+      behavioral_approval: 0.0,
+      cash_flow_alignment: +0.4
+    };
+
+    let strategies = picks.map(({ type, c }) => {
+      const tier = c.tier || tierForDsr(c.dsr * 100, policy.tiers);
+      const tierBand = policy.tiers[tier];
+      const offset = laneRateOffset[type] ?? 0;
+      // Apply the lane offset, clamped within the tier's [minRate, maxRate] band.
+      const adjustedRatePct = tierBand
+        ? clamp(c.interestRate + offset, tierBand.minRate, tierBand.maxRate)
+        : c.interestRate;
+      // Recompute monthly payment & DSR using the differentiated rate.
+      const adjustedMonthly = pmt(c.loanAmount, adjustedRatePct / 100, c.termMonths);
+      const adjustedDisposable = income - existingDebtPayments - estimatedExpenses;
+      const adjustedDsr = adjustedDisposable > 0 ? (adjustedMonthly / adjustedDisposable) : c.dsr;
+
+      return {
+        type,
+        status: c.status,
+        loanAmount: c.loanAmount,
+        termMonths: c.termMonths,
+        interestRate: Number(adjustedRatePct.toFixed(2)),
+        downPayment: c.downPayment,
+        monthlyPayment: Math.round(adjustedMonthly),
+        dsr: Number((adjustedDsr * 100).toFixed(1)),
+        tier,
+        score: Number(c.score.toFixed(3)),
+        reason: reasonFor(type, { ...c, monthlyPayment: Math.round(adjustedMonthly), dsr: adjustedDsr }),
+        // ─── Profit Engine fields (kept from original candidate — internal use only) ───
+        pd: c.pd ?? null,
+        expectedValue: c.expectedValue ?? null,
+        totalRevenue: c.totalRevenue ?? null,
+        expectedLoss: c.expectedLoss ?? null,
+        riskPremium: c.riskPremium ?? null,
+        profitMargin: c.profitMargin ?? null
+      };
+    });
 
     // ── Liquidity Runway gate ──
     // Even if DSR is healthy, downgrade approvals when survival runway < policy floor.
