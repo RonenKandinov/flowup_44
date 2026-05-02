@@ -49,10 +49,28 @@ Deno.serve(async (req) => {
             return 40;
         })();
 
-        const angle = {
-            cash_flow_alignment: 'תזרימית — יישור ההחזר ליכולת ההחזר בפועל באמצעות פריסה והתאמת הוצאה דיסקרציונית',
-            exposure_reduction: 'חשיפתית — הקטנת מינוף ושמירה על כרית נזילות',
-            behavioral_approval: 'התנהגותית — עקביות, משמעת פיננסית ויציבות לאורך זמן'
+        // Each strategy gets a DISTINCT thesis — explicit instructions on WHAT must be
+        // emphasized and what is FORBIDDEN. This prevents the LLM from defaulting to the
+        // same generic "פריסת ההלוואה והתאמת ההוצאה הדיסקרציונית..." sentence across all 3.
+        const strategyThesis = {
+            cash_flow_alignment: {
+                title: 'התאמת תזרים',
+                must_emphasize: 'פריסת ההלוואה לאורך זמן והתאמת ההוצאה הדיסקרציונית — כך שההחזר החודשי מתיישר עם ההכנסה הפנויה החודשית בפועל. הדגש את המרווח החודשי ואת היציבות התזרימית.',
+                forbidden: 'אסור להזכיר הקטנת חשיפה, מקדמה, מינוף, או יציבות התנהגותית כסיבה מרכזית.',
+                key_concept: 'יישור ההחזר לתזרים החודשי'
+            },
+            exposure_reduction: {
+                title: 'הפחתת חשיפה',
+                must_emphasize: 'הקטנת היקף ההלוואה, שימוש במקדמה, והקטנת המינוף הכולל של הלקוח. הדגש שהחשיפה הלקוחית יורדת ושנשמרת כרית נזילות לשירות החוב לאורך זמן.',
+                forbidden: 'אסור להזכיר פריסה לאורך זמן, התאמת הוצאה דיסקרציונית, או יציבות התנהגותית כסיבה מרכזית.',
+                key_concept: 'הקטנת מינוף ושמירת כרית נזילות'
+            },
+            behavioral_approval: {
+                title: 'אישור מבוסס התנהגות',
+                must_emphasize: 'משמעת תשלומים מוכחת, התנהלות פיננסית עקבית לאורך זמן, היעדר חריגות, ודפוסי הוצאה צפויים. הסיבה לאישור היא העקביות ההתנהגותית — לא המבנה הפיננסי.',
+                forbidden: 'אסור להזכיר פריסה לאורך זמן, מקדמה, או הקטנת היקף ההלוואה כסיבה מרכזית.',
+                key_concept: 'משמעת והתנהגות פיננסית מוכחת'
+            }
         };
 
         // Build a COMPACT client profile once — same across all 3 strategies, shorter prompt = faster response
@@ -112,28 +130,45 @@ Deno.serve(async (req) => {
 משפט 3 — מסקנה כלכלית: סיים ב"התמחור אינו מכסה את ההפסד הצפוי, ולכן העסקה אינה עומדת ברף הכלכלי הנדרש לאישור".`;
         };
 
-        // Strict Hebrew-only prompt. We explicitly forbid foreign words, transliterations,
-        // and acronym expansions (e.g. LLM expanding "DSR" to "Debt Service Ratio")
-        // because in production gpt_5_mini occasionally mixes English/Arabic into Hebrew output.
-        const buildPrompt = (s) => `אתה חתם אשראי ישראלי בכיר בחברה חוץ-בנקאית. כתוב נימוק אשראי בעברית תקנית בלבד, בסגנון של נימוק רשמי במערכת חיתום.
+        // Strict Hebrew-only prompt with distinct angle per strategy.
+        const buildPrompt = (s) => {
+            const thesis = strategyThesis[s.type] || {
+                title: s.type, must_emphasize: '', forbidden: '', key_concept: s.type
+            };
+            const statusLabel = s.status === 'approved' ? 'מאושר' : s.status === 'conditional' ? 'מאושר בתנאי' : 'לא מאושר';
+            const dsrPosition = Number(s.dsr) <= Number(threshold) ? 'בתוך הסף שנקבע במדיניות' : 'מעל הסף, אך בתוך טווח הגמישות המקובל';
 
-חוקים מוחלטים:
-- עברית בלבד. אסור בהחלט מילים באנגלית, ערבית או כל שפה אחרת.
-- אסור להרחיב ראשי תיבות.
-- אסור לצטט מספרים מדויקים מהטבלה (לא אחוזי DSR ספציפיים, לא סכומים בשקלים, לא ריבית באחוזים). השתמש בתיאורים איכותיים: "מעל סף המדיניות", "במרווח בטוח", "במסגרת טווח הגמישות".
-- בדיוק 3 משפטים. ללא כותרות, ללא רשימות. שפה מקצועית, זורמת ומקצועית-בנקאית.
-- כל משפט מתחיל בתוכן ענייני, לא ב"לכן" או ב"בנוסף".
+            return `אתה חתם אשראי בכיר בחברה חוץ-בנקאית בישראל. אתה כותב נימוק אשראי רשמי במערכת חיתום פנימית.
 
-זווית הזה ניתוח: ${angle[s.type] || s.type}.
-פרופיל הלקוח: ${profileLines || 'סטנדרטי'}.
-תוצאה רשמית: ${s.status === 'approved' ? 'מאושר' : s.status === 'conditional' ? 'מאושר בתנאי' : 'לא מאושר'}.
-יחס החזר חדש ביחס לסף המדיניות: ${Number(s.dsr) <= Number(threshold) ? 'בתוך הסף' : 'מעל הסף בטווח גמישות'}.
-${positiveFactors ? `חוזקות שזוהו בפרופיל: ${positiveFactors}.` : ''}
-${negativeFactors ? `סיכונים שזוהו בפרופיל: ${negativeFactors}.` : ''}
+המסלול שאתה מנמק: "${thesis.title}".
+מהות המסלול: ${thesis.key_concept}.
 
-${narrativeBlueprint(s)}
+חובה להדגיש במשפט המרכזי:
+${thesis.must_emphasize}
 
-חשוב: הקפד שהנימוק יזרום כסיפור אחד קוהרנטי — לא רשימה של עובדות. כל משפט חייב להתחבר לקודמו.`;
+אסור בתוקף:
+${thesis.forbidden}
+
+חוקי כתיבה מוחלטים:
+- עברית תקנית בלבד. אסור מילים באנגלית, ערבית או כל שפה זרה. אסור ראשי תיבות לועזיים.
+- אסור לצטט מספרים מדויקים (לא אחוזי החזר, לא סכומי שקלים, לא ריבית). השתמש בתיאורים איכותיים בלבד.
+- בדיוק 3 משפטים, סך הכל 50-70 מילים.
+- כל משפט מתמקד בנושא אחר, לפי המבנה הבא:
+  משפט 1: מאפיין מרכזי בפרופיל הלקוח שתומך דווקא במסלול הזה (לא במסלול אחר).
+  משפט 2: כיצד מבנה ההלוואה הספציפי של מסלול זה (${thesis.key_concept}) מאזן את הסיכון. חובה שהמשפט יזכיר במפורש את ${thesis.key_concept}.
+  משפט 3: הצדקה כלכלית — תמחור, רווחיות, ושיקול דעת חתם.
+- אסור בתוקף לחזור על נוסחים מנימוקים אחרים. כל מסלול מקבל ניסוח ייחודי משלו.
+- אסור להשתמש בביטוי "פריסת ההלוואה והתאמת ההוצאה הדיסקרציונית" אלא במסלול "התאמת תזרים" בלבד.
+
+נתוני הלקוח (להקשר בלבד, אל תצטט):
+- פרופיל: ${profileLines || 'סטנדרטי'}
+- סטטוס המסלול: ${statusLabel}
+- מיקום יחס ההחזר: ${dsrPosition}
+${positiveFactors ? `- חוזקות שזוהו: ${positiveFactors}` : ''}
+${negativeFactors ? `- סיכונים שזוהו: ${negativeFactors}` : ''}
+
+החזר רק את הטקסט הסופי של הנימוק, ללא הקדמות, ללא כותרות, ללא מירכאות.`;
+        };
 
         // Detect non-Hebrew contamination (Latin or Arabic letters). Hebrew-only justifications
         // may contain digits, punctuation and the % sign, but no foreign-script words.
@@ -187,8 +222,9 @@ ${narrativeBlueprint(s)}
         }
 
         // Run all LLM calls in parallel — total latency ≈ slowest single call.
-        // Using default model (gpt_5_mini) — empirically ~3-4× faster than gemini_3_flash
-        // on short Hebrew generations, and we don't need web context here.
+        // The strict per-strategy thesis (must_emphasize / forbidden) in the prompt
+        // is what now forces differentiated output — not the model choice. We keep
+        // the default fast model so the analyst doesn't wait 25–50s for justifications.
         const results = await Promise.all(list.map(async (s) => {
             const t0 = Date.now();
             try {
