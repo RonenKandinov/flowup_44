@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 import CreditJustificationBlock from './CreditJustificationBlock';
-import XAIFactorsPanel from './XAIFactorsPanel';
+import DealEVPanel from './DealEVPanel';
 import AggressiveProductCard from './AggressiveProductCard';
 
 const STRATEGY_META = {
@@ -161,17 +161,27 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights,
                 } : null;
 
                 const res = await base44.functions.invoke('generateCreditJustification', {
+                    // Pass the FULL strategy spec — including the exact numbers the UI shows
+                    // (amount / term / monthlyPayment / rate / DSR / EV / profitMargin).
+                    // The LLM uses these to produce a justification that's CONSISTENT with the
+                    // numbers in the cubes — fixing the drift where the text said "low DSR"
+                    // while the cube showed a high DSR, etc.
                     strategies: strategies.map(s => ({
                         type: s.type,
                         status: s.status,
-                        dsr: s.dsr
+                        dsr: s.dsr,
+                        loanAmount: s.loanAmount,
+                        termMonths: s.termMonths,
+                        monthlyPayment: s.monthlyPayment,
+                        interestRate: s.interestRate,
+                        downPayment: s.downPayment,
+                        expectedValue: s.expectedValue,
+                        profitMargin: s.profitMargin,
+                        pd: s.pd
                     })),
                     analysisInsights: slimInsights,
                     originalStatus: score < 55 ? 'rejected' : score < 75 ? 'borderline' : 'approved',
                     policyThreshold: result?.meta?.dsr_limit || null,
-                    // Pass the XAI factors (same ones shown in XAIFactorsPanel) so the LLM
-                    // weaves the identified strengths/risks into the Hebrew justification text —
-                    // the analyst sees a coherent story instead of two disconnected blocks.
                     xaiFactors: result?.xai_factors || null
                 });
                 if (cancelled) return;
@@ -264,11 +274,10 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights,
 
                 {analysisComplete && result && (
                     <div className="flex flex-col gap-3 animate-in fade-in zoom-in duration-300">
-                        {/* XAI factors panel — shown once at the top so credit officers can see
-                            the WHY behind the engine's decision, regardless of how many strategies returned. */}
-                        {result.xai_factors && (result.xai_factors.positive?.length > 0 || result.xai_factors.negative?.length > 0) && (
-                            <XAIFactorsPanel factors={result.xai_factors} />
-                        )}
+                        {/* Per CTO direction: the top-level "decision factors" panel is replaced
+                            by a per-strategy EV panel, rendered inside each strategy card below.
+                            That gives the analyst the bottom-line "is THIS deal profitable" answer
+                            for every offer in the menu, instead of one generic factors list. */}
                         {result.rescueStrategies.length === 0 && result.fallback && (
                             <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-100 leading-5">
                                 <div className="font-semibold mb-1">הניסיון הקרוב ביותר</div>
@@ -351,8 +360,18 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights,
                                             </div>
                                         </div>
 
-                                        {/* Profitability label hidden from UI per CTO direction —
-                                            kept internal in s.profitMargin for engine logic only. */}
+                                        {/* Per-strategy EV panel — replaces the global XAI factors block.
+                                            Surfaces the bottom-line "profit/loss" answer FOR THIS specific
+                                            offer (each strategy has its own EV / profitMargin / PD). */}
+                                        <div className="mb-2.5">
+                                            <DealEVPanel
+                                                expectedValue={s.expectedValue}
+                                                profitMargin={s.profitMargin}
+                                                totalRevenue={s.totalRevenue}
+                                                expectedLoss={s.expectedLoss}
+                                                pd={s.pd}
+                                            />
+                                        </div>
 
                                         <CreditJustificationBlock
                                             aiText={justifications[idx]}
