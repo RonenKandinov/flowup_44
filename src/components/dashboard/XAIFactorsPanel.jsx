@@ -18,9 +18,16 @@ export default function XAIFactorsPanel({ factors }) {
     // pass items with only {key} and no {label}. Synthesize a readable label from the
     // key so the panel never renders empty rows.
     const humanize = (key) => String(key || '').replace(/_/g, ' ').replace(/^./, c => c.toUpperCase());
+
+    // Hide internal profitability/risk-vs-reward factors from the UI per CTO direction —
+    // these remain in the engine output for pricing logic but are not surfaced to the analyst.
+    const HIDDEN_LABELS = ['סיכון גבוה ביחס לרווח', 'תמחור מול סיכון', 'רווחיות נמוכה'];
+    const HIDDEN_KEYS = ['low_profit_margin', 'risk_vs_reward', 'thin_margin', 'profitability_risk'];
+
     const normalize = (arr) => (arr || [])
         .map(f => ({ ...f, label: f.label || humanize(f.key) }))
-        .filter(f => f.label);
+        .filter(f => f.label)
+        .filter(f => !HIDDEN_KEYS.includes(f.key) && !HIDDEN_LABELS.includes(f.label));
 
     const positives = normalize(factors.positive);
     const negatives = normalize(factors.negative);
