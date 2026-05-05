@@ -130,46 +130,13 @@ Deno.serve(async (req) => {
 משפט 3 — מסקנה כלכלית: סיים ב"התמחור אינו מכסה את ההפסד הצפוי, ולכן העסקה אינה עומדת ברף הכלכלי הנדרש לאישור".`;
         };
 
-        // Helper: classify the SPECIFIC strategy's profitability so the prompt can
-        // tell the LLM whether the deal is profitable / marginal / loss-making.
-        // This is what the EV panel in the UI shows — the justification MUST
-        // align with it (no more "רווחיות תקינה" written next to a loss-making cube).
-        const classifyProfitability = (margin) => {
-            if (!Number.isFinite(margin)) return null;
-            if (margin >= 0.05) return { label: 'רווחיות גבוהה', tone: 'התמחור מכסה את הסיכון בנדיבות ומייצר מרווח רווח חזק' };
-            if (margin >= 0.02) return { label: 'רווחיות תקינה', tone: 'התמחור מאוזן מול הסיכון ועומד ברף הרווחיות הנדרש' };
-            if (margin >= 0)    return { label: 'רווחיות גבולית', tone: 'מרווח הרווח מתחת לסף המדיניות, אך עדיין חיובי' };
-            return { label: 'הפסד צפוי', tone: 'התמחור הנוכחי לא מכסה את ההפסד הצפוי במלואו, ודורש תיקון מחיר או תנאים' };
-        };
-
-        const classifyDsr = (dsr, t) => {
-            const d = Number(dsr);
-            if (!Number.isFinite(d) || !Number.isFinite(t)) return 'במסגרת המדיניות';
-            if (d <= t * 0.5)  return 'נמוך משמעותית מסף המדיניות, עם מרווח ביטחון רחב';
-            if (d <= t * 0.8)  return 'מתחת לסף המדיניות, עם מרווח ביטחון מספק';
-            if (d <= t)        return 'קרוב לסף המדיניות אך בתוכו';
-            if (d <= t + 10)   return 'מעל הסף, אך בתוך טווח הגמישות המקובל';
-            return 'מעל הסף, בתחום ה-Stretch';
-        };
-
-        // Strict Hebrew-only prompt grounded in the SPECIFIC numbers of THIS strategy.
-        // Per CTO direction: the justification must match what the cubes show — same DSR band,
-        // same profitability verdict (EV-based), same status. We don't pass the raw ₪ figures
-        // to the prompt (no number citations), but we DO classify them so the LLM tone matches.
+        // Strict Hebrew-only prompt with distinct angle per strategy.
         const buildPrompt = (s) => {
             const thesis = strategyThesis[s.type] || {
                 title: s.type, must_emphasize: '', forbidden: '', key_concept: s.type
             };
             const statusLabel = s.status === 'approved' ? 'מאושר' : s.status === 'conditional' ? 'מאושר בתנאי' : 'לא מאושר';
-            const dsrPosition = classifyDsr(s.dsr, threshold);
-            const profitability = classifyProfitability(s.profitMargin);
-
-            // Build the profitability sentence (sentence #3 of every justification)
-            // FROM the actual EV of this strategy. This is the key fix for the
-            // "all justifications say the same thing" bug.
-            const profitabilityClause = profitability
-                ? `במשפט השלישי חובה לומר במפורש: "${profitability.label}" — ${profitability.tone}.`
-                : 'במשפט השלישי הצדק את התמחור מול הסיכון.';
+            const dsrPosition = Number(s.dsr) <= Number(threshold) ? 'בתוך הסף שנקבע במדיניות' : 'מעל הסף, אך בתוך טווח הגמישות המקובל';
 
             return `אתה חתם אשראי בכיר בחברה חוץ-בנקאית בישראל. אתה כותב נימוק אשראי רשמי במערכת חיתום פנימית.
 
@@ -189,17 +156,14 @@ ${thesis.forbidden}
 - כל משפט מתמקד בנושא אחר, לפי המבנה הבא:
   משפט 1: מאפיין מרכזי בפרופיל הלקוח שתומך דווקא במסלול הזה (לא במסלול אחר).
   משפט 2: כיצד מבנה ההלוואה הספציפי של מסלול זה (${thesis.key_concept}) מאזן את הסיכון. חובה שהמשפט יזכיר במפורש את ${thesis.key_concept}.
-  משפט 3: הצדקה כלכלית — תמחור, רווחיות, ושיקול דעת חתם. ${profitabilityClause}
+  משפט 3: הצדקה כלכלית — תמחור, רווחיות, ושיקול דעת חתם.
 - אסור בתוקף לחזור על נוסחים מנימוקים אחרים. כל מסלול מקבל ניסוח ייחודי משלו.
 - אסור להשתמש בביטוי "פריסת ההלוואה והתאמת ההוצאה הדיסקרציונית" אלא במסלול "התאמת תזרים" בלבד.
 
-נתוני המסלול הספציפי הזה (להקשר בלבד, אל תצטט מספרים):
-- סטטוס המסלול: ${statusLabel}
-- מיקום יחס ההחזר ביחס לסף המדיניות: ${dsrPosition}
-${profitability ? `- רווחיות צפויה של המסלול: ${profitability.label}` : ''}
-
 נתוני הלקוח (להקשר בלבד, אל תצטט):
 - פרופיל: ${profileLines || 'סטנדרטי'}
+- סטטוס המסלול: ${statusLabel}
+- מיקום יחס ההחזר: ${dsrPosition}
 ${positiveFactors ? `- חוזקות שזוהו: ${positiveFactors}` : ''}
 ${negativeFactors ? `- סיכונים שזוהו: ${negativeFactors}` : ''}
 
