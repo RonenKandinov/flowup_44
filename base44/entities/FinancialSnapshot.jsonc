@@ -1,0 +1,91 @@
+{
+  "name": "FinancialSnapshot",
+  "type": "object",
+  "properties": {
+    "current_balance": {
+      "type": "number",
+      "description": "\u05d9\u05ea\u05e8\u05d4 \u05e0\u05d5\u05db\u05d7\u05d9\u05ea"
+    },
+    "projected_eom_balance": {
+      "type": "number",
+      "description": "\u05d9\u05ea\u05e8\u05d4 \u05e6\u05e4\u05d5\u05d9\u05d4 \u05dc\u05e1\u05d5\u05e3 \u05d4\u05d7\u05d5\u05d3\u05e9"
+    },
+    "total_income": {
+      "type": "number",
+      "description": "\u05e1\u05da \u05d4\u05db\u05e0\u05e1\u05d5\u05ea \u05d4\u05d7\u05d5\u05d3\u05e9"
+    },
+    "total_expenses": {
+      "type": "number",
+      "description": "\u05e1\u05da \u05d4\u05d5\u05e6\u05d0\u05d5\u05ea \u05d4\u05d7\u05d5\u05d3\u05e9"
+    },
+    "risk_day": {
+      "type": "string",
+      "format": "date",
+      "description": "\u05ea\u05d0\u05e8\u05d9\u05da \u05e1\u05d9\u05db\u05d5\u05df - \u05de\u05ea\u05d9 \u05d4\u05d9\u05ea\u05e8\u05d4 \u05e6\u05e4\u05d5\u05d9\u05d4 \u05dc\u05e8\u05d3\u05ea \u05de\u05ea\u05d7\u05ea \u05dc\u05e1\u05e3"
+    },
+    "risk_level": {
+      "type": "string",
+      "enum": [
+        "green",
+        "yellow",
+        "red"
+      ],
+      "description": "\u05e8\u05de\u05ea \u05e1\u05d9\u05db\u05d5\u05df"
+    },
+    "avg_daily_spending": {
+      "type": "number",
+      "description": "\u05d4\u05d5\u05e6\u05d0\u05d4 \u05d9\u05d5\u05de\u05d9\u05ea \u05de\u05de\u05d5\u05e6\u05e2\u05ea"
+    },
+    "upload_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "\u05ea\u05d0\u05e8\u05d9\u05da \u05d4\u05e2\u05dc\u05d0\u05ea \u05d4\u05e0\u05ea\u05d5\u05e0\u05d9\u05dd"
+    }
+  },
+  "required": [
+    "current_balance"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "isAuthenticated": true
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}
