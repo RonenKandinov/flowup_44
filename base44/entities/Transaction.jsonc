@@ -1,0 +1,79 @@
+{
+  "name": "Transaction",
+  "type": "object",
+  "properties": {
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "\u05ea\u05d0\u05e8\u05d9\u05da \u05d4\u05e2\u05e1\u05e7\u05d4"
+    },
+    "description": {
+      "type": "string",
+      "description": "\u05ea\u05d9\u05d0\u05d5\u05e8 \u05d4\u05e2\u05e1\u05e7\u05d4"
+    },
+    "amount": {
+      "type": "number",
+      "description": "\u05e1\u05db\u05d5\u05dd \u05d4\u05e2\u05e1\u05e7\u05d4 (\u05d7\u05d9\u05d5\u05d1\u05d9 \u05dc\u05d4\u05db\u05e0\u05e1\u05d4, \u05e9\u05dc\u05d9\u05dc\u05d9 \u05dc\u05d4\u05d5\u05e6\u05d0\u05d4)"
+    },
+    "balance": {
+      "type": "number",
+      "description": "\u05d9\u05ea\u05e8\u05d4 \u05dc\u05d0\u05d7\u05e8 \u05d4\u05e2\u05e1\u05e7\u05d4"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "income",
+        "expense",
+        "transfer"
+      ],
+      "description": "\u05e1\u05d5\u05d2 \u05d4\u05e2\u05e1\u05e7\u05d4"
+    }
+  },
+  "required": [
+    "date",
+    "amount"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "isAuthenticated": true
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}
