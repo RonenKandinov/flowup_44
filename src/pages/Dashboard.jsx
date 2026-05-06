@@ -24,6 +24,7 @@ import OpenFinanceConnect from '../components/connect/OpenFinanceConnect';
 const CSVUploader = lazy(() => import('../components/upload/CSVUploader'));
 import { useTransactionSync } from '../components/hooks/useTransactionSync';
 import { useLoanMetrics } from '../components/hooks/useLoanMetrics';
+import { useAnalysisPersistence } from '../components/hooks/useAnalysisPersistence';
 import { toast } from 'sonner';
 
 // Generates InsightsAgent-compatible data from loan metrics when the
@@ -87,6 +88,9 @@ export default function Dashboard() {
   const [engineData, setEngineData] = useState(null);
   const [isStorageLoading, setIsStorageLoading] = useState(true);
   const [simulatedMetrics, setSimulatedMetrics] = useState(null);
+  // Holds the latest Deal Rescuer output so the autosave hook can persist
+  // the full analysis bundle (insights + rescue + justifications) in one record.
+  const [rescueBundle, setRescueBundle] = useState(null);
   // True while processing /?of_callback=1 — shows an overlay so the UI doesn't feel frozen
   const [isProcessingCallback, setIsProcessingCallback] = useState(
     () => !!new URLSearchParams(window.location.search).get('of_callback')
@@ -421,6 +425,20 @@ export default function Dashboard() {
   });
 
   const serverInsights = serverInsightsData || (insightsError ? { error: "Network error" } : null);
+
+  // ── Autosave underwriting analysis to UnderwritingAnalysis entity ──
+  // Hybrid privacy model: structured intelligence plaintext, narrative encrypted.
+  // Triggered automatically whenever insights + loanMetrics are ready, and re-runs
+  // (with dedupe by analysis_hash on the server) when rescue/justifications arrive.
+  useAnalysisPersistence({
+    insights: serverInsights,
+    loanMetrics: originalLoanMetrics,
+    rescueResult: rescueBundle?.rescueResult || null,
+    creditJustifications: rescueBundle?.creditJustifications || [],
+    snapshotId: snapshots?.[0]?.id || null,
+    connectionId: activeConnection?.connection_id || null,
+    enabled: !!(serverInsights && !serverInsights.error && originalLoanMetrics && hasData)
+  });
 
   // ── Cash-Flow Intelligence: granular OpenFinance-based repayment capacity ──
   // Fetched once when we have an active connection; cached indefinitely (recurring
@@ -976,6 +994,7 @@ export default function Dashboard() {
                 <div className="order-4 lg:order-4 h-full w-full">
                     <DealRescuer
                         onSimulate={(metrics) => setSimulatedMetrics(metrics)}
+                        onAnalysisComplete={(bundle) => setRescueBundle(bundle)}
                         baseMetrics={originalLoanMetrics}
                         analysisInsights={serverInsights?.analysisInsights || null}
                         cashFlowProfile={cashFlowProfile || null}

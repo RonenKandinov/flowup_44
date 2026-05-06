@@ -42,7 +42,7 @@ const STATUS_META = {
     failed: { label: 'לא עובר', color: 'bg-red-500/15 text-red-300 border-red-500/30' }
 };
 
-export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights, cashFlowProfile }) {
+export default function DealRescuer({ onSimulate, onAnalysisComplete, baseMetrics, analysisInsights, cashFlowProfile }) {
     const [step, setStep] = useState('input'); // 'input' | 'analyzing' | 'result'
     const [loanAmount, setLoanAmount] = useState('');
     const [result, setResult] = useState(null);
@@ -177,9 +177,21 @@ export default function DealRescuer({ onSimulate, baseMetrics, analysisInsights,
                 if (cancelled) return;
                 if (res.data?.success && Array.isArray(res.data.justifications)) {
                     setJustifications(res.data.justifications);
+                    // Surface the full analysis bundle (rescue + justifications) to the parent
+                    // so it can autosave to the UnderwritingAnalysis entity.
+                    if (onAnalysisComplete) {
+                        onAnalysisComplete({
+                            rescueResult: result,
+                            creditJustifications: res.data.justifications
+                        });
+                    }
                 } else {
                     console.warn('generateCreditJustification: unexpected response', res?.data);
                     setJustificationsError(true);
+                    // Still surface rescue results even if justifications failed
+                    if (onAnalysisComplete) {
+                        onAnalysisComplete({ rescueResult: result, creditJustifications: [] });
+                    }
                 }
             } catch (e) {
                 console.error('generateCreditJustification failed:', e?.response?.data || e?.message || e);

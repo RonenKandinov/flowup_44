@@ -1,0 +1,149 @@
+{
+  "name": "UnderwritingAnalysis",
+  "type": "object",
+  "description": "Persistent record of an underwriting analysis (insights + rescue strategies + credit justifications). Structured intelligence is stored in plaintext for analytics/dashboards; narrative intelligence (AI-generated text) is stored AES-GCM encrypted in 'narrative_encrypted'. See functions/persistAnalysis.js for the encryption pipeline.",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "description": "Internal user id (base44 user.id) of the borrower the analysis was run for"
+    },
+    "user_email": {
+      "type": "string",
+      "description": "User email \u2014 denormalized for partner reporting"
+    },
+    "partner_id": {
+      "type": "string",
+      "description": "B2B partner id when the analysis was triggered via a partner flow; empty for direct/self-serve"
+    },
+    "snapshot_id": {
+      "type": "string",
+      "description": "Optional reference to the FinancialSnapshot id this analysis was based on"
+    },
+    "connection_id": {
+      "type": "string",
+      "description": "Optional reference to the OpenFinanceConnection id used as data source"
+    },
+    "model_version": {
+      "type": "string",
+      "default": "v1.0.0",
+      "description": "Version tag of the underwriting engine that produced this analysis (for reproducibility / model drift tracking)"
+    },
+    "analysis_hash": {
+      "type": "string",
+      "description": "Stable hash of the input metrics \u2014 used to dedupe identical re-runs"
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "generated",
+        "reviewed",
+        "approved",
+        "archived"
+      ],
+      "default": "generated",
+      "description": "Lifecycle state. 'generated' = engine output. 'reviewed' = analyst inspected. 'approved' = locked underwriting decision."
+    },
+    "score": {
+      "type": "number",
+      "description": "FlowUp underwriting score (0-100)"
+    },
+    "risk_tier": {
+      "type": "string",
+      "enum": [
+        "Green",
+        "Orange",
+        "Red"
+      ],
+      "description": "Categorical risk tier"
+    },
+    "approval_probability": {
+      "type": "number",
+      "description": "Probability of approval (0-1) computed by the engine"
+    },
+    "dsr": {
+      "type": "number",
+      "description": "Debt-Service Ratio at time of analysis (%)"
+    },
+    "dti": {
+      "type": "number",
+      "description": "Structural Debt-To-Income (%)"
+    },
+    "adjusted_dti": {
+      "type": "number",
+      "description": "DTI after discretionary belt-tightening (%)"
+    },
+    "liquidity_index": {
+      "type": "number",
+      "description": "Liquidity buffer in months of fixed expenses"
+    },
+    "income_volatility": {
+      "type": "number",
+      "description": "Coefficient of variation on monthly income (%)"
+    },
+    "total_income": {
+      "type": "number",
+      "description": "Avg monthly income (\u20aa)"
+    },
+    "total_expenses": {
+      "type": "number",
+      "description": "Avg monthly total expenses (\u20aa)"
+    },
+    "fixed_expenses": {
+      "type": "number",
+      "description": "Avg monthly fixed expenses (\u20aa)"
+    },
+    "liquid_assets": {
+      "type": "number",
+      "description": "Liquid assets at time of analysis (\u20aa)"
+    },
+    "behavioral_classification": {
+      "type": "string",
+      "description": "AI behavioral label (Stable / High Risk / etc.)"
+    },
+    "structured_metrics": {
+      "type": "object",
+      "description": "Raw structured insights metrics object (analytics-friendly, plaintext)"
+    },
+    "rescue_strategies_summary": {
+      "type": "array",
+      "description": "Compact list of rescue strategies (type/status/dsr/loanAmount/termMonths/interestRate). Narrative justification text is in narrative_encrypted.",
+      "items": {
+        "type": "object"
+      }
+    },
+    "xai_factors": {
+      "type": "object",
+      "description": "Engine XAI factors (positive/negative drivers) \u2014 plaintext, structured"
+    },
+    "risk_flags": {
+      "type": "array",
+      "description": "Structured risk flags identified by the engine",
+      "items": {
+        "type": "string"
+      }
+    },
+    "narrative_encrypted": {
+      "type": "string",
+      "description": "AES-GCM encrypted JSON containing AI narratives (executive_summary, recommendations, credit_justifications). Encrypted with SECURE_VAULT_SECRET. Format: {iv, ciphertext, authTag}"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Optional expiry timestamp for analyses that should auto-archive"
+    },
+    "reviewed_by": {
+      "type": "string",
+      "description": "Analyst email who reviewed/approved this analysis"
+    },
+    "reviewed_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "user_id",
+    "score",
+    "risk_tier"
+  ]
+}

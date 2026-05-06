@@ -201,10 +201,38 @@
  * ## גרסה
  * 
  * FlowUp v1.0.0
- * - Client-Side MVP
+ * - Hybrid Privacy Architecture (see "Privacy Model" below)
  * - Hybrid SES + Seasonal Average Engine
  * - 12% Standard Deviation Safety Buffer
  * - Multi-Bank Support (5 major Israeli banks)
+ * - Persistent Underwriting Analysis (UnderwritingAnalysis entity)
+ *
+ * ---
+ *
+ * ## Privacy Model (Updated)
+ *
+ * FlowUp evolved from a Local-First consumer MVP into B2B underwriting
+ * infrastructure. The privacy posture was updated accordingly:
+ *
+ * ### What is now persisted server-side
+ * - Structured underwriting intelligence — scores, tiers, DSR, DTI, flags,
+ *   XAI factors. Stored plaintext in the `UnderwritingAnalysis` entity to
+ *   power analytics, partner reporting, historical comparisons, and future ML.
+ * - Narrative intelligence — AI-generated executive summaries, recommendations,
+ *   credit justifications. Stored AES-GCM encrypted with `SECURE_VAULT_SECRET`
+ *   in the same entity (`narrative_encrypted` field).
+ * - OpenFinance transactions — sealed via the Millennium Protocol
+ *   (`ShadowRealmEntry` entity).
+ *
+ * ### What still stays client-side
+ * - Raw CSV uploads are parsed in the browser; only normalized data is sent up.
+ * - The What-If simulator runs entirely in the browser.
+ * - LocalStorage caches AI insights for fast re-render (mirrored from server).
+ *
+ * ### Marketing-safe positioning
+ * Use: "FlowUp uses a privacy-first architecture with encrypted financial
+ * intelligence, minimal data exposure, and secure underwriting infrastructure."
+ * Do NOT use: "Nothing leaves the browser" — that claim is no longer accurate.
  * 
  * ---
  * 
