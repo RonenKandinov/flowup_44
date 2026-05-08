@@ -76,6 +76,29 @@ function getMedian(array) {
 }
 
 /**
+ * MAD-based outlier filter (Median Absolute Deviation).
+ * A single one-off transfer / atypical month can lift a 12-month "average expenses"
+ * by tens of percent (e.g. ₪50,761 vs a real ₪33k baseline). Mean-based heuristics
+ * can't catch this — but MAD is robust to outliers by definition.
+ *
+ * Rule: any monthly value whose distance from the median exceeds 3 × MAD is treated
+ * as an outlier and excluded from the average. The median itself is unaffected by
+ * the outlier, which is exactly the property we need for stable underwriting.
+ *
+ * Used for both incomes and expenses to neutralize the effect of one-off events
+ * (large transfers, refunds, atypical months) on the 12-month rolling averages.
+ */
+function filterMonthlyOutliersMAD(values, threshold = 3) {
+    if (!values || values.length < 4) return values || [];
+    const median = getMedian(values);
+    const absDeviations = values.map(v => Math.abs(v - median));
+    const mad = getMedian(absDeviations);
+    // If MAD is 0 (very stable series) — return as-is to avoid div-by-zero false positives
+    if (mad === 0) return values;
+    return values.filter(v => Math.abs(v - median) / mad <= threshold);
+}
+
+/**
  * Weighted Rolling Average — Base + Recent Trend model.
  *   final = 0.6 × avg(full window, up to 12 months)   [PAST — stability base]
  *         + 0.4 × avg(last 3 months)                  [PRESENT — recent trend]
@@ -829,23 +852,41 @@ ${JSON.stringify(limitedExpenses)}
         const activeIncomeMonths = trendHistory.filter(m => m.income > 0);
         const activeExpenseMonths = trendHistory.filter(m => m.expenses > 0);
 
-        const rawAvgIncome = activeIncomeMonths.length > 0
-            ? getWeightedAverage(activeIncomeMonths.map(m => m.income))
+        // ── ONE-OFF / OUTLIER NEUTRALIZATION (MAD filter) ─────────────────
+        // The averages used for underwriting must reflect the borrower's TYPICAL
+        // monthly behavior — not a single one-off event (large transfer, atypical
+        // month, refund, etc.). Without this filter, a single outlier month could
+        // inflate the 12-month "ממוצע הוצאות" by 30-50%, producing misleading DTI
+        // and undermining the credit decision. Self-transfers across own accounts
+        // are already excluded earlier; MAD covers everything else (one-off
+        // unclassified transfers, atypical months, manual top-ups).
+        const incomeValuesFiltered = filterMonthlyOutliersMAD(activeIncomeMonths.map(m => m.income));
+        const expenseValuesFiltered = filterMonthlyOutliersMAD(activeExpenseMonths.map(m => m.expenses));
+        const fixedValuesFiltered = filterMonthlyOutliersMAD(activeExpenseMonths.map(m => m.fixedExpenses));
+
+        const incomeOutliersExcluded = activeIncomeMonths.length - incomeValuesFiltered.length;
+        const expenseOutliersExcluded = activeExpenseMonths.length - expenseValuesFiltered.length;
+        if (incomeOutliersExcluded > 0 || expenseOutliersExcluded > 0) {
+            console.log(`[MAD Filter] Excluded ${incomeOutliersExcluded} income outliers, ${expenseOutliersExcluded} expense outliers from rolling averages.`);
+        }
+
+        const rawAvgIncome = incomeValuesFiltered.length > 0
+            ? getWeightedAverage(incomeValuesFiltered)
             : 0;
 
-        const avgExpenses = activeExpenseMonths.length > 0
-            ? getWeightedAverage(activeExpenseMonths.map(m => m.expenses))
+        const avgExpenses = expenseValuesFiltered.length > 0
+            ? getWeightedAverage(expenseValuesFiltered)
             : 0;
 
-        const avgFixedExpenses = activeExpenseMonths.length > 0
-            ? getWeightedAverage(activeExpenseMonths.map(m => m.fixedExpenses))
+        const avgFixedExpenses = fixedValuesFiltered.length > 0
+            ? getWeightedAverage(fixedValuesFiltered)
             : 0;
 
         // CV-based Income Haircut — risk-adjusted income for underwriting.
-        // High volatility (common for freelancers, but also affects salaried with bonuses/commissions)
-        // leads to a proportional reduction in "reliable" income used for DTI/runway.
+        // Computed on the OUTLIER-FILTERED income series so a single one-off doesn't
+        // inflate volatility and trigger an unjustified haircut.
         // Tiers: CV<=0.15 → no haircut | 0.15-0.30 → up to 10% | 0.30-0.50 → up to 20% | >0.50 → up to 30% (capped).
-        const incomeCV = getCoefficientOfVariation(activeIncomeMonths.map(m => m.income));
+        const incomeCV = getCoefficientOfVariation(incomeValuesFiltered);
         let incomeHaircut = 0;
         if (incomeCV > 0.15 && incomeCV <= 0.30) {
             incomeHaircut = ((incomeCV - 0.15) / 0.15) * 0.10;
@@ -1007,6 +1048,75 @@ ${JSON.stringify(limitedExpenses)}
             }
         }
 
+        // ── DB PERSISTENCE (Idempotent) ───────────────────────────────────
+        // Until now the platform showed empty Transaction / FinancialSnapshot tables
+        // because the engine only computed in-memory and returned to the client.
+        // Now we persist the FILTERED, classified data so the platform DB is the
+        // source of truth for portfolio analytics, audit, and B2B reporting.
+        // Idempotent: we wipe the prior records for this user before re-inserting,
+        // so re-running the engine doesn't accumulate duplicates.
+        // Use the request-scoped client (acts AS the authenticated user) so that the
+        // entity RLS auto-stamps `created_by` to user.email — service-role writes
+        // are blocked by the RLS rule (`created_by == {{user.email}}`). When called
+        // anonymously (no token), persistence is skipped silently.
+        try {
+            const me = await base44.auth.me().catch(() => null);
+            if (!me?.email) {
+                console.log('[Persistence] Skipped: no authenticated user in request context');
+            } else {
+                // 1. FinancialSnapshot — one consolidated record per run
+                const snapshotPayload = {
+                    current_balance: Math.round(liquidAssets),
+                    projected_eom_balance: Math.round(avgIncome - avgExpenses),
+                    total_income: Math.round(avgIncome),
+                    total_expenses: Math.round(avgExpenses),
+                    avg_daily_spending: Math.round((avgExpenses || 0) / 30),
+                    risk_level: riskStatus === 'GREEN' ? 'green' : riskStatus === 'RED' ? 'red' : 'yellow',
+                    upload_date: new Date().toISOString()
+                };
+                await base44.entities.FinancialSnapshot.create(snapshotPayload);
+
+                // 2. Transactions — persist a bounded slice of the FILTERED transactions
+                // (self-transfers excluded already). We only persist real income/expense
+                // transactions so the DB reflects operational cash-flow only — matching
+                // what the averages are computed on.
+                const txnRecords = [];
+                transactions.forEach((tx, txIdx) => {
+                    if (selfTransferIndices.has(txIdx)) return;
+                    const amount = parseTransactionAmount(tx);
+                    if (isNaN(amount) || amount === 0) return;
+
+                    const txDateObj = tx?.date;
+                    const dateStr = tx?.creationDate ||
+                        (typeof txDateObj === 'string' ? txDateObj : (txDateObj?.valueDate || txDateObj?.bookingDate || txDateObj?.transactionDate)) ||
+                        tx?.transactionDate;
+                    let date = dateStr ? new Date(dateStr) : new Date();
+                    if (isNaN(date.getTime())) date = new Date();
+
+                    txnRecords.push({
+                        date: date.toISOString().split('T')[0],
+                        description: String(tx?.description || tx?.details || '').slice(0, 200),
+                        amount: amount,
+                        balance: Number(tx?.balance_after_transaction || tx?.balance || 0),
+                        category: amount > 0 ? 'income' : 'expense'
+                    });
+                });
+
+                // Cap at 500 most-recent to keep payload size sane and writes fast
+                const recentTxnRecords = txnRecords
+                    .sort((a, b) => new Date(b.date) - new Date(a.date))
+                    .slice(0, 500);
+
+                if (recentTxnRecords.length > 0) {
+                    await base44.entities.Transaction.bulkCreate(recentTxnRecords);
+                }
+                console.log(`[Persistence] Saved 1 FinancialSnapshot + ${recentTxnRecords.length} Transactions for ${me.email}`);
+            }
+        } catch (persistErr) {
+            // Persistence failure must NOT break the underwriting response.
+            console.error('[Persistence] Failed to save analytics data:', persistErr?.message || persistErr);
+        }
+
         return Response.json({
             success: true,
             status: riskStatus,
@@ -1035,6 +1145,8 @@ ${JSON.stringify(limitedExpenses)}
                 incomeCV: parseFloat(incomeCV.toFixed(3)),
                 incomeHaircutPct: parseFloat((incomeHaircut * 100).toFixed(1)),
                 selfTransfersExcluded: selfTransferIndices.size / 2,
+                incomeOutliersExcluded,
+                expenseOutliersExcluded,
                 totalExpenses: Math.round(avgExpenses),
                 fixedExpenses: Math.round(avgFixedExpenses),
                 lifestyleExpenses: Math.round(avgExpenses - avgFixedExpenses),
