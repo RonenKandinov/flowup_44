@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle, Plus, FileSpreadsheet, ShieldAlert, Settings, Building2 } from 'lucide-react';
+import { Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle, Plus, FileSpreadsheet, ShieldAlert, Settings, Building2, Briefcase } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -821,6 +821,17 @@ export default function Dashboard() {
             >
               <Plus className="w-3 h-3 ml-1.5" />
               <span className="text-[11px] font-medium">חבר חשבון בנק</span>
+            </Button>
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="bg-cyan-600/20 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-600/40 hover:text-white hover:border-cyan-400/60 transition-all h-8 px-3 rounded-md shadow-sm shadow-cyan-500/10"
+            >
+              <Link to="/B2BSuite">
+                <Briefcase className="w-3 h-3 ml-1.5" />
+                <span className="text-[11px] font-medium">B2B Suite</span>
+              </Link>
             </Button>
               <DropdownMenu dir="rtl">
                 <DropdownMenuTrigger asChild>

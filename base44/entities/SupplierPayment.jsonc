@@ -1,0 +1,60 @@
+{
+  "name": "SupplierPayment",
+  "type": "object",
+  "description": "Supplier invoice / payable \u2014 used by Supplier Finance and Treasury modules. Tracks payables, early-payment discounts, and scheduled disbursements.",
+  "properties": {
+    "supplier_name": {
+      "type": "string"
+    },
+    "supplier_tax_id": {
+      "type": "string"
+    },
+    "invoice_number": {
+      "type": "string"
+    },
+    "amount": {
+      "type": "number",
+      "description": "\u05e1\u05db\u05d5\u05dd \u05dc\u05ea\u05e9\u05dc\u05d5\u05dd (\u20aa)"
+    },
+    "currency": {
+      "type": "string",
+      "default": "ILS"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "early_payment_discount_pct": {
+      "type": "number",
+      "description": "% \u05d4\u05e0\u05d7\u05d4 \u05d1\u05e2\u05d1\u05d5\u05e8 \u05ea\u05e9\u05dc\u05d5\u05dd \u05de\u05d5\u05e7\u05d3\u05dd"
+    },
+    "early_payment_deadline": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "scheduled",
+        "early_paid",
+        "paid",
+        "overdue"
+      ],
+      "default": "pending"
+    },
+    "paid_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "category": {
+      "type": "string",
+      "description": "\u05e7\u05d8\u05d2\u05d5\u05e8\u05d9\u05d9\u05ea \u05d4\u05d5\u05e6\u05d0\u05d4 (\u05d7\u05d5\u05de\u05e8\u05d9 \u05d2\u05dc\u05dd, \u05e9\u05d9\u05e8\u05d5\u05ea\u05d9\u05dd \u05d5\u05db\u05d5')"
+    }
+  },
+  "required": [
+    "supplier_name",
+    "amount",
+    "due_date"
+  ]
+}

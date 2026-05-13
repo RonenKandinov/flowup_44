@@ -51,6 +51,7 @@ import Dashboard from './pages/Dashboard';
 import Home from './pages/Home';
 import AuditLogs from './pages/AuditLogs';
 import UnderwritingSettings from './pages/UnderwritingSettings';
+import B2BSuite from './pages/B2BSuite';
 import __Layout from './Layout.jsx';
 
 
@@ -59,6 +60,7 @@ export const PAGES = {
     "Home": Home,
     "AuditLogs": AuditLogs,
     "UnderwritingSettings": UnderwritingSettings,
+    "B2BSuite": B2BSuite,
 }
 
 export const pagesConfig = {

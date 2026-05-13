@@ -1,0 +1,77 @@
+{
+  "name": "Invoice",
+  "type": "object",
+  "description": "B2B invoice \u2014 used by Factoring and Collections modules. Captures the invoice itself plus its payment lifecycle. Open Finance transaction matching reconciles paid status automatically.",
+  "properties": {
+    "invoice_number": {
+      "type": "string",
+      "description": "\u05de\u05e1\u05e4\u05e8 \u05d7\u05e9\u05d1\u05d5\u05e0\u05d9\u05ea"
+    },
+    "debtor_name": {
+      "type": "string",
+      "description": "\u05e9\u05dd \u05d4\u05d7\u05d9\u05d9\u05d1 / \u05dc\u05e7\u05d5\u05d7"
+    },
+    "debtor_tax_id": {
+      "type": "string",
+      "description": "\u05d7.\u05e4. / \u05e2.\u05de. \u05e9\u05dc \u05d4\u05d7\u05d9\u05d9\u05d1"
+    },
+    "issue_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "amount": {
+      "type": "number",
+      "description": "\u05e1\u05db\u05d5\u05dd \u05d4\u05d7\u05e9\u05d1\u05d5\u05e0\u05d9\u05ea (\u20aa)"
+    },
+    "currency": {
+      "type": "string",
+      "default": "ILS"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "issued",
+        "factored",
+        "paid",
+        "overdue",
+        "in_collections",
+        "written_off"
+      ],
+      "default": "issued"
+    },
+    "factoring_advance_rate": {
+      "type": "number",
+      "description": "\u05d0\u05d7\u05d5\u05d6 \u05d4\u05de\u05e7\u05d3\u05de\u05d4 \u05d1\u05e0\u05d9\u05db\u05d9\u05d5\u05df (\u05dc\u05e8\u05d5\u05d1 70-90%)"
+    },
+    "factoring_fee_rate": {
+      "type": "number",
+      "description": "\u05d0\u05d7\u05d5\u05d6 \u05e2\u05de\u05dc\u05ea \u05d4\u05e0\u05d9\u05db\u05d9\u05d5\u05df"
+    },
+    "factored_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "paid_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "risk_score": {
+      "type": "number",
+      "description": "\u05e6\u05d9\u05d5\u05df \u05e1\u05d9\u05db\u05d5\u05df \u05e9\u05dc \u05d4\u05d7\u05d9\u05d9\u05d1 (0-100)"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "invoice_number",
+    "debtor_name",
+    "amount",
+    "due_date"
+  ]
+}
