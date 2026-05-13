@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle, Plus, FileSpreadsheet, ShieldAlert, Settings, Building2 } from 'lucide-react';
+import { Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle, Plus, FileSpreadsheet, ShieldAlert, Settings, Building2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -21,7 +21,6 @@ import EmptyState from '../components/dashboard/EmptyState';
 import Disclaimer from '../components/dashboard/Disclaimer';
 import OpenFinanceConnect from '../components/connect/OpenFinanceConnect';
 
-const CSVUploader = lazy(() => import('../components/upload/CSVUploader'));
 import { useTransactionSync } from '../components/hooks/useTransactionSync';
 import { useLoanMetrics } from '../components/hooks/useLoanMetrics';
 import { useAnalysisPersistence } from '../components/hooks/useAnalysisPersistence';
@@ -80,7 +79,6 @@ function generateLocalInsights(metrics) {
 }
 
 export default function Dashboard() {
-  const [showUploader, setShowUploader] = useState(false);
   const [showOpenFinance, setShowOpenFinance] = useState(false);
   const [whatIfAmount, setWhatIfAmount] = useState(0);
   const [whatIfName, setWhatIfName] = useState('');
@@ -910,7 +908,7 @@ export default function Dashboard() {
                 <div className="h-72 bg-slate-800/50 rounded-2xl mt-8" />
              </div>
           ) : (!loanMetricsError && !hasData) ? (
-            <EmptyState onDataParsed={handleDataParsed} onUploadCSV={() => setShowUploader(true)} />
+            <EmptyState onDataParsed={handleDataParsed} />
           ) : (!loanMetricsError && (
             <>
               {/* Stats Row — generous spacing on all breakpoints */}
@@ -1010,16 +1008,8 @@ export default function Dashboard() {
 
 
 
-      {/* Upload/Connect Modal */}
+      {/* Connect Modal */}
       <AnimatePresence>
-        {showUploader && (
-          <Suspense fallback={<div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center"><div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" /></div>}>
-            <CSVUploader
-              onDataParsed={handleDataParsed}
-              onClose={() => setShowUploader(false)}
-            />
-          </Suspense>
-        )}
         {showOpenFinance && (
           <motion.div
             initial={{ opacity: 0 }}
