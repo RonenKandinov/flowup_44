@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/AuthContext';
-import { ShieldCheck, Cpu, Sparkles, ArrowLeft, LogIn, TrendingUp, Lock } from 'lucide-react';
+import { ShieldCheck, Cpu, Sparkles, ArrowLeft, LogIn, TrendingUp, Lock } from 'lucide-react'; // eslint-disable-line no-unused-vars
 
 const FEATURES = [
     {
@@ -13,8 +13,8 @@ const FEATURES = [
     },
     {
         icon: ShieldCheck,
-        title: 'אבטחה ברמת בנק',
-        text: 'הצפנת AES-GCM, ארכיטקטורת Local-First, ושמירת נתונים פיננסיים בכספת מאובטחת בלבד.',
+        title: 'אבטחה ופרטיות מובנית',
+        text: 'הצפנת נתונים מתקדמת, הרשאות גישה מבוקרות וניהול מידע פיננסי מאובטח.',
         accent: 'emerald'
     },
     {
@@ -23,12 +23,6 @@ const FEATURES = [
         text: 'ניכיון חשבוניות, מימון ספקים, ניהול הון חוזר, אוצר וגבייה חכמה — הכל ממקום אחד.',
         accent: 'amber'
     }
-];
-
-const STATS = [
-    { label: 'דיוק חיתום', value: '94%', icon: TrendingUp },
-    { label: 'זמן ניתוח', value: '< 30s', icon: Cpu },
-    { label: 'הצפנה', value: 'AES-256', icon: Lock }
 ];
 
 const ACCENT_RING = {
@@ -129,27 +123,8 @@ export default function Landing() {
                         </p>
                     </motion.div>
 
-                    {/* Stats strip */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 16 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.2 }}
-                        className="mt-20 grid grid-cols-3 gap-3 max-w-2xl mx-auto"
-                    >
-                        {STATS.map((s) => (
-                            <div
-                                key={s.label}
-                                className="rounded-xl border border-cyan-500/20 bg-gradient-to-b from-slate-900/80 to-slate-950/80 backdrop-blur-sm p-4 text-center"
-                            >
-                                <s.icon className="w-4 h-4 text-cyan-400 mx-auto mb-2" />
-                                <div className="text-xl font-bold text-white">{s.value}</div>
-                                <div className="text-[10px] text-slate-400 tracking-wider uppercase mt-1">{s.label}</div>
-                            </div>
-                        ))}
-                    </motion.div>
-
                     {/* Features */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-16">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-20">
                         {FEATURES.map((f, i) => (
                             <motion.div
                                 key={f.title}
