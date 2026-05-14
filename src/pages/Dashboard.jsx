@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle, Plus, FileSpreadsheet, ShieldAlert, Settings, Building2, Briefcase } from 'lucide-react';
+import { Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle, Plus, FileSpreadsheet, ShieldAlert, Settings, Building2, Briefcase, Home as HomeIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -845,6 +845,13 @@ export default function Dashboard() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48 bg-slate-900 border-slate-800 text-slate-200">
+                  <DropdownMenuItem asChild className="cursor-pointer hover:bg-slate-800 focus:bg-slate-800 text-xs">
+                    <Link to="/" className="flex items-center w-full">
+                      <HomeIcon className="w-3 h-3 ml-2" />
+                      דף הבית
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-slate-800" />
                   <DropdownMenuItem asChild className="cursor-pointer hover:bg-slate-800 focus:bg-slate-800 text-xs">
                     <Link to="/UnderwritingSettings" className="flex items-center w-full">
                       <Settings className="w-3 h-3 ml-2" />
