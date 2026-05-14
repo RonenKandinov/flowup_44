@@ -10,6 +10,8 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import B2BConnect from './pages/B2BConnect';
 import PartnersAdmin from './pages/PartnersAdmin';
 import DevelopersPortal from './pages/DevelopersPortal';
+import Landing from './pages/Landing';
+import RequireAuth from './components/RequireAuth';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -35,35 +37,44 @@ const AuthenticatedApp = () => {
   if (authError) {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
-    } else if (authError.type === 'auth_required') {
-      // Redirect to login automatically
-      navigateToLogin();
-      return null;
     }
+    // Note: 'auth_required' is now handled by the Landing page (public),
+    // so we don't auto-redirect anymore. Users click "Login" on the landing page.
   }
 
   // Render the main app
   return (
     <Routes>
-      <Route path="/" element={
-        <LayoutWrapper currentPageName={mainPageKey}>
-          <MainPage />
-        </LayoutWrapper>
-      } />
+      {/* Public Landing — homepage everyone sees */}
+      <Route path="/" element={<Landing />} />
+
+      {/* All configured pages — protected behind login */}
       {Object.entries(Pages).map(([path, Page]) => (
         <Route
           key={path}
           path={`/${path}`}
           element={
-            <LayoutWrapper currentPageName={path}>
-              <Page />
-            </LayoutWrapper>
+            <RequireAuth>
+              <LayoutWrapper currentPageName={path}>
+                <Page />
+              </LayoutWrapper>
+            </RequireAuth>
           }
         />
       ))}
+
+      {/* Other explicit routes */}
       <Route path="/b2b-connect" element={<B2BConnect />} />
-      <Route path="/partners-admin" element={<LayoutWrapper currentPageName="partners-admin"><PartnersAdmin /></LayoutWrapper>} />
-      <Route path="/developers" element={<LayoutWrapper currentPageName="developers"><DevelopersPortal /></LayoutWrapper>} />
+      <Route path="/partners-admin" element={
+        <RequireAuth>
+          <LayoutWrapper currentPageName="partners-admin"><PartnersAdmin /></LayoutWrapper>
+        </RequireAuth>
+      } />
+      <Route path="/developers" element={
+        <RequireAuth>
+          <LayoutWrapper currentPageName="developers"><DevelopersPortal /></LayoutWrapper>
+        </RequireAuth>
+      } />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );
