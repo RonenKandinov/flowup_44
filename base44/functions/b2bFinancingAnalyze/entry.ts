@@ -169,6 +169,42 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ─────────────────────────────────────────────────────────────────────
+    // UNIVERSAL CAPACITY GATE — single source of truth across ALL products.
+    // The B2B customer IS the same account the user sees on the Dashboard.
+    // No product can approve more than what the real account cash flow supports,
+    // regardless of product-specific signals (MRR, buyer history, settlements).
+    // working_capital already enforces this internally; we re-apply globally to
+    // catch the other products (PO / RBF / MCA / Reverse Factoring).
+    // ─────────────────────────────────────────────────────────────────────
+    if (metrics && status !== 'rejected') {
+      const monthlyNet = Math.max(0, (metrics.totalIncome || 0) - (metrics.totalExpenses || 0));
+      const liquid = Math.max(0, metrics.liquidAssets || 0);
+      const accountCapacityCap = Math.max(monthlyNet * 3, liquid * 2);
+
+      extra.account_monthly_net = Math.round(monthlyNet);
+      extra.account_capacity_cap = Math.round(accountCapacityCap);
+      extra.account_income = Math.round(metrics.totalIncome || 0);
+      extra.account_expenses = Math.round(metrics.totalExpenses || 0);
+
+      if (accountCapacityCap < 1000) {
+        status = 'rejected';
+        maxAmount = 0;
+        rate = 0;
+        reason = `תזרים החשבון שלילי או אפסי (הכנסות ₪${Math.round(metrics.totalIncome).toLocaleString()} מול הוצאות ₪${Math.round(metrics.totalExpenses).toLocaleString()}) — לא ניתן לאשר מימון על חשבון זה.`;
+      } else if (maxAmount > accountCapacityCap) {
+        const original = Math.round(maxAmount);
+        maxAmount = accountCapacityCap;
+        status = status === 'approved' ? 'adjusted' : status;
+        reason = `${reason} | הותאם ליכולת החשבון: סכום מקורי ₪${original.toLocaleString()} → אושר ₪${Math.round(maxAmount).toLocaleString()} (תקרה לפי תזרים חודשי נטו ונכסים נזילים).`;
+      }
+    } else if (!metrics) {
+      // No account connected — cannot underwrite at all.
+      status = 'review';
+      maxAmount = 0;
+      reason = reason || 'אין נתוני חשבון (Open Finance) — חיתום דורש חיבור חשבון פעיל.';
+    }
+
     return Response.json({
       success: true,
       decision: {
