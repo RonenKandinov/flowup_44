@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Briefcase, FileText, Truck, Droplets, Landmark, Cpu, PhoneCall, ArrowRight, ScanLine, Banknote } from 'lucide-react';
+import { Briefcase, FileText, Droplets, Cpu, PhoneCall, ArrowRight, ScanLine, Banknote } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 
 import FactoringTab from '../components/b2b/FactoringTab';
-import SupplierFinanceTab from '../components/b2b/SupplierFinanceTab';
 import WorkingCapitalTab from '../components/b2b/WorkingCapitalTab';
-import TreasuryTab from '../components/b2b/TreasuryTab';
 import UnderwritingInfraTab from '../components/b2b/UnderwritingInfraTab';
 import CollectionsTab from '../components/b2b/CollectionsTab';
 import CheckDiscountTab from '../components/b2b/CheckDiscountTab';
@@ -19,8 +17,6 @@ const TABS = [
     { id: 'financing', label: 'מימון עסקי', icon: Banknote, Component: B2BFinancingTab },
     { id: 'working_capital', label: 'הון חוזר', icon: Droplets, Component: WorkingCapitalTab },
     { id: 'factoring', label: 'ניכיון חשבוניות', icon: FileText, Component: FactoringTab },
-    { id: 'supplier_finance', label: 'מימון ספקים', icon: Truck, Component: SupplierFinanceTab },
-    { id: 'treasury', label: 'אוצר', icon: Landmark, Component: TreasuryTab },
     { id: 'underwriting', label: 'תשתית חיתום', icon: Cpu, Component: UnderwritingInfraTab },
     { id: 'collections', label: 'גבייה חכמה', icon: PhoneCall, Component: CollectionsTab }
 ];
