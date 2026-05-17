@@ -43,7 +43,23 @@
  * }
  *
  * ============================================================================
- * # 3. Response contract (unified envelope)
+ * # 3. Pipeline (v1.1 — wired to real engines)
+ * ============================================================================
+ *
+ *   Step 1: loanLogicV2       → ground-truth financial metrics (Open Finance)
+ *   Step 2: insightEngine     → behavioral insights, false-negative, narrative
+ *   Step 3: <product analyzer>→ product-specific underwriting (receives metrics)
+ *   Step 4: <fallback analyzer if primary rejected>
+ *   Step 5: dealRescuerEngine → Approval Optimization (when not auto-approved)
+ *   Step 6: persistAnalysis   → UnderwritingAnalysis (hybrid encryption)
+ *   Step 7: <product entity>  → CheckDiscountRequest | B2BFinancingRequest
+ *   Step 8: AuditLog          → ORCHESTRATION_DECISION
+ *
+ * The orchestrator does NOT invent rules — every metric, score, tier, rescue
+ * strategy comes from the dedicated engine. The orchestrator only routes data.
+ *
+ * ============================================================================
+ * # 3b. Response contract (unified envelope)
  * ============================================================================
  *
  * {
@@ -52,23 +68,46 @@
  *     "product": "check_discount",
  *     "status": "approved" | "rejected" | "review" | "adjusted",
  *     "reason": "...",
- *     "rate": 2.5,                    // % — analyzer-specific
- *     "max_amount": 50000,            // ₪ — analyzer-specific
+ *     "rate": 2.5,
+ *     "max_amount": 50000,
  *     "metrics": { dti, liquidity_months, ... },
- *     "third_party_history": { ... }, // only for check_discount
- *     "product_specific": { ... }     // analyzer-specific extras
+ *     "third_party_history": { ... },
+ *     "product_specific": { ... }
  *   },
- *   "fallback": null | {              // populated only if fallback was triggered
- *     "product": "factoring",
- *     "decision": { ...same envelope as decision... }
+ *   "fallback": null | { "product": "...", "decision": { ... } },
+ *   "financial_context": {            // from loanLogicV2
+ *     "score": 78, "status": "GREEN",
+ *     "dti": 32, "total_income": 45000, "total_expenses": 28000,
+ *     "liquid_assets": 120000, "runway_months": 4.2,
+ *     "trends": { ... }, "is_clean_12_months": false
  *   },
- *   "persisted_id": "abc123" | null,
+ *   "behavioral_insights": {          // from insightEngine.analysisInsights
+ *     "isFalseNegative": false, "incomeTrend": "stable",
+ *     "anomalyDetected": false, "liquidityMonths": 4.2,
+ *     "behavioralScore": 0.62, "keyInsights": [...]
+ *   },
+ *   "rescue": {                       // from dealRescuerEngine (null if approved)
+ *     "strategies": [...],
+ *     "aggressive_product": { ... } | null,
+ *     "fallback": { ... } | null,
+ *     "before": { ... }, "after": { ... },
+ *     "xai_factors": { positive: [...], negative: [...] },
+ *     "credit_tier": "B",
+ *     "explanation": "..."
+ *   },
+ *   "analysis_id": "abc123" | null,   // UnderwritingAnalysis.id
+ *   "persisted_id": "xyz789" | null,  // product entity id
  *   "meta": {
- *     "orchestrator_version": "v1.0.0",
+ *     "orchestrator_version": "v1.1.0",
  *     "product": "check_discount",
  *     "analyzer": "checkDiscountAnalyze",
  *     "layer": "decisioning",
- *     "duration_ms": 1234
+ *     "duration_ms": 1234,
+ *     "steps_executed": {
+ *       "loan_logic": true, "insights": true, "analyzer": true,
+ *       "fallback": false, "rescue": false,
+ *       "persist_analysis": true, "persist_product": true
+ *     }
  *   }
  * }
  *

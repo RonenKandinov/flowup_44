@@ -5,19 +5,29 @@
 // This is the **Decision Orchestration Layer** described in B2B_MODULES.md §2.
 // It is the ONLY function the frontend should call for credit decisions.
 //
-// Responsibilities:
-//   1. Product Matching   — validates the product_type + required context
-//   2. Routing            — dispatches to the right specialized analyzer
-//   3. Approvals          — interprets analyzer output into a unified envelope
-//   4. Fallback Logic     — when primary product fails, tries alternative
-//   5. Persistence        — writes UnderwritingAnalysis (when applicable)
+// ─── Core principle (CTO directive 2026-05-17) ─────────────────────────────────
+// The orchestrator does NOT invent rules. It is a CONDUCTOR that runs the
+// real engines in the right order and passes their outputs to each other:
 //
-// Why this exists:
-//   Before this layer, frontend tabs (CheckDiscountTab, B2BFinancingTab) called
-//   `checkDiscountAnalyze` / `b2bFinancingAnalyze` directly. Each tab had its own
-//   error handling, persistence logic, and response parsing — meaning a change
-//   in one analyzer required updates across multiple components. This layer
-//   normalizes the contract.
+//   1. loanLogicV2      → ground truth: financial metrics, score, risk tier
+//                          (income/expenses/DTI/liquidity from Open Finance)
+//   2. insightEngine    → behavioral analysis, false-negative detection,
+//                          policy explanations, narrative
+//   3. Product analyzer → product-specific underwriting
+//                          (checkDiscountAnalyze | b2bFinancingAnalyze)
+//      ↑ receives the loanLogic metrics so it doesn't recompute them
+//   4. dealRescuerEngine → Approval Optimization — alternative structures
+//                          when primary rejected, or for upsell on approved
+//   5. persistAnalysis  → save UnderwritingAnalysis (hybrid encryption)
+//   6. AuditLog         → trail
+//
+// Responsibilities (NOT inventing logic, just orchestrating):
+//   • Product Matching   — validates the product_type + required context
+//   • Routing            — dispatches to the right specialized analyzer
+//   • Enrichment         — passes loanLogic output downstream
+//   • Approval Optimization — invokes dealRescuer for non-approved cases
+//   • Persistence        — writes UnderwritingAnalysis + product entity
+//   • Audit              — every decision logged
 //
 // Contract: see components/docs/ORCHESTRATION_CONTRACT.md
 //
@@ -32,7 +42,8 @@ const PRODUCT_REGISTRY = {
     analyzer: 'checkDiscountAnalyze',
     required: ['amount', 'due_date'],
     optional: ['third_party_tax_id', 'third_party_name', 'check_image_url', 'check_number'],
-    persistEntity: 'CheckDiscountRequest'
+    persistEntity: 'CheckDiscountRequest',
+    requestedAmountField: 'amount'
   },
   working_capital: {
     layer: 'decisioning',
@@ -41,7 +52,8 @@ const PRODUCT_REGISTRY = {
     required: ['requested_amount'],
     optional: ['term_months'],
     persistEntity: 'B2BFinancingRequest',
-    fallback: 'factoring'
+    fallback: 'factoring',
+    requestedAmountField: 'requested_amount'
   },
   factoring: {
     layer: 'decisioning',
@@ -49,7 +61,8 @@ const PRODUCT_REGISTRY = {
     productType: 'reverse_factoring',
     required: ['requested_amount'],
     optional: ['term_months', 'counterparty_tax_id'],
-    persistEntity: 'B2BFinancingRequest'
+    persistEntity: 'B2BFinancingRequest',
+    requestedAmountField: 'requested_amount'
   },
   reverse_factoring: {
     layer: 'decisioning',
@@ -57,7 +70,8 @@ const PRODUCT_REGISTRY = {
     productType: 'reverse_factoring',
     required: ['requested_amount'],
     optional: ['term_months', 'counterparty_tax_id'],
-    persistEntity: 'B2BFinancingRequest'
+    persistEntity: 'B2BFinancingRequest',
+    requestedAmountField: 'requested_amount'
   },
   rbf: {
     layer: 'decisioning',
@@ -65,7 +79,8 @@ const PRODUCT_REGISTRY = {
     productType: 'revenue_based_financing',
     required: ['requested_amount'],
     optional: ['target_mrr'],
-    persistEntity: 'B2BFinancingRequest'
+    persistEntity: 'B2BFinancingRequest',
+    requestedAmountField: 'requested_amount'
   },
   po_financing: {
     layer: 'decisioning',
@@ -73,7 +88,8 @@ const PRODUCT_REGISTRY = {
     productType: 'purchase_order_financing',
     required: ['requested_amount'],
     optional: ['po_number', 'buyer_name'],
-    persistEntity: 'B2BFinancingRequest'
+    persistEntity: 'B2BFinancingRequest',
+    requestedAmountField: 'requested_amount'
   },
   mca: {
     layer: 'decisioning',
@@ -81,7 +97,8 @@ const PRODUCT_REGISTRY = {
     productType: 'merchant_cash_advance',
     required: ['requested_amount'],
     optional: ['acquirer_name'],
-    persistEntity: 'B2BFinancingRequest'
+    persistEntity: 'B2BFinancingRequest',
+    requestedAmountField: 'requested_amount'
   }
 };
 
@@ -109,13 +126,17 @@ function validateRequest({ product, context }) {
 }
 
 // ─── Build the analyzer payload (each analyzer expects a different shape) ────
-function buildAnalyzerPayload(product, spec, context) {
+// IMPORTANT: we forward the loanLogic metrics so the analyzer does NOT recompute
+// them. This is the central rule — one source of truth for financial metrics.
+function buildAnalyzerPayload(product, spec, context, loanMetrics) {
   if (spec.analyzer === 'checkDiscountAnalyze') {
     return {
       amount: Number(context.amount),
       due_date: context.due_date,
       third_party_tax_id: context.third_party_tax_id || '',
-      third_party_name: context.third_party_name || ''
+      third_party_name: context.third_party_name || '',
+      // forwarded financial context (analyzer can use or ignore)
+      loan_metrics: loanMetrics || null
     };
   }
   if (spec.analyzer === 'b2bFinancingAnalyze') {
@@ -129,7 +150,9 @@ function buildAnalyzerPayload(product, spec, context) {
         buyer_name: context.buyer_name,
         target_mrr: context.target_mrr,
         acquirer_name: context.acquirer_name
-      }
+      },
+      // forwarded financial context (analyzer can use or ignore)
+      loan_metrics: loanMetrics || null
     };
   }
   return context;
@@ -151,8 +174,95 @@ function normalizeDecision(product, analyzerResponse) {
   };
 }
 
-// ─── Persist the request record (idempotent — caller-driven, fire-and-forget) ─
-async function persistRequest({ base44, user, product, spec, context, decision }) {
+// ─── Step 1: Get ground-truth financial metrics from loanLogicV2 ──────────────
+async function runLoanLogic(base44, user) {
+  try {
+    const r = await base44.functions.invoke('loanLogicV2', { userId: user.id });
+    const data = r?.data || r;
+    if (data?.success === false) {
+      console.warn('[orchestration] loanLogicV2 returned failure:', data?.error);
+      return null;
+    }
+    return data || null;
+  } catch (err) {
+    console.error('[orchestration] loanLogicV2 invocation failed:', err.message);
+    return null;
+  }
+}
+
+// ─── Step 2: Get behavioral insights from insightEngine ───────────────────────
+async function runInsightEngine(base44, loanLogicOutput) {
+  if (!loanLogicOutput?.metrics) return null;
+  try {
+    const r = await base44.functions.invoke('insightEngine', { metrics: loanLogicOutput.metrics });
+    const data = r?.data || r;
+    if (data?.success === false) {
+      console.warn('[orchestration] insightEngine returned failure:', data?.error);
+      return null;
+    }
+    return data || null;
+  } catch (err) {
+    console.error('[orchestration] insightEngine invocation failed:', err.message);
+    return null;
+  }
+}
+
+// ─── Step 3 (Approval Optimization): Get rescue strategies from dealRescuer ──
+// Run when:
+//   • decision is rejected/review/adjusted (find alternative structure)
+//   • OR caller explicitly requested rescue (e.g., upsell on approved)
+async function runDealRescuer(base44, { spec, context, loanMetrics, insightsData, decisionStatus, options }) {
+  const shouldRun = options.runRescue === true
+    || (options.runRescue !== false && ['rejected', 'review', 'adjusted'].includes(decisionStatus));
+  if (!shouldRun) return null;
+
+  const requestedAmount = Number(context[spec.requestedAmountField] || 0);
+  if (!requestedAmount || requestedAmount <= 0) return null;
+  if (!loanMetrics) return null;
+
+  const income = Number(loanMetrics.totalIncome || 0);
+  if (income <= 0) return null;
+
+  try {
+    const r = await base44.functions.invoke('dealRescuerEngine', {
+      income,
+      existingDebtPayments: 0, // analyzer doesn't expose this; rescuer uses estimatedExpenses fallback
+      requestedLoanAmount: requestedAmount,
+      requestedTermMonths: Number(context.term_months || 48),
+      baseInterestRate: 0.09,
+      score: Number(loanMetrics.score || 0),
+      currentStatus: decisionStatus,
+      analysisInsights: insightsData?.analysisInsights || null
+    });
+    const data = r?.data || r;
+    return data || null;
+  } catch (err) {
+    console.error('[orchestration] dealRescuerEngine invocation failed:', err.message);
+    return null;
+  }
+}
+
+// ─── Step 4: Persist to UnderwritingAnalysis (hybrid encryption) ─────────────
+async function persistUnderwritingAnalysis(base44, { loanLogicOutput, insightsData, rescueResult }) {
+  if (!loanLogicOutput || !insightsData) return null;
+  try {
+    const r = await base44.functions.invoke('persistAnalysis', {
+      action: 'save',
+      insights: insightsData?.insights || insightsData,
+      loanMetrics: loanLogicOutput.metrics,
+      rescueResult: rescueResult || null,
+      creditJustifications: []
+    });
+    const data = r?.data || r;
+    return data?.id || null;
+  } catch (err) {
+    console.error('[orchestration] persistAnalysis failed (non-blocking):', err.message);
+    return null;
+  }
+}
+
+// ─── Step 5: Persist the product request record ──────────────────────────────
+async function persistProductRequest({ base44, user, spec, context, decision }) {
   try {
     if (spec.persistEntity === 'CheckDiscountRequest') {
       return await base44.entities.CheckDiscountRequest.create({
@@ -183,13 +293,13 @@ async function persistRequest({ base44, user, product, spec, context, decision }
       });
     }
   } catch (err) {
-    console.error('[orchestration] Persist failed (non-blocking):', err?.message);
+    console.error('[orchestration] Product persist failed (non-blocking):', err?.message);
   }
   return null;
 }
 
 // ─── Audit logging (non-blocking) ─────────────────────────────────────────────
-async function audit({ base44, user, product, decision, fallbackUsed, durationMs, error }) {
+async function audit({ base44, user, product, decision, fallbackUsed, rescueRan, durationMs, error }) {
   try {
     await base44.asServiceRole.entities.AuditLog.create({
       action: 'ORCHESTRATION_DECISION',
@@ -198,6 +308,7 @@ async function audit({ base44, user, product, decision, fallbackUsed, durationMs
         product,
         status: decision?.status || 'error',
         fallback_used: !!fallbackUsed,
+        rescue_ran: !!rescueRan,
         duration_ms: durationMs,
         error: error || null
       },
@@ -225,8 +336,21 @@ Deno.serve(async (req) => {
     }
     const spec = validation.spec;
 
-    // ── 2. Routing — invoke the specialized analyzer ──
-    const analyzerPayload = buildAnalyzerPayload(product, spec, context);
+    // ── 2. GROUND TRUTH — loanLogicV2 (single source of financial metrics) ──
+    // Skip when caller explicitly opts out (e.g., integration tests, deterministic runs).
+    const loanLogicOutput = options.skipLoanLogic === true
+      ? null
+      : await runLoanLogic(base44, user);
+    const loanMetrics = loanLogicOutput?.metrics || null;
+
+    // ── 3. BEHAVIORAL — insightEngine (false-negative, narrative, policy) ──
+    const insightsData = options.skipInsights === true
+      ? null
+      : await runInsightEngine(base44, loanLogicOutput);
+
+    // ── 4. PRODUCT ROUTING — invoke the specialized analyzer ──
+    //    Analyzer receives loanMetrics so it does NOT recompute them.
+    const analyzerPayload = buildAnalyzerPayload(product, spec, context, loanMetrics);
     let analyzerRes;
     try {
       const r = await base44.functions.invoke(spec.analyzer, analyzerPayload);
@@ -241,18 +365,18 @@ Deno.serve(async (req) => {
       return Response.json({ success: false, error: analyzerRes.error || 'Analyzer returned failure' }, { status: 500 });
     }
 
-    // ── 3. Normalize decision envelope ──
+    // ── 5. Normalize decision envelope ──
     let decision = normalizeDecision(product, analyzerRes);
     let fallbackUsed = false;
     let fallbackDecision = null;
 
-    // ── 4. Fallback Logic — if primary rejected AND fallback configured AND opt-in ──
+    // ── 6. Fallback Logic — if primary rejected AND fallback configured AND opt-in ──
     if (decision.status === 'rejected' && spec.fallback && options.enableFallback !== false) {
       const fbProduct = spec.fallback;
       const fbSpec = PRODUCT_REGISTRY[fbProduct];
       if (fbSpec) {
         try {
-          const fbPayload = buildAnalyzerPayload(fbProduct, fbSpec, context);
+          const fbPayload = buildAnalyzerPayload(fbProduct, fbSpec, context, loanMetrics);
           const fbRaw = await base44.functions.invoke(fbSpec.analyzer, fbPayload);
           const fbRes = fbRaw?.data || fbRaw;
           if (fbRes?.success !== false) {
@@ -265,27 +389,76 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── 5. Persist (only when decision is conclusive) ──
+    // ── 7. APPROVAL OPTIMIZATION — dealRescuerEngine for non-approved cases ──
+    const rescueResult = await runDealRescuer(base44, {
+      spec,
+      context,
+      loanMetrics,
+      insightsData,
+      decisionStatus: decision.status,
+      options
+    });
+
+    // ── 8. PERSIST UnderwritingAnalysis (hybrid privacy: structured + encrypted) ──
+    let analysisId = null;
+    if (options.persist !== false && loanMetrics && insightsData) {
+      analysisId = await persistUnderwritingAnalysis(base44, { loanLogicOutput, insightsData, rescueResult });
+    }
+
+    // ── 9. PERSIST product request record ──
     let persistedId = null;
     if (options.persist !== false && ['approved', 'review', 'adjusted', 'rejected'].includes(decision.status)) {
-      const saved = await persistRequest({ base44, user, product, spec, context, decision });
+      const saved = await persistProductRequest({ base44, user, spec, context, decision });
       persistedId = saved?.id || null;
     }
 
     const durationMs = Date.now() - startedAt;
-    await audit({ base44, user, product, decision, fallbackUsed, durationMs });
+    await audit({ base44, user, product, decision, fallbackUsed, rescueRan: !!rescueResult, durationMs });
 
+    // ── 10. Unified response envelope ──
     return Response.json({
       success: true,
       decision,
       fallback: fallbackUsed ? { product: spec.fallback, decision: fallbackDecision } : null,
+      financial_context: loanMetrics ? {
+        score: loanMetrics.score,
+        status: loanMetrics.status,
+        dti: loanMetrics.dti,
+        total_income: loanMetrics.totalIncome,
+        total_expenses: loanMetrics.totalExpenses,
+        liquid_assets: loanMetrics.liquidAssets,
+        runway_months: loanMetrics.runway,
+        trends: loanMetrics.trends || null,
+        is_clean_12_months: !!loanMetrics.isClean12Months
+      } : null,
+      behavioral_insights: insightsData?.analysisInsights || null,
+      rescue: rescueResult ? {
+        strategies: rescueResult.rescueStrategies || [],
+        aggressive_product: rescueResult.aggressiveProduct || null,
+        fallback: rescueResult.fallback || null,
+        before: rescueResult.before || null,
+        after: rescueResult.after || null,
+        xai_factors: rescueResult.xai_factors || null,
+        credit_tier: rescueResult.credit_tier || null,
+        explanation: rescueResult.explanation || ''
+      } : null,
       persisted_id: persistedId,
+      analysis_id: analysisId,
       meta: {
-        orchestrator_version: 'v1.0.0',
+        orchestrator_version: 'v1.1.0',
         product,
         analyzer: spec.analyzer,
         layer: spec.layer,
-        duration_ms: durationMs
+        duration_ms: durationMs,
+        steps_executed: {
+          loan_logic: !!loanLogicOutput,
+          insights: !!insightsData,
+          analyzer: true,
+          fallback: fallbackUsed,
+          rescue: !!rescueResult,
+          persist_analysis: !!analysisId,
+          persist_product: !!persistedId
+        }
       }
     });
 
