@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Briefcase, FileText, Truck, Droplets, Landmark, Cpu, PhoneCall, ArrowRight } from 'lucide-react';
+import { Briefcase, FileText, Truck, Droplets, Landmark, Cpu, PhoneCall, ArrowRight, ScanLine, Banknote } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 
@@ -11,8 +11,12 @@ import WorkingCapitalTab from '../components/b2b/WorkingCapitalTab';
 import TreasuryTab from '../components/b2b/TreasuryTab';
 import UnderwritingInfraTab from '../components/b2b/UnderwritingInfraTab';
 import CollectionsTab from '../components/b2b/CollectionsTab';
+import CheckDiscountTab from '../components/b2b/CheckDiscountTab';
+import B2BFinancingTab from '../components/b2b/B2BFinancingTab';
 
 const TABS = [
+    { id: 'check_discount', label: 'ניכיון צ׳קים', icon: ScanLine, Component: CheckDiscountTab },
+    { id: 'financing', label: 'מימון עסקי', icon: Banknote, Component: B2BFinancingTab },
     { id: 'working_capital', label: 'הון חוזר', icon: Droplets, Component: WorkingCapitalTab },
     { id: 'factoring', label: 'ניכיון חשבוניות', icon: FileText, Component: FactoringTab },
     { id: 'supplier_finance', label: 'מימון ספקים', icon: Truck, Component: SupplierFinanceTab },
@@ -22,7 +26,7 @@ const TABS = [
 ];
 
 export default function B2BSuite() {
-    const [active, setActive] = useState('working_capital');
+    const [active, setActive] = useState('check_discount');
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950" dir="rtl">
