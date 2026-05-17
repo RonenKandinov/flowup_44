@@ -1,8 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/lib/AuthContext';
-import { ShieldCheck, Cpu, Sparkles, ArrowLeft, Lock, BadgeCheck, Zap } from 'lucide-react';
+import { ShieldCheck, Cpu, Sparkles, ArrowLeft, Lock } from 'lucide-react';
 
 const FEATURES = [
     {
@@ -32,9 +32,8 @@ const ACCENT_RING = {
 };
 
 export default function Landing() {
-    const { navigateToLogin } = useAuth();
-
-    const handleLogin = () => navigateToLogin();
+    // Direct entry — Base44 will show the unified login screen automatically if not authenticated
+    const handleLogin = () => { window.location.href = '/Dashboard'; };
 
     return (
         <div className="min-h-screen bg-[#020617] relative overflow-hidden" dir="rtl">
@@ -53,21 +52,15 @@ export default function Landing() {
                 <div className="absolute top-[40%] left-[20%] w-[400px] h-[400px] bg-sky-400/5 rounded-full blur-[100px]" />
             </div>
 
-            {/* Header — logo only, right side (RTL) */}
+            {/* Header — clean rounded logo card, right side (RTL) */}
             <header className="relative z-10 px-6 py-6 md:px-10 border-b border-white/[0.04]">
                 <div className="max-w-6xl mx-auto flex items-center">
-                    <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-xl bg-white/95 flex items-center justify-center shadow-lg shadow-cyan-500/20 p-1.5">
-                            <img
-                                src="https://media.base44.com/images/public/6952b136798aa2d444ccb308/1de0c8e71_generated_image.png"
-                                alt="FlowUp"
-                                className="w-full h-full object-contain"
-                            />
-                        </div>
-                        <div className="leading-tight">
-                            <h1 className="text-xl font-bold text-white tracking-tight">FlowUp</h1>
-                            <p className="text-cyan-400/70 text-[9px] mt-0.5 tracking-[0.22em] uppercase font-semibold">FutureFlow FinTech</p>
-                        </div>
+                    <div className="bg-white rounded-2xl px-5 py-3 shadow-xl shadow-cyan-500/10 flex flex-col items-center justify-center min-w-[88px]">
+                        <img
+                            src="https://media.base44.com/images/public/6952b136798aa2d444ccb308/84003185a_image.png"
+                            alt="FlowUp"
+                            className="h-10 w-auto object-contain"
+                        />
                     </div>
                 </div>
             </header>
@@ -109,24 +102,6 @@ export default function Landing() {
                                 <Lock className="w-3 h-3" />
                                 התחברות מאובטחת · אין צורך בהרשמה ידנית
                             </p>
-
-                            {/* Enterprise trust strip */}
-                            <div className="flex items-center justify-center gap-5 mt-6 pt-6 border-t border-white/[0.05] w-full max-w-md">
-                                <div className="flex items-center gap-1.5 text-slate-500 text-[10px] tracking-widest uppercase">
-                                    <BadgeCheck className="w-3.5 h-3.5 text-cyan-400/70" />
-                                    <span>Open Finance</span>
-                                </div>
-                                <div className="w-px h-3 bg-white/10" />
-                                <div className="flex items-center gap-1.5 text-slate-500 text-[10px] tracking-widest uppercase">
-                                    <Lock className="w-3.5 h-3.5 text-emerald-400/70" />
-                                    <span>AES-256</span>
-                                </div>
-                                <div className="w-px h-3 bg-white/10" />
-                                <div className="flex items-center gap-1.5 text-slate-500 text-[10px] tracking-widest uppercase">
-                                    <Zap className="w-3.5 h-3.5 text-amber-400/70" />
-                                    <span>Real-Time</span>
-                                </div>
-                            </div>
                         </div>
                     </motion.div>
 
@@ -151,11 +126,20 @@ export default function Landing() {
                 </div>
             </main>
 
-            <footer className="relative z-10 border-t border-cyan-500/10 px-6 md:px-10 py-6 bg-slate-950/40 backdrop-blur-sm">
-                <div className="max-w-6xl mx-auto text-center">
+            <footer className="relative z-10 border-t border-cyan-500/10 px-6 md:px-10 py-8 bg-slate-950/40 backdrop-blur-sm">
+                <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
                     <p className="text-slate-500 text-[11px] tracking-wider">
                         © {new Date().getFullYear()} <span className="text-cyan-400 font-medium">FlowUp</span> · מערכת חיתום אשראי מאובטחת
                     </p>
+                    <div className="flex items-center gap-6 text-[11px] tracking-wider">
+                        <Link to="/privacy" className="text-slate-500 hover:text-cyan-300 transition-colors">
+                            מדיניות פרטיות
+                        </Link>
+                        <span className="w-px h-3 bg-white/10" />
+                        <Link to="/terms" className="text-slate-500 hover:text-cyan-300 transition-colors">
+                            תנאי שימוש
+                        </Link>
+                    </div>
                 </div>
             </footer>
         </div>
