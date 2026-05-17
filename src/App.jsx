@@ -54,17 +54,15 @@ const AuthenticatedApp = () => {
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfUse />} />
 
-      {/* All configured pages — protected behind login */}
+      {/* All configured pages — open access (no auth gate) */}
       {Object.entries(Pages).map(([path, Page]) => (
         <Route
           key={path}
           path={`/${path}`}
           element={
-            <RequireAuth>
-              <LayoutWrapper currentPageName={path}>
-                <Page />
-              </LayoutWrapper>
-            </RequireAuth>
+            <LayoutWrapper currentPageName={path}>
+              <Page />
+            </LayoutWrapper>
           }
         />
       ))}
@@ -72,14 +70,10 @@ const AuthenticatedApp = () => {
       {/* Other explicit routes */}
       <Route path="/b2b-connect" element={<B2BConnect />} />
       <Route path="/partners-admin" element={
-        <RequireAuth>
-          <LayoutWrapper currentPageName="partners-admin"><PartnersAdmin /></LayoutWrapper>
-        </RequireAuth>
+        <LayoutWrapper currentPageName="partners-admin"><PartnersAdmin /></LayoutWrapper>
       } />
       <Route path="/developers" element={
-        <RequireAuth>
-          <LayoutWrapper currentPageName="developers"><DevelopersPortal /></LayoutWrapper>
-        </RequireAuth>
+        <LayoutWrapper currentPageName="developers"><DevelopersPortal /></LayoutWrapper>
       } />
       <Route path="*" element={<PageNotFound />} />
     </Routes>

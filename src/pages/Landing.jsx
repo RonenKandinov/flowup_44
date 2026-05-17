@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ShieldCheck, Cpu, Sparkles, ArrowLeft, Lock } from 'lucide-react';
 
@@ -32,8 +32,9 @@ const ACCENT_RING = {
 };
 
 export default function Landing() {
-    // Direct entry — Base44 will show the unified login screen automatically if not authenticated
-    const handleLogin = () => { window.location.href = '/Dashboard'; };
+    const navigate = useNavigate();
+    // Clean client-side navigation — no auth gate, no page reload
+    const handleLogin = () => navigate('/Dashboard');
 
     return (
         <div className="min-h-screen bg-[#020617] relative overflow-hidden" dir="rtl">
