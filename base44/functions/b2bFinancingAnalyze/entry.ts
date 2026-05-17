@@ -170,80 +170,98 @@ Deno.serve(async (req) => {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // RISK-BASED APPROVAL ENGINE — Deal Rescuer philosophy for B2B.
-    // Same principle as consumer Deal Rescuer: businesses rejected by banks
-    // can still be approved by FlowUp — at a price that reflects the risk.
-    // We almost never reject. Instead:
-    //   • High risk     → smaller amount + higher rate (Tier C: 16-22%)
-    //   • Medium risk   → moderate amount + mid rate    (Tier B: 12-15%)
-    //   • Low risk      → close to requested + base rate (Tier A: 9-11%)
-    //   • Only reject when there is literally zero capacity to repay anything.
+    // BUSINESS UNDERWRITING ENGINE — Deal Rescuer philosophy, B2B metrics.
+    // Mirrors dealRescuerEngine: DSCR is a PRICING ENGINE, not a binary gate.
+    // We look for POSITIVE signals (DSCR > 1.0, runway, low volatility) and
+    // approve almost everyone — only true zero-capacity profiles are rejected.
+    //
+    // Key business metrics (different from consumer Deal Rescuer):
+    //   • DSCR = NOI / Debt Service        (≥1.25 strong, ≥1.0 viable, <1.0 stressed)
+    //   • Runway = Liquid / Monthly Burn   (months of survival without new revenue)
+    //   • CF Stability = monthly net > 0 OR liquid buffer compensates
     // ─────────────────────────────────────────────────────────────────────
     if (metrics) {
       const income = metrics.totalIncome || 0;
       const expenses = metrics.totalExpenses || 0;
-      const monthlyNet = income - expenses; // may be negative
+      const monthlyNet = income - expenses; // NOI proxy — may be negative
       const liquid = Math.max(0, metrics.liquidAssets || 0);
-      const dsr = metrics.dti || 0;
+      const existingDsr = metrics.dti || 0; // existing debt service ratio (%)
 
-      // Capacity is built from two pillars — liquid assets carry a business
-      // even when monthly net is thin/negative (typical for SMEs in growth).
-      const cashFlowComponent = Math.max(0, monthlyNet) * 3; // 3 months net
-      const liquidityComponent = liquid * 2;                  // 2x buffer
-      const accountCapacityCap = cashFlowComponent + liquidityComponent;
+      // Runway: how many months the business survives at current burn rate.
+      // If monthlyNet > 0 the business is self-sustaining → runway is "infinite" → 12.
+      const monthlyBurn = monthlyNet < 0 ? Math.abs(monthlyNet) : 0;
+      const runwayMonths = monthlyBurn > 0 ? (liquid / monthlyBurn) : (liquid > 0 ? 12 : 0);
 
-      extra.account_monthly_net = Math.round(monthlyNet);
-      extra.account_capacity_cap = Math.round(accountCapacityCap);
+      // Capacity: NOI carries 3 months of service + liquid buffer at 2x.
+      // For negative-NOI businesses, ONLY the liquid component matters.
+      const accountCapacityCap = Math.max(0, monthlyNet) * 36 + liquid * 2;
+
       extra.account_income = Math.round(income);
       extra.account_expenses = Math.round(expenses);
+      extra.account_monthly_net = Math.round(monthlyNet);
+      extra.account_liquid = Math.round(liquid);
+      extra.runway_months = Number(runwayMonths.toFixed(1));
+      extra.account_capacity_cap = Math.round(accountCapacityCap);
 
-      // Hard floor: literally no repayment capacity at all
-      const ABSOLUTE_MIN_CAPACITY = 500;
-
-      if (accountCapacityCap < ABSOLUTE_MIN_CAPACITY) {
+      // ── HARD REJECTION — only when there's truly zero ability to repay ──
+      // Both: no positive cash flow AND no liquid buffer AND very short runway.
+      const trulyInsolvent = monthlyNet <= 0 && liquid < 1000 && runwayMonths < 0.5;
+      if (trulyInsolvent) {
         status = 'rejected';
         maxAmount = 0;
         rate = 0;
-        reason = `אין יכולת החזר כלל — הכנסות ₪${Math.round(income).toLocaleString()}, הוצאות ₪${Math.round(expenses).toLocaleString()}, נזילות ₪${Math.round(liquid).toLocaleString()}. ללא תזרים נטו ונזילות — לא ניתן לאשר אפילו בריבית מקסימלית.`;
+        reason = `תזרים שלילי (₪${Math.round(monthlyNet).toLocaleString()}/חודש) ללא רזרבת נזילות (₪${Math.round(liquid).toLocaleString()}) — אין מקור החזר אפשרי. דחייה.`;
       } else {
-        // Risk-based pricing — tier driven by DSR + cash-flow health.
-        // (Mirrors the dealRescuerEngine tiered rate structure.)
-        const cashFlowHealth = income > 0 ? monthlyNet / income : -1; // -1..1
-        let tier, baseRate, rateRange;
+        // ── RISK-BASED PRICING — DSCR-driven tiers (mirror of dealRescuerEngine) ──
+        // Estimate DSCR for a representative monthly payment on the requested amount
+        // (24-month term, 12% mid-rate) so we can price the actual proposal.
+        const estTermMonths = 24;
+        const estRateDecimal = 0.12;
+        const r = estRateDecimal / 12;
+        const estMonthlyPayment = maxAmount > 0
+          ? (maxAmount * r) / (1 - Math.pow(1 + r, -estTermMonths))
+          : 0;
+        // DSCR = NOI / debt service. For B2B we use a "stress NOI" floor of liquid/12
+        // so a business with reserves but flat NOI isn't auto-rejected.
+        const stressNOI = Math.max(monthlyNet, liquid / 12);
+        const dscr = estMonthlyPayment > 0 ? (stressNOI / estMonthlyPayment) : 99;
 
-        if (dsr < 45 && cashFlowHealth > 0.15 && monthlyNet > 0) {
-          tier = 'A'; baseRate = 9;  rateRange = [9, 11];   // Prime
-        } else if (dsr < 60 && cashFlowHealth > 0 && monthlyNet > 0) {
-          tier = 'B'; baseRate = 12; rateRange = [12, 15];  // Near-prime
-        } else if (dsr < 80 || liquid > 0) {
-          tier = 'C'; baseRate = 16; rateRange = [16, 19];  // Sub-prime — Deal Rescuer territory
+        extra.estimated_dscr = Number(dscr.toFixed(2));
+        extra.estimated_monthly_payment = Math.round(estMonthlyPayment);
+
+        // Tier assignment — DSCR is the primary signal, runway is the secondary.
+        let tier, rateRange;
+        if (dscr >= 1.5 && existingDsr < 45 && runwayMonths >= 4) {
+          tier = 'A'; rateRange = [9, 11];     // Prime — strong NOI, long runway
+        } else if (dscr >= 1.15 && runwayMonths >= 2) {
+          tier = 'B'; rateRange = [12, 15];    // Near-prime — viable
+        } else if (dscr >= 0.85 || liquid > 0) {
+          tier = 'C'; rateRange = [16, 19];    // Sub-prime — Deal Rescuer territory
         } else {
-          tier = 'D'; baseRate = 20; rateRange = [20, 24];  // Stretch — almost never used
+          tier = 'D'; rateRange = [20, 24];    // Aggressive — last-resort pricing
         }
 
-        // Push rate higher within tier band when DSR is at the top of the range
-        const dsrPressure = Math.min(1, Math.max(0, (dsr - 30) / 60));
-        const tieredRate = Math.round(rateRange[0] + (rateRange[1] - rateRange[0]) * dsrPressure);
+        // Position rate within tier band: weaker DSCR → upper end.
+        const dscrPressure = Math.min(1, Math.max(0, (1.5 - dscr) / 1.5));
+        const tieredRate = Math.round(rateRange[0] + (rateRange[1] - rateRange[0]) * dscrPressure);
 
-        // Use the higher of product-specific rate vs risk-tier rate
-        // (so PO Financing's 11% adjustment doesn't override a Tier C risk price)
+        // Use the higher of product-specific rate vs risk-tier rate.
         rate = Math.max(rate, tieredRate);
 
         extra.risk_tier = tier;
         extra.applied_rate = rate;
 
-        // Cap amount to capacity — but never zero it out if there IS capacity
-        if (maxAmount > accountCapacityCap) {
+        // Amount adjustment: cap at capacity, but only when it actually limits us.
+        if (maxAmount > accountCapacityCap && accountCapacityCap > 0) {
           const original = Math.round(maxAmount);
           maxAmount = accountCapacityCap;
           status = (status === 'approved' || status === 'review') ? 'adjusted' : status;
-          reason = `${reason ? reason + ' | ' : ''}Tier ${tier} (ריבית ${rate}%): סכום מבוקש ₪${original.toLocaleString()} חורג מיכולת החשבון — אושר ₪${Math.round(maxAmount).toLocaleString()}.`;
+          reason = `${reason ? reason + ' | ' : ''}Tier ${tier} בריבית ${rate}% (DSCR ${dscr.toFixed(2)}, runway ${runwayMonths.toFixed(1)} חודשים): סכום מבוקש ₪${original.toLocaleString()} הותאם ל-₪${Math.round(maxAmount).toLocaleString()} לפי יכולת תזרימית.`;
         } else if (status === 'review' && tier !== 'D') {
-          // Upgrade "review" → "adjusted" when we have enough signal to price the deal
           status = 'adjusted';
-          reason = `${reason} אושר ב-Tier ${tier} בריבית ${rate}%.`;
+          reason = `${reason} מתומחר ב-Tier ${tier} בריבית ${rate}% (DSCR ${dscr.toFixed(2)}).`;
         } else if (status === 'approved') {
-          reason = `${reason} (Tier ${tier}, ריבית ${rate}%).`;
+          reason = `${reason} (Tier ${tier}, ריבית ${rate}%, DSCR ${dscr.toFixed(2)}).`;
         }
       }
     } else {
