@@ -10,7 +10,7 @@ import WorkingCapitalTab from '../components/b2b/WorkingCapitalTab';
 import UnderwritingInfraTab from '../components/b2b/UnderwritingInfraTab';
 import CollectionsTab from '../components/b2b/CollectionsTab';
 import CheckDiscountTab from '../components/b2b/CheckDiscountTab';
-import B2BFinancingTab from '../components/b2b/B2BFinancingTab';
+import B2BFinancingTab from '../components/b2b/B2BFinancingTab.jsx';
 
 const TABS = [
     { id: 'check_discount', label: 'ניכיון צ׳קים', icon: ScanLine, Component: CheckDiscountTab },

@@ -112,16 +112,39 @@ Deno.serve(async (req) => {
       }
 
     } else if (product_type === 'working_capital') {
-      // SME Working Capital — uses standard DSCR / overdraft analysis (same as consumer)
+      // SME Working Capital — bounds approved amount to REAL business capacity
+      // from loanLogicV2: max = 3× monthly net cash flow OR liquid assets ×2,
+      // whichever is greater. This is the difference between a "generic 9% rate
+      // on whatever you asked for" and underwriting that reflects the account.
       if (!metrics) {
-        status = 'review'; reason = 'נתוני תזרים לא זמינים.';
-      } else if (metrics.dti > 70) {
-        status = 'rejected'; reason = `DSR גבוה מדי (${metrics.dti}%).`;
-      } else if (metrics.dti > 55) {
-        status = 'adjusted'; rate = 13;
-        reason = 'תזרים לחוץ — אושר בריבית גבוהה לתקופה קצרה.';
+        status = 'review'; reason = 'נתוני תזרים לא זמינים — נדרשת חיבור Open Finance.';
+        maxAmount = 0;
       } else {
-        reason = 'תזרים יציב — מאושר להלוואת גישור.';
+        const monthlyNet = Math.max(0, (metrics.totalIncome || 0) - (metrics.totalExpenses || 0));
+        const liquid = Math.max(0, metrics.liquidAssets || 0);
+        const capacityCap = Math.max(monthlyNet * 3, liquid * 2);
+        extra.monthly_net_cash_flow = Math.round(monthlyNet);
+        extra.capacity_cap = Math.round(capacityCap);
+
+        if (metrics.dti > 70) {
+          status = 'rejected'; rate = 0; maxAmount = 0;
+          reason = `DSR גבוה מדי (${metrics.dti}%) — אין יכולת החזר נוספת.`;
+        } else if (capacityCap < 1000) {
+          status = 'rejected'; rate = 0; maxAmount = 0;
+          reason = `יכולת תזרימית חודשית נמוכה מדי (₪${Math.round(monthlyNet).toLocaleString()}) — לא ניתן לאשר הון חוזר.`;
+        } else if (requested_amount > capacityCap) {
+          status = 'adjusted';
+          maxAmount = Math.min(requested_amount, capacityCap);
+          rate = metrics.dti > 55 ? 13 : 11;
+          reason = `הסכום המבוקש (₪${requested_amount.toLocaleString()}) חורג מהיכולת התזרימית — אושר עד ₪${Math.round(maxAmount).toLocaleString()} בריבית ${rate}%.`;
+        } else if (metrics.dti > 55) {
+          status = 'adjusted'; rate = 13;
+          maxAmount = Math.min(requested_amount, capacityCap);
+          reason = `תזרים לחוץ (DSR ${metrics.dti}%) — אושר ₪${Math.round(maxAmount).toLocaleString()} בריבית גבוהה לתקופה קצרה.`;
+        } else {
+          maxAmount = Math.min(requested_amount, capacityCap);
+          reason = `תזרים יציב — מאושר ₪${Math.round(maxAmount).toLocaleString()} להלוואת גישור.`;
+        }
       }
 
     } else if (product_type === 'merchant_cash_advance') {
