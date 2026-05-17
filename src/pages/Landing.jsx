@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ShieldCheck, Cpu, Sparkles, ArrowLeft, Lock } from 'lucide-react';
+import { ShieldCheck, Cpu, Sparkles, ArrowLeft, Lock, Activity } from 'lucide-react';
 
 const FEATURES = [
     {
@@ -53,16 +53,15 @@ export default function Landing() {
                 <div className="absolute top-[40%] left-[20%] w-[400px] h-[400px] bg-sky-400/5 rounded-full blur-[100px]" />
             </div>
 
-            {/* Header — FlowUp logo card, right side (RTL) */}
-            <header className="relative z-10 px-6 py-6 md:px-10 border-b border-white/[0.04]">
-                <div className="max-w-6xl mx-auto flex items-center">
-                    <div className="bg-white rounded-2xl p-4 shadow-xl shadow-cyan-500/10 flex items-center justify-center w-[120px] h-[120px]">
-                        <img
-                            src="https://media.base44.com/images/public/6952b136798aa2d444ccb308/9fb34ff3e_image.png"
-                            alt="FlowUp"
-                            className="w-full h-full object-contain"
-                        />
+            {/* Header — FlowUp brand, right side (RTL) */}
+            <header className="relative z-10 px-6 py-5 md:px-10 border-b border-white/[0.04]">
+                <div className="max-w-6xl mx-auto flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center shadow-lg shadow-cyan-500/30">
+                        <Activity className="w-5 h-5 text-slate-950" strokeWidth={2.5} />
                     </div>
+                    <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
+                        FlowUp
+                    </span>
                 </div>
             </header>
 
