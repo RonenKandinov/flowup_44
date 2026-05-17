@@ -170,36 +170,84 @@ Deno.serve(async (req) => {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // UNIVERSAL CAPACITY GATE — single source of truth across ALL products.
-    // The B2B customer IS the same account the user sees on the Dashboard.
-    // No product can approve more than what the real account cash flow supports,
-    // regardless of product-specific signals (MRR, buyer history, settlements).
-    // working_capital already enforces this internally; we re-apply globally to
-    // catch the other products (PO / RBF / MCA / Reverse Factoring).
+    // RISK-BASED APPROVAL ENGINE — Deal Rescuer philosophy for B2B.
+    // Same principle as consumer Deal Rescuer: businesses rejected by banks
+    // can still be approved by FlowUp — at a price that reflects the risk.
+    // We almost never reject. Instead:
+    //   • High risk     → smaller amount + higher rate (Tier C: 16-22%)
+    //   • Medium risk   → moderate amount + mid rate    (Tier B: 12-15%)
+    //   • Low risk      → close to requested + base rate (Tier A: 9-11%)
+    //   • Only reject when there is literally zero capacity to repay anything.
     // ─────────────────────────────────────────────────────────────────────
-    if (metrics && status !== 'rejected') {
-      const monthlyNet = Math.max(0, (metrics.totalIncome || 0) - (metrics.totalExpenses || 0));
+    if (metrics) {
+      const income = metrics.totalIncome || 0;
+      const expenses = metrics.totalExpenses || 0;
+      const monthlyNet = income - expenses; // may be negative
       const liquid = Math.max(0, metrics.liquidAssets || 0);
-      const accountCapacityCap = Math.max(monthlyNet * 3, liquid * 2);
+      const dsr = metrics.dti || 0;
+
+      // Capacity is built from two pillars — liquid assets carry a business
+      // even when monthly net is thin/negative (typical for SMEs in growth).
+      const cashFlowComponent = Math.max(0, monthlyNet) * 3; // 3 months net
+      const liquidityComponent = liquid * 2;                  // 2x buffer
+      const accountCapacityCap = cashFlowComponent + liquidityComponent;
 
       extra.account_monthly_net = Math.round(monthlyNet);
       extra.account_capacity_cap = Math.round(accountCapacityCap);
-      extra.account_income = Math.round(metrics.totalIncome || 0);
-      extra.account_expenses = Math.round(metrics.totalExpenses || 0);
+      extra.account_income = Math.round(income);
+      extra.account_expenses = Math.round(expenses);
 
-      if (accountCapacityCap < 1000) {
+      // Hard floor: literally no repayment capacity at all
+      const ABSOLUTE_MIN_CAPACITY = 500;
+
+      if (accountCapacityCap < ABSOLUTE_MIN_CAPACITY) {
         status = 'rejected';
         maxAmount = 0;
         rate = 0;
-        reason = `תזרים החשבון שלילי או אפסי (הכנסות ₪${Math.round(metrics.totalIncome).toLocaleString()} מול הוצאות ₪${Math.round(metrics.totalExpenses).toLocaleString()}) — לא ניתן לאשר מימון על חשבון זה.`;
-      } else if (maxAmount > accountCapacityCap) {
-        const original = Math.round(maxAmount);
-        maxAmount = accountCapacityCap;
-        status = status === 'approved' ? 'adjusted' : status;
-        reason = `${reason} | הותאם ליכולת החשבון: סכום מקורי ₪${original.toLocaleString()} → אושר ₪${Math.round(maxAmount).toLocaleString()} (תקרה לפי תזרים חודשי נטו ונכסים נזילים).`;
+        reason = `אין יכולת החזר כלל — הכנסות ₪${Math.round(income).toLocaleString()}, הוצאות ₪${Math.round(expenses).toLocaleString()}, נזילות ₪${Math.round(liquid).toLocaleString()}. ללא תזרים נטו ונזילות — לא ניתן לאשר אפילו בריבית מקסימלית.`;
+      } else {
+        // Risk-based pricing — tier driven by DSR + cash-flow health.
+        // (Mirrors the dealRescuerEngine tiered rate structure.)
+        const cashFlowHealth = income > 0 ? monthlyNet / income : -1; // -1..1
+        let tier, baseRate, rateRange;
+
+        if (dsr < 45 && cashFlowHealth > 0.15 && monthlyNet > 0) {
+          tier = 'A'; baseRate = 9;  rateRange = [9, 11];   // Prime
+        } else if (dsr < 60 && cashFlowHealth > 0 && monthlyNet > 0) {
+          tier = 'B'; baseRate = 12; rateRange = [12, 15];  // Near-prime
+        } else if (dsr < 80 || liquid > 0) {
+          tier = 'C'; baseRate = 16; rateRange = [16, 19];  // Sub-prime — Deal Rescuer territory
+        } else {
+          tier = 'D'; baseRate = 20; rateRange = [20, 24];  // Stretch — almost never used
+        }
+
+        // Push rate higher within tier band when DSR is at the top of the range
+        const dsrPressure = Math.min(1, Math.max(0, (dsr - 30) / 60));
+        const tieredRate = Math.round(rateRange[0] + (rateRange[1] - rateRange[0]) * dsrPressure);
+
+        // Use the higher of product-specific rate vs risk-tier rate
+        // (so PO Financing's 11% adjustment doesn't override a Tier C risk price)
+        rate = Math.max(rate, tieredRate);
+
+        extra.risk_tier = tier;
+        extra.applied_rate = rate;
+
+        // Cap amount to capacity — but never zero it out if there IS capacity
+        if (maxAmount > accountCapacityCap) {
+          const original = Math.round(maxAmount);
+          maxAmount = accountCapacityCap;
+          status = (status === 'approved' || status === 'review') ? 'adjusted' : status;
+          reason = `${reason ? reason + ' | ' : ''}Tier ${tier} (ריבית ${rate}%): סכום מבוקש ₪${original.toLocaleString()} חורג מיכולת החשבון — אושר ₪${Math.round(maxAmount).toLocaleString()}.`;
+        } else if (status === 'review' && tier !== 'D') {
+          // Upgrade "review" → "adjusted" when we have enough signal to price the deal
+          status = 'adjusted';
+          reason = `${reason} אושר ב-Tier ${tier} בריבית ${rate}%.`;
+        } else if (status === 'approved') {
+          reason = `${reason} (Tier ${tier}, ריבית ${rate}%).`;
+        }
       }
-    } else if (!metrics) {
-      // No account connected — cannot underwrite at all.
+    } else {
+      // No Open Finance connection — cannot underwrite without account data.
       status = 'review';
       maxAmount = 0;
       reason = reason || 'אין נתוני חשבון (Open Finance) — חיתום דורש חיבור חשבון פעיל.';
