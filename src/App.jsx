@@ -11,6 +11,8 @@ import B2BConnect from './pages/B2BConnect';
 import PartnersAdmin from './pages/PartnersAdmin';
 import DevelopersPortal from './pages/DevelopersPortal';
 import Landing from './pages/Landing';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfUse from './pages/TermsOfUse';
 import RequireAuth from './components/RequireAuth';
 
 const { Pages, Layout, mainPage } = pagesConfig;
@@ -47,6 +49,8 @@ const AuthenticatedApp = () => {
     <Routes>
       {/* Public Landing — homepage everyone sees */}
       <Route path="/" element={<Landing />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/terms" element={<TermsOfUse />} />
 
       {/* All configured pages — protected behind login */}
       {Object.entries(Pages).map(([path, Page]) => (
