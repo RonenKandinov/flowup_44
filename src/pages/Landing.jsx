@@ -53,14 +53,14 @@ export default function Landing() {
                 <div className="absolute top-[40%] left-[20%] w-[400px] h-[400px] bg-sky-400/5 rounded-full blur-[100px]" />
             </div>
 
-            {/* Header — clean rounded logo card, right side (RTL) */}
+            {/* Header — FlowUp logo card, right side (RTL) */}
             <header className="relative z-10 px-6 py-6 md:px-10 border-b border-white/[0.04]">
                 <div className="max-w-6xl mx-auto flex items-center">
-                    <div className="bg-white rounded-2xl px-5 py-3 shadow-xl shadow-cyan-500/10 flex flex-col items-center justify-center min-w-[88px]">
+                    <div className="bg-white rounded-2xl p-4 shadow-xl shadow-cyan-500/10 flex items-center justify-center w-[120px] h-[120px]">
                         <img
-                            src="https://media.base44.com/images/public/6952b136798aa2d444ccb308/84003185a_image.png"
+                            src="https://media.base44.com/images/public/6952b136798aa2d444ccb308/9fb34ff3e_image.png"
                             alt="FlowUp"
-                            className="h-10 w-auto object-contain"
+                            className="w-full h-full object-contain"
                         />
                     </div>
                 </div>
