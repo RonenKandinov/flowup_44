@@ -1,195 +1,286 @@
 /**
- * FlowUp B2B Suite — Module Logic & Risk Assessment Reference
- * ============================================================
+ * FlowUp B2B Suite — Architecture, Core Engine & Risk Assessment Reference
+ * =========================================================================
  *
- * מסמך זה מתעד את הלוגיקה של כל מודול B2B במערכת, ואת הבדיקות
- * שעליהן מבוססת הערכת סיכון הלקוח. יש לעיין בו לפני כל שינוי
- * הקשור להחלטות חיתום, ניקוד סיכון, או מודולי B2B.
+ * מסמך זה הוא ה-source-of-truth לארכיטקטורת B2B של FlowUp.
+ * חובה לעיין בו לפני כל שינוי הקשור לחיתום, ניקוד סיכון, או מודולי B2B.
  *
- * כל הבדיקות מבוצעות על בסיס נתוני Open Finance (12 חודשים אחרונים),
- * בשילוב עם InsightEngine, loanLogicV2, ו-checkDiscountAnalyze.
+ * ============================================================================
+ * # 0. Core Platform Philosophy
+ * ============================================================================
  *
- * ---
+ * **FlowUp is a behavioral underwriting and credit decision infrastructure
+ * platform built on top of Open Finance transaction intelligence.**
  *
- * ## 1. ניכיון צ׳קים (Check Discounting)
+ * עקרונות יסוד:
+ * - כל module הוא **product layer** דק.
+ * - מתחתיו רץ **risk engine אחד ויחיד** (insightEngine + loanLogicV2).
+ * - ההחלטה מתבססת על **התנהגות פיננסית אמיתית** מ-Open Finance — לא על
+ *   טופס שהמשתמש מילא, ולא על דירוג אשראי חיצוני.
  *
- * ### מה זה
- * העסק מקבל כסף מיידי על צ׳ק דחוי במקום להמתין לתאריך הפירעון.
+ * המוצרים נראים שונים (צ׳קים, חשבוניות, הון חוזר, RBF, PO), אבל כולם
+ * שואלים את אותה שאלה: *"האם להתנהגות הפיננסית של העסק הזה יש מספיק
+ * עוצמה כדי לשרת את ההתחייבות הזאת?"*
+ *
+ * ============================================================================
+ * # 1. Layered Architecture — Analytics vs Decisioning
+ * ============================================================================
+ *
+ * הפרדה ארכיטקטונית חדה בין שתי שכבות. ערבוב ביניהן = bug עיצובי.
+ *
+ * ## 1.1 Analytics Layer (read-only, ללא החלטות אשראי)
+ * - **ניהול כספי (Treasury / Cash Management)** — תצוגת aggregation על
+ *   חשבונות, cash position, receivables vs payables, liquidity forecast.
+ * - **תשתית חיתום (Underwriting Infrastructure)** — מטה-נתונים על
+ *   ניתוחי חיתום היסטוריים.
+ * - **גבייה חכמה (Collections Intelligence)** — segmentation והמלצות
+ *   אופרטיביות (לא החלטת אשראי).
+ *
+ * Backend: `cashFlowIntelligence`, `persistAnalysis` (read).
+ *
+ * ## 1.2 Decisioning Layer (יוצר החלטת אשראי + תמחור)
+ * - **ניכיון צ׳קים (Check Discounting)**
+ * - **הון חוזר (Working Capital)**
+ * - **ניכיון חשבוניות (Factoring)**
+ * - **מימון עסקי חכם (Reverse Factoring / RBF / PO / MCA)**
+ *
+ * Backend: `checkDiscountAnalyze`, `b2bFinancingAnalyze`, `loanLogicV2`,
+ * `insightEngine`, `generateCreditJustification`.
+ *
+ * **כלל ברזל:** Decisioning Layer חייבת לכתוב `UnderwritingAnalysis` עם
+ * `model_version` ו-`analysis_hash`. Analytics Layer לא כותבת.
+ *
+ * ============================================================================
+ * # 2. Decision Orchestration Layer
+ * ============================================================================
+ *
+ * שכבה לוגית (לא מודול UI) שאחראית על כל מה שקורה *בין* הבקשה ל-decision:
+ *
+ * 1. **Product Matching** — איזה מוצר באמת מתאים לבקשה? (לפעמים לקוח
+ *    מבקש Working Capital אבל Factoring מתאים יותר).
+ * 2. **Routing** — איזו פונקציית חיתום להריץ (לפי product_type).
+ * 3. **Approvals** — מי שכבת ההחלטה (אוטומטי vs human-in-the-loop לפי tier).
+ * 4. **Fallback Logic** — אם המוצר המבוקש נדחה, האם יש מוצר חלופי?
+ * 5. **Scenario Generation** — יצירת מבני מימון חלופיים תואמי-מדיניות
+ *    (מועבר ל-Approval Optimization Engine).
+ *
+ * מיקום בקוד: כרגע מפוזר בין `b2bFinancingAnalyze` ל-`dealRescuerEngine`.
+ * **TODO:** לאחד תחת `orchestrationEngine` ייעודי.
+ *
+ * ============================================================================
+ * # 3. Approval Optimization Engine ⭐ (Core Differentiator)
+ * ============================================================================
+ *
+ * **Instead of binary approve/decline logic, FlowUp searches for
+ * policy-compliant alternative financing structures.**
+ *
+ * זה ה-magic של FlowUp — לא עוד מנוע חיתום שאומר "כן/לא".
+ *
+ * ## איך זה עובד
+ * כשבקשה לא עוברת בקונפיגורציה המבוקשת, המנוע מחפש *automatically*:
+ * - **Lower Amount** — האם בסכום קטן יותר זה עובר?
+ * - **Longer Term** — האם תקופה ארוכה יותר מורידה DSR מתחת לסף?
+ * - **Higher Rate (Stretch Offer)** — האם תמחור גבוה יותר (Tier C)
+ *   מפצה על ה-PD ומחזיר רווחיות צפויה חיובית?
+ * - **Different Product** — האם Factoring במקום Working Capital פותר
+ *   את הבעיה?
+ * - **Discretionary Cut** — האם המלצה על הקטנת הוצאות דיסקרציוניות
+ *   (במסגרת ה-guardrails) הופכת את העסקה לאפשרית?
+ *
+ * ## למה זה moat
+ * - בנקים מסורתיים: בינארי (yes/no).
+ * - FlowUp: מציע **תרחישים מובנים** ללקוח, עם הצדקה לכל אחד.
+ * - תוצאה: יותר עסקאות סגורות, יותר transparency, פחות נטישה.
+ *
+ * מיקום בקוד: `dealRescuerEngine`, `loanLogicV2` (rescue strategies),
+ * `AggressiveProductCard`, `enable_aggressive_approval` ב-`UnderwritingRule`.
+ *
+ * ============================================================================
+ * # 4. Behavioral Intelligence ⭐ (The Real Moat)
+ * ============================================================================
+ *
+ * **זה לא עוד metric — זה הליבה.**
+ *
+ * בנקים מסתכלים על מאזנים, דוחות, ודירוג אשראי (snapshot סטטי).
+ * FlowUp מסתכלת על **התנהגות** — איך העסק מתנהל יום-יום:
+ *
+ * - **Cash Flow Stability** — coefficient of variation על הכנסות חודשיות.
+ *   עסק עם income volatility נמוך = פחות סיכון *גם אם* DTI שלו גבוה.
+ * - **Overdraft Behavior** — כמה ימים בחודש העסק במינוס? מה השיא?
+ *   האם הוא חוזר לחיוב מהר? זה מנבא default טוב יותר מכל credit score.
+ * - **Payment Discipline** — האם משלמים לספקים בזמן? איך מתנהגים מול חזרות?
+ * - **Third-Party Behavioral Graph** — בניכיון צ׳קים: מה ההיסטוריה של
+ *   *כותב הצ׳ק* אצל לקוחות אחרים שלנו? (cross-tenant behavioral signal,
+ *   privacy-safe — רק aggregates).
+ * - **Velocity Signals** — קצב הפקדות, קצב משיכות, שינויים בקצב.
+ *
+ * ## למה זה ה-moat האמיתי
+ * - **נתונים שאין למתחרים** — רק מי שיש לו 12 חודשי Open Finance של אלפי
+ *   עסקים יכול לזהות דפוסים התנהגותיים.
+ * - **ה-data flywheel** — כל לקוח חדש משפר את המודל ההתנהגותי לכולם.
+ * - **לא ניתן להעתקה מהיר** — credit score אפשר לקנות, behavioral graph
+ *   צריך לבנות שנים.
+ *
+ * מיקום בקוד: `insightEngine` (חישוב), `loanLogicV2` (שימוש ב-PD),
+ * `behavioral_classification` ב-`UnderwritingAnalysis`.
+ *
+ * ============================================================================
+ * # 5. MVP Scope — מה באמת חייבים עכשיו
+ * ============================================================================
+ *
+ * **אזהרה מפני over-engineering.** המערכת מתחילה להישמע גדולה מדי.
+ * MVP אמיתי = 3 מוצרים, שלוש שכבות, סיפור אחד:
+ *
+ * ## MVP Products
+ * 1. **Check Discounting** — מוצר שמשלם את החשבונות, ROI מהיר, OCR sexy.
+ * 2. **Working Capital** — המוצר ה"קלאסי", מוכר לכל עסק.
+ * 3. **Approval Optimization** — ה-differentiator שיוצר wow.
+ *
+ * שאר המודולים (RBF, PO, MCA, Factoring, Treasury, Collections) — נשארים
+ * בקוד, מוסתרים/secondary ב-UI, ייפתחו אחרי product-market fit.
+ *
+ * ## MVP Layers
+ * 1. **Behavioral Intelligence** (`insightEngine`).
+ * 2. **Decisioning** (`loanLogicV2` + `checkDiscountAnalyze`).
+ * 3. **Approval Optimization** (`dealRescuerEngine`).
+ *
+ * ## MVP UX Story
+ * עסק מתחבר → Open Finance מושך 12 חודשים → המערכת מציעה 3 תרחישי
+ * מימון מובנים → העסק בוחר אחד → אישור מיידי.
+ *
+ * **אל תוסיף מודול חדש לפני שה-flow הזה עובד end-to-end חלק.**
+ *
+ * ============================================================================
+ * # 6. מפרטי מודולים (Reference)
+ * ============================================================================
+ *
+ * ## 6.1 ניכיון צ׳קים (Check Discounting) — [MVP]
  *
  * ### Flow
  * 1. סריקת צ׳ק עם מצלמת מובייל (capture="environment") או העלאת תמונה.
- * 2. OCR (`checkOcrExtract`) מזהה: ח.פ כותב הצ׳ק, סכום, תאריך פירעון, מספר צ׳ק.
+ * 2. OCR (`checkOcrExtract`) מזהה: ח.פ כותב הצ׳ק, סכום, תאריך פירעון.
  * 3. אישור ידני של המשתמש על הנתונים שזוהו.
- * 4. שליחה ל-`checkDiscountAnalyze` שמבצע את הבדיקות.
+ * 4. `checkDiscountAnalyze` — בדיקת היסטוריית צד ג׳ + עוצמת העסק המבקש.
  *
- * ### מה המערכת בודקת
- * - **Third-Party History** — היסטוריית הצ׳קים של כותב הצ׳ק (ח.פ צד ג׳)
- *   ב-12 החודשים האחרונים מתוך OpenFinanceTransaction של העסק:
- *     - מספר הפקדות קודמות
- *     - מספר צ׳קים שחזרו (bounced)
- *     - סכום מצטבר
- * - **Requesting Business Strength** — InsightEngine על העסק המבקש
- *   (DSCR, נזילות, יציבות הכנסות).
+ * ### בדיקות
+ * - **Third-Party History** (12 חודשים): הפקדות קודמות, bounced, סכום מצטבר.
+ * - **Requesting Business Strength** (InsightEngine): DSCR, נזילות, יציבות.
  * - **Velocity** — קצב הפקדת צ׳קים מאותו צד ג׳.
  *
  * ### החלטה
- * - approved / review / adjusted / rejected
- * - דמי ניכיון מחושבים לפי סיכון צד ג׳ + תאריך פירעון.
+ * approved / review / adjusted / rejected + דמי ניכיון מחושבים.
  *
  * ---
  *
- * ## 2. הון חוזר (Working Capital)
+ * ## 6.2 הון חוזר (Working Capital) — [MVP]
  *
- * ### מה זה
- * הלוואה קצרה לעסק כדי להתמודד עם:
- * משכורות · מלאי · מע״מ · עונתיות · הוצאות שוטפות · תזרים חלש.
- *
- * ### מה המערכת בודקת
- * - **Cash Flow Stability** — האם הכנסות העסק יציבות? (income volatility,
- *   coefficient of variation על הכנסות חודשיות).
- * - **Liquidity** — כמה כסף זמין נשאר לעסק? (liquidity index במונחי חודשי
- *   הוצאות קבועות).
- * - **DSCR / Repayment Capacity** — האם העסק מסוגל להחזיר? (Debt-Service
- *   Ratio, adjusted DTI מתוך loanLogicV2).
- * - **Overdraft Behavior** — כמה העסק חי במינוס? (ימי overdraft, יתרה
- *   ממוצעת, שיא חריגה).
- * - **Risk Signals** — החזרות · עיקולים · חריגות · bounced checks
- *   (risk flags מ-InsightEngine).
+ * ### בדיקות
+ * - **Cash Flow Stability** — income volatility, coefficient of variation.
+ * - **Liquidity** — liquidity index במונחי חודשי הוצאות קבועות.
+ * - **DSCR / Repayment Capacity** — Debt-Service Ratio, adjusted DTI.
+ * - **Overdraft Behavior** — ימי overdraft, יתרה ממוצעת, שיא חריגה.
+ * - **Risk Signals** — החזרות, עיקולים, חריגות, bounced checks.
  *
  * ---
  *
- * ## 3. ניכיון חשבוניות (Factoring)
+ * ## 6.3 ניכיון חשבוניות (Factoring) — [Post-MVP]
  *
- * ### מה זה
- * העסק לא מחכה 90 יום לקבל כסף על חשבונית — מקבל את הכסף עכשיו.
- *
- * ### מה המערכת בודקת
- * - **Customer Reliability** — האם הלקוחות (החייבים) משלמים בזמן?
- *   (היסטוריית תשלומים נכנסים מאותו debtor_tax_id).
- * - **Invoice Patterns** — האם יש פעילות עקבית של הוצאת חשבוניות לאותו
- *   לקוח? (תדירות, סכומים).
- * - **Historical Incoming Payments** — האם כסף באמת נכנס בעבר מאותם
- *   לקוחות? (matching מול OpenFinanceTransaction).
- * - **Transaction Validation** — האם החשבונית "אמיתית" בהתנהגות הבנקאית?
- *   (השוואת סכומים, אנומליות).
- * - **Cash Flow Timing** — איך זה משפיע על התזרים? (השפעה על liquidity
- *   forecast).
+ * ### בדיקות
+ * - **Customer Reliability** — היסטוריית תשלומים נכנסים מאותו debtor_tax_id.
+ * - **Invoice Patterns** — פעילות עקבית של חשבוניות לאותו לקוח.
+ * - **Historical Incoming Payments** — matching מול OpenFinanceTransaction.
+ * - **Transaction Validation** — השוואת סכומים, אנומליות.
+ * - **Cash Flow Timing** — השפעה על liquidity forecast.
  *
  * ---
  *
- * ## 4. ניהול כספי (Treasury / Cash Management) [שם המודול לשעבר: "אוצר"]
+ * ## 6.4 ניהול כספי (Treasury / Cash Management) — [Analytics Layer]
  *
- * ### מה זה
- * ניהול תזרים ומזומנים עסקי — לא מוצר מימון, אלא שכבת ניהול כספי.
+ * **Not a credit product. Pure analytics layer.**
  *
- * ### מה המערכת בודקת
- * - **Multi-Account Balances** — כמה כסף יש בכלל החשבונות? (aggregation
- *   על OpenFinanceAccount).
- * - **Cash Position** — מה מצב המזומנים בזמן אמת? (interimAvailable balance).
- * - **Receivables vs Payables** — כמה אמור להיכנס מול לצאת? (Invoice
- *   open vs SupplierPayment pending).
- * - **Liquidity Forecast** — האם צפוי חוסר תזרימי? (cashFlowIntelligence
- *   30-day forecast).
- *
- * ### הערה
- * מודול זה איננו מוצר אשראי — הוא שכבת ניהול כספי בלבד.
- * ההיגיון של "אוצר" בעולמות החיתום מומר ל**ניהול כספי**:
- * תצוגה אנליטית בלבד, ללא החלטת אשראי.
+ * - **Multi-Account Balances** — aggregation על OpenFinanceAccount.
+ * - **Cash Position** — interimAvailable balance בזמן אמת.
+ * - **Receivables vs Payables** — Invoice open vs SupplierPayment pending.
+ * - **Liquidity Forecast** — cashFlowIntelligence 30-day forecast.
  *
  * ---
  *
- * ## 5. מימון עסקי חכם (B2B Financing — multi-product)
+ * ## 6.5 מימון עסקי חכם (B2B Financing — multi-product) — [Post-MVP]
  *
- * ### מה זה
- * Hub אחד למוצרים: Reverse Factoring · RBF · PO Financing ·
- * Working Capital · Merchant Cash Advance.
- *
- * ### Flow
- * 1. בחירת product_type + סכום מבוקש + הקשר (counterparty, MRR, PO#, וכו׳).
- * 2. שליחה ל-`b2bFinancingAnalyze` שמנתב ללוגיקת חיתום ייעודית למוצר.
- * 3. החזרת decision מובנה (tier, rate, max amount, repayment %).
- *
- * ### החלטה
- * מבוססת על אותן מטריקות יסוד (DSCR, נזילות, יציבות הכנסות) +
- * הקשר ספציפי למוצר (למשל: עוצמת ה-buyer ב-PO financing).
+ * Hub אחד ל: Reverse Factoring · RBF · PO Financing · MCA.
+ * Backend: `b2bFinancingAnalyze` (router לפי product_type).
  *
  * ---
  *
- * ## 6. גבייה חכמה (Collections Intelligence)
+ * ## 6.6 גבייה חכמה (Collections) — [Analytics Layer]
  *
- * ### מה זה
- * ניהול תיקי גבייה על חשבוניות בפיגור.
- *
- * ### מה המערכת בודקת
- * - **Risk Segment** — low / medium / high / critical (AI segmentation).
- * - **Days Overdue** — ימי פיגור.
- * - **Recommended Strategy** — soft_reminder / firm_reminder / phone_call /
- *   payment_plan / legal_action / write_off.
+ * Risk segment (low/medium/high/critical) + recommended strategy
+ * (soft_reminder / firm_reminder / phone_call / payment_plan /
+ * legal_action / write_off).
  *
  * ---
  *
- * ## 7. תשתית חיתום (Underwriting Infrastructure)
+ * ## 6.7 תשתית חיתום (Underwriting Infrastructure) — [Analytics Layer]
  *
- * ### מה זה
- * תצוגת מטה-נתונים על כל ניתוחי החיתום שבוצעו במערכת.
- * Read-only — לצורכי analytics ופיקוח.
+ * Read-only. התפלגות risk tiers + 10 ניתוחים אחרונים.
  *
- * ### מה מוצג
- * - התפלגות risk tiers (Green / Orange / Red).
- * - 10 הניתוחים האחרונים: user, score, tier, DSR, date.
+ * ============================================================================
+ * # 7. עקרונות חוצי-מודולים (Risk Assessment Invariants)
+ * ============================================================================
  *
- * ---
- *
- * ## עקרונות חוצי-מודולים להערכת סיכון לקוח
- *
- * 1. **מקור נתונים יחיד** — כל הבדיקות מבוססות על OpenFinanceTransaction
- *    (12 חודשים) + FinancialSnapshot. אסור לבסס החלטה על קלט משתמש בלבד.
+ * 1. **מקור נתונים יחיד** — כל הבדיקות על OpenFinanceTransaction (12 חודשים)
+ *    + FinancialSnapshot. אסור לבסס החלטה על קלט משתמש בלבד.
  *
  * 2. **מטריקות יסוד משותפות** — DSCR, DTI, adjusted DTI, liquidity index,
  *    income volatility — מחושבות פעם אחת ב-`insightEngine` ומשותפות
- *    לכל המודולים.
+ *    לכל המודולים. אסור לחשב אותן מחדש בכל מודול.
  *
  * 3. **Risk Flags משותפים** — bounced checks, overdraft days, declining
  *    income, high volatility — מזוהים ב-`insightEngine` ומשפיעים על PD
  *    בכל מוצר.
  *
  * 4. **Pricing Tiers משותפים** — Tier A (Prime) / B (Near Prime) /
- *    C (Subprime/Stretch) מוגדרים ב-`UnderwritingRule` ומשפיעים על
- *    תמחור בכל המודולים.
+ *    C (Subprime/Stretch) מוגדרים ב-`UnderwritingRule`.
  *
  * 5. **Persistence** — כל החלטה נשמרת ב-`UnderwritingAnalysis` עם
- *    `model_version` ו-`analysis_hash` לצורכי reproducibility ו-drift tracking.
+ *    `model_version` + `analysis_hash` לצורכי reproducibility ו-drift tracking.
  *
  * 6. **שקיפות (XAI)** — כל החלטה מלווה ב-`xai_factors` (positive/negative
- *    drivers) — חובה להציג אותם למשתמש.
+ *    drivers). חובה להציג למשתמש.
  *
- * 7. **Privacy** — נתונים מובנים (scores, tiers, flags) — plaintext.
- *    נרטיב AI (justifications) — AES-GCM encrypted ב-`narrative_encrypted`.
+ * 7. **Privacy** — נתונים מובנים (scores, tiers, flags) → plaintext.
+ *    נרטיב AI (justifications) → AES-GCM encrypted ב-`narrative_encrypted`.
  *
- * ---
+ * ============================================================================
+ * # 8. Backend Function Map
+ * ============================================================================
  *
- * ## מיפוי מודול → Backend Function
+ * | Layer        | Module              | Backend Function           | Entity                  |
+ * |--------------|---------------------|----------------------------|-------------------------|
+ * | Decisioning  | ניכיון צ׳קים        | checkOcrExtract +          | CheckDiscountRequest    |
+ * |              |                     | checkDiscountAnalyze       |                         |
+ * | Decisioning  | הון חוזר            | b2bFinancingAnalyze +      | B2BFinancingRequest     |
+ * |              |                     | loanLogicV2                |                         |
+ * | Decisioning  | מימון עסקי חכם      | b2bFinancingAnalyze        | B2BFinancingRequest     |
+ * | Decisioning  | ניכיון חשבוניות     | (Invoice CRUD + insights)  | Invoice                 |
+ * | Engine       | Behavioral metrics  | insightEngine              | UnderwritingAnalysis    |
+ * | Engine       | Approval Optimizer  | dealRescuerEngine          | UnderwritingAnalysis    |
+ * | Engine       | Justification (AI)  | generateCreditJustification| UnderwritingAnalysis    |
+ * | Engine       | Persistence         | persistAnalysis            | UnderwritingAnalysis    |
+ * | Analytics    | ניהול כספי          | cashFlowIntelligence       | OpenFinanceAccount      |
+ * | Analytics    | גבייה חכמה          | (AI segmentation)          | CollectionsCase         |
+ * | Analytics    | תשתית חיתום         | persistAnalysis (read)     | UnderwritingAnalysis    |
  *
- * | Module              | Backend Function           | Entity                  |
- * |---------------------|----------------------------|-------------------------|
- * | ניכיון צ׳קים        | checkOcrExtract +          | CheckDiscountRequest    |
- * |                     | checkDiscountAnalyze       |                         |
- * | הון חוזר            | b2bFinancingAnalyze        | B2BFinancingRequest     |
- * | ניכיון חשבוניות     | (Invoice CRUD + insights)  | Invoice                 |
- * | ניהול כספי          | cashFlowIntelligence       | OpenFinanceAccount      |
- * | מימון עסקי חכם      | b2bFinancingAnalyze        | B2BFinancingRequest     |
- * | גבייה חכמה          | (AI segmentation)          | CollectionsCase         |
- * | תשתית חיתום         | persistAnalysis (read)     | UnderwritingAnalysis    |
+ * ============================================================================
+ * # 9. שינויים אחרונים
+ * ============================================================================
  *
- * ---
- *
- * ## מודולים שהוסרו מה-UI (2026-05)
- *
- * - **מימון ספקים (Supplier Finance)** — הוסר מטאבי B2B Suite לבקשת הלקוח.
- *   הלוגיקה (`SupplierPayment` entity, `SupplierFinanceTab`) נשמרת בקוד
- *   להחזרה עתידית.
- * - **אוצר (Treasury)** — שמו שונה ל**ניהול כספי**. הלוגיקה נשמרה,
- *   הפוקוס שונה מ"מוצר אשראי" ל"שכבת ניהול כספי" (read-only analytics).
+ * ## 2026-05
+ * - **מימון ספקים (Supplier Finance)** — הוסר מ-UI; הקוד נשמר להחזרה עתידית.
+ * - **אוצר → ניהול כספי** — שינוי שם + reframe מ"מוצר אשראי" ל"Analytics Layer".
+ * - **CheckScanner** — שופר עם capture="environment" + העלאה נפרדת.
+ * - **הוסף תיעוד ארכיטקטוני חדש**: Core Engine, Analytics vs Decisioning,
+ *   Orchestration Layer, Approval Optimization, Behavioral Intelligence, MVP Scope.
  */
 
 export default null;
