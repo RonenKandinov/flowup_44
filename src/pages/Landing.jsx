@@ -67,12 +67,12 @@ export default function Landing() {
                         </div>
                     </div>
                     <Button
-                        onClick={isAuthenticated ? handleEnter : handleLogin}
+                        onClick={handleLogin}
                         size="sm"
                         className="bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-semibold border-0 h-10 px-5 shadow-lg shadow-cyan-500/30"
                     >
                         <LogIn className="w-3.5 h-3.5 ml-1.5" />
-                        <span className="text-xs">{isAuthenticated ? 'כניסה למערכת' : 'התחברות'}</span>
+                        <span className="text-xs">כניסה למערכת</span>
                     </Button>
                 </div>
             </header>
@@ -85,42 +85,37 @@ export default function Landing() {
                         animate={{ opacity: 1, y: 0 }}
                         className="text-center max-w-3xl mx-auto"
                     >
-                        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-400/30 mb-8 backdrop-blur-sm">
-                            <Sparkles className="w-3.5 h-3.5 text-cyan-300" />
-                            <span className="text-[11px] text-cyan-200 tracking-wider font-medium">פלטפורמת חיתום וניהול אשראי עסקי</span>
-                        </div>
-
                         <h2 className="text-5xl md:text-7xl font-bold tracking-tight leading-[1.05]">
                             <span className="bg-gradient-to-b from-white via-white to-slate-400 bg-clip-text text-transparent">
-                                האינטליגנציה הפיננסית
+                                מערכת החלטות אשראי
                             </span>
                             <br />
                             <span className="bg-gradient-to-r from-cyan-300 via-sky-300 to-blue-400 bg-clip-text text-transparent drop-shadow-[0_0_30px_rgba(56,189,248,0.3)]">
-                                של העסק שלך
+                                בזמן אמת
                             </span>
                         </h2>
 
                         <p className="text-slate-300 text-base md:text-lg mt-8 leading-relaxed max-w-2xl mx-auto">
-                            ניתוח Open Finance בזמן אמת, חיתום אוטומטי, וניהול תזרים חכם —
+                            אופטימיזציית עסקאות, ניתוח התנהגות פיננסית
                             <br />
-                            <span className="text-cyan-300/90">בפלטפורמה אחת מאובטחת.</span>
+                            <span className="text-cyan-300/90">וחיתום דינמי בפלטפורמה אחת.</span>
                         </p>
 
-                        <div className="flex items-center justify-center gap-3 mt-12">
+                        <div className="flex flex-col items-center gap-3 mt-12">
                             <Button
-                                onClick={isAuthenticated ? handleEnter : handleLogin}
+                                onClick={handleLogin}
                                 size="lg"
-                                className="bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-bold h-14 px-10 shadow-2xl shadow-cyan-500/40 border-0 text-base"
+                                className="bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-bold h-14 px-12 shadow-2xl shadow-cyan-500/40 border-0 text-base"
                             >
-                                {isAuthenticated ? 'כניסה לדשבורד' : 'התחבר למערכת'}
+                                כניסה למערכת
                                 <ArrowLeft className="w-4 h-4 mr-2" />
                             </Button>
-                        </div>
 
-                        <p className="text-slate-500 text-[11px] mt-5 tracking-wider flex items-center justify-center gap-1.5">
-                            <Lock className="w-3 h-3" />
-                            התחברות מאובטחת · אין צורך בהרשמה ידנית
-                        </p>
+                            <p className="text-slate-500 text-[11px] tracking-wider flex items-center justify-center gap-1.5 mt-1">
+                                <Lock className="w-3 h-3" />
+                                התחברות מאובטחת · אין צורך בהרשמה ידנית
+                            </p>
+                        </div>
                     </motion.div>
 
                     {/* Features */}
