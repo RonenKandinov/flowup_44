@@ -33,15 +33,15 @@ export default function B2BSuite() {
                 }} />
             </div>
 
-            <header className="relative z-10 px-6 py-8 md:px-10">
-                <div className="max-w-7xl mx-auto flex items-center justify-between border-b border-slate-800/60 pb-6 flex-wrap gap-3">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center">
-                            <Briefcase className="w-5 h-5 text-cyan-300" />
+            <header className="relative z-10 px-4 py-4 md:px-10 md:py-8">
+                <div className="max-w-7xl mx-auto flex items-center justify-between border-b border-slate-800/60 pb-3 md:pb-6 flex-wrap gap-3">
+                    <div className="flex items-center gap-2 md:gap-3 min-w-0">
+                        <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center shrink-0">
+                            <Briefcase className="w-4 h-4 md:w-5 md:h-5 text-cyan-300" />
                         </div>
-                        <div>
-                            <h1 className="text-2xl font-bold text-white">B2B Suite</h1>
-                            <p className="text-slate-500 text-xs mt-1 tracking-[0.18em] uppercase">
+                        <div className="min-w-0">
+                            <h1 className="text-lg md:text-2xl font-bold text-white">B2B Suite</h1>
+                            <p className="hidden md:block text-slate-500 text-xs mt-1 tracking-[0.18em] uppercase">
                                 אשראי עסקי · Open Finance · Workflow Automation
                             </p>
                         </div>
@@ -55,15 +55,15 @@ export default function B2BSuite() {
                 </div>
             </header>
 
-            <main className="relative z-10 px-6 pb-12 md:px-10">
+            <main className="relative z-10 px-4 pb-8 md:px-10 md:pb-12">
                 <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="max-w-7xl mx-auto">
                     <Tabs value={active} onValueChange={setActive} dir="rtl">
-                        <TabsList className="bg-slate-900/60 border border-slate-800 backdrop-blur-sm p-1 h-auto flex-wrap gap-1 mb-6">
+                        <TabsList className="bg-slate-900/60 border border-slate-800 backdrop-blur-sm p-1 h-auto flex gap-1 mb-4 md:mb-6 overflow-x-auto flex-nowrap md:flex-wrap scrollbar-none">
                             {TABS.map(({ id, label, icon: Icon }) => (
                                 <TabsTrigger
                                     key={id}
                                     value={id}
-                                    className="text-xs gap-1.5 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-200 text-slate-400"
+                                    className="text-[11px] md:text-xs gap-1.5 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-200 text-slate-400 whitespace-nowrap shrink-0"
                                 >
                                     <Icon className="w-3.5 h-3.5" />
                                     {label}

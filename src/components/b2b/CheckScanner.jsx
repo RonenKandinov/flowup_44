@@ -51,25 +51,26 @@ export default function CheckScanner({ onExtracted }) {
     };
 
     return (
-        <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5">
-            <div className="flex items-start justify-between mb-3">
-                <div>
-                    <h3 className="text-white font-semibold mb-1">שלב 1 · סריקת צ׳ק</h3>
-                    <p className="text-slate-500 text-xs leading-relaxed">
+        <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-3 md:p-5">
+            <div className="flex items-start justify-between mb-2 md:mb-3 gap-2">
+                <div className="min-w-0">
+                    <h3 className="text-white font-semibold text-sm md:text-base">שלב 1 · סריקת צ׳ק</h3>
+                    <p className="hidden md:block text-slate-500 text-xs leading-relaxed mt-1">
                         צלם או העלה את הצ׳ק. המערכת תזהה אוטומטית את ח.פ של כותב הצ׳ק, סכום ותאריך פירעון —
                         ואז תחפש את צד ג׳ בהיסטוריית 12 החודשים שלך כדי לקבל החלטה.
                     </p>
+                    <p className="md:hidden text-slate-500 text-[11px] mt-0.5">צלם או העלה — נזהה את הפרטים אוטומטית.</p>
                 </div>
                 {phase !== 'idle' && (
-                    <Button variant="ghost" size="sm" onClick={reset} className="text-slate-400 hover:text-white text-xs h-7">
+                    <Button variant="ghost" size="sm" onClick={reset} className="text-slate-400 hover:text-white text-xs h-7 shrink-0">
                         <RotateCcw className="w-3 h-3 ml-1" /> נקה
                     </Button>
                 )}
             </div>
 
             {previewUrl && (
-                <div className="mb-4 rounded-lg overflow-hidden border border-slate-800 bg-slate-950">
-                    <img src={previewUrl} alt="check preview" className="w-full max-h-56 object-contain" />
+                <div className="mb-3 rounded-lg overflow-hidden border border-slate-800 bg-slate-950">
+                    <img src={previewUrl} alt="check preview" className="w-full max-h-40 md:max-h-56 object-contain" />
                 </div>
             )}
 
@@ -96,7 +97,7 @@ export default function CheckScanner({ onExtracted }) {
                     <div className="grid grid-cols-2 gap-2">
                         <Button
                             onClick={() => cameraRef.current?.click()}
-                            className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold h-12"
+                            className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold h-10 md:h-12 text-sm"
                         >
                             <Camera className="w-4 h-4 ml-2" />
                             צלם צ׳ק
@@ -104,13 +105,13 @@ export default function CheckScanner({ onExtracted }) {
                         <Button
                             onClick={() => uploadRef.current?.click()}
                             variant="outline"
-                            className="bg-slate-800/60 border-slate-700 text-slate-200 hover:bg-slate-700 h-12"
+                            className="bg-slate-800/60 border-slate-700 text-slate-200 hover:bg-slate-700 h-10 md:h-12 text-sm"
                         >
                             <Upload className="w-4 h-4 ml-2" />
                             העלה תמונה
                         </Button>
                     </div>
-                    <p className="text-[11px] text-slate-600 mt-3 leading-relaxed">
+                    <p className="hidden md:block text-[11px] text-slate-600 mt-3 leading-relaxed">
                         טיפ: צלם בתאורה טובה, ישר מלמעלה, כשהצ׳ק על רקע כהה — לזיהוי מיטבי של מספר הח.פ בתחתית.
                     </p>
                 </>

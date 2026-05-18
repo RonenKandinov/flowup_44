@@ -84,23 +84,34 @@ export default function CheckDiscountTab() {
         }).catch(() => {});
     };
 
+    // Mobile flow: hide the details form until a scan/upload happened (or user taps "מילוי ידני").
+    const [manualMode, setManualMode] = useState(false);
+    const hasScanData = !!(form.check_image_url || form.amount || form.third_party_tax_id);
+    const showForm = hasScanData || manualMode;
+
     return (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-4 md:space-y-6">
             <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center">
-                    <ScanLine className="w-5 h-5 text-cyan-300" />
+                <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center shrink-0">
+                    <ScanLine className="w-4 h-4 md:w-5 md:h-5 text-cyan-300" />
                 </div>
-                <div>
-                    <h2 className="text-xl font-bold text-white">ניכיון צ׳קים</h2>
-                    <p className="text-slate-500 text-xs">סרוק צ׳ק → ניתוח צד ג׳ + חוסן העסק → החלטה בזמן אמת</p>
+                <div className="min-w-0">
+                    <h2 className="text-lg md:text-xl font-bold text-white">ניכיון צ׳קים</h2>
+                    <p className="text-slate-500 text-[11px] md:text-xs">סרוק → אמת פרטים → החלטה</p>
                 </div>
             </div>
 
-            <div className="grid lg:grid-cols-2 gap-5">
+            <div className="grid lg:grid-cols-2 gap-4 md:gap-5">
                 <CheckScanner onExtracted={handleExtracted} />
 
-                <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-3">
-                    <h3 className="text-white font-semibold mb-1">פרטי הצ׳ק</h3>
+                {/* On mobile: collapsed until scan completes. On desktop (lg+): always visible. */}
+                <div className={`bg-slate-900/60 border border-slate-800 rounded-xl p-3 md:p-5 space-y-3 ${!showForm ? 'hidden lg:block' : ''}`}>
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-white font-semibold text-sm md:text-base">שלב 2 · פרטי הצ׳ק</h3>
+                        {!hasScanData && manualMode && (
+                            <button onClick={() => setManualMode(false)} className="lg:hidden text-[11px] text-slate-500 hover:text-slate-300">חזור לסריקה</button>
+                        )}
+                    </div>
                     {confidence !== null && confidence < 0.85 && (
                         <div className="flex items-center gap-2 text-amber-300 text-xs bg-amber-500/10 border border-amber-500/30 rounded p-2">
                             <Info className="w-3.5 h-3.5" />
@@ -157,6 +168,16 @@ export default function CheckDiscountTab() {
                         </div>
                     )}
                 </div>
+
+                {/* Mobile-only: "fill manually" link when no scan yet */}
+                {!showForm && (
+                    <button
+                        onClick={() => setManualMode(true)}
+                        className="lg:hidden text-xs text-slate-400 hover:text-cyan-300 underline underline-offset-4 self-center"
+                    >
+                        או מלא ידנית ללא צילום
+                    </button>
+                )}
             </div>
 
             {decision && (
