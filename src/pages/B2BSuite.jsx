@@ -5,7 +5,6 @@ import { Briefcase, FileText, Droplets, Cpu, PhoneCall, ArrowRight, ScanLine, Ba
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 
-import FactoringTab from '../components/b2b/FactoringTab';
 import WorkingCapitalTab from '../components/b2b/WorkingCapitalTab';
 import UnderwritingInfraTab from '../components/b2b/UnderwritingInfraTab';
 import CollectionsTab from '../components/b2b/CollectionsTab';
@@ -16,7 +15,6 @@ const TABS = [
     { id: 'check_discount', label: 'ניכיון צ׳קים', icon: ScanLine, Component: CheckDiscountTab },
     { id: 'financing', label: 'מימון עסקי', icon: Banknote, Component: B2BFinancingTab },
     { id: 'working_capital', label: 'הון חוזר', icon: Droplets, Component: WorkingCapitalTab },
-    { id: 'factoring', label: 'ניכיון חשבוניות', icon: FileText, Component: FactoringTab },
     { id: 'underwriting', label: 'תשתית חיתום', icon: Cpu, Component: UnderwritingInfraTab },
     { id: 'collections', label: 'גבייה חכמה', icon: PhoneCall, Component: CollectionsTab }
 ];
