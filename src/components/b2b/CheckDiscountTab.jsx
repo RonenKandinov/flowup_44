@@ -53,11 +53,19 @@ export default function CheckDiscountTab() {
             return;
         }
         setSubmitting(true);
-        const res = await base44.functions.invoke('checkDiscountAnalyze', {
-            amount: Number(form.amount),
-            third_party_tax_id: form.third_party_tax_id,
-            third_party_name: form.third_party_name,
-            due_date: form.due_date
+        // Route through orchestrationEngine — it handles unified persistence to LoanApplication.
+        const res = await base44.functions.invoke('orchestrationEngine', {
+            product: 'check_discount',
+            context: {
+                amount: Number(form.amount),
+                due_date: form.due_date,
+                third_party_tax_id: form.third_party_tax_id,
+                third_party_name: form.third_party_name,
+                check_image_url: form.check_image_url,
+                check_number: form.check_number,
+                ocr_confidence: confidence
+            },
+            options: { enableFallback: false, persist: true }
         });
         setSubmitting(false);
 
@@ -66,22 +74,6 @@ export default function CheckDiscountTab() {
             return;
         }
         setDecision(res.data.decision);
-
-        // Persist the request
-        await base44.entities.CheckDiscountRequest.create({
-            requesting_business_id: 'self',
-            check_image_url: form.check_image_url,
-            third_party_tax_id: form.third_party_tax_id,
-            third_party_name: form.third_party_name,
-            amount: Number(form.amount),
-            due_date: form.due_date,
-            check_number: form.check_number,
-            ocr_confidence: confidence,
-            third_party_history: res.data.decision.third_party_history,
-            status: res.data.decision.status,
-            decision_reason: res.data.decision.reason,
-            discount_rate: res.data.decision.discount_rate
-        }).catch(() => {});
     };
 
     // Mobile flow: hide the details form until a scan/upload happened (or user taps "מילוי ידני").
@@ -188,15 +180,19 @@ export default function CheckDiscountTab() {
                     <div className="flex items-center gap-2 mb-2">
                         <CheckCircle2 className="w-5 h-5" />
                         <span className="font-bold">{STATUS_LABEL[decision.status]}</span>
-                        <span className="text-xs opacity-70 mr-2">· עמלת ניכיון: {decision.discount_rate}%</span>
+                        {decision.rate != null && (
+                            <span className="text-xs opacity-70 mr-2">· עמלת ניכיון: {decision.rate}%</span>
+                        )}
                     </div>
                     <p className="text-sm leading-relaxed mb-3">{decision.reason}</p>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                        <Stat label="הפקדות עבר" value={decision.third_party_history.prior_deposits} />
-                        <Stat label="ממוצע" value={`₪${decision.third_party_history.avg_prior_amount.toLocaleString()}`} />
-                        <Stat label="חזרות צד ג׳" value={decision.third_party_history.third_party_bounces} />
-                        <Stat label="חזרות בחשבון" value={decision.third_party_history.total_account_bounces} />
-                    </div>
+                    {decision.product_specific && (
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                            <Stat label="הפקדות עבר" value={decision.product_specific.prior_deposits ?? 0} />
+                            <Stat label="ממוצע" value={`₪${(decision.product_specific.avg_prior_amount || 0).toLocaleString()}`} />
+                            <Stat label="חזרות צד ג׳" value={decision.product_specific.third_party_bounces ?? 0} />
+                            <Stat label="חזרות בחשבון" value={decision.product_specific.total_account_bounces ?? 0} />
+                        </div>
+                    )}
                 </motion.div>
             )}
         </motion.div>

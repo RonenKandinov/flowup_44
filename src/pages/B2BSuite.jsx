@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Briefcase, FileText, Droplets, Cpu, PhoneCall, ArrowRight, ScanLine, Banknote } from 'lucide-react';
+import { Briefcase, FileText, Droplets, Cpu, PhoneCall, ArrowRight, ScanLine, Banknote, User, Repeat } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 
@@ -11,10 +11,14 @@ import UnderwritingInfraTab from '../components/b2b/UnderwritingInfraTab';
 import CollectionsTab from '../components/b2b/CollectionsTab';
 import CheckDiscountTab from '../components/b2b/CheckDiscountTab';
 import B2BFinancingTab from '../components/b2b/B2BFinancingTab';
+import PersonalLoanTab from '../components/b2b/PersonalLoanTab';
+import DirectDebitsTab from '../components/b2b/DirectDebitsTab';
 
 const TABS = [
     { id: 'check_discount', label: 'ניכיון צ׳קים', icon: ScanLine, Component: CheckDiscountTab },
     { id: 'financing', label: 'מימון עסקי', icon: Banknote, Component: B2BFinancingTab },
+    { id: 'personal_loan', label: 'הלוואה פרטית', icon: User, Component: PersonalLoanTab },
+    { id: 'direct_debits', label: 'הרשאות חיוב', icon: Repeat, Component: DirectDebitsTab },
     { id: 'working_capital', label: 'הון חוזר', icon: Droplets, Component: WorkingCapitalTab },
     { id: 'factoring', label: 'ניכיון חשבוניות', icon: FileText, Component: FactoringTab },
     { id: 'underwriting', label: 'תשתית חיתום', icon: Cpu, Component: UnderwritingInfraTab },

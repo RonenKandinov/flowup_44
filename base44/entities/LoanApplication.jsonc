@@ -1,0 +1,74 @@
+{
+  "name": "LoanApplication",
+  "type": "object",
+  "description": "Unified loan application entity \u2014 covers all loan types: B2B financing (reverse factoring, RBF, PO, working capital, MCA), check discounting, and personal loans. Use loan_type to route to the correct underwriting logic; product-specific data lives in 'details'.",
+  "properties": {
+    "loan_type": {
+      "type": "string",
+      "enum": [
+        "b2b_financing",
+        "check_discount",
+        "personal_loan"
+      ],
+      "description": "Top-level category of the loan application"
+    },
+    "product_type": {
+      "type": "string",
+      "description": "Sub-product within the loan_type. For b2b_financing: reverse_factoring | revenue_based_financing | purchase_order_financing | working_capital | merchant_cash_advance. For personal_loan: consumer | auto | mortgage | debt_consolidation. For check_discount: leave empty."
+    },
+    "borrower_segment": {
+      "type": "string",
+      "enum": [
+        "business",
+        "consumer"
+      ],
+      "description": "Business (B2B / check discount) or consumer (personal loan)"
+    },
+    "borrower_id": {
+      "type": "string",
+      "description": "Internal user id of the borrower / underwriting target"
+    },
+    "borrower_name": {
+      "type": "string"
+    },
+    "borrower_tax_id": {
+      "type": "string",
+      "description": "\u05d7.\u05e4 / \u05e2.\u05de / \u05ea.\u05d6 \u05e9\u05dc \u05d4\u05dc\u05d5\u05d5\u05d4"
+    },
+    "requested_amount": {
+      "type": "number",
+      "description": "Amount requested (\u20aa)"
+    },
+    "term_months": {
+      "type": "number"
+    },
+    "details": {
+      "type": "object",
+      "description": "Product-specific payload. For check_discount: { third_party_tax_id, third_party_name, due_date, check_number, check_image_url, ocr_confidence }. For b2b_financing: { counterparty_tax_id, buyer_name, target_mrr, acquirer_name }. For personal_loan: { purpose, employment_status }."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "processing",
+        "approved",
+        "review",
+        "adjusted",
+        "rejected"
+      ],
+      "default": "pending"
+    },
+    "decision": {
+      "type": "object",
+      "description": "Structured decision output (tier, rate, max amount, repayment %, justification, third_party_history, etc.)"
+    },
+    "analysis_id": {
+      "type": "string",
+      "description": "Reference to UnderwritingAnalysis record"
+    }
+  },
+  "required": [
+    "loan_type",
+    "requested_amount"
+  ]
+}
