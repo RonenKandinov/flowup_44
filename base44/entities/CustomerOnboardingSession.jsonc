@@ -1,0 +1,103 @@
+{
+  "name": "CustomerOnboardingSession",
+  "type": "object",
+  "description": "B2B onboarding session \u2014 a single-use, time-limited link that a partner company sends to a customer to connect their bank account via Open Finance. Each session is bound to a single B2BPartner and tracks the customer's progress through the consent flow until analysis is complete.",
+  "properties": {
+    "b2b_partner_id": {
+      "type": "string",
+      "description": "Reference to the B2BPartner that initiated this session"
+    },
+    "b2b_partner_name": {
+      "type": "string",
+      "description": "Denormalized partner name for display in the customer-facing page"
+    },
+    "customer_name": {
+      "type": "string",
+      "description": "Customer display name (provided by the partner when creating the session)"
+    },
+    "customer_email": {
+      "type": "string",
+      "description": "Customer email (provided by the partner)"
+    },
+    "customer_phone": {
+      "type": "string",
+      "description": "Customer phone (provided by the partner) \u2014 used for SMS/WhatsApp delivery"
+    },
+    "requested_amount": {
+      "type": "number",
+      "description": "Optional loan amount the customer is applying for (\u20aa)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "link_opened",
+        "consent_started",
+        "consent_granted",
+        "analyzing",
+        "completed",
+        "expired",
+        "failed"
+      ],
+      "default": "pending",
+      "description": "Lifecycle state of the onboarding session"
+    },
+    "token_hash": {
+      "type": "string",
+      "description": "HMAC-SHA256 hash of the issued single-use token (raw token never stored)"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Hard expiry \u2014 link is rejected after this timestamp"
+    },
+    "link_opened_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "First time the customer opened the link"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "open_finance_connection_id": {
+      "type": "string",
+      "description": "Reference to the OpenFinanceConnection created during this session"
+    },
+    "analysis_id": {
+      "type": "string",
+      "description": "Reference to the resulting UnderwritingAnalysis record"
+    },
+    "failure_reason": {
+      "type": "string",
+      "description": "Short error message if status=failed/expired"
+    }
+  },
+  "required": [
+    "b2b_partner_id",
+    "status",
+    "expires_at"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "isAuthenticated": true
+      }
+    },
+    "update": {
+      "user_condition": {
+        "isAuthenticated": true
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

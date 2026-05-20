@@ -10,6 +10,7 @@ import { Plus, Copy, CheckCircle2, Key, Link as LinkIcon, ArrowRight } from 'luc
 import { Link } from 'react-router-dom';
 import { toast } from "sonner";
 import { useAuth } from '@/lib/AuthContext';
+import OnboardingLinkGenerator from '@/components/admin/OnboardingLinkGenerator';
 
 export default function PartnersAdmin() {
   const { user } = useAuth();
@@ -202,6 +203,12 @@ export default function PartnersAdmin() {
                     </div>
                   </div>
                 </div>
+
+                {partner.active && (
+                  <div className="mt-4 pt-4 border-t border-slate-800/60">
+                    <OnboardingLinkGenerator partner={partner} />
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))

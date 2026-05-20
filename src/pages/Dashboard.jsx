@@ -93,7 +93,22 @@ export default function Dashboard() {
   const [isProcessingCallback, setIsProcessingCallback] = useState(
     () => !!new URLSearchParams(window.location.search).get('of_callback')
   );
-  const [targetAccountId, setTargetAccountId] = useState('');
+  const [targetAccountId, setTargetAccountId] = useState(() => {
+    try { return new URLSearchParams(window.location.search).get('accountId') || ''; } catch { return ''; }
+  });
+
+  // Persist selected account in the URL so B2B Suite tabs can read it.
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href);
+      if (targetAccountId && targetAccountId !== 'all') {
+        url.searchParams.set('accountId', targetAccountId);
+      } else {
+        url.searchParams.delete('accountId');
+      }
+      window.history.replaceState({}, '', url.toString());
+    } catch { /* no-op */ }
+  }, [targetAccountId]);
   
   // Fetch user data for Admin bypass (only when token exists to avoid 401 noise)
   const { data: user, isLoading: isUserLoading } = useQuery({

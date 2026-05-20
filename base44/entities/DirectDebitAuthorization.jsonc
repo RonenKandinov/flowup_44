@@ -1,0 +1,70 @@
+{
+  "name": "DirectDebitAuthorization",
+  "type": "object",
+  "description": "Read-only view of a direct-debit / standing-order authorization on the user's bank account, derived from Open Finance data. Used purely for display and compliance review \u2014 FlowUp does not initiate payments.",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "description": "Internal user id this authorization belongs to"
+    },
+    "connection_id": {
+      "type": "string",
+      "description": "Reference to the OpenFinanceConnection it was discovered through"
+    },
+    "account_id": {
+      "type": "string",
+      "description": "Bank account id the authorization is attached to"
+    },
+    "beneficiary_name": {
+      "type": "string",
+      "description": "\u05d4\u05de\u05d5\u05d8\u05d1 / \u05d4\u05d7\u05d1\u05e8\u05d4 \u05e9\u05de\u05d7\u05d9\u05d9\u05d1\u05ea"
+    },
+    "beneficiary_tax_id": {
+      "type": "string",
+      "description": "\u05d7.\u05e4 \u05e9\u05dc \u05d4\u05de\u05d5\u05d8\u05d1 (\u05d0\u05dd \u05d6\u05de\u05d9\u05df)"
+    },
+    "authorization_reference": {
+      "type": "string",
+      "description": "\u05de\u05e1\u05e4\u05e8 \u05d4\u05e8\u05e9\u05d0\u05d4 / asmachta \u05de\u05d4\u05d1\u05e0\u05e7"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "suspended",
+        "cancelled",
+        "expired"
+      ],
+      "default": "active"
+    },
+    "amount_limit": {
+      "type": "number",
+      "description": "\u05ea\u05e7\u05e8\u05ea \u05d7\u05d9\u05d5\u05d1 (\u05d0\u05dd \u05de\u05d5\u05d2\u05d3\u05e8\u05ea)"
+    },
+    "currency": {
+      "type": "string",
+      "default": "ILS"
+    },
+    "frequency": {
+      "type": "string",
+      "description": "\u05ea\u05d3\u05d9\u05e8\u05d5\u05ea \u05d7\u05d9\u05d5\u05d1 (monthly / one_off / variable)"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "last_seen_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last time this authorization was confirmed via Open Finance sync"
+    }
+  },
+  "required": [
+    "user_id",
+    "beneficiary_name"
+  ]
+}

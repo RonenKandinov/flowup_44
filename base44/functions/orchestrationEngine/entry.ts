@@ -36,68 +36,78 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 // ─── Supported products & their required context ──────────────────────────────
+// All products now route to the SAME unified analyzer (loanApplicationAnalyze).
+// loan_type drives the underwriting branch; product_type drives sub-product logic.
 const PRODUCT_REGISTRY = {
   check_discount: {
     layer: 'decisioning',
-    analyzer: 'checkDiscountAnalyze',
+    analyzer: 'loanApplicationAnalyze',
+    loanType: 'check_discount',
     required: ['amount', 'due_date'],
     optional: ['third_party_tax_id', 'third_party_name', 'check_image_url', 'check_number'],
-    persistEntity: 'CheckDiscountRequest',
     requestedAmountField: 'amount'
   },
   working_capital: {
     layer: 'decisioning',
-    analyzer: 'b2bFinancingAnalyze',
+    analyzer: 'loanApplicationAnalyze',
+    loanType: 'b2b_financing',
     productType: 'working_capital',
     required: ['requested_amount'],
     optional: ['term_months'],
-    persistEntity: 'B2BFinancingRequest',
     fallback: 'factoring',
     requestedAmountField: 'requested_amount'
   },
   factoring: {
     layer: 'decisioning',
-    analyzer: 'b2bFinancingAnalyze',
+    analyzer: 'loanApplicationAnalyze',
+    loanType: 'b2b_financing',
     productType: 'reverse_factoring',
     required: ['requested_amount'],
     optional: ['term_months', 'counterparty_tax_id'],
-    persistEntity: 'B2BFinancingRequest',
     requestedAmountField: 'requested_amount'
   },
   reverse_factoring: {
     layer: 'decisioning',
-    analyzer: 'b2bFinancingAnalyze',
+    analyzer: 'loanApplicationAnalyze',
+    loanType: 'b2b_financing',
     productType: 'reverse_factoring',
     required: ['requested_amount'],
     optional: ['term_months', 'counterparty_tax_id'],
-    persistEntity: 'B2BFinancingRequest',
     requestedAmountField: 'requested_amount'
   },
   rbf: {
     layer: 'decisioning',
-    analyzer: 'b2bFinancingAnalyze',
+    analyzer: 'loanApplicationAnalyze',
+    loanType: 'b2b_financing',
     productType: 'revenue_based_financing',
     required: ['requested_amount'],
     optional: ['target_mrr'],
-    persistEntity: 'B2BFinancingRequest',
     requestedAmountField: 'requested_amount'
   },
   po_financing: {
     layer: 'decisioning',
-    analyzer: 'b2bFinancingAnalyze',
+    analyzer: 'loanApplicationAnalyze',
+    loanType: 'b2b_financing',
     productType: 'purchase_order_financing',
     required: ['requested_amount'],
     optional: ['po_number', 'buyer_name'],
-    persistEntity: 'B2BFinancingRequest',
     requestedAmountField: 'requested_amount'
   },
   mca: {
     layer: 'decisioning',
-    analyzer: 'b2bFinancingAnalyze',
+    analyzer: 'loanApplicationAnalyze',
+    loanType: 'b2b_financing',
     productType: 'merchant_cash_advance',
     required: ['requested_amount'],
     optional: ['acquirer_name'],
-    persistEntity: 'B2BFinancingRequest',
+    requestedAmountField: 'requested_amount'
+  },
+  personal_loan: {
+    layer: 'decisioning',
+    analyzer: 'loanApplicationAnalyze',
+    loanType: 'personal_loan',
+    required: ['requested_amount'],
+    optional: ['term_months', 'purpose'],
     requestedAmountField: 'requested_amount'
   }
 };
@@ -129,30 +139,48 @@ function validateRequest({ product, context }) {
 // IMPORTANT: we forward the loanLogic metrics so the analyzer does NOT recompute
 // them. This is the central rule — one source of truth for financial metrics.
 function buildAnalyzerPayload(product, spec, context, loanMetrics) {
-  if (spec.analyzer === 'checkDiscountAnalyze') {
+  // Unified analyzer (loanApplicationAnalyze) — single payload shape for all products.
+  if (spec.loanType === 'check_discount') {
     return {
-      amount: Number(context.amount),
-      due_date: context.due_date,
-      third_party_tax_id: context.third_party_tax_id || '',
-      third_party_name: context.third_party_name || '',
-      // forwarded financial context (analyzer can use or ignore)
+      loan_type: 'check_discount',
+      requested_amount: Number(context.amount),
+      details: {
+        due_date: context.due_date,
+        third_party_tax_id: context.third_party_tax_id || '',
+        third_party_name: context.third_party_name || '',
+        check_image_url: context.check_image_url || '',
+        check_number: context.check_number || '',
+        ocr_confidence: Number(context.ocr_confidence || 0)
+      },
       loan_metrics: loanMetrics || null
     };
   }
-  if (spec.analyzer === 'b2bFinancingAnalyze') {
+  if (spec.loanType === 'b2b_financing') {
     return {
+      loan_type: 'b2b_financing',
       product_type: spec.productType,
       requested_amount: Number(context.requested_amount),
       term_months: Number(context.term_months || 12),
-      context: {
+      details: {
         counterparty_tax_id: context.counterparty_tax_id,
         po_number: context.po_number,
         buyer_name: context.buyer_name,
         target_mrr: context.target_mrr,
         acquirer_name: context.acquirer_name
       },
-      // forwarded financial context (analyzer can use or ignore)
       loan_metrics: loanMetrics || null
+    };
+  }
+  if (spec.loanType === 'personal_loan') {
+    return {
+      loan_type: 'personal_loan',
+      product_type: spec.productType || null,
+      requested_amount: Number(context.requested_amount),
+      term_months: Number(context.term_months || 36),
+      details: {
+        purpose: context.purpose || '',
+        employment_status: context.employment_status || ''
+      }
     };
   }
   return context;
@@ -262,38 +290,52 @@ async function persistUnderwritingAnalysis(base44, { loanLogicOutput, insightsDa
 }
 
 // ─── Step 5: Persist the product request record ──────────────────────────────
+// Unified persistence — single LoanApplication entity for all loan types.
 async function persistProductRequest({ base44, user, spec, context, decision }) {
   try {
-    if (spec.persistEntity === 'CheckDiscountRequest') {
-      return await base44.entities.CheckDiscountRequest.create({
-        requesting_business_id: user.id,
-        amount: Number(context.amount),
+    const requestedAmount = Number(context[spec.requestedAmountField] || 0);
+    const borrowerSegment = spec.loanType === 'personal_loan' ? 'consumer' : 'business';
+
+    // Build product-specific details payload
+    let details = {};
+    if (spec.loanType === 'check_discount') {
+      details = {
         due_date: context.due_date,
         third_party_tax_id: context.third_party_tax_id || '',
         third_party_name: context.third_party_name || '',
         check_image_url: context.check_image_url || '',
         check_number: context.check_number || '',
-        ocr_confidence: Number(context.ocr_confidence || 0),
-        status: decision.status,
-        decision_reason: decision.reason,
-        discount_rate: Number(decision.rate || 0),
-        third_party_history: decision.third_party_history || {}
-      });
+        ocr_confidence: Number(context.ocr_confidence || 0)
+      };
+    } else if (spec.loanType === 'b2b_financing') {
+      details = {
+        counterparty_tax_id: context.counterparty_tax_id,
+        buyer_name: context.buyer_name,
+        target_mrr: context.target_mrr,
+        acquirer_name: context.acquirer_name,
+        po_number: context.po_number
+      };
+    } else if (spec.loanType === 'personal_loan') {
+      details = {
+        purpose: context.purpose || '',
+        employment_status: context.employment_status || ''
+      };
     }
-    if (spec.persistEntity === 'B2BFinancingRequest') {
-      return await base44.entities.B2BFinancingRequest.create({
-        business_id: user.id,
-        business_name: user.full_name || '',
-        product_type: spec.productType,
-        requested_amount: Number(context.requested_amount),
-        term_months: Number(context.term_months || 12),
-        context: context,
-        status: decision.status,
-        decision: decision
-      });
-    }
+
+    return await base44.entities.LoanApplication.create({
+      loan_type: spec.loanType,
+      product_type: spec.productType || null,
+      borrower_segment: borrowerSegment,
+      borrower_id: user.id,
+      borrower_name: user.full_name || '',
+      requested_amount: requestedAmount,
+      term_months: Number(context.term_months || 12),
+      details,
+      status: decision.status,
+      decision
+    });
   } catch (err) {
-    console.error('[orchestration] Product persist failed (non-blocking):', err?.message);
+    console.error('[orchestration] LoanApplication persist failed (non-blocking):', err?.message);
   }
   return null;
 }

@@ -8,6 +8,7 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import B2BConnect from './pages/B2BConnect';
+import CustomerConnect from './pages/CustomerConnect';
 import PartnersAdmin from './pages/PartnersAdmin';
 import DevelopersPortal from './pages/DevelopersPortal';
 import Landing from './pages/Landing';
@@ -69,6 +70,8 @@ const AuthenticatedApp = () => {
 
       {/* Other explicit routes */}
       <Route path="/b2b-connect" element={<B2BConnect />} />
+      {/* Customer-facing onboarding link (public, token-protected) */}
+      <Route path="/connect/:sessionId" element={<CustomerConnect />} />
       <Route path="/partners-admin" element={
         <LayoutWrapper currentPageName="partners-admin"><PartnersAdmin /></LayoutWrapper>
       } />
