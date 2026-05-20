@@ -45,6 +45,7 @@ const STATUS_META = {
 export default function DealRescuer({ onSimulate, onAnalysisComplete, baseMetrics, analysisInsights, cashFlowProfile }) {
     const [step, setStep] = useState('input'); // 'input' | 'analyzing' | 'result'
     const [loanAmount, setLoanAmount] = useState('');
+    const [loanSegment, setLoanSegment] = useState('business'); // 'business' | 'personal'
     const [result, setResult] = useState(null);
     const [justifications, setJustifications] = useState([]);
     const [justificationsLoading, setJustificationsLoading] = useState(false);
@@ -98,7 +99,12 @@ export default function DealRescuer({ onSimulate, onAnalysisComplete, baseMetric
                 analysisInsights: analysisInsights || null,
                 // Granular OpenFinance cash-flow profile — when present, the engine uses
                 // realRepaymentCapacity instead of the (income − 70%) heuristic.
-                cashFlowProfile: cashFlowProfile || null
+                cashFlowProfile: cashFlowProfile || null,
+                // ── Lender-side optimization (CTO direction): prefer SHORTEST term that
+                //    fits DSR + frontload the schedule so the borrower pays more in the
+                //    first months → company exposure shrinks fast.
+                loanSegment,
+                frontload: true
             });
 
             if (!res.data?.rescueStrategies) {
@@ -241,6 +247,28 @@ export default function DealRescuer({ onSimulate, onAnalysisComplete, baseMetric
 
                         <div className="space-y-3">
                             <div>
+                                <div className="text-[10px] text-slate-400 mb-1">סוג הלוואה</div>
+                                <div className="grid grid-cols-2 gap-1.5">
+                                    {[
+                                        { id: 'business', label: 'עסקית' },
+                                        { id: 'personal', label: 'פרטית' }
+                                    ].map(opt => (
+                                        <button
+                                            key={opt.id}
+                                            type="button"
+                                            onClick={() => setLoanSegment(opt.id)}
+                                            className={`text-[11px] font-medium h-8 rounded-md border transition-colors ${
+                                                loanSegment === opt.id
+                                                    ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-200'
+                                                    : 'bg-slate-900/60 border-slate-700 text-slate-400 hover:text-slate-200'
+                                            }`}
+                                        >
+                                            {opt.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div>
                                 <div className="text-[10px] text-slate-400 mb-1">סכום הלוואה (₪)</div>
                                 <Input
                                     type="number"
@@ -362,6 +390,30 @@ export default function DealRescuer({ onSimulate, onAnalysisComplete, baseMetric
                                                 <div className={`font-medium ${s.dsr <= 40 ? 'text-emerald-300' : s.dsr <= 45 ? 'text-amber-300' : 'text-red-300'}`}>{s.dsr}%</div>
                                             </div>
                                         </div>
+
+                                        {/* Frontload schedule — shown only on the headline (top) strategy */}
+                                        {idx === 0 && result.payment_schedule && (
+                                            <div className="mb-2 rounded-md border border-cyan-500/30 bg-cyan-500/5 p-2">
+                                                <div className="flex items-center gap-1.5 text-cyan-300 text-[10px] font-semibold mb-1">
+                                                    <TrendingDown className="w-3 h-3" />
+                                                    פריסה אופטימלית ללווה (Frontload) — הקטנת חשיפת המלווה
+                                                </div>
+                                                <div className="grid grid-cols-3 gap-2 text-[10px]">
+                                                    <div>
+                                                        <div className="text-slate-500">{result.payment_schedule.boost_months} ח׳ ראשונים</div>
+                                                        <div className="text-cyan-300 font-bold">{formatILS(result.payment_schedule.boost_payment)}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-slate-500">מהחודש ה-{result.payment_schedule.boost_months + 1} ואילך</div>
+                                                        <div className="text-slate-200 font-medium">{formatILS(result.payment_schedule.tail_payment)}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-slate-500">חצי קרן ייפרע תוך</div>
+                                                        <div className="text-emerald-300 font-bold">{result.payment_schedule.months_to_half_principal} ח׳</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
 
                                         {/* Profitability label hidden from UI per CTO direction —
                                             kept internal in s.profitMargin for engine logic only. */}

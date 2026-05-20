@@ -767,11 +767,76 @@ const computeAdjustedDsrLimit = (basePolicyLimit, insights) => {
   };
 };
 
-// Stage 4 — composite score (higher = better)
+// Stage 4 — composite score (higher = better).
+// CTO direction: we are a non-bank lender, NOT a bank underwriter — our goal is to
+// MINIMIZE exposure time. Therefore "shorter term" gets a MUCH bigger weight (40%)
+// than in classic bank underwriting (20%), at the expense of "closeness to requested
+// amount". DSR safety remains the top priority (40%).
 const compositeScore = (c, requestedLoanAmount, dsrLimit) => {
   const closeness = clamp(c.grossAmount / requestedLoanAmount, 0, 1);
   const dsrRatio = clamp(c.dsr / dsrLimit, 0, 1.5);
-  return (1 - dsrRatio) * 0.4 + closeness * 0.4 + (1 - c.termMonths / 84) * 0.2;
+  const termShortness = 1 - c.termMonths / 84;
+  return (1 - dsrRatio) * 0.4 + termShortness * 0.4 + closeness * 0.2;
+};
+
+// ─── Frontloaded amortization schedule ───────────────────────────────────────
+// Generates a payment schedule where the FIRST `boostMonths` payments are inflated
+// by `boostPct` (e.g. +30%), bringing the outstanding balance down faster and
+// shrinking the lender's exposure. After the boost period, remaining balance is
+// re-amortized over the residual term at a flat payment.
+//
+// Used when the caller passes `frontload: true` (Deal Rescuer default for non-bank
+// lender mode) or when `loanSegment === 'business'` (business loans always
+// frontload — companies have stronger early cash and we want to de-risk fast).
+const buildFrontloadedSchedule = (principal, annualRatePct, termMonths, { boostMonths = 6, boostPct = 0.30 } = {}) => {
+  if (!principal || principal <= 0 || !termMonths || termMonths < 2) return null;
+  const r = (annualRatePct / 100) / 12;
+  const flat = pmt(principal, annualRatePct / 100, termMonths);
+  const boost = Math.round(flat * (1 + boostPct));
+
+  let bal = principal;
+  const schedule = [];
+  const boostN = Math.min(boostMonths, Math.max(1, Math.floor(termMonths / 2)));
+
+  for (let m = 1; m <= boostN; m++) {
+    const interest = bal * r;
+    const principalPaid = Math.max(0, boost - interest);
+    bal = Math.max(0, bal - principalPaid);
+    schedule.push({ month: m, payment: boost, interest: Math.round(interest), principal: Math.round(principalPaid), balance: Math.round(bal) });
+    if (bal <= 0) break;
+  }
+
+  const remainingMonths = termMonths - schedule.length;
+  if (remainingMonths > 0 && bal > 0) {
+    const flatTail = Math.round(pmt(bal, annualRatePct / 100, remainingMonths));
+    for (let m = schedule.length + 1; m <= termMonths; m++) {
+      const interest = bal * r;
+      const principalPaid = Math.max(0, flatTail - interest);
+      bal = Math.max(0, bal - principalPaid);
+      schedule.push({ month: m, payment: flatTail, interest: Math.round(interest), principal: Math.round(principalPaid), balance: Math.round(bal) });
+      if (bal <= 0) break;
+    }
+  }
+
+  return {
+    boost_months: boostN,
+    boost_pct: boostPct,
+    boost_payment: boost,
+    tail_payment: schedule[schedule.length - 1]?.payment ?? flat,
+    flat_equivalent: Math.round(flat),
+    total_paid: schedule.reduce((s, x) => s + x.payment, 0),
+    // Months until 50% of principal is repaid — KEY exposure metric for the lender.
+    months_to_half_principal: (() => {
+      const target = principal * 0.5;
+      let cum = 0;
+      for (const row of schedule) {
+        cum += row.principal;
+        if (cum >= target) return row.month;
+      }
+      return schedule.length;
+    })(),
+    schedule_preview: schedule.slice(0, 12) // first year only — UI/API payload size
+  };
 };
 
 // Per-strategy scoring — each strategy optimizes a DIFFERENT objective
@@ -914,6 +979,11 @@ Deno.serve(async (req) => {
     const maxDownPayment = Number(body?.maxDownPayment ?? Infinity);
     const rawInsights = body?.analysisInsights || null;
     const cashFlowProfile = body?.cashFlowProfile || null;
+    // CTO direction (non-bank lender mode):
+    //   • loanSegment 'business' → always frontload to minimize exposure window
+    //   • loanSegment 'personal' → frontload only if explicitly requested
+    const loanSegment = String(body?.loanSegment || 'business').toLowerCase();
+    const frontload = body?.frontload === true || loanSegment === 'business';
 
     // Load full underwriting policy (DSR limit, β guardrails, runway floor, pricing coeffs).
     const policy = await loadPolicy(base44);
@@ -1231,6 +1301,14 @@ Deno.serve(async (req) => {
         })[0]
       : null;
 
+    // ── Frontloaded payment schedule for the HEADLINE strategy ──
+    // Same loan total, restructured payments — heavier in the first 6 months
+    // so the lender's exposure drops fast. Reported as a separate field, the
+    // monthly figure already shown stays as the *flat-equivalent* baseline.
+    const headlinePaymentSchedule = (hasRescue && frontload && headline?.loanAmount)
+      ? buildFrontloadedSchedule(headline.loanAmount, headline.interestRate, headline.termMonths)
+      : null;
+
     const explanation = hasRescue
       ? `נמצאו ${strategies.length} אסטרטגיות בשלב ${stage}. מוביל: ${headline.type.replace(/_/g, ' ')} — DSR ${headline.dsr}%.`
       : `לא נמצאה קומבינציה שמעמידה את ה-DSR מתחת ל-${dsrLimitPct}%. מוצג הניסיון הקרוב ביותר עם דרכי פעולה לשיפור.`;
@@ -1396,6 +1474,9 @@ Deno.serve(async (req) => {
         ? (headline.tier || tierForDsr(headline.dsr, policy.tiers))
         : 'D',
       stretch_offer_eligible: stretchEligible,
+      // ── Lender-side optimization output ──
+      loan_segment: loanSegment,
+      payment_schedule: headlinePaymentSchedule,
       // Aggressive Approval surfaced as a SEPARATE PRODUCT (not a strategy).
       // null when the client isn't eligible OR no profitable structure exists.
       aggressiveProduct,

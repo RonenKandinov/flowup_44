@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Briefcase, FileText, Droplets, Cpu, PhoneCall, ArrowRight, ScanLine, Banknote, User, Repeat } from 'lucide-react';
+import { Briefcase, FileText, Droplets, Cpu, PhoneCall, ArrowRight, ScanLine, Banknote, Repeat } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 
@@ -11,13 +11,12 @@ import UnderwritingInfraTab from '../components/b2b/UnderwritingInfraTab';
 import CollectionsTab from '../components/b2b/CollectionsTab';
 import CheckDiscountTab from '../components/b2b/CheckDiscountTab';
 import B2BFinancingTab from '../components/b2b/B2BFinancingTab';
-import PersonalLoanTab from '../components/b2b/PersonalLoanTab';
 import DirectDebitsTab from '../components/b2b/DirectDebitsTab';
+import LoanLogicSummary from '../components/b2b/LoanLogicSummary';
 
 const TABS = [
     { id: 'check_discount', label: 'ניכיון צ׳קים', icon: ScanLine, Component: CheckDiscountTab },
     { id: 'financing', label: 'מימון עסקי', icon: Banknote, Component: B2BFinancingTab },
-    { id: 'personal_loan', label: 'הלוואה פרטית', icon: User, Component: PersonalLoanTab },
     { id: 'direct_debits', label: 'הרשאות חיוב', icon: Repeat, Component: DirectDebitsTab },
     { id: 'working_capital', label: 'הון חוזר', icon: Droplets, Component: WorkingCapitalTab },
     { id: 'factoring', label: 'ניכיון חשבוניות', icon: FileText, Component: FactoringTab },
@@ -58,6 +57,9 @@ export default function B2BSuite() {
 
             <main className="relative z-10 px-4 pb-8 md:px-10 md:pb-12">
                 <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="max-w-7xl mx-auto">
+                    {/* Account-level underwriting summary from loanLogicV2 — shared header for all B2B tabs */}
+                    <LoanLogicSummary />
+
                     <Tabs value={active} onValueChange={setActive} dir="rtl">
                         <TabsList className="bg-slate-900/60 border border-slate-800 backdrop-blur-sm p-1 h-auto flex gap-1 mb-4 md:mb-6 overflow-x-auto flex-nowrap md:flex-wrap scrollbar-none">
                             {TABS.map(({ id, label, icon: Icon }) => (
