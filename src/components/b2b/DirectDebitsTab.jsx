@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Repeat, Loader2, AlertTriangle, ShieldCheck, Eye } from 'lucide-react';
+import { Repeat, Loader2, AlertTriangle, ShieldCheck, Sparkles, TrendingUp } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
+import { useSelectedAccount } from '@/components/hooks/useSelectedAccount';
 
 const STATUS_STYLE = {
     active:    'border-emerald-500/40 bg-emerald-500/10 text-emerald-300',
@@ -16,28 +17,34 @@ const STATUS_LABEL = {
 const fmt = (n) => Number(n || 0).toLocaleString('he-IL');
 
 export default function DirectDebitsTab() {
+    const { accountId } = useSelectedAccount();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [data, setData] = useState({ authorizations: [], source: null });
+    const [data, setData] = useState({ authorizations: [], hidden_income: null });
 
     useEffect(() => {
+        setLoading(true);
         (async () => {
             try {
-                const res = await base44.functions.invoke('listDirectDebits', {});
+                const res = await base44.functions.invoke('listDirectDebits', { accountId: accountId || null });
                 if (!res?.data?.success) {
-                    setError(res?.data?.error || 'לא ניתן לטעון הרשאות');
+                    setError(res?.data?.error || 'לא ניתן לטעון נתונים');
                 } else {
                     setData({
                         authorizations: res.data.authorizations || [],
+                        hidden_income: res.data.hidden_income || null,
                         source: res.data.source
                     });
+                    setError('');
                 }
             } catch (e) {
                 setError(e.message);
             }
             setLoading(false);
         })();
-    }, []);
+    }, [accountId]);
+
+    const hi = data.hidden_income;
 
     return (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
@@ -45,16 +52,57 @@ export default function DirectDebitsTab() {
                 <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center">
                     <Repeat className="w-5 h-5 text-cyan-300" />
                 </div>
-                <div>
-                    <h2 className="text-xl font-bold text-white">הרשאות לחיוב חשבון</h2>
-                    <p className="text-slate-500 text-xs">צפייה בלבד · נתונים מהבנק דרך Open Finance</p>
-                </div>
+                <h2 className="text-xl font-bold text-white">הרשאות לחיוב חשבון</h2>
             </div>
 
-            <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-900/60 border border-slate-800 rounded-lg p-3">
-                <Eye className="w-3.5 h-3.5 text-cyan-300" />
-                <span>FlowUp מציגה את ההרשאות הקיימות בחשבון. אין יזום, ביטול או שינוי תשלומים מתוך המערכת.</span>
-            </div>
+            {/* Off-Book Collateral — hidden income detected from inflows */}
+            {hi && hi.total_monthly > 0 && (
+                <div className="rounded-xl border border-emerald-500/40 bg-gradient-to-br from-emerald-500/10 to-cyan-500/5 p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Sparkles className="w-4 h-4 text-emerald-300" />
+                        <span className="text-sm font-bold text-emerald-200">בטוחה חיובית — הכנסות לא־מתועדות</span>
+                        <span className="mr-auto text-[10px] text-emerald-300/70 uppercase tracking-wider">Off-Book Collateral</span>
+                    </div>
+                    <p className="text-xs text-slate-300 mb-3 leading-relaxed">
+                        זוהו הכנסות חוזרות לחשבון שאינן מופיעות במאגרי ה-BDI (העברות חיצוניות, תשלומי לקוחות, שכר משני).
+                        FlowUp מתייחסת אליהן כ<strong className="text-emerald-300"> בטוחה לגיטימית</strong> שמשפרת את פרופיל הסיכון.
+                    </p>
+                    <div className="grid grid-cols-3 gap-3 text-xs">
+                        <div className="bg-slate-950/50 border border-emerald-500/20 rounded p-2">
+                            <div className="text-slate-400">הכנסה חודשית מוערכת</div>
+                            <div className="text-emerald-300 font-bold text-base mt-0.5">
+                                ₪{fmt(hi.total_monthly)}
+                            </div>
+                        </div>
+                        <div className="bg-slate-950/50 border border-emerald-500/20 rounded p-2">
+                            <div className="text-slate-400">מקורות מזוהים</div>
+                            <div className="text-white font-semibold text-base mt-0.5">{hi.source_count}</div>
+                        </div>
+                        <div className="bg-slate-950/50 border border-emerald-500/20 rounded p-2">
+                            <div className="text-slate-400">תוספת לציון חיתום</div>
+                            <div className="text-cyan-300 font-bold text-base mt-0.5 flex items-center gap-1">
+                                <TrendingUp className="w-3 h-3" />
+                                +{hi.score_uplift}
+                            </div>
+                        </div>
+                    </div>
+                    {hi.sources && hi.sources.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-emerald-500/20">
+                            <div className="text-[11px] text-slate-400 mb-2">פירוט מקורות:</div>
+                            <div className="space-y-1">
+                                {hi.sources.slice(0, 5).map((s, i) => (
+                                    <div key={i} className="flex items-center justify-between text-xs">
+                                        <span className="text-slate-300 truncate">{s.name}</span>
+                                        <span className="text-emerald-300 font-medium shrink-0 mr-2">
+                                            ₪{fmt(s.monthly_avg)} / חודש
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {loading && (
                 <div className="flex items-center gap-2 text-slate-400 text-sm">

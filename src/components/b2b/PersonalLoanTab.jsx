@@ -60,10 +60,7 @@ export default function PersonalLoanTab() {
                 <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center">
                     <User className="w-5 h-5 text-cyan-300" />
                 </div>
-                <div>
-                    <h2 className="text-xl font-bold text-white">הלוואה פרטית</h2>
-                    <p className="text-slate-500 text-xs">חיתום צרכני מבוסס Deal Rescuer + Open Finance של הלקוח</p>
-                </div>
+                <h2 className="text-xl font-bold text-white">הלוואה פרטית</h2>
             </div>
 
             <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 space-y-4">

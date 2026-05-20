@@ -45,9 +45,6 @@ export default function B2BSuite() {
                         </div>
                         <div className="min-w-0">
                             <h1 className="text-lg md:text-2xl font-bold text-white">B2B Suite</h1>
-                            <p className="hidden md:block text-slate-500 text-xs mt-1 tracking-[0.18em] uppercase">
-                                אשראי עסקי · Open Finance · Workflow Automation
-                            </p>
                         </div>
                     </div>
                     <Button asChild variant="outline" size="sm" className="bg-slate-800/60 border-slate-700/60 text-slate-300 hover:bg-slate-700 hover:text-white h-8 px-3 text-[11px]">
