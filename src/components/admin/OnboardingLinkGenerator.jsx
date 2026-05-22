@@ -26,7 +26,8 @@ export default function OnboardingLinkGenerator({ partner, onCreated }) {
     e.preventDefault();
     setCreating(true);
     try {
-      const res = await base44.functions.invoke('onboardingLinkCreate', {
+      const res = await base44.functions.invoke('b2bService', {
+        action: 'create_onboarding_link',
         b2b_partner_id: partner.id,
         customer_name: form.customer_name,
         customer_id: form.customer_id,

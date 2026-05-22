@@ -1,5 +1,39 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
+// ── Onboarding link crypto helpers (HMAC-SHA256, base64url) ──
+const TTL_HOURS = 24;
+
+const b64url = (bytes) => {
+  const bin = Array.from(bytes, (b) => String.fromCharCode(b)).join('');
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+};
+
+const randomToken = (bytes = 32) => {
+  const buf = new Uint8Array(bytes);
+  crypto.getRandomValues(buf);
+  return b64url(buf);
+};
+
+const hmacHex = async (secret, payload) => {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payload));
+  return Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, '0')).join('');
+};
+
+// Constant-time string compare to avoid timing leaks on the token hash
+const safeEqual = (a, b) => {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+};
+
 export default Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -162,6 +196,121 @@ export default Deno.serve(async (req) => {
       } catch (fetchErr) {
         return Response.json({ success: true, webhook_status: "error", error: fetchErr.message });
       }
+    }
+
+    // --- Onboarding: create signed customer link (admin only) ---
+    if (action === 'create_onboarding_link') {
+      const user = await base44.auth.me();
+      if (!user || user.role !== 'admin') {
+        return Response.json({ error: 'Forbidden: admin only' }, { status: 403 });
+      }
+
+      const secret = Deno.env.get('ONBOARDING_LINK_SECRET');
+      if (!secret) {
+        return Response.json({ error: 'ONBOARDING_LINK_SECRET not configured' }, { status: 500 });
+      }
+
+      const {
+        b2b_partner_id,
+        customer_name = '',
+        customer_id = '',
+        customer_phone = '',
+        requested_amount = null,
+        base_url = ''
+      } = body || {};
+
+      if (!b2b_partner_id) {
+        return Response.json({ error: 'b2b_partner_id is required' }, { status: 400 });
+      }
+
+      const partner = await base44.asServiceRole.entities.B2BPartner.get(b2b_partner_id).catch(() => null);
+      if (!partner || !partner.active) {
+        return Response.json({ error: 'Partner not found or inactive' }, { status: 404 });
+      }
+
+      const rawToken = randomToken(32);
+      const tokenHash = await hmacHex(secret, rawToken);
+      const expiresAt = new Date(Date.now() + TTL_HOURS * 60 * 60 * 1000).toISOString();
+
+      const session = await base44.asServiceRole.entities.CustomerOnboardingSession.create({
+        b2b_partner_id,
+        b2b_partner_name: partner.name,
+        customer_name,
+        customer_id,
+        customer_phone,
+        requested_amount: requested_amount ? Number(requested_amount) : null,
+        status: 'pending',
+        token_hash: tokenHash,
+        expires_at: expiresAt
+      });
+
+      const origin = String(base_url || '').replace(/\/$/, '');
+      const link = `${origin}/connect/${session.id}?t=${rawToken}`;
+
+      return Response.json({
+        session_id: session.id,
+        link,
+        expires_at: expiresAt,
+        partner_name: partner.name
+      });
+    }
+
+    // --- Onboarding: validate signed customer link (public, called by /connect page) ---
+    if (action === 'validate_onboarding_link') {
+      const secret = Deno.env.get('ONBOARDING_LINK_SECRET');
+      if (!secret) {
+        return Response.json({ error: 'ONBOARDING_LINK_SECRET not configured' }, { status: 500 });
+      }
+
+      const { session_id, token } = body || {};
+      if (!session_id || !token) {
+        return Response.json({ error: 'session_id and token are required' }, { status: 400 });
+      }
+
+      const session = await base44.asServiceRole.entities.CustomerOnboardingSession
+        .get(session_id)
+        .catch(() => null);
+
+      if (!session) {
+        return Response.json({ error: 'invalid_link' }, { status: 404 });
+      }
+
+      if (new Date(session.expires_at).getTime() < Date.now()) {
+        if (session.status !== 'expired') {
+          await base44.asServiceRole.entities.CustomerOnboardingSession.update(session_id, {
+            status: 'expired',
+            failure_reason: 'Link expired'
+          });
+        }
+        return Response.json({ error: 'expired' }, { status: 410 });
+      }
+
+      if (['completed', 'failed'].includes(session.status)) {
+        return Response.json({ error: 'already_used', status: session.status }, { status: 409 });
+      }
+
+      const incomingHash = await hmacHex(secret, String(token));
+      if (!safeEqual(incomingHash, session.token_hash || '')) {
+        return Response.json({ error: 'invalid_token' }, { status: 401 });
+      }
+
+      if (session.status === 'pending') {
+        await base44.asServiceRole.entities.CustomerOnboardingSession.update(session_id, {
+          status: 'link_opened',
+          link_opened_at: new Date().toISOString()
+        });
+      }
+
+      return Response.json({
+        session_id: session.id,
+        b2b_partner_id: session.b2b_partner_id,
+        b2b_partner_name: session.b2b_partner_name,
+        customer_name: session.customer_name,
+        customer_id: session.customer_id,
+        requested_amount: session.requested_amount,
+        expires_at: session.expires_at,
+        status: session.status === 'pending' ? 'link_opened' : session.status
+      });
     }
 
     return Response.json({ error: "Invalid action" }, { status: 400 });

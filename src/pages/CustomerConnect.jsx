@@ -31,7 +31,7 @@ export default function CustomerConnect() {
       return;
     }
     base44.functions
-      .invoke('onboardingLinkValidate', { session_id: sessionId, token })
+      .invoke('b2bService', { action: 'validate_onboarding_link', session_id: sessionId, token })
       .then((res) => {
         const data = res?.data || res;
         if (data?.error) {
