@@ -30,9 +30,9 @@ business logic across the codebase. The rule going forward:
 
 | Function | Domain | Actions |
 |---|---|---|
-| `b2bService` | B2B partner lifecycle | `generate_magic_link`, `process_underwriting`, `send_webhook` |
+| `b2bService` | B2B partner lifecycle + onboarding | `generate_magic_link`, `process_underwriting`, `send_webhook`, `onboarding_create`, `onboarding_validate` |
 | `systemUtils` | Cross-cutting utilities | `sanitizer`, `storage` (SecureVault), `audit` (AuditLog) |
-| `openFinanceAuth` | Open Finance OAuth + sync | `init_connection`, `check_status`, `finalize_connection` |
+| `openFinanceAuth` | Open Finance OAuth + sync + probe | `init_connection`, `check_status`, `finalize_connection`, `live_probe` |
 
 **Rule:** new B2B partner actions → add to `b2bService`. New audit/sanitize/vault
 actions → add to `systemUtils`. New Open Finance ops → add to `openFinanceAuth`.
@@ -53,14 +53,21 @@ guardrails, and a regression in one would block the others if merged.
 
 #### 3. Onboarding (the customer-facing pilot flow)
 
-| Function | Purpose |
-|---|---|
-| `onboardingLinkCreate` | Admin generates a signed, time-limited link for a customer |
-| `onboardingLinkValidate` | Public endpoint the `/connect/:id` page hits before rendering |
+The B2B onboarding flow is reachable from **two equivalent surfaces** — pick
+whichever fits the caller:
 
-**Rule:** these are intentionally split — `create` requires admin auth,
-`validate` is public. Merging them would force auth branching inside one
-handler, which is a security smell.
+| Surface | When to use it |
+|---|---|
+| `onboardingLinkCreate` (admin-only) | Admin dashboard creating a new link |
+| `onboardingLinkValidate` (public) | Customer-facing `/connect/:id` page |
+| `b2bService` actions `onboarding_create` / `onboarding_validate` | Server-to-server / future B2B partner API calls |
+
+The logic is the same in both places. We keep the standalone endpoints because
+they have explicit, fixed auth boundaries (one is admin-only, one is public)
+and calling them via `base44.functions.invoke` from another function drops the
+original request's auth context. So both surfaces exist on purpose:
+`b2bService` for routing-style server calls, and the dedicated endpoints for
+browser-originated calls where the auth boundary must stay clean.
 
 #### 4. Adapters & one-shots
 
@@ -69,7 +76,7 @@ handler, which is a security smell.
 | `checkOcrExtract` | OCR adapter for check images |
 | `exportFinancialSnapshotsToGoogleSheets` | Google Sheets adapter |
 | `listDirectDebits` | Read-only view of direct debits + hidden-income detection |
-| `fup_live` | Lightweight Open Finance smoke-test (live data probe) |
+| `fup_live` | Lightweight Open Finance smoke-test. Equivalent to `openFinanceAuth` action `live_probe` — both exist for the same auth-context reason as the onboarding endpoints. |
 | `persistAnalysis` | Writes an UnderwritingAnalysis record (with AES-GCM for narrative) |
 | `generateCreditJustification` | LLM call to justify a rescue strategy |
 | `runIntegrationTests` | Admin-only E2E test runner |
