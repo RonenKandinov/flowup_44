@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
       b2b_partner_id: session.b2b_partner_id,
       b2b_partner_name: session.b2b_partner_name,
       customer_name: session.customer_name,
-      customer_email: session.customer_email,
+      customer_id: session.customer_id,
       requested_amount: session.requested_amount,
       expires_at: session.expires_at,
       status: session.status === 'pending' ? 'link_opened' : session.status

@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
     const {
       b2b_partner_id,
       customer_name = '',
-      customer_email = '',
+      customer_id = '',
       customer_phone = '',
       requested_amount = null,
       base_url = ''
@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
       b2b_partner_id,
       b2b_partner_name: partner.name,
       customer_name,
-      customer_email,
+      customer_id,
       customer_phone,
       requested_amount: requested_amount ? Number(requested_amount) : null,
       status: 'pending',

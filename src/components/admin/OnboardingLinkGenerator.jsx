@@ -13,12 +13,12 @@ import { toast } from 'sonner';
  */
 export default function OnboardingLinkGenerator({ partner, onCreated }) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ customer_name: '', customer_email: '', customer_phone: '', requested_amount: '' });
+  const [form, setForm] = useState({ customer_name: '', customer_id: '', customer_email: '', customer_phone: '', requested_amount: '' });
   const [creating, setCreating] = useState(false);
   const [result, setResult] = useState(null);
 
   const reset = () => {
-    setForm({ customer_name: '', customer_email: '', customer_phone: '', requested_amount: '' });
+    setForm({ customer_name: '', customer_id: '', customer_email: '', customer_phone: '', requested_amount: '' });
     setResult(null);
   };
 
@@ -29,7 +29,7 @@ export default function OnboardingLinkGenerator({ partner, onCreated }) {
       const res = await base44.functions.invoke('onboardingLinkCreate', {
         b2b_partner_id: partner.id,
         customer_name: form.customer_name,
-        customer_email: form.customer_email,
+        customer_id: form.customer_id,
         customer_phone: form.customer_phone,
         requested_amount: form.requested_amount ? Number(form.requested_amount) : null,
         base_url: window.location.origin
@@ -99,6 +99,16 @@ export default function OnboardingLinkGenerator({ partner, onCreated }) {
                   value={form.customer_name}
                   onChange={(e) => setForm({ ...form, customer_name: e.target.value })}
                   placeholder="ישראל ישראלי"
+                  className="bg-slate-900 border-slate-800 text-slate-200 mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-slate-300 text-xs">תעודת זהות (חובה)</Label>
+                <Input
+                  value={form.customer_id}
+                  onChange={(e) => setForm({ ...form, customer_id: e.target.value })}
+                  placeholder="הכנס 9 ספרות"
+                  maxLength="9"
                   className="bg-slate-900 border-slate-800 text-slate-200 mt-1"
                 />
               </div>

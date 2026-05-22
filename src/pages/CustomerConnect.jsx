@@ -70,9 +70,9 @@ export default function CustomerConnect() {
       base44.functions.invoke('b2bService', {
         action: 'process_underwriting',
         partner_id: session?.b2b_partner_id,
-        customer_id: session?.customer_email || sessionId,
+        customer_id: session?.customer_id || sessionId,
         connection_id: connectionId,
-        psu_id: session?.customer_email || sessionId,
+        psu_id: session?.customer_id || sessionId,
         onboarding_session_id: sessionId
       }).catch((err) => console.error('Background underwriting failed:', err));
 
@@ -181,7 +181,7 @@ export default function CustomerConnect() {
               <OpenFinanceConnect
                 inline={true}
                 onConnected={handleConnectedInline}
-                defaultEmail={session.customer_email}
+                defaultIid={session.customer_id}
               />
             </motion.div>
           )}

@@ -6,11 +6,12 @@ import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import { getSupportedProviders } from '@/components/config/openFinanceProviders';
 
-export default function OpenFinanceConnect({ onConnected, inline = false }) {
+export default function OpenFinanceConnect({ onConnected, inline = false, defaultId = '' }) {
   const [status, setStatus] = useState('idle'); // idle, email_required, connecting, redirecting, success
   const [selectedProvider, setSelectedProvider] = useState(null);
   const [progress, setProgress] = useState(0);
-  const [emailInput, setEmailInput] = useState('');
+  const [idInput, setIdInput] = useState(defaultId);
+  const [inputError, setInputError] = useState('');
   const [pendingProviderId, setPendingProviderId] = useState(null);
 
   // Resolve the psuId: try base44 auth first, fall back to provided email
@@ -68,18 +69,19 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
     } else {
       // Not authenticated — ask for email
       setPendingProviderId(providerId);
-      setStatus('email_required');
+      setStatus('id_required');
     }
   };
 
-  const handleEmailSubmit = async (e) => {
+  const handleIdSubmit = async (e) => {
     e.preventDefault();
-    const email = emailInput.trim();
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      toast.error('נא להזין כתובת אימייל תקינה');
+    const costumerId = idInput.trim();
+
+    if (!costumerId || !/^[0-9]{9}$/.test(costumerId)) {
+      toast.error('(סספרות 9) נא להזין תעודת זהות תקינה');
       return;
     }
-    await startConnection(pendingProviderId, email);
+    await startConnection(pendingProviderId, costumerId);
   };
 
   const containerClass = inline
@@ -175,7 +177,7 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
         </motion.div>
       )}
 
-      {status === 'email_required' && (
+      {status === 'id_required' && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -185,20 +187,39 @@ export default function OpenFinanceConnect({ onConnected, inline = false }) {
             <Mail className="w-8 h-8 text-blue-400" />
           </div>
 
-          <h2 className="text-xl font-bold text-white mb-2">הזן את האימייל שלך</h2>
+          <h2 className="text-xl font-bold text-white mb-2">הזן את תעודת הזהות שלך</h2>
           <p className="text-slate-400 text-sm mb-6">
-            כדי לשמור את נתוני החיבור, נא להזין את כתובת האימייל שלך.
+            <span className="block">כדי לשמור את נתוני החיבור, נא להזין מספר תעודת זהות</span>
+            <span className="block mt-1">(9 ספרות)</span>
           </p>
 
-          <form onSubmit={handleEmailSubmit} className="w-full space-y-3">
-            <input
-              type="email"
-              value={emailInput}
-              onChange={e => setEmailInput(e.target.value)}
-              placeholder="your@email.com"
-              autoFocus
-              className="w-full bg-slate-800 border border-slate-600 text-white placeholder-slate-500 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition-colors"
-            />
+          <form onSubmit={handleIdSubmit} className="w-full space-y-3">
+          <div>
+              <input
+                type="text"
+                maxLength="9"
+                value={idInput}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  // אם המשתמש הקליד משהו שהוא לא מספר
+                  if (/[^0-9]/.test(val)) {
+                    setInputError('נא להזין רק מספרים ולא אותיות');
+                    // מנקה מיד את האותיות כדי שלא יופיעו בשדה
+                    setIdInput(val.replace(/[^0-9]/g, ''));
+                  } else {
+                    setInputError(''); // מנקה את השגיאה אם הכל תקין
+                    setIdInput(val);
+                  }
+                }}
+                placeholder="הכנס תעודת זהות"
+                autoFocus
+                className={`w-full bg-slate-800 border ${inputError ? 'border-red-500' : 'border-slate-600'} text-white placeholder-slate-500 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition-colors`}
+              />
+              {/* הודעת השגיאה באדום שתקפוץ מתחת לשדה */}
+              {inputError && (
+                <p className="text-red-500 text-xs mt-1 text-right">{inputError}</p>
+              )}
+            </div>
             <Button
               type="submit"
               className="w-full bg-blue-600 hover:bg-blue-500 text-white h-12 rounded-xl text-base"

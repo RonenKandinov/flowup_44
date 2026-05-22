@@ -15,9 +15,10 @@
       "type": "string",
       "description": "Customer display name (provided by the partner when creating the session)"
     },
-    "customer_email": {
+    "customer_id": {
       "type": "string",
-      "description": "Customer email (provided by the partner)"
+      "description": "Customer national ID number (9 digits)",
+      "pattern": "^[0-9]{9}$"
     },
     "customer_phone": {
       "type": "string",
