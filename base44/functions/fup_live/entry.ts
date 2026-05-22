@@ -1,9 +1,3 @@
-// functions/fup_live.js
-//
-// Lightweight Open Finance live-probe — used as a smoke-test endpoint.
-// The same logic also exists inside openFinanceAuth.js (action='live_probe').
-// This file is kept as a dedicated endpoint for legacy callers.
-
 Deno.serve(async (req) => {
   try {
     const API_ROOT = "https://api.open-finance.ai";
@@ -29,6 +23,7 @@ Deno.serve(async (req) => {
       );
     }
 
+    // 🔑 Get Token (הגרסה שעבדה לך)
     const tokenRes = await fetch(`${API_ROOT}/oauth/token`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -50,12 +45,16 @@ Deno.serve(async (req) => {
 
     const accessToken = tokenJson.accessToken;
 
-    const txRes = await fetch(`${API_V2}/data/transactions`, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Accept: "application/json"
+    // 📊 Get Transactions (endpoint שעבד לך)
+    const txRes = await fetch(
+      `${API_V2}/data/transactions`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/json"
+        }
       }
-    });
+    );
 
     const transactionsJson = await txRes.json();
 

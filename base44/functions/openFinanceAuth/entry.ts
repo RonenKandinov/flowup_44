@@ -250,30 +250,6 @@ export default Deno.serve(async (req) => {
       return Response.json({ success: true, status: connectionStatus, connectionId });
     }
 
-    // --- LIVE PROBE (smoke test against Open Finance live API) ---
-    if (action === 'live_probe') {
-      const probeUserId = body?.userId || userId;
-      if (!probeUserId) {
-        return Response.json({ error: 'userId is required' }, { status: 400 });
-      }
-      try {
-        const probeToken = await getToken(probeUserId);
-        const txRes = await fetch(`${API_ROOT}/v2/data/transactions`, {
-          headers: { Authorization: `Bearer ${probeToken}`, Accept: 'application/json' }
-        });
-        const transactionsJson = await txRes.json();
-        if (!txRes.ok) {
-          return Response.json(
-            { error: 'Failed to fetch transactions', transactionsJson },
-            { status: 500 }
-          );
-        }
-        return Response.json({ success: true, transactions: transactionsJson });
-      } catch (e) {
-        return Response.json({ error: 'live_probe failed', details: e.message }, { status: 500 });
-      }
-    }
-
     // --- FINALIZE CONNECTION (legacy / status update) ---
     if (action === 'finalize_connection') {
       const connectionId = bodyConnectionId;

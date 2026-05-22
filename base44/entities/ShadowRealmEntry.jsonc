@@ -1,0 +1,110 @@
+{
+  "name": "ShadowRealmEntry",
+  "type": "object",
+  "description": "The central data entity representing a 'Card' in the Millennium array. Stores obfuscated financial data.",
+  "properties": {
+    "magnitude": {
+      "type": "number",
+      "description": "The Projected Vector X-Component (Amount * cos(theta))."
+    },
+    "phantom": {
+      "type": "number",
+      "description": "The Hidden Vector Y-Component (Amount * sin(theta)). Required for reconstruction."
+    },
+    "transaction_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of the transaction/card entry"
+    },
+    "monster_card_name": {
+      "type": "string",
+      "description": "The mapped Monster Card name (e.g., 'Blue-Eyes White Dragon')"
+    },
+    "element": {
+      "type": "string",
+      "enum": [
+        "EARTH",
+        "WIND",
+        "FIRE",
+        "WATER",
+        "LIGHT",
+        "DARK",
+        "DIVINE",
+        "NEUTRAL"
+      ],
+      "description": "The elemental attribute of the entry"
+    },
+    "shadow_type": {
+      "type": "string",
+      "enum": [
+        "ATK",
+        "DEF",
+        "TRAP",
+        "SPELL",
+        "NEUTRAL"
+      ],
+      "description": "The type of shadow card (Attack, Defense, etc.)"
+    },
+    "integrity_hash": {
+      "type": "string",
+      "description": "The Seal of Orichalcos hash for integrity verification"
+    },
+    "is_corrupted": {
+      "type": "boolean",
+      "default": false,
+      "description": "Flag indicating if the integrity check failed"
+    },
+    "description": {
+      "type": "string",
+      "description": "Text description (optionally encrypted or plain depending on privacy level)"
+    }
+  },
+  "required": [
+    "magnitude",
+    "phantom",
+    "transaction_date",
+    "integrity_hash",
+    "monster_card_name"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

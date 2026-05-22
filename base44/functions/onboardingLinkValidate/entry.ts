@@ -1,11 +1,13 @@
 // functions/onboardingLinkValidate.js
 //
-// Public endpoint used by the customer-facing /connect/:id page. The real
-// logic lives in b2bService.js under action='onboarding_validate' — we
-// duplicate just the minimal request shaping here and re-use the same crypto
-// rules. Kept as a separate endpoint so it stays explicitly public (no auth
-// required) while the admin-only onboarding_create action sits next to it
-// inside b2bService.
+// CTO note: Public endpoint — called by the customer-facing /connect/:id page
+// before showing anything sensitive. It verifies:
+//   1. session exists
+//   2. session is not expired
+//   3. session is not already completed/failed
+//   4. provided raw token matches the stored HMAC hash
+// On success it returns the partner branding the page needs and marks the
+// session as `link_opened` (first time only) so analysts can see the funnel.
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
@@ -21,6 +23,7 @@ const hmacHex = async (secret, payload) => {
   return Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, '0')).join('');
 };
 
+// Constant-time string compare to avoid timing leaks on the token hash
 const safeEqual = (a, b) => {
   if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
   let diff = 0;
@@ -51,6 +54,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'invalid_link' }, { status: 404 });
     }
 
+    // Expiry check
     if (new Date(session.expires_at).getTime() < Date.now()) {
       if (session.status !== 'expired') {
         await base44.asServiceRole.entities.CustomerOnboardingSession.update(session_id, {
@@ -61,15 +65,18 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'expired' }, { status: 410 });
     }
 
+    // Don't allow re-use once completed/failed
     if (['completed', 'failed'].includes(session.status)) {
       return Response.json({ error: 'already_used', status: session.status }, { status: 409 });
     }
 
+    // Token check
     const incomingHash = await hmacHex(secret, String(token));
     if (!safeEqual(incomingHash, session.token_hash || '')) {
       return Response.json({ error: 'invalid_token' }, { status: 401 });
     }
 
+    // First-time-open tracking (don't overwrite later states)
     if (session.status === 'pending') {
       await base44.asServiceRole.entities.CustomerOnboardingSession.update(session_id, {
         status: 'link_opened',

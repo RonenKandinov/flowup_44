@@ -1,13 +1,11 @@
 // functions/onboardingLinkCreate.js
 //
-// Admin-only endpoint used by the partner-admin dashboard. The same logic
-// also exists inside b2bService.js (action='onboarding_create'); this file
-// is kept so we have a clean, dedicated admin endpoint and the dashboard
-// keeps working without a frontend change.
-//
-// The raw token never touches the DB — we store only its HMAC-SHA256
-// fingerprint and a hard expiry. The token itself is returned ONCE in the
-// response so the analyst can copy/share it.
+// CTO note: This is the entry point of the B2B "send-a-link" pilot flow.
+// A partner analyst (admin) creates a one-time, signed link that the customer
+// opens to connect their bank account via Open Finance. The raw token never
+// touches the DB — we store only its HMAC-SHA256 fingerprint and a hard
+// expiry. The token itself is returned ONCE in the response so the analyst
+// can copy/share it.
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
@@ -63,11 +61,13 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'b2b_partner_id is required' }, { status: 400 });
     }
 
+    // Resolve partner (denormalize the name for the customer-facing page)
     const partner = await base44.asServiceRole.entities.B2BPartner.get(b2b_partner_id).catch(() => null);
     if (!partner || !partner.active) {
       return Response.json({ error: 'Partner not found or inactive' }, { status: 404 });
     }
 
+    // Mint a single-use opaque token, store only its hash
     const rawToken = randomToken(32);
     const tokenHash = await hmacHex(secret, rawToken);
     const expiresAt = new Date(Date.now() + TTL_HOURS * 60 * 60 * 1000).toISOString();
@@ -84,6 +84,9 @@ Deno.serve(async (req) => {
       expires_at: expiresAt
     });
 
+    // Build the customer-facing URL. We accept `base_url` from the caller (the
+    // dashboard sends window.location.origin) so the link works in preview,
+    // staging, and production without hard-coding a domain.
     const origin = String(base_url || '').replace(/\/$/, '');
     const link = `${origin}/connect/${session.id}?t=${rawToken}`;
 
