@@ -1300,6 +1300,68 @@ ${JSON.stringify(limitedExpenses)}
                 const monthsCounted = Math.max(1, history.length);
                 const avgMonthlyInvestmentOutflow = Math.round(investmentTransfers / monthsCounted);
 
+                // 5b) EXISTING LOANS DETECTION — scan the 12-month transaction window for
+                // recurring debits that look like loan repayments (consumer loans, credit-card
+                // installments, mortgages, BNPL, finance companies). This tells the AI Analyst
+                // "the borrower already carries N existing loans" so the underwriting summary
+                // doesn't ignore stacked debt the new loan would compound on top of.
+                // We group by cleaned merchant key, keep groups with 3+ occurrences and stable
+                // monthly amount, and tag the dominant loan type for the narrative.
+                const loanKeywords = [
+                    'הלוואה', 'החזר הלוואה', 'החזר קרן', 'משכנתא', 'תשלום להלוואה',
+                    'תשלום חודשי', 'מימון', 'הסדר', 'קרדיט', 'אשראי',
+                    'מקס', 'ישראכרט', 'כאל און', 'כאל-און', 'פיננסים ישירים',
+                    'loan', 'mortgage', 'installment', 'finance', 'credit'
+                ];
+                const excludeFromLoans = ['משכור', 'שכר', 'salary', 'payroll', 'קצבה', 'פנסיה', 'ביטוח לאומי', 'לאומי', 'מלגה', 'ילדים'];
+                const loanCandidates = new Map();
+                transactions.forEach((tx, idx) => {
+                    if (selfTransferIndices.has(idx)) return;
+                    const amount = parseTransactionAmount(tx);
+                    if (isNaN(amount) || amount >= 0) return; // outflows only
+                    const absAmt = Math.abs(amount);
+                    if (absAmt < 200 || absAmt > 30000) return; // typical loan repayment range
+                    const desc = safeDesc(tx).toLowerCase();
+                    const cat = String(tx?.category?.main || tx?.categoryName || tx?.category || '').toLowerCase();
+                    const haystack = `${desc} ${cat}`;
+                    if (!loanKeywords.some(kw => haystack.includes(kw.toLowerCase()))) return;
+                    if (excludeFromLoans.some(kw => haystack.includes(kw.toLowerCase()))) return;
+                    // Group key: first 3 meaningful words of description (after stripping digits)
+                    const key = desc.replace(/[0-9\-\/]/g, '').trim().split(/\s+/).slice(0, 3).join(' ').slice(0, 40);
+                    if (!key) return;
+                    const txDateObj = tx?.date;
+                    const dateStr = tx?.creationDate ||
+                        (typeof txDateObj === 'string' ? txDateObj : (txDateObj?.valueDate || txDateObj?.bookingDate || txDateObj?.transactionDate)) ||
+                        tx?.transactionDate;
+                    const d = dateStr ? new Date(dateStr) : null;
+                    const monthKey = d && !isNaN(d.getTime()) ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : null;
+                    if (!loanCandidates.has(key)) {
+                        loanCandidates.set(key, { label: safeDesc(tx).slice(0, 40), amounts: [], months: new Set() });
+                    }
+                    const c = loanCandidates.get(key);
+                    c.amounts.push(absAmt);
+                    if (monthKey) c.months.add(monthKey);
+                });
+                const existingLoans = Array.from(loanCandidates.values())
+                    .filter(c => c.months.size >= 3) // appears in 3+ distinct months = real recurring loan
+                    .map(c => {
+                        const avgAmount = Math.round(c.amounts.reduce((a, b) => a + b, 0) / c.amounts.length);
+                        const lower = c.label.toLowerCase();
+                        let loanType = 'consumer_loan';
+                        if (/משכנתא|mortgage/.test(lower)) loanType = 'mortgage';
+                        else if (/כאל|מקס|ישראכרט|credit/.test(lower)) loanType = 'credit_card_installment';
+                        else if (/רכב|רכב auto|car/.test(lower)) loanType = 'auto_loan';
+                        return {
+                            label: redactPersonalLabel(c.label),
+                            monthlyAmount: avgAmount,
+                            monthsObserved: c.months.size,
+                            loanType
+                        };
+                    })
+                    .sort((a, b) => b.monthlyAmount - a.monthlyAmount)
+                    .slice(0, 8);
+                const existingLoansMonthlyTotal = existingLoans.reduce((sum, l) => sum + l.monthlyAmount, 0);
+
                 // 6) Month-by-month story (last 6 months of net flow)
                 const recentMonths = history.slice(-6).map(h => ({
                     month: h.month,
@@ -1320,7 +1382,10 @@ ${JSON.stringify(limitedExpenses)}
                     avgMonthlyInvestmentOutflow,
                     recentMonths,
                     negativeMonthsInLast6: negativeMonths,
-                    transactionsAnalyzed: transactions.length - selfTransferIndices.size
+                    transactionsAnalyzed: transactions.length - selfTransferIndices.size,
+                    existingLoans,
+                    existingLoansMonthlyTotal,
+                    existingLoansCount: existingLoans.length
                 };
             } catch (err) {
                 console.warn('[BehaviorProfile] Failed to build:', err?.message);

@@ -912,21 +912,36 @@ export default function Dashboard() {
                     <DropdownMenuItem 
                       className="cursor-pointer hover:bg-slate-800 focus:bg-slate-800 text-xs"
                       disabled={isLoanMetricsLoading || isInsightsLoading}
-                      onClick={() => {
-                        // Hard-bust all client caches so the executive summary regenerates from scratch
-                        try {
-                          ['flowup_ai_insights_cache_v2', 'flowup_ai_insights_cache_v3', 'flowup_ai_insights_cache_v4', 'flowup_ai_insights_cache_v5', 'flowup_ai_insights_cache_v6']
-                            .forEach(k => localStorage.removeItem(k));
-                          Object.keys(sessionStorage)
-                            .filter(k => k.startsWith('loanMetricsCache'))
-                            .forEach(k => sessionStorage.removeItem(k));
-                        } catch (_) {}
-                        queryClient.removeQueries({ queryKey: ['ai-insights-v6'] });
-                        queryClient.removeQueries({ queryKey: ['ai-insights-v5'] });
-                        queryClient.removeQueries({ queryKey: ['ai-insights-v4'] });
-                        queryClient.removeQueries({ queryKey: ['ai-insights-v3'] });
-                        refetchLoanMetrics();
-                        toast.success('מרענן נתונים...');
+                      onSelect={(e) => {
+                        // Prevent the dropdown from closing immediately so the spinner stays visible
+                        e.preventDefault();
+                        // Hard-bust ALL client caches (loanMetricsCache + ai-insights) and force a fresh
+                        // fetch — then await it so the spinner reflects real loading time.
+                        (async () => {
+                          const toastId = toast.loading('מרענן נתונים מהבנק...');
+                          try {
+                            try {
+                              ['flowup_ai_insights_cache_v2', 'flowup_ai_insights_cache_v3', 'flowup_ai_insights_cache_v4', 'flowup_ai_insights_cache_v5', 'flowup_ai_insights_cache_v6']
+                                .forEach(k => localStorage.removeItem(k));
+                              Object.keys(sessionStorage)
+                                .filter(k => k.startsWith('loanMetricsCache'))
+                                .forEach(k => sessionStorage.removeItem(k));
+                            } catch (_) {}
+                            // Remove stale insights query results so they re-fetch when stableMetricsHash changes
+                            queryClient.removeQueries({ queryKey: ['ai-insights-v6'] });
+                            queryClient.removeQueries({ queryKey: ['ai-insights-v5'] });
+                            queryClient.removeQueries({ queryKey: ['ai-insights-v4'] });
+                            queryClient.removeQueries({ queryKey: ['ai-insights-v3'] });
+                            // Await the actual refresh — this triggers loanLogicV2 → new behaviorProfile → new hash → insights re-fetch
+                            await refetchLoanMetrics();
+                            // Force insights to re-run even if hash didn't change (e.g. same metrics, new behaviorProfile)
+                            await queryClient.invalidateQueries({ queryKey: ['ai-insights-v6'] });
+                            toast.success('הנתונים עודכנו בהצלחה', { id: toastId });
+                          } catch (err) {
+                            console.error('Refresh failed:', err);
+                            toast.error('רענון הנתונים נכשל — נסה שוב', { id: toastId });
+                          }
+                        })();
                       }}
                     >
                       <RefreshCw className={`w-3 h-3 ml-2 ${(isLoanMetricsLoading || isInsightsLoading) ? 'animate-spin' : ''}`} />

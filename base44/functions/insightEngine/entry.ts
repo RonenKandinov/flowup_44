@@ -247,6 +247,14 @@ ${isSecondChance ? `- ⚡ Second Chance פעיל — גורמים מפצים: ${
 התנהגות בתזרים (Open Finance):
 ${behaviorProfile ? JSON.stringify(behaviorProfile).slice(0, 600) : 'אין'}
 
+🚨 **הלוואות קיימות ב-12 חודשים האחרונים** (מתוך סריקת התנועות):
+${behaviorProfile?.existingLoans && behaviorProfile.existingLoans.length > 0
+    ? `זוהו ${behaviorProfile.existingLoansCount} החזרי הלוואה קבועים בסך ₪${fmt(behaviorProfile.existingLoansMonthlyTotal)}/חודש:\n` +
+      behaviorProfile.existingLoans.map(l => `  - ${l.label}: ₪${fmt(l.monthlyAmount)}/חודש (${l.loanType}, נצפה ב-${l.monthsObserved} חודשים)`).join('\n') +
+      `\n\n⚠️ **זה קריטי!** הלווה המבוקשת תצטבר ל-${behaviorProfile.existingLoansCount} הלוואות קיימות. חובה להזכיר זאת ב-summary וב-key_risks ולהתייחס אל ה-PD בהתאם. המלווה צריך להבין שמדובר ב-loan stacking.`
+    : 'לא זוהו הלוואות קיימות בתנועות החשבון (נקי מהתחייבויות קיימות במערכת הבנקאית) — זה סיגנל חיובי חזק למלווה.'
+}
+
 🔒 פרטיות: אסור להזכיר שמות פרטיים. מונחים מותרים: "הלקוח" / "המבקש".
 
 === דרישות פלט ===
