@@ -226,99 +226,61 @@ Deno.serve(withValidation(schema, async (req, body) => {
     const monthlyHeadroom = Math.round(income - expenses);
     const fmt = (n) => Math.round(Number(n || 0)).toLocaleString('en-US');
 
-    const prompt = `
-אתה חתם אשראי בכיר בחברת מימון חוץ-בנקאית, כותב מזכר חיתום ל-VP Sales. הקורא הוא איש מכירות שצריך להבין תוך 10 שניות: האם מאשרים, בכמה, ולמה — או אם דוחים, מה הפער המספרי שצריך לסגור כדי לחזור לעסקה.
+    // ========== מספרי עזר מחושבים מראש לציטוט ישיר ב-prompt ==========
+    const debtReductionNeeded = Math.max(0, Math.round((dti - rules.max_dti_approve) / 100 * income));
+    const targetFixedExpenses = Math.round(income * rules.max_dti_approve / 100);
+    const fixedExpensesReduction = Math.max(0, fixedExpenses - targetFixedExpenses);
+    const guarantorIncome = Math.round(income * 1.5);
+    const liquidityGap = Math.max(0, rules.min_liquidity_months - liq);
+    const decisionLabelHe = rec === 'DECLINE' ? 'דחייה' : rec === 'REVIEW' ? 'בחינה' : 'אישור';
 
-⛔ אסור לחלוטין:
-- ביטויים כלליים בלי מספרים ("הוצאות גבוהות", "הכנסה נמוכה", "מגמה חיובית", "גורמים מפצים", "פוטנציאל").
-- שפה של מאמן כושר/יועץ פיננסי ("הלקוח צריך לשפר", "מומלץ לשקול").
-- חזרה על הגדרות המערכת ("DTI חורג מהמדיניות") בלי לומר במה בדיוק ובכמה ש"ח/אחוזים.
+    const prompt = `אתה חתם אשראי בכיר הכותב מזכר חיתום ל-VP Sales. כל המשפטים חייבים לכלול מספרים מהרשימה מטה. משפט בלי ₪/%/חודשים = פסול.
 
-✅ חובה:
-- כל סיכון, כל חוזק, כל המלצה — חייבים לכלול מספר קונקרטי (₪, %, או חודשים).
-- שורת מחץ ראשונה: החלטה + הסיבה המספרית האחת המכרעת. דוגמה טובה: "דחייה — DTI ${dti}% חורג ב-${gapDti} נקודות מסף האישור ${rules.max_dti_approve}%, פער שדורש הפחתת התחייבויות חודשיות של כ-₪${fmt(Math.max(0, (dti - rules.max_dti_approve) / 100 * income))}."
-- כשמדברים על שיפור — תן יעד מספרי. לא "להקטין הוצאות" אלא "להפחית הוצאות קבועות מ-₪${fmt(fixedExpenses)} ל-₪${fmt(Math.round(income * rules.max_dti_approve / 100))} (-₪${fmt(Math.max(0, fixedExpenses - Math.round(income * rules.max_dti_approve / 100)))} בחודש)".
-- חוזקות = רק כאלה שמשנות את הצעת המחיר. נזילות גבוהה ב-2 חודשים מעל הסף = חוזק. מגמת הכנסה +3% = רעש, לא חוזק.
+מספרי הלקוח (השתמש בהם):
+- הכנסה: ₪${fmt(income)} | הוצאות: ₪${fmt(expenses)} | הוצאות קבועות: ₪${fmt(fixedExpenses)}
+- תזרים פנוי: ₪${fmt(monthlyHeadroom)}/חודש
+- DTI: ${dti}% (סף ${rules.max_dti_approve}%, פער: ${gapDti} נק')
+- הוצאות/הכנסה: ${expInc}% (סף ${rules.max_expense_income_ratio}%, פער: ${gapExpRatio.toFixed(1)} נק')
+- נזילות: ${liq} חודשים (סף ${rules.min_liquidity_months}, פער: ${liquidityGap.toFixed(1)} חודשים)
+- סיכון: ${risk} | המלצה: ${rec} (${decisionLabelHe})
+- לסגירת הפער — הפחתה נדרשת: ₪${fmt(debtReductionNeeded)}/חודש בהתחייבויות (יעד הוצאה קבועה: ₪${fmt(targetFixedExpenses)}, קיצוץ: -₪${fmt(fixedExpensesReduction)})
+${isSecondChance ? `- ⚡ Second Chance פעיל (ציון ${secondChanceScore}): ${strengths.join(' | ')}` : ''}
 
-${isExtremeReject ? 
-`⚠️ נתונים קיצוניים — DTI מעל 100%, ציון אפסי או תזרים שלילי קבוע. דחייה מוחלטת (DECLINE). אל תחפש סיבות לאשר. הסבר את עוצמת החריגה במספרים יבשים בלבד.`
-: 
-`💡 עקרונות חיתום שאתה מיישם:
-- העברות לני"ע / קרן השתלמות / חיסכון = נזילות, לא הוצאה. אם זוהו כאלה — ציין ב-₪ ובחודשים נוספים של runway שזה מוסיף.
-- DTI חושב כבר רק על הוצאות קבועות. השקעות לא בפנים. אם הלקוח ב-Wealth Building — תרגם את זה לסכום חודשי שעובר לחיסכון.
-- ריבית מתמחרת סיכון. אם הסיכון בינוני — אישור בריבית גבוהה ב-1-2% עדיף על דחייה.
-- False Negative = הלקוח נראה רע על הנייר אבל יכולת ההחזר האמיתית קיימת. תוכיח את זה במספר תזרים פנוי חודשי בש"ח, לא בסיסמאות.`}
+התנהגות בתזרים (Open Finance, 12ח'):
+${behaviorProfile ? JSON.stringify(behaviorProfile).slice(0, 1200) : 'אין'}
 
-נתוני הלקוח (מצרפים):
-${JSON.stringify({ 
-  income: Math.round(income), 
-  expenses: Math.round(expenses), 
-  fixedExpenses, 
-  monthlyHeadroom, 
-  dti, 
-  dtiGapAboveApprove: gapDti, 
-  liq, 
-  expInc, 
-  expRatioGapAbovePolicy: gapExpRatio, 
-  incomeGapBelowMin: gapIncome, 
-  signals, 
-  trends, 
-  currentRisk: risk, 
-  isSecondChance, 
-  secondChanceScore, 
-  policy_breaches: policy_explanations, 
-  rules: { max_dti_approve: rules.max_dti_approve, max_dti_review: rules.max_dti_review, min_income: rules.min_income, min_liquidity_months: rules.min_liquidity_months, max_expense_income_ratio: rules.max_expense_income_ratio }
-})}
+🔒 פרטיות: אסור להזכיר שמות פרטיים. התעלם מ-labels כמו "העברה אישית (לא מזוהה)" ותאר את המשמעות הכלכלית. המונחים המותרים: "הלקוח" / "המבקש".
 
-התנהגות בפועל — בנויה מהטרנזקציות של הלקוח (12 חודשים אחרונים):
-${behaviorProfile ? JSON.stringify(behaviorProfile) : '{}'}
+=== דרישות פלט — כל שדה חייב לכלול לפחות מספר אחד ===
 
-📖 חובה: בנה סיפור קצר על הלקוח מתוך ההתנהגות הממשית בתזרים — לא מצרף מספרים. הסיפור צריך להופיע בשדה narrative ממש בתוך תקציר המנהלים ולהתנקה את המספרים. דגמאות למה להתייחס:
-- מתי מגיעה המשכורת ומה המקור: אם recurringIncome מכיל שכר ב-typicalDayOfMonth=1 — "מקבל משכורת של ₪[X] ב-1 לכל חודש מ-[שם מעסיק]."
-- איך הוא מוציא את הכסף: אם spendTiming.earlyMonthPct > 50 — "שורף את רוב הכסף ב-10 הימים הראשונים לאחר המשכורת." אם lateMonthPct > 45 — "מגיע לסוף החודש מתוח — הוצאות מתרכזות בימים 21-31."
-- איפה הכסף הולך: ציין 1-2 מ-topMerchants עם סכום תקופתי — "ההוצאות הגדולות ביותר: [מעסיק] (₪[סכום] בתקופה), [מעסיק] (₪[סכום])."
-- משמעת: אם avgMonthlyInvestmentOutflow > 0 — "מפקיד ₪[X] בחודש להשקעה/חיסכון — משמעת משמעת מאותן והתנהגות של בונה הון."
-- מתח למינוס: אם overdraftDays > 0 — "היה במינוס ב-[X] מקרים בשנה האחרונה. היתרה הנמוכה שנראתה: ₪[מספר]."
-- עקביות חודשית: אם negativeMonthsInLast6 ≥ 3 — "ב-[X] מ-6 החודשים האחרונים הוציא יותר ממה שהכניס."
-
-🔒 כללי פרטיות מחייבים (המזכר נשלח לגורמים עסקיים — VP Sales, אנליסטים, מערכת דירוג):
-- אסור להזכיר את שם הלקוח או את שם המשתמש בשום שדה בתשובה. ל֣א ב-summary, לא ב-narrative, לא ב-key_positive_signals, לא ב-key_risks, לא ב-conditions, לא בשום מקום.
-- אסור להזכיר שמות פרטיים (שם + שם משפחה) גם אם הם מופיעים ב-recurringIncome או ב-topMerchants. המערכת כבר מסתירה אותם מראש — אם תראה label כמו "העברה אישית (לא מזוהה)" — השתמש בו כמו שהוא ותאר את המשמעות הכלכלית (לדוגמה: "מקבל העברה אישית קבועה של ₪1,617 מדי 15 לחודש — מגדילה את ההכנסה הזמינה ל-X% מעל המשכורת").
-- המונחים "הלקוח", "המבקש", "המדווח" — אלו התחליפים היחידים המותרים. אסור "גב' [שם]", אסור "[שם] הוציא/הכניס".
-- המערכת כבר הסירה הרבה מהשמות הפרטיים, אבל אם בכל זאת מופיע שם אדם ב-behaviorProfile — התעלם ממנו.
-- ללא behaviorProfile תחזור לניתוח המספרי הרגיל. אם קיים — הסיפור חייב להופיע ב-summary כשורה 1-2 נפרדת, לא כמשפט נלווה.
-
-🎯 פלט נדרש:
-
-1. **summary** (תקציר מנהלים, 3-5 שורות בפורמט VP Sales):
-   - שורה 1: "[החלטה] — [הסיבה המספרית האחת המכרעת]." בלי קישוטים.
-   - שורה 2: "תזרים פנוי חודשי: ₪[סכום]. נזילות: [X] חודשים." — שני המספרים שמכריעים יכולת החזר.
-   ${isExtremeReject ?
-   `- שורה 3: "פער לסגירה: [מספר ספציפי] — לא ניתן לסגור בטווח של 3-6 חודשים."
-   - שורה 4: "צפי ללא התערבות: [תיאור קרירות מספרי של ההידרדרות הצפויה]."` :
-   `- שורה 3: "מה צריך כדי להזיז ל-APPROVE: [פעולה אחת עם יעד מספרי]."
-   - שורה 4 (אופציונלית): "חלון הזדמנות: [תאריך/מסגרת זמן] לבדיקה חוזרת."`}
+1. **summary** (3-5 שורות, כל שורה מספר קונקרטי):
+   שורה 1: "${decisionLabelHe} — [מדד ספציפי עם ערך וסף ופער במספרים]."
+   שורה 2: "תזרים פנוי חודשי: ₪${fmt(monthlyHeadroom)}. נזילות: ${liq} חודשים."
+   שורה 3 (התנהגות): מתי מגיעה המשכורת, איך הכסף מתפזר — מתוך behaviorProfile (דוגמה: "מקבל משכורת ₪[X] ב-[יום] לחודש. [Y]% מההוצאות ב-10 ימים הראשונים לאחר קבלתה").
+   שורה 4: ${isExtremeReject ? '"הפער לא ניתן לסגירה ב-3-6 חודשים."' : `"יעד ל-APPROVE: הפחתת תשלומים קבועים ב-₪${fmt(debtReductionNeeded)}/חודש (ל-₪${fmt(targetFixedExpenses)} סה\"כ)."`}
 
 2. **behavior_analysis.key_positive_signals** (מערך):
-   רק סיגנלים מספריים שמשפיעים על תמחור. כל פריט בפורמט: "[סיגנל] — [מספר/השפעה כספית]."
-   דוגמאות תקפות: "נזילות עודפת מעל הסף: [X] חודשים מעבר לנדרש, שווי-ערך לכרית של ₪[סכום]." / "תזרים פנוי חיובי: ₪[סכום] בחודש לאחר הוצאות קבועות." / "פעילות חיסכון/השקעה: ₪[סכום] בחודש שלא נכנס לחישוב DTI."
-   ❌ אסור: "מגמת הכנסה חיובית" בלי מספר. "התנהגות יציבה". "גורמים מפצים".
-   אם אין סיגנל מספרי חזק — מערך ריק. אל תמציא.
+   כל פריט חייב להכיל ₪ או %. אם אין סיגנל מספרי חזק — החזר מערך ריק. דוגמאות תקפות:
+   - "תזרים פנוי חיובי: ₪${fmt(monthlyHeadroom)}/חודש."
+   - "נזילות ${liq} חודשים — מעל הסף של ${rules.min_liquidity_months}."
+   ❌ אסור: "מגמה חיובית", "התנהגות יציבה", "גורמים מפצים", "הכנסה גדלה" בלי %.
 
 3. **behavior_analysis.key_risks** (מערך):
-   כל סיכון = פער מספרי לסף. פורמט: "[שם המדד] [ערך נוכחי] — חורג ב-[פער] מהסף [ערך הסף]."
-   דוגמאות: "DTI ${dti}% — חורג ב-${gapDti} נק' מסף האישור ${rules.max_dti_approve}%." / "הוצאות/הכנסה ${expInc}% — חורג ב-${gapExpRatio.toFixed(1)} נק' מהמדיניות ${rules.max_expense_income_ratio}%."
-   ❌ אסור: "הכנסה נמוכה" / "הוצאות גבוהות" בלי מספרים.
+   כל סיכון = פער מספרי. העתק העתקה מדויקת:
+   - "DTI ${dti}% — חורג ב-${gapDti} נק' מסף האישור ${rules.max_dti_approve}%."
+   - "יחס הוצאות/הכנסה ${expInc}% — חורג ב-${gapExpRatio.toFixed(1)} נק' מהמדיניות ${rules.max_expense_income_ratio}%."
+   - "נזילות ${liq} חודשים — חסרים ${liquidityGap.toFixed(1)} חודשים מהסף."
+   ❌ אסור: "הוצאות גבוהות", "נזילות נמוכה".
 
-4. **recommended_terms.conditions** (במקרה של APPROVE/REVIEW):
-   כל תנאי = מספר. לדוגמה: "קיצור תקופה ל-36 חודשים", "דרישת ערב סולבנטי עם הכנסה ₪${fmt(Math.round(income * 1.5))}+", "ביטחון נזיל של 10% מקרן ההלוואה".
-`;
+4. **recommended_terms.conditions** (תנאים מספריים):
+   דוגמאות: "תקופה מקסימלית 36 חודשים", "ערב עם הכנסה ₪${fmt(guarantorIncome)}+", "ביטחון 10% מהקרן".`;
 
     let narrative = "מצב פיננסי יציב.";
     let llmAnalysis = null;
     try {
       const llm = await base44.integrations.Core.InvokeLLM({
         prompt,
+        model: "claude_sonnet_4_6",
         response_json_schema: {
           type: "object",
           properties: {
@@ -364,13 +326,22 @@ ${behaviorProfile ? JSON.stringify(behaviorProfile) : '{}'}
         }
       });
       if (llm) {
-          llmAnalysis = llm;
-          narrative = llm.summary || narrative;
-          if (llm.decision === "APPROVE") rec = "APPROVE";
-          else if (llm.decision === "REVIEW") rec = "REVIEW";
-          else if (llm.decision === "DECLINE") rec = "DECLINE";
-          
-          if (!isExtremeReject && (llm.override_analysis?.override_recommended || llm.is_false_negative)) {
+          // Some models (e.g. Claude via the InvokeLLM bridge) wrap the JSON in { response: {...} }.
+          // Unwrap so all downstream code sees a flat object with `summary`, `decision`, etc.
+          const flat = (llm && typeof llm === 'object' && llm.response && typeof llm.response === 'object') ? llm.response : llm;
+          llmAnalysis = flat;
+          narrative = flat.summary || narrative;
+          if (flat.decision === "APPROVE") rec = "APPROVE";
+          else if (flat.decision === "REVIEW") rec = "REVIEW";
+          else if (flat.decision === "DECLINE") rec = "DECLINE";
+          // Decisions may arrive prefixed ("DECLINE — דחייה") — normalize via startsWith too.
+          else if (typeof flat.decision === 'string') {
+              if (flat.decision.startsWith('APPROVE')) rec = 'APPROVE';
+              else if (flat.decision.startsWith('REVIEW')) rec = 'REVIEW';
+              else if (flat.decision.startsWith('DECLINE')) rec = 'DECLINE';
+          }
+
+          if (!isExtremeReject && (flat.override_analysis?.override_recommended || flat.is_false_negative)) {
               if (risk === "Red") risk = "Orange";
               else if (risk === "Orange") risk = "Green";
           }
@@ -379,7 +350,6 @@ ${behaviorProfile ? JSON.stringify(behaviorProfile) : '{}'}
           if (m.isClean12Months) {
               rec = "APPROVE";
               risk = "Green";
-              llm.is_false_negative = false;
               llmAnalysis.is_false_negative = false;
           } else if (risk === "Green" && rec === "DECLINE") {
               rec = "REVIEW"; // At worst, a Green score requires human review, not auto-decline
@@ -388,8 +358,7 @@ ${behaviorProfile ? JSON.stringify(behaviorProfile) : '{}'}
           if (isExtremeReject) {
               rec = "DECLINE";
               risk = "Red";
-              llm.is_false_negative = false; // Prevent logic bleeding
-              llmAnalysis.is_false_negative = false;
+              llmAnalysis.is_false_negative = false; // Prevent logic bleeding
               if (llmAnalysis.override_analysis) {
                   llmAnalysis.override_analysis.override_recommended = false;
               }
