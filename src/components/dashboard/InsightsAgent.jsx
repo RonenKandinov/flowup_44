@@ -54,6 +54,7 @@ export default function InsightsAgent({ analysis, isLoading, rescueOverlay = nul
     } = analysis;
 
     const { recommendation, options, key_risks, strengths, what_to_improve, policy_explanations } = analyst_recommendation;
+    const cleanInsightText = (text) => String(text || '').replace(/^\s*(?:\(?\d+\)?[.)]\s*|[-•]\s*)/, '');
 
     return (
         <div className="relative h-full w-full">
@@ -199,7 +200,7 @@ export default function InsightsAgent({ analysis, isLoading, rescueOverlay = nul
                                                 <p className="text-[10px] text-emerald-400/80 mb-1 uppercase font-bold">סיגנלים חיוביים:</p>
                                                 <ul className="space-y-1">
                                                     {llm_analysis.behavior_analysis.key_positive_signals.map((sig, i) => (
-                                                        <li key={i} className="text-xs text-slate-300 flex items-start gap-1.5"><CheckCircle2 className="w-3 h-3 text-emerald-400 mt-0.5 shrink-0"/>{sig}</li>
+                                                        <li key={i} className="text-xs text-slate-300 flex items-start gap-1.5"><CheckCircle2 className="w-3 h-3 text-emerald-400 mt-0.5 shrink-0"/>{cleanInsightText(sig)}</li>
                                                     ))}
                                                 </ul>
                                             </div>
@@ -209,7 +210,7 @@ export default function InsightsAgent({ analysis, isLoading, rescueOverlay = nul
                                                 <p className="text-[10px] text-red-400/80 mb-1 uppercase font-bold">סיכונים לגידור:</p>
                                                 <ul className="space-y-1">
                                                     {llm_analysis.behavior_analysis.key_risks.map((risk, i) => (
-                                                        <li key={i} className="text-xs text-slate-300 flex items-start gap-1.5"><XCircle className="w-3 h-3 text-red-400 mt-0.5 shrink-0"/>{risk}</li>
+                                                        <li key={i} className="text-xs text-slate-300 flex items-start gap-1.5"><XCircle className="w-3 h-3 text-red-400 mt-0.5 shrink-0"/>{cleanInsightText(risk)}</li>
                                                     ))}
                                                 </ul>
                                             </div>
