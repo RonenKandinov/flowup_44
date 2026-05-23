@@ -234,46 +234,46 @@ Deno.serve(withValidation(schema, async (req, body) => {
     const liquidityGap = Math.max(0, rules.min_liquidity_months - liq);
     const decisionLabelHe = rec === 'DECLINE' ? 'דחייה' : rec === 'REVIEW' ? 'בחינה' : 'אישור';
 
-    const prompt = `אתה חתם אשראי מנוסה הכותב תקציר קצר ואנושי על לקוח. כתוב כמו שאתה מסביר לעמית בקפה — לא כמו רובוט.
+    const prompt = `אתה חתם אשראי הכותב למנהל תיק הלוואות — לא יועץ ללווה. המוקד שלך: כמה המלווה יפסיד אם הלווה יכשל, ואיך לתמחר את הסיכון.
 
 מצב הלקוח:
 - תזרים פנוי: ${monthlyHeadroom >= 0 ? 'חיובי' : 'שלילי'} (₪${fmt(monthlyHeadroom)}/חודש)
 - DTI: ${dti}% (סף ${rules.max_dti_approve}%)
 - הוצאות/הכנסה: ${expInc}%
 - נזילות: ${liq} חודשים
-- המלצה: ${decisionLabelHe}
+- המלצה נוכחית: ${decisionLabelHe}
 ${isSecondChance ? `- ⚡ Second Chance פעיל — גורמים מפצים: ${strengths.join(', ')}` : ''}
 
 התנהגות בתזרים (Open Finance):
-${behaviorProfile ? JSON.stringify(behaviorProfile).slice(0, 800) : 'אין'}
+${behaviorProfile ? JSON.stringify(behaviorProfile).slice(0, 600) : 'אין'}
 
-🔒 פרטיות: אסור להזכיר שמות פרטיים. התעלם מ-labels כמו "העברה אישית (לא מזוהה)". מונחים מותרים: "הלקוח" / "המבקש".
+🔒 פרטיות: אסור להזכיר שמות פרטיים. מונחים מותרים: "הלקוח" / "המבקש".
 
 === דרישות פלט ===
 
-1. **summary** (2-3 משפטים קצרים במילים, ללא מספרים מיותרים. רק סיפור אנושי):
-   - משפט 1: החלטה + הסיבה העיקרית במילים (לדוגמה: "הלקוח מוציא יותר ממה שהוא מכניס, וההתחייבויות הקבועות תופסות חלק גדול מההכנסה").
-   - משפט 2: תיאור ההתנהגות במילים — מתי מגיע הכסף, איך הוא מתפזר בחודש (לדוגמה: "המשכורת נכנסת בטווח השליש הראשון לחודש, ומרבית ההוצאות מתרכזת בשבוע הראשון שלאחריה").
-   - משפט 3 (אופציונלי): מה יכול לשנות את התמונה, בשפה טבעית (לדוגמה: "שיפור משמעותי ידרוש צמצום הוצאות קבועות או הגדלת הכנסה").
+1. **summary** (2-3 משפטים קצרים, אנושי, ללא מספרים מיותרים. סיפור מנקודת מבטה של המלווה):
+   - משפט 1: מה המלווה רואה — האם הלווה יחזיר את הכסף? האם המבנה התזרימי תומך תשלום חודשי נוסף? (דוגמה: "הלווה הזה אינו ברי קיימא בשוליית המלווה — המבקש כבר מוציא יותר ממה שהוא מכניס, והוספת תשלום קבוע נוסף תגדיל את הפערים").
+   - משפט 2: איך נראית ההתנהגות ומה היא אומרת למלווה על יכולת ההחזר (דוגמה: "הכסף נכנס בתחילת החודש ומתנדף תוך ימים — תשלום חדש ימצא את הלווה מתחרה על תשלומים קבועים אחרים").
+   - משפט 3 (אופציונלי): המלצה למלווה — אילו תנאים/ביטחונות יפכו את העסקה לברה (דוגמה: "גרירת הלווה לתקופה קצרה עם ערב יצמצם את החשיפה לתיקה").
 
-   ❌ אסור ב-summary:
-   - להציג מספרים, אחוזים, שקלים או יחסים (המספרים יוצגים ב-UI במקום אחר).
-   - לכתוב בסגנון רובוטי ("עומד על", "חורג ב-X נקודות", "סף המדיניות").
-   - מילים כמו "יעד ל-APPROVE" או "DTI" או "נק".
+   ❌ אסור ב-summary: מספרים, אחוזים, ספי, סגנון רובוטי ("עומד על", "חורג ב-X נקודות"), DTI, APPROVE.
+   ✅ כתוב כמו סמנכ"ל באשראי הוועדת אשראי מסביר תיק בשפה טבעית.
 
-   ✅ כתוב כאילו אתה מסביר למנהל המכירות בהמשכה של 30 שניות במעלית, בלי טבלאות ובלי ז'רגון.
+2. **lender_risk_assessment** — ניתוח סיכון **למלווה** (קריטי — זו התוספת הגדולה):
+   הערך את העסקה מזווית המלווה — מה הסיכוי לאיבוד כסף, מה ההפסד הצפוי במקרה של כשל, ואיך העסקה משתלבת לתיק ההלוואות הכולל.
+   - **default_probability** (מספר 0-100): הערך PD שנתי ל-12 חודשים הקרובים. ללוואות צרכניים טיפוסי PD: Prime 2-5%, Near-Prime 6-12%, Subprime 15-25%, High-Risk 30%+.
+   - **loss_given_default** (מספר 0-100): % מהקרן שיאבד במקרה של כשל. ללא ביטחונות: 55-65%. עם ערב: 30-40%. עם ביטחון מלא: 15-25%.
+   - **expected_loss** (מספר 0-100): PD × LGD / 100. זו רצפת המחיר המינימלית למלווה (לפני עלויות הון ותפעול).
+   - **portfolio_view** (משפט 1): הצג את העסקה בהקשר לתיק מגוון. דוגמה: "הלווה מתאים לרובד Subprime — מחירו צריך לשקף תשואה ממוצע התיק ולא בנצ'מרק השוק".
+   - **mitigations** (מערך של 2-4 פריטים): מה המלווה יכול לעשות כדי להפחית סיכון. דוגמאות: "קיצור תקופה ל-24 חודשים", "דרישת ערב יצמצם", "העמדת תשלום ראשון גבוה", "העלאת ריבית לכיסוי ה-Expected Loss".
 
-2. **behavior_analysis.key_positive_signals** (מערך של פריטים קצרים עם מספר): דוגמאות:
-   - "נזילות ${liq} חודשים — מעל הסף של ${rules.min_liquidity_months}."
-   אם אין סיגנל מספרי חזק — החזר מערך ריק.
+3. **behavior_analysis.key_positive_signals** (מערך של פריטים קצרים עם מספר): אם אין — מערך ריק.
 
-3. **behavior_analysis.key_risks** (מערך של סיכונים עם מספרים — הקצר ביותר):
+4. **behavior_analysis.key_risks** (מערך של סיכונים עם מספרים, קצרים):
    - "DTI ${dti}% — חורג מסף ${rules.max_dti_approve}%."
    - "הוצאות/הכנסה ${expInc}% — מעל ${rules.max_expense_income_ratio}%."
-   - "נזילות ${liq} חודשים — מתחת לסף ${rules.min_liquidity_months}."
 
-4. **recommended_terms.conditions** (תנאים קצרים):
-   דוגמאות: "תקופה מקסימלית 36 חודשים", "ערב עם הכנסה ₪${fmt(guarantorIncome)}+", "ביטחון 10% מהקרן".`;
+5. **recommended_terms.conditions**: תנאים קצרים למלווה (לדוגמה: "תקופה מקסימלית 36 חודשים", "ערב עם הכנסה ₪${fmt(guarantorIncome)}+").`;
 
     let narrative = "מצב פיננסי יציב.";
     let llmAnalysis = null;
@@ -281,6 +281,8 @@ ${behaviorProfile ? JSON.stringify(behaviorProfile).slice(0, 800) : 'אין'}
       const llm = await base44.integrations.Core.InvokeLLM({
         prompt,
         model: "gpt_5_mini",
+        // schema additions below carry the lender-risk fields (PD/LGD/EL/portfolio_view/mitigations)
+        // so the frontend can render LenderRiskBlock without a follow-up LLM call.
         response_json_schema: {
           type: "object",
           properties: {
@@ -302,6 +304,16 @@ ${behaviorProfile ? JSON.stringify(behaviorProfile).slice(0, 800) : 'אין'}
                 trend: { type: "string" },
                 key_positive_signals: { type: "array", items: { type: "string" } },
                 key_risks: { type: "array", items: { type: "string" } }
+              }
+            },
+            lender_risk_assessment: {
+              type: "object",
+              properties: {
+                default_probability: { type: "number" },
+                loss_given_default: { type: "number" },
+                expected_loss: { type: "number" },
+                portfolio_view: { type: "string" },
+                mitigations: { type: "array", items: { type: "string" } }
               }
             },
             override_analysis: {

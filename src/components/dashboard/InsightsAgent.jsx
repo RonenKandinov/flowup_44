@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp, AlertTriangle, BrainCircuit, Activity, FileText, CheckCircle2, XCircle, Zap, ShieldCheck, AlertOctagon, TrendingUp, TrendingDown, Target, Focus } from 'lucide-react';
 import ExportDecisionModal from './ExportDecisionModal';
+import LenderRiskBlock from './LenderRiskBlock';
 
 export default function InsightsAgent({ analysis, isLoading, rescueOverlay = null }) {
     const [isOpen, setIsOpen] = useState(true);
@@ -174,6 +175,11 @@ export default function InsightsAgent({ analysis, isLoading, rescueOverlay = nul
                                 <Section title="תקציר מנהלים (Executive Summary)">
                                     {narrative}
                                 </Section>
+
+                                {/* Lender Risk Assessment — portfolio-level view (PD/LGD/EL) */}
+                                {llm_analysis?.lender_risk_assessment && (
+                                    <LenderRiskBlock assessment={llm_analysis.lender_risk_assessment} />
+                                )}
 
                                 {/* Behavior Analysis */}
                                 {llm_analysis?.behavior_analysis && (
