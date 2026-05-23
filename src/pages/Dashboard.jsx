@@ -406,11 +406,15 @@ export default function Dashboard() {
 
   // Fetch AI Insights from server using React Query to avoid infinite loops
   const { data: serverInsightsData, isLoading: isInsightsLoading, error: insightsError } = useQuery({
-    queryKey: ['ai-insights-v2', stableMetricsHash],
+    queryKey: ['ai-insights-v3', stableMetricsHash],
     queryFn: async () => {
         if (!metricsForInsights) return { error: "No risk metrics available" };
-        
-        const cacheKey = 'flowup_ai_insights_cache_v2';
+
+        // v3 — bust prior caches after behaviorProfile + PII redaction rollout
+        try {
+            localStorage.removeItem('flowup_ai_insights_cache_v2');
+        } catch (_) {}
+        const cacheKey = 'flowup_ai_insights_cache_v3';
         try {
             const cached = localStorage.getItem(cacheKey);
             if (cached) {
@@ -907,7 +911,7 @@ export default function Dashboard() {
                       disabled={isLoanMetricsLoading || isInsightsLoading}
                       onClick={() => {
                         refetchLoanMetrics();
-                        queryClient.invalidateQueries(['ai-insights-v2']);
+                        queryClient.invalidateQueries(['ai-insights-v3']);
                         toast.success('מרענן נתונים...');
                       }}
                     >

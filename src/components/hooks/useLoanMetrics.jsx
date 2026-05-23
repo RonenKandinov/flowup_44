@@ -10,16 +10,16 @@ export const useLoanMetrics = (userId, targetAccountId = null) => {
         setIsLoading(true);
         setError(null);
 
-        // Clean up stale V3 cache keys on every fetch
+        // Clean up stale V3/V4 cache keys on every fetch
         try {
             Object.keys(sessionStorage)
-                .filter(k => k.startsWith('loanMetricsCacheV3'))
+                .filter(k => k.startsWith('loanMetricsCacheV3') || k.startsWith('loanMetricsCacheV4'))
                 .forEach(k => sessionStorage.removeItem(k));
         } catch (_) {}
 
         try {
-            // 1. Session Caching Strategy (V4 Key to bust cache and force updates)
-            const cacheKey = `loanMetricsCacheV4_${targetAccountId || 'all'}`;
+            // 1. Session Caching Strategy (V5 — bust cache after behaviorProfile + PII redaction)
+            const cacheKey = `loanMetricsCacheV5_${targetAccountId || 'all'}`;
             const cachedData = sessionStorage.getItem(cacheKey);
             // Use caching to reduce latency, force=true bypasses it
             if (!force && cachedData) {
@@ -83,7 +83,7 @@ export const useLoanMetrics = (userId, targetAccountId = null) => {
                 };
 
                 setMetrics(transformedMetrics);
-                sessionStorage.setItem(`loanMetricsCacheV4_${targetAccountId || 'all'}`, JSON.stringify(transformedMetrics));
+                sessionStorage.setItem(`loanMetricsCacheV5_${targetAccountId || 'all'}`, JSON.stringify(transformedMetrics));
             } else {
                 throw new Error("Analysis failed to return success status");
             }

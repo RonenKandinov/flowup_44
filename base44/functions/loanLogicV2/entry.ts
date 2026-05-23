@@ -546,8 +546,30 @@ Deno.serve(withValidation(loanLogicSchema, async (req) => {
         // Description may be a nested object in some Open Finance providers — we
         // need a tolerant extractor here too, otherwise recurring detection misses
         // every Israeli bank account.
+        //
+        // 🔒 PRIVACY: never surface a real human name in the underwriter narrative.
+        // We use debtorName only for grouping (counts/aggregations) but redact it
+        // to a generic label when it looks like a personal counterparty (“First Last”
+        // in Hebrew or English, no business/merchant tokens).
+        const looksLikePersonalName = (s) => {
+            if (!s || typeof s !== 'string') return false;
+            const clean = s.trim();
+            if (clean.length < 4 || clean.length > 40) return false;
+            // Reject anything that obviously belongs to a merchant / institution
+            // Whole-word tokens that flag the label as institutional / business (not personal).
+            // Use \b boundaries so e.g. "רונן קנדינוב" never matches a partial token.
+            const businessTokens = /(\b(?:LTD|LLC|INC|CORP|GROUP|BANK|VISA|MASTER|PAYPAL|GOOGLE|APPLE|UBER|WOLT)\b|בע"מ|בע”מ|בעמ"מ|חברה|חב'|בנק|ביטוח|לאומי|מכבי|קופת|הלוואה|מקס|ישראכרט|כלל|גמל|משכורת|משכ|משכור|משכו|שכר|פנסיה|גמדי|לעומי|ביטוח לאומי|שלטון|הכנסה|ריבית|מס)/i;
+            if (businessTokens.test(clean)) return false;
+            const parts = clean.split(/\s+/).filter(Boolean);
+            if (parts.length < 2 || parts.length > 4) return false;
+            // Each token must look like a name (letters only, no digits/symbols)
+            return parts.every(p => /^[\u0590-\u05FFA-Za-z'’-]{2,}$/.test(p));
+        };
+        const redactPersonalLabel = (label) => looksLikePersonalName(label) ? 'העברה אישית (לא מזוהה)' : label;
         const extractDescText = (tx) => {
-            if (tx?.debtorName && typeof tx.debtorName === 'string') return tx.debtorName;
+            if (tx?.debtorName && typeof tx.debtorName === 'string' && tx.debtorName.trim()) {
+                return tx.debtorName.trim();
+            }
             const cand = tx?.description ?? tx?.details;
             if (!cand) return '';
             if (typeof cand === 'string') return cand;
@@ -1198,7 +1220,8 @@ ${JSON.stringify(limitedExpenses)}
                 });
                 const recurringIncome = Array.from(incomeStreams.values())
                     .map(s => ({
-                        label: s.label,
+                        // 🔒 Redact personal names — keep only generic / institutional labels.
+                        label: redactPersonalLabel(s.label),
                         avgAmount: Math.round(s.amounts.reduce((a, b) => a + b, 0) / s.amounts.length),
                         occurrences: s.amounts.length,
                         typicalDayOfMonth: s.days.length ? Math.round(getMedian(s.days)) : null
@@ -1223,7 +1246,13 @@ ${JSON.stringify(limitedExpenses)}
                     merchantSpend.set(key, cur);
                 });
                 const topMerchants = Array.from(merchantSpend.values())
-                    .map(m => ({ label: m.label, totalSpend: Math.round(m.total), occurrences: m.count, avgTicket: Math.round(m.total / m.count) }))
+                    .map(m => ({
+                        // 🔒 Redact personal names — same rule as recurringIncome.
+                        label: redactPersonalLabel(m.label),
+                        totalSpend: Math.round(m.total),
+                        occurrences: m.count,
+                        avgTicket: Math.round(m.total / m.count)
+                    }))
                     .sort((a, b) => b.totalSpend - a.totalSpend)
                     .slice(0, 6);
 
