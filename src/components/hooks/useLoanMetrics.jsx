@@ -10,25 +10,16 @@ export const useLoanMetrics = (userId, targetAccountId = null) => {
         setIsLoading(true);
         setError(null);
 
-        // Clean up stale cache keys on every fetch (V7 — pledgeable assets + investment-positive model)
+        // Always use fresh backend metrics. FlowUp's B2B underwriting layer must reflect
+        // the latest loanLogicV2 behavior immediately after backend updates.
         try {
             Object.keys(sessionStorage)
-                .filter(k => k.startsWith('loanMetricsCacheV3') || k.startsWith('loanMetricsCacheV4') || k.startsWith('loanMetricsCacheV5') || k.startsWith('loanMetricsCacheV6'))
+                .filter(k => k.startsWith('loanMetricsCache'))
                 .forEach(k => sessionStorage.removeItem(k));
         } catch (_) {}
 
         try {
-            // 1. Session Caching Strategy (V7 — pledgeable assets + investment-positive model)
-            const cacheKey = `loanMetricsCacheV7_${targetAccountId || 'all'}`;
-            const cachedData = sessionStorage.getItem(cacheKey);
-            // Use caching to reduce latency, force=true bypasses it
-            if (!force && cachedData) {
-                setMetrics(JSON.parse(cachedData));
-                setIsLoading(false);
-                return;
-            }
-
-            // 2. Native Fetch Implementation (via SDK Wrapper for Environment Routing)
+            // Native Fetch Implementation (via SDK Wrapper for Environment Routing)
             // Note: Using SDK to ensure correct routing within the Base44 environment
             // effectively acting as a fetch wrapper to the Edge Function.
             const response = await base44.functions.invoke('loanLogicV2', {
@@ -83,7 +74,6 @@ export const useLoanMetrics = (userId, targetAccountId = null) => {
                 };
 
                 setMetrics(transformedMetrics);
-                sessionStorage.setItem(`loanMetricsCacheV7_${targetAccountId || 'all'}`, JSON.stringify(transformedMetrics));
             } else {
                 throw new Error("Analysis failed to return success status");
             }

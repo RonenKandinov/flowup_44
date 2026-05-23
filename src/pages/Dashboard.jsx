@@ -413,26 +413,13 @@ export default function Dashboard() {
     queryFn: async () => {
         if (!metricsForInsights) return { error: "No risk metrics available" };
 
-        // v7 — bust prior caches after investment-positive + pledgeable-assets prompt
+        // Never use persistent client cache for underwriting insights.
+        // Per FlowUp's B2B decisioning contract, the UI must reflect the latest insightEngine output.
         try {
-            localStorage.removeItem('flowup_ai_insights_cache_v2');
-            localStorage.removeItem('flowup_ai_insights_cache_v3');
-            localStorage.removeItem('flowup_ai_insights_cache_v4');
-            localStorage.removeItem('flowup_ai_insights_cache_v5');
-            localStorage.removeItem('flowup_ai_insights_cache_v6');
+            Object.keys(localStorage)
+              .filter(k => k.startsWith('flowup_ai_insights_cache'))
+              .forEach(k => localStorage.removeItem(k));
         } catch (_) {}
-        const cacheKey = 'flowup_ai_insights_cache_v7';
-        try {
-            const cached = localStorage.getItem(cacheKey);
-            if (cached) {
-                const parsedCache = JSON.parse(cached);
-                if (parsedCache.hash === stableMetricsHash && parsedCache.data) {
-                    return parsedCache.data;
-                }
-            }
-        } catch (e) {
-            console.warn("Failed to read insights cache", e);
-        }
 
         try {
             const res = await base44.functions.invoke('insightEngine', {
@@ -440,12 +427,6 @@ export default function Dashboard() {
                 behaviorProfile: metricsForInsights?.behaviorProfile || null
             });
             if (res.data?.success && res.data?.insights) {
-                try {
-                    localStorage.setItem(cacheKey, JSON.stringify({
-                        hash: stableMetricsHash,
-                        data: res.data.insights
-                    }));
-                } catch (e) {}
                 return res.data.insights;
             }
             return generateLocalInsights(metricsForInsights) || { error: "Failed to generate insights" };
@@ -455,10 +436,11 @@ export default function Dashboard() {
         }
     },
     enabled: !!(metricsForInsights && hasData),
-    staleTime: Infinity, // Keep cache indefinitely in memory
-    cacheTime: Infinity,
-    refetchOnWindowFocus: false, // Don't refetch on window focus
-    refetchOnMount: false, // Don't refetch on mount if we have it
+    staleTime: 0,
+    gcTime: 0,
+    cacheTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnMount: 'always'
   });
 
   const serverInsights = serverInsightsData || (insightsError ? { error: "Network error" } : null);
@@ -493,10 +475,11 @@ export default function Dashboard() {
       }
     },
     enabled: !!activeConnection?.connection_id,
-    staleTime: Infinity,
-    cacheTime: Infinity,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
+    staleTime: 0,
+    gcTime: 0,
+    cacheTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
   });
 
   const forecastData = localData?.forecastData || generateForecastFromTransactions(transactions);
@@ -931,11 +914,12 @@ export default function Dashboard() {
                                 .filter(k => k.startsWith('loanMetricsCache'))
                                 .forEach(k => sessionStorage.removeItem(k));
                             } catch (_) {}
-                            // Await the actual refresh — this triggers loanLogicV2 → new behaviorProfile → new hash → insights re-fetch
+                            queryClient.removeQueries({ queryKey: ['ai-insights-v7'] });
+                            queryClient.removeQueries({ queryKey: ['ai-insights-v6'] });
+                            queryClient.removeQueries({ queryKey: ['cash-flow-profile-v1'] });
+                            // Await the actual refresh — this triggers loanLogicV2 → new behaviorProfile → fresh insightEngine result
                             await refetchLoanMetrics();
-                            // Force insights to re-run even if hash didn't change (e.g. same metrics, new behaviorProfile)
-                            await queryClient.invalidateQueries({ queryKey: ['ai-insights-v7'] });
-                            await queryClient.invalidateQueries({ queryKey: ['ai-insights-v6'] });
+                            await queryClient.refetchQueries({ queryKey: ['ai-insights-v7'], type: 'active' });
                             toast.success('הנתונים עודכנו בהצלחה', { id: toastId });
                           } catch (err) {
                             console.error('Refresh failed:', err);
