@@ -31,7 +31,8 @@ const schema = z.object({
     dti: z.number().optional(),
     trends: z.object({ income: z.number().optional(), expenses: z.number().optional(), investments: z.number().optional(), momentum: z.string().optional() }).optional(),
     history: z.array(z.object({ netFlow: z.number().optional() })).optional()
-  }).optional()
+  }).optional(),
+  behaviorProfile: z.any().optional()
 }).passthrough();
 
 Deno.serve(withValidation(schema, async (req, body) => {
@@ -43,6 +44,7 @@ Deno.serve(withValidation(schema, async (req, body) => {
 
     const m = body?.metrics;
     if (!m) return Response.json({ success: false, error: "metrics required" });
+    const behaviorProfile = body?.behaviorProfile || m?.behaviorProfile || null;
 
     const income = m.totalIncome ?? 0;
     const expenses = m.totalExpenses ?? 0;
@@ -247,7 +249,7 @@ ${isExtremeReject ?
 - ריבית מתמחרת סיכון. אם הסיכון בינוני — אישור בריבית גבוהה ב-1-2% עדיף על דחייה.
 - False Negative = הלקוח נראה רע על הנייר אבל יכולת ההחזר האמיתית קיימת. תוכיח את זה במספר תזרים פנוי חודשי בש"ח, לא בסיסמאות.`}
 
-נתוני הלקוח:
+נתוני הלקוח (מצרפים):
 ${JSON.stringify({ 
   income: Math.round(income), 
   expenses: Math.round(expenses), 
@@ -267,6 +269,20 @@ ${JSON.stringify({
   policy_breaches: policy_explanations, 
   rules: { max_dti_approve: rules.max_dti_approve, max_dti_review: rules.max_dti_review, min_income: rules.min_income, min_liquidity_months: rules.min_liquidity_months, max_expense_income_ratio: rules.max_expense_income_ratio }
 })}
+
+התנהגות בפועל — בנויה מהטרנזקציות של הלקוח (12 חודשים אחרונים):
+${behaviorProfile ? JSON.stringify(behaviorProfile) : '{}'}
+
+📖 חובה: בנה סיפור קצר על הלקוח מתוך ההתנהגות הממשית בתזרים — לא מצרף מספרים. הסיפור צריך להופיע בשדה narrative ממש בתוך תקציר המנהלים ולהתנקה את המספרים. דגמאות למה להתייחס:
+- מתי מגיעה המשכורת ומה המקור: אם recurringIncome מכיל שכר ב-typicalDayOfMonth=1 — "מקבל משכורת של ₪[X] ב-1 לכל חודש מ-[שם מעסיק]."
+- איך הוא מוציא את הכסף: אם spendTiming.earlyMonthPct > 50 — "שורף את רוב הכסף ב-10 הימים הראשונים לאחר המשכורת." אם lateMonthPct > 45 — "מגיע לסוף החודש מתוח — הוצאות מתרכזות בימים 21-31."
+- איפה הכסף הולך: ציין 1-2 מ-topMerchants עם סכום תקופתי — "ההוצאות הגדולות ביותר: [מעסיק] (₪[סכום] בתקופה), [מעסיק] (₪[סכום])."
+- משמעת: אם avgMonthlyInvestmentOutflow > 0 — "מפקיד ₪[X] בחודש להשקעה/חיסכון — משמעת משמעת מאותן והתנהגות של בונה הון."
+- מתח למינוס: אם overdraftDays > 0 — "היה במינוס ב-[X] מקרים בשנה האחרונה. היתרה הנמוכה שנראתה: ₪[מספר]."
+- עקביות חודשית: אם negativeMonthsInLast6 ≥ 3 — "ב-[X] מ-6 החודשים האחרונים הוציא יותר ממה שהכניס."
+
+⚠️ אל תציין שמות של אנשים פרטיים — השתמש תמיד בתיאור ה-label שהגיע ב-recurringIncome/topMerchants. אם ה-label באנגלית (לדוגמה SHUFERSAL) — השתמש בו כמות שהוא.
+- ללא behaviorProfile תחזור לניתוח המספרי הרגיל. אם קיים — הסיפור חייב להופיע ב-summary כשורה 1-2 נפרדת, לא כמשפט נלווה.
 
 🎯 פלט נדרש:
 

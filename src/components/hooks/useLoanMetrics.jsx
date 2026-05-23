@@ -75,7 +75,11 @@ export const useLoanMetrics = (userId, targetAccountId = null) => {
                     trends: report.metrics?.trends || metrics.trends || { income: 0, expenses: 0, dti: 0 },
                     history: report.metrics?.history || [],
                     availableAccounts: data.availableAccounts || [],
-                    activeTargetAccountId: data.activeTargetAccountId || null
+                    activeTargetAccountId: data.activeTargetAccountId || null,
+                    // Behavioral story-level profile (top merchants, salary timing,
+                    // spend windows within the month, overdraft touches, savings discipline)
+                    // — used by InsightEngine to write a human narrative.
+                    behaviorProfile: data.behaviorProfile || null
                 };
 
                 setMetrics(transformedMetrics);

@@ -424,7 +424,10 @@ export default function Dashboard() {
         }
 
         try {
-            const res = await base44.functions.invoke('insightEngine', { metrics: metricsForInsights });
+            const res = await base44.functions.invoke('insightEngine', {
+                metrics: metricsForInsights,
+                behaviorProfile: metricsForInsights?.behaviorProfile || null
+            });
             if (res.data?.success && res.data?.insights) {
                 try {
                     localStorage.setItem(cacheKey, JSON.stringify({

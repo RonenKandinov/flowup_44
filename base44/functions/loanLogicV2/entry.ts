@@ -543,11 +543,31 @@ Deno.serve(withValidation(loanLogicSchema, async (req) => {
         console.log(`[Self-Transfers] Detected ${selfTransferIndices.size / 2} cross-account transfer pairs (${selfTransferIndices.size} transactions excluded)`);
 
         // --- RECURRING INCOME PRE-PROCESSING ---
+        // Description may be a nested object in some Open Finance providers — we
+        // need a tolerant extractor here too, otherwise recurring detection misses
+        // every Israeli bank account.
+        const extractDescText = (tx) => {
+            if (tx?.debtorName && typeof tx.debtorName === 'string') return tx.debtorName;
+            const cand = tx?.description ?? tx?.details;
+            if (!cand) return '';
+            if (typeof cand === 'string') return cand;
+            if (typeof cand === 'object') {
+                const direct = cand.description || cand.text || cand.original || cand.initialClean || '';
+                if (direct) return String(direct);
+                if (typeof cand.additionalInfo === 'string') {
+                    try {
+                        const ai = JSON.parse(cand.additionalInfo);
+                        return String(ai?.purposeDescription || ai?.transactionDescription || '');
+                    } catch { /* noop */ }
+                }
+            }
+            return '';
+        };
         const incomeDescCount = new Map();
         transactions.forEach((tx) => {
             const amount = parseTransactionAmount(tx);
             if (isNaN(amount) || amount <= 0) return;
-            const txDescClean = String(tx?.description || tx?.details || "").toLowerCase().replace(/[0-9\-\/]/g, '').trim();
+            const txDescClean = extractDescText(tx).toLowerCase().replace(/[0-9\-\/]/g, '').trim();
             if (txDescClean) {
                 incomeDescCount.set(txDescClean, (incomeDescCount.get(txDescClean) || 0) + 1);
             }
@@ -1117,10 +1137,173 @@ ${JSON.stringify(limitedExpenses)}
             console.error('[Persistence] Failed to save analytics data:', persistErr?.message || persistErr);
         }
 
+        // ── BEHAVIOR PROFILE (story-level data for the AI Analyst) ──
+        // We already have the filtered transactions, the recurring-income map, the
+        // self-transfer indices and the per-month aggregates. Bundle them into a
+        // compact, story-friendly profile so the InsightEngine can write "how this
+        // customer actually lives through the month" — not just metric aggregates.
+        const safeDesc = (tx) => {
+            // Open Finance (Hapoalim/Israel) ships description as an object:
+            //   { description: "העב' לאחר-נייד", initialClean, additionalInfo: <stringified JSON> }
+            // Prefer the human-readable counterparty when present (debtorName at tx level)
+            // then the structured description fields, then anything we can pull from additionalInfo.
+            if (tx?.debtorName && typeof tx.debtorName === 'string' && tx.debtorName.trim()) {
+                return tx.debtorName.trim();
+            }
+            const cand = tx?.description ?? tx?.details ?? tx?.remittanceInformation ?? tx?.narrative;
+            if (!cand) return '';
+            if (typeof cand === 'string') return cand.trim();
+            if (typeof cand === 'object') {
+                // Pick the most descriptive available field, in priority order
+                const direct = cand.description || cand.text || cand.value || cand.original ||
+                               cand.remittanceInformation || cand.narrative ||
+                               cand.unstructured || cand.reference || cand.initialClean;
+                if (direct && typeof direct === 'string') return direct.trim();
+                // Last resort — try to parse additionalInfo's purposeDescription / transactionDescription
+                if (typeof cand.additionalInfo === 'string') {
+                    try {
+                        const ai = JSON.parse(cand.additionalInfo);
+                        const fromAi = ai?.purposeDescription || ai?.transactionDescription;
+                        if (fromAi && typeof fromAi === 'string') return fromAi.trim();
+                    } catch { /* not valid JSON */ }
+                }
+                return '';
+            }
+            return String(cand).trim();
+        };
+        const behaviorProfile = (() => {
+            try {
+                // 1) Recurring income streams (salary, pensions, child benefits, etc.)
+                //    Group by cleaned description, keep streams that appear 3+ times.
+                const incomeStreams = new Map();
+                transactions.forEach((tx, idx) => {
+                    if (selfTransferIndices.has(idx)) return;
+                    const amount = parseTransactionAmount(tx);
+                    if (isNaN(amount) || amount <= 0) return;
+                    const txDesc = safeDesc(tx);
+                    const clean = txDesc.toLowerCase().replace(/[0-9\-\/]/g, '').trim();
+                    if (!clean || (incomeDescCount.get(clean) || 0) < 3) return;
+                    const txDateObj = tx?.date;
+                    const dateStr = tx?.creationDate ||
+                        (typeof txDateObj === 'string' ? txDateObj : (txDateObj?.valueDate || txDateObj?.bookingDate || txDateObj?.transactionDate)) ||
+                        tx?.transactionDate;
+                    const d = dateStr ? new Date(dateStr) : null;
+                    const dayOfMonth = d && !isNaN(d.getTime()) ? d.getDate() : null;
+                    if (!incomeStreams.has(clean)) {
+                        incomeStreams.set(clean, { label: txDesc.slice(0, 40), amounts: [], days: [] });
+                    }
+                    const s = incomeStreams.get(clean);
+                    s.amounts.push(amount);
+                    if (dayOfMonth) s.days.push(dayOfMonth);
+                });
+                const recurringIncome = Array.from(incomeStreams.values())
+                    .map(s => ({
+                        label: s.label,
+                        avgAmount: Math.round(s.amounts.reduce((a, b) => a + b, 0) / s.amounts.length),
+                        occurrences: s.amounts.length,
+                        typicalDayOfMonth: s.days.length ? Math.round(getMedian(s.days)) : null
+                    }))
+                    .sort((a, b) => b.avgAmount * b.occurrences - a.avgAmount * a.occurrences)
+                    .slice(0, 5);
+
+                // 2) Top expense merchants (where the money actually goes)
+                const merchantSpend = new Map();
+                transactions.forEach((tx, idx) => {
+                    if (selfTransferIndices.has(idx)) return;
+                    const amount = parseTransactionAmount(tx);
+                    if (isNaN(amount) || amount >= 0) return;
+                    const txDesc = safeDesc(tx);
+                    if (!txDesc) return;
+                    // Group by first 3 words / 30 chars to merge "SHUFERSAL TLV" with "SHUFERSAL HAIFA"
+                    const key = txDesc.toLowerCase().replace(/[0-9]/g, '').trim().split(/\s+/).slice(0, 3).join(' ').slice(0, 30);
+                    if (!key) return;
+                    const cur = merchantSpend.get(key) || { label: txDesc.slice(0, 40), total: 0, count: 0 };
+                    cur.total += Math.abs(amount);
+                    cur.count += 1;
+                    merchantSpend.set(key, cur);
+                });
+                const topMerchants = Array.from(merchantSpend.values())
+                    .map(m => ({ label: m.label, totalSpend: Math.round(m.total), occurrences: m.count, avgTicket: Math.round(m.total / m.count) }))
+                    .sort((a, b) => b.totalSpend - a.totalSpend)
+                    .slice(0, 6);
+
+                // 3) Cash-flow timing within the month: split each month into 3 windows
+                //    (days 1-10, 11-20, 21-end) and measure expense share. Tells us if the
+                //    customer "burns hot" right after salary or "runs dry" at month-end.
+                const windowSpend = { early: 0, mid: 0, late: 0 };
+                let timingSamples = 0;
+                transactions.forEach((tx, idx) => {
+                    if (selfTransferIndices.has(idx)) return;
+                    const amount = parseTransactionAmount(tx);
+                    if (isNaN(amount) || amount >= 0) return;
+                    const txDateObj = tx?.date;
+                    const dateStr = tx?.creationDate ||
+                        (typeof txDateObj === 'string' ? txDateObj : (txDateObj?.valueDate || txDateObj?.bookingDate || txDateObj?.transactionDate)) ||
+                        tx?.transactionDate;
+                    const d = dateStr ? new Date(dateStr) : null;
+                    if (!d || isNaN(d.getTime())) return;
+                    const day = d.getDate();
+                    const abs = Math.abs(amount);
+                    if (day <= 10) windowSpend.early += abs;
+                    else if (day <= 20) windowSpend.mid += abs;
+                    else windowSpend.late += abs;
+                    timingSamples++;
+                });
+                const totalWindowSpend = windowSpend.early + windowSpend.mid + windowSpend.late || 1;
+                const spendTiming = {
+                    earlyMonthPct: Math.round((windowSpend.early / totalWindowSpend) * 100),
+                    midMonthPct:   Math.round((windowSpend.mid   / totalWindowSpend) * 100),
+                    lateMonthPct:  Math.round((windowSpend.late  / totalWindowSpend) * 100),
+                    samples: timingSamples
+                };
+
+                // 4) Overdraft / negative-balance touches (when the bank reports running balance)
+                let overdraftDays = 0;
+                let lowestBalanceSeen = null;
+                transactions.forEach((tx) => {
+                    const bal = Number(tx?.balance_after_transaction ?? tx?.balance);
+                    if (!isFinite(bal)) return;
+                    if (bal < 0) overdraftDays++;
+                    if (lowestBalanceSeen === null || bal < lowestBalanceSeen) lowestBalanceSeen = bal;
+                });
+
+                // 5) Savings/investment discipline (monthly average outflow to investments)
+                const monthsCounted = Math.max(1, history.length);
+                const avgMonthlyInvestmentOutflow = Math.round(investmentTransfers / monthsCounted);
+
+                // 6) Month-by-month story (last 6 months of net flow)
+                const recentMonths = history.slice(-6).map(h => ({
+                    month: h.month,
+                    income: Math.round(h.income),
+                    expenses: Math.round(h.expenses),
+                    fixed: Math.round(h.fixedExpenses),
+                    netFlow: Math.round(h.netFlow),
+                    investedOut: Math.round(h.investmentTransfers || 0)
+                }));
+                const negativeMonths = recentMonths.filter(m => m.netFlow < 0).length;
+
+                return {
+                    recurringIncome,
+                    topMerchants,
+                    spendTiming,
+                    overdraftDays,
+                    lowestBalanceSeen: lowestBalanceSeen !== null ? Math.round(lowestBalanceSeen) : null,
+                    avgMonthlyInvestmentOutflow,
+                    recentMonths,
+                    negativeMonthsInLast6: negativeMonths,
+                    transactionsAnalyzed: transactions.length - selfTransferIndices.size
+                };
+            } catch (err) {
+                console.warn('[BehaviorProfile] Failed to build:', err?.message);
+                return null;
+            }
+        })();
+
         return Response.json({
             success: true,
             status: riskStatus,
             score: finalScore,
+            behaviorProfile,
             report: {
                 score: finalScore,
                 status: riskStatus,
