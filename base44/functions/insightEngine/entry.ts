@@ -234,45 +234,45 @@ Deno.serve(withValidation(schema, async (req, body) => {
     const liquidityGap = Math.max(0, rules.min_liquidity_months - liq);
     const decisionLabelHe = rec === 'DECLINE' ? 'דחייה' : rec === 'REVIEW' ? 'בחינה' : 'אישור';
 
-    const prompt = `אתה חתם אשראי בכיר הכותב מזכר חיתום ל-VP Sales. כל המשפטים חייבים לכלול מספרים מהרשימה מטה. משפט בלי ₪/%/חודשים = פסול.
+    const prompt = `אתה חתם אשראי מנוסה הכותב תקציר קצר ואנושי על לקוח. כתוב כמו שאתה מסביר לעמית בקפה — לא כמו רובוט.
 
-מספרי הלקוח (השתמש בהם):
-- הכנסה: ₪${fmt(income)} | הוצאות: ₪${fmt(expenses)} | הוצאות קבועות: ₪${fmt(fixedExpenses)}
-- תזרים פנוי: ₪${fmt(monthlyHeadroom)}/חודש
-- DTI: ${dti}% (סף ${rules.max_dti_approve}%, פער: ${gapDti} נק')
-- הוצאות/הכנסה: ${expInc}% (סף ${rules.max_expense_income_ratio}%, פער: ${gapExpRatio.toFixed(1)} נק')
-- נזילות: ${liq} חודשים (סף ${rules.min_liquidity_months}, פער: ${liquidityGap.toFixed(1)} חודשים)
-- סיכון: ${risk} | המלצה: ${rec} (${decisionLabelHe})
-- לסגירת הפער — הפחתה נדרשת: ₪${fmt(debtReductionNeeded)}/חודש בהתחייבויות (יעד הוצאה קבועה: ₪${fmt(targetFixedExpenses)}, קיצוץ: -₪${fmt(fixedExpensesReduction)})
-${isSecondChance ? `- ⚡ Second Chance פעיל (ציון ${secondChanceScore}): ${strengths.join(' | ')}` : ''}
+מצב הלקוח:
+- תזרים פנוי: ${monthlyHeadroom >= 0 ? 'חיובי' : 'שלילי'} (₪${fmt(monthlyHeadroom)}/חודש)
+- DTI: ${dti}% (סף ${rules.max_dti_approve}%)
+- הוצאות/הכנסה: ${expInc}%
+- נזילות: ${liq} חודשים
+- המלצה: ${decisionLabelHe}
+${isSecondChance ? `- ⚡ Second Chance פעיל — גורמים מפצים: ${strengths.join(', ')}` : ''}
 
-התנהגות בתזרים (Open Finance, 12ח'):
-${behaviorProfile ? JSON.stringify(behaviorProfile).slice(0, 1200) : 'אין'}
+התנהגות בתזרים (Open Finance):
+${behaviorProfile ? JSON.stringify(behaviorProfile).slice(0, 800) : 'אין'}
 
-🔒 פרטיות: אסור להזכיר שמות פרטיים. התעלם מ-labels כמו "העברה אישית (לא מזוהה)" ותאר את המשמעות הכלכלית. המונחים המותרים: "הלקוח" / "המבקש".
+🔒 פרטיות: אסור להזכיר שמות פרטיים. התעלם מ-labels כמו "העברה אישית (לא מזוהה)". מונחים מותרים: "הלקוח" / "המבקש".
 
-=== דרישות פלט — כל שדה חייב לכלול לפחות מספר אחד ===
+=== דרישות פלט ===
 
-1. **summary** (3-5 שורות, כל שורה מספר קונקרטי):
-   שורה 1: "${decisionLabelHe} — [מדד ספציפי עם ערך וסף ופער במספרים]."
-   שורה 2: "תזרים פנוי חודשי: ₪${fmt(monthlyHeadroom)}. נזילות: ${liq} חודשים."
-   שורה 3 (התנהגות): מתי מגיעה המשכורת, איך הכסף מתפזר — מתוך behaviorProfile (דוגמה: "מקבל משכורת ₪[X] ב-[יום] לחודש. [Y]% מההוצאות ב-10 ימים הראשונים לאחר קבלתה").
-   שורה 4: ${isExtremeReject ? '"הפער לא ניתן לסגירה ב-3-6 חודשים."' : `"יעד ל-APPROVE: הפחתת תשלומים קבועים ב-₪${fmt(debtReductionNeeded)}/חודש (ל-₪${fmt(targetFixedExpenses)} סה\"כ)."`}
+1. **summary** (2-3 משפטים קצרים במילים, ללא מספרים מיותרים. רק סיפור אנושי):
+   - משפט 1: החלטה + הסיבה העיקרית במילים (לדוגמה: "הלקוח מוציא יותר ממה שהוא מכניס, וההתחייבויות הקבועות תופסות חלק גדול מההכנסה").
+   - משפט 2: תיאור ההתנהגות במילים — מתי מגיע הכסף, איך הוא מתפזר בחודש (לדוגמה: "המשכורת נכנסת בטווח השליש הראשון לחודש, ומרבית ההוצאות מתרכזת בשבוע הראשון שלאחריה").
+   - משפט 3 (אופציונלי): מה יכול לשנות את התמונה, בשפה טבעית (לדוגמה: "שיפור משמעותי ידרוש צמצום הוצאות קבועות או הגדלת הכנסה").
 
-2. **behavior_analysis.key_positive_signals** (מערך):
-   כל פריט חייב להכיל ₪ או %. אם אין סיגנל מספרי חזק — החזר מערך ריק. דוגמאות תקפות:
-   - "תזרים פנוי חיובי: ₪${fmt(monthlyHeadroom)}/חודש."
+   ❌ אסור ב-summary:
+   - להציג מספרים, אחוזים, שקלים או יחסים (המספרים יוצגים ב-UI במקום אחר).
+   - לכתוב בסגנון רובוטי ("עומד על", "חורג ב-X נקודות", "סף המדיניות").
+   - מילים כמו "יעד ל-APPROVE" או "DTI" או "נק".
+
+   ✅ כתוב כאילו אתה מסביר למנהל המכירות בהמשכה של 30 שניות במעלית, בלי טבלאות ובלי ז'רגון.
+
+2. **behavior_analysis.key_positive_signals** (מערך של פריטים קצרים עם מספר): דוגמאות:
    - "נזילות ${liq} חודשים — מעל הסף של ${rules.min_liquidity_months}."
-   ❌ אסור: "מגמה חיובית", "התנהגות יציבה", "גורמים מפצים", "הכנסה גדלה" בלי %.
+   אם אין סיגנל מספרי חזק — החזר מערך ריק.
 
-3. **behavior_analysis.key_risks** (מערך):
-   כל סיכון = פער מספרי. העתק העתקה מדויקת:
-   - "DTI ${dti}% — חורג ב-${gapDti} נק' מסף האישור ${rules.max_dti_approve}%."
-   - "יחס הוצאות/הכנסה ${expInc}% — חורג ב-${gapExpRatio.toFixed(1)} נק' מהמדיניות ${rules.max_expense_income_ratio}%."
-   - "נזילות ${liq} חודשים — חסרים ${liquidityGap.toFixed(1)} חודשים מהסף."
-   ❌ אסור: "הוצאות גבוהות", "נזילות נמוכה".
+3. **behavior_analysis.key_risks** (מערך של סיכונים עם מספרים — הקצר ביותר):
+   - "DTI ${dti}% — חורג מסף ${rules.max_dti_approve}%."
+   - "הוצאות/הכנסה ${expInc}% — מעל ${rules.max_expense_income_ratio}%."
+   - "נזילות ${liq} חודשים — מתחת לסף ${rules.min_liquidity_months}."
 
-4. **recommended_terms.conditions** (תנאים מספריים):
+4. **recommended_terms.conditions** (תנאים קצרים):
    דוגמאות: "תקופה מקסימלית 36 חודשים", "ערב עם הכנסה ₪${fmt(guarantorIncome)}+", "ביטחון 10% מהקרן".`;
 
     let narrative = "מצב פיננסי יציב.";
@@ -280,7 +280,7 @@ ${behaviorProfile ? JSON.stringify(behaviorProfile).slice(0, 1200) : 'אין'}
     try {
       const llm = await base44.integrations.Core.InvokeLLM({
         prompt,
-        model: "claude_sonnet_4_6",
+        model: "gpt_5_mini",
         response_json_schema: {
           type: "object",
           properties: {
