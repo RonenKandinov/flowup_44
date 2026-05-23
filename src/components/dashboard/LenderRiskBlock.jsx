@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, TrendingDown, AlertOctagon, Briefcase } from 'lucide-react';
+import { Shield, TrendingDown, AlertOctagon, Briefcase, Gem, Sparkles } from 'lucide-react';
 
 /**
  * LenderRiskBlock
@@ -22,6 +22,8 @@ export default function LenderRiskBlock({ assessment }) {
     const el = assessment.expected_loss ?? null;
     const portfolioView = assessment.portfolio_view || '';
     const mitigations = Array.isArray(assessment.mitigations) ? assessment.mitigations : [];
+    const leverageOpportunities = Array.isArray(assessment.leverage_opportunities) ? assessment.leverage_opportunities : [];
+    const collateralAssets = Array.isArray(assessment.collateral_assets) ? assessment.collateral_assets : [];
 
     // Color logic: higher numbers = redder. Tuned for consumer-loan ranges.
     const pdColor = pd === null ? 'text-slate-300' : pd >= 15 ? 'text-red-400' : pd >= 7 ? 'text-amber-400' : 'text-emerald-400';
@@ -62,6 +64,40 @@ export default function LenderRiskBlock({ assessment }) {
             {/* Portfolio-level narrative */}
             {portfolioView && (
                 <p className="text-xs text-slate-300 leading-relaxed mb-2">{portfolioView}</p>
+            )}
+
+            {/* Leverage opportunities — how to grow profitably, not just avoid loss */}
+            {leverageOpportunities.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-emerald-500/10">
+                    <p className="text-[10px] text-emerald-300/80 uppercase font-bold mb-1 flex items-center gap-1">
+                        <Sparkles className="w-3 h-3" /> איך למנף את הלקוח
+                    </p>
+                    <ul className="space-y-0.5">
+                        {leverageOpportunities.slice(0, 4).map((item, i) => (
+                            <li key={i} className="text-[11px] text-emerald-100/90 flex items-start gap-1.5">
+                                <span className="text-emerald-400 mt-0.5">•</span>
+                                <span>{item}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+
+            {/* Collateral assets — pledgeable sources found in 12m history */}
+            {collateralAssets.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-cyan-500/10">
+                    <p className="text-[10px] text-cyan-300/80 uppercase font-bold mb-1 flex items-center gap-1">
+                        <Gem className="w-3 h-3" /> נכסים לבחינת שיעבוד
+                    </p>
+                    <ul className="space-y-0.5">
+                        {collateralAssets.slice(0, 4).map((item, i) => (
+                            <li key={i} className="text-[11px] text-cyan-100/90 flex items-start gap-1.5">
+                                <span className="text-cyan-400 mt-0.5">•</span>
+                                <span>{item}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
             )}
 
             {/* Mitigations — what the lender can do to make this work */}

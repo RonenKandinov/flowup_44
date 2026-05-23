@@ -49,6 +49,7 @@ Deno.serve(withValidation(schema, async (req, body) => {
     const income = m.totalIncome ?? 0;
     const expenses = m.totalExpenses ?? 0;
     const assets = m.liquidAssets ?? 0;
+    const liquidAssetsBreakdown = m.liquidAssetsBreakdown || { cash: 0, etf: 0, trainingFund: 0 };
     const dti = m.dti ?? 0;
     const score = m.score ?? 0;
 
@@ -149,6 +150,9 @@ Deno.serve(withValidation(schema, async (req, body) => {
     // ===== Strengths =====
     const strengths = [];
     if (behavior === "WEALTH_BUILDING") strengths.push("בניית הון (Wealth Building) - הגדלת הפקדות להשקעות ולחיסכון ב-4 החודשים האחרונים");
+    if (behaviorProfile?.investmentDiscipline?.avgMonthlyInvestmentOutflow > 0) strengths.push(`משמעת השקעה חיובית — ₪${Math.round(behaviorProfile.investmentDiscipline.avgMonthlyInvestmentOutflow).toLocaleString('en-US')} בחודש בממוצע להשקעות`);
+    if (behaviorProfile?.totalPledgeableValue > 0) strengths.push(`נכסים אפשריים לשעבוד — שווי משוער לאחר haircut ₪${Math.round(behaviorProfile.totalPledgeableValue).toLocaleString('en-US')}`);
+    if (dti <= rules.max_dti_approve) strengths.push(`DTI נמוך ובריא (${dti}%) — מתחת לסף האישור ${rules.max_dti_approve}%`);
     if (behavior === "IMPROVING") strengths.push("מגמת שיפור עקבית ב-4 החודשים האחרונים");
     if (liq > rules.min_liquidity_months * 2) strengths.push("נזילות גבוהה ביחס להוצאות");
     if (expInc < rules.max_expense_income_ratio - 10) strengths.push("שליטה בהוצאות");
@@ -163,6 +167,12 @@ Deno.serve(withValidation(schema, async (req, body) => {
 
     if (risks.length === 0) {
       if (dti > rules.max_dti_approve) risks.push("יחס חוב להכנסה גבולי");
+    }
+
+    if (dti <= rules.max_dti_approve) {
+      for (let i = risks.length - 1; i >= 0; i--) {
+        if (String(risks[i]).includes('DTI') || String(risks[i]).includes('חוב להכנסה')) risks.splice(i, 1);
+      }
     }
 
     // ===== Fixes =====
@@ -233,19 +243,33 @@ Deno.serve(withValidation(schema, async (req, body) => {
     const guarantorIncome = Math.round(income * 1.5);
     const liquidityGap = Math.max(0, rules.min_liquidity_months - liq);
     const decisionLabelHe = rec === 'DECLINE' ? 'דחייה' : rec === 'REVIEW' ? 'בחינה' : 'אישור';
+    const pledgeableAssetsText = behaviorProfile?.pledgeableAssets?.length
+      ? behaviorProfile.pledgeableAssets.map(a => `- ${a.label}: שווי ₪${fmt(a.estimatedValue)}, שווי לשעבוד אחרי haircut ₪${fmt(a.pledgeableValue)} (${a.evidence})`).join('\n')
+      : 'לא זוהו נכסים ברורים לשעבוד מתוך 12 חודשי הנתונים.';
+    const investmentDisciplineText = behaviorProfile?.investmentDiscipline?.avgMonthlyInvestmentOutflow > 0
+      ? `הלקוח מעביר בממוצע ₪${fmt(behaviorProfile.investmentDiscipline.avgMonthlyInvestmentOutflow)} בחודש להשקעות — זה סיגנל חיובי של בניית הון, לא הוצאה שלילית.`
+      : 'לא זוהתה משמעת השקעה חוזרת.';
 
-    const prompt = `אתה חתם אשראי הכותב למנהל תיק הלוואות — לא יועץ ללווה. המוקד שלך: כמה המלווה יפסיד אם הלווה יכשל, ואיך לתמחר את הסיכון.
+    const prompt = `אתה חתם אשראי הכותב למנהל תיק הלוואות — לא יועץ ללווה. המוקד שלך: איך המלווה יכול גם להרוויח מהלקוח וגם לגדר הפסד אם הלווה יכשל.
 
 מצב הלקוח:
 - תזרים פנוי: ${monthlyHeadroom >= 0 ? 'חיובי' : 'שלילי'} (₪${fmt(monthlyHeadroom)}/חודש)
-- DTI: ${dti}% (סף ${rules.max_dti_approve}%)
+- DTI: ${dti}% (סף אישור ${rules.max_dti_approve}%, סף דחייה ${rules.max_dti_review}%)
+- כלל מחייב: אם DTI <= ${rules.max_dti_approve}% — זה סיגנל חיובי, אסור להציג אותו כסיכון או כחריגה.
 - הוצאות/הכנסה: ${expInc}%
 - נזילות: ${liq} חודשים
+- נכסים נזילים: ₪${fmt(assets)} | מזומן ₪${fmt(liquidAssetsBreakdown.cash)} | השקעות ₪${fmt(liquidAssetsBreakdown.etf)} | גמל/השתלמות ₪${fmt(liquidAssetsBreakdown.trainingFund)}
 - המלצה נוכחית: ${decisionLabelHe}
 ${isSecondChance ? `- ⚡ Second Chance פעיל — גורמים מפצים: ${strengths.join(', ')}` : ''}
 
 התנהגות בתזרים (Open Finance):
-${behaviorProfile ? JSON.stringify(behaviorProfile).slice(0, 600) : 'אין'}
+${behaviorProfile ? JSON.stringify(behaviorProfile).slice(0, 1200) : 'אין'}
+
+💎 השקעות ונכסים לשעבוד:
+${investmentDisciplineText}
+${pledgeableAssetsText}
+
+חובה: כסף שהולך להשקעות/מניות/קרנות הוא סיגנל חיובי של בניית הון, לא "הפסד" ולא "הוצאה מסוכנת". אם יש נכסים לשעבוד — הצג אותם גם ב-summary וגם ב-leverage_opportunities.
 
 🚨 **הלוואות קיימות ב-12 חודשים האחרונים** (מתוך סריקת התנועות):
 ${behaviorProfile?.existingLoans && behaviorProfile.existingLoans.length > 0
@@ -272,13 +296,16 @@ ${behaviorProfile?.existingLoans && behaviorProfile.existingLoans.length > 0
    - **default_probability** (מספר 0-100): הערך PD שנתי ל-12 חודשים הקרובים. ללוואות צרכניים טיפוסי PD: Prime 2-5%, Near-Prime 6-12%, Subprime 15-25%, High-Risk 30%+.
    - **loss_given_default** (מספר 0-100): % מהקרן שיאבד במקרה של כשל. ללא ביטחונות: 55-65%. עם ערב: 30-40%. עם ביטחון מלא: 15-25%.
    - **expected_loss** (מספר 0-100): PD × LGD / 100. זו רצפת המחיר המינימלית למלווה (לפני עלויות הון ותפעול).
-   - **portfolio_view** (משפט 1): הצג את העסקה בהקשר לתיק מגוון. דוגמה: "הלווה מתאים לרובד Subprime — מחירו צריך לשקף תשואה ממוצע התיק ולא בנצ'מרק השוק".
-   - **mitigations** (מערך של 2-4 פריטים): מה המלווה יכול לעשות כדי להפחית סיכון. דוגמאות: "קיצור תקופה ל-24 חודשים", "דרישת ערב יצמצם", "העמדת תשלום ראשון גבוה", "העלאת ריבית לכיסוי ה-Expected Loss".
+   - **portfolio_view** (משפט 1): הצג את העסקה בהקשר לתיק מגוון. אם DTI נמוך ויש משמעת השקעה — אל תסווג Subprime; כתוב Prime/Near-Prime עם מינוף זהיר.
+   - **mitigations** (מערך של 2-4 פריטים): מה המלווה יכול לעשות כדי להפחית סיכון. דוגמאות: "שעבוד תיק השקעות", "קיצור תקופה ל-24 חודשים", "העמדת תשלום ראשון גבוה", "העלאת ריבית לכיסוי ה-Expected Loss".
+   - **leverage_opportunities** (מערך של 2-4 פריטים): איך למנף את הלקוח בצורה רווחית: הגדלת סכום תחת שיעבוד, מסלול Prime/Near-Prime, cross-sell, הלוואה מגובה נכס, או הצעה מותנית לפי תזרים.
+   - **collateral_assets** (מערך): נכסים שזוהו מתוך 12 חודשים וניתנים לבחינת שעבוד.
 
 3. **behavior_analysis.key_positive_signals** (מערך של פריטים קצרים עם מספר): אם אין — מערך ריק.
 
 4. **behavior_analysis.key_risks** (מערך של סיכונים עם מספרים, קצרים):
-   - "DTI ${dti}% — חורג מסף ${rules.max_dti_approve}%."
+   - אם DTI ${dti}% נמוך או שווה לסף ${rules.max_dti_approve}% — אסור להכניס DTI ל-key_risks.
+   - רק אם DTI מעל הסף כתוב: "DTI ${dti}% — חורג מסף ${rules.max_dti_approve}%."
    - "הוצאות/הכנסה ${expInc}% — מעל ${rules.max_expense_income_ratio}%."
 
 5. **recommended_terms.conditions**: תנאים קצרים למלווה (לדוגמה: "תקופה מקסימלית 36 חודשים", "ערב עם הכנסה ₪${fmt(guarantorIncome)}+").`;
@@ -321,7 +348,9 @@ ${behaviorProfile?.existingLoans && behaviorProfile.existingLoans.length > 0
                 loss_given_default: { type: "number" },
                 expected_loss: { type: "number" },
                 portfolio_view: { type: "string" },
-                mitigations: { type: "array", items: { type: "string" } }
+                mitigations: { type: "array", items: { type: "string" } },
+                leverage_opportunities: { type: "array", items: { type: "string" } },
+                collateral_assets: { type: "array", items: { type: "string" } }
               }
             },
             override_analysis: {

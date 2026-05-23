@@ -400,24 +400,28 @@ export default function Dashboard() {
       totalExpenses: Math.round(metricsForInsights.totalExpenses || 0),
       liquidAssets: Math.round(metricsForInsights.liquidAssets || 0),
       dti: Math.round(metricsForInsights.dti || 0),
+      investmentOutflow: Math.round(metricsForInsights.behaviorProfile?.investmentDiscipline?.avgMonthlyInvestmentOutflow || 0),
+      pledgeableValue: Math.round(metricsForInsights.behaviorProfile?.totalPledgeableValue || 0),
+      existingLoans: Math.round(metricsForInsights.behaviorProfile?.existingLoansMonthlyTotal || 0),
     };
     return JSON.stringify(stable);
   }, [metricsForInsights]);
 
   // Fetch AI Insights from server using React Query to avoid infinite loops
   const { data: serverInsightsData, isLoading: isInsightsLoading, error: insightsError } = useQuery({
-    queryKey: ['ai-insights-v6', stableMetricsHash],
+    queryKey: ['ai-insights-v7', stableMetricsHash],
     queryFn: async () => {
         if (!metricsForInsights) return { error: "No risk metrics available" };
 
-        // v6 — bust prior caches after subprime-inclusive prompt (DTI low = positive, not risk)
+        // v7 — bust prior caches after investment-positive + pledgeable-assets prompt
         try {
             localStorage.removeItem('flowup_ai_insights_cache_v2');
             localStorage.removeItem('flowup_ai_insights_cache_v3');
             localStorage.removeItem('flowup_ai_insights_cache_v4');
             localStorage.removeItem('flowup_ai_insights_cache_v5');
+            localStorage.removeItem('flowup_ai_insights_cache_v6');
         } catch (_) {}
-        const cacheKey = 'flowup_ai_insights_cache_v6';
+        const cacheKey = 'flowup_ai_insights_cache_v7';
         try {
             const cached = localStorage.getItem(cacheKey);
             if (cached) {
@@ -921,20 +925,16 @@ export default function Dashboard() {
                           const toastId = toast.loading('מרענן נתונים מהבנק...');
                           try {
                             try {
-                              ['flowup_ai_insights_cache_v2', 'flowup_ai_insights_cache_v3', 'flowup_ai_insights_cache_v4', 'flowup_ai_insights_cache_v5', 'flowup_ai_insights_cache_v6']
+                              ['flowup_ai_insights_cache_v2', 'flowup_ai_insights_cache_v3', 'flowup_ai_insights_cache_v4', 'flowup_ai_insights_cache_v5', 'flowup_ai_insights_cache_v6', 'flowup_ai_insights_cache_v7']
                                 .forEach(k => localStorage.removeItem(k));
                               Object.keys(sessionStorage)
                                 .filter(k => k.startsWith('loanMetricsCache'))
                                 .forEach(k => sessionStorage.removeItem(k));
                             } catch (_) {}
-                            // Remove stale insights query results so they re-fetch when stableMetricsHash changes
-                            queryClient.removeQueries({ queryKey: ['ai-insights-v6'] });
-                            queryClient.removeQueries({ queryKey: ['ai-insights-v5'] });
-                            queryClient.removeQueries({ queryKey: ['ai-insights-v4'] });
-                            queryClient.removeQueries({ queryKey: ['ai-insights-v3'] });
                             // Await the actual refresh — this triggers loanLogicV2 → new behaviorProfile → new hash → insights re-fetch
                             await refetchLoanMetrics();
                             // Force insights to re-run even if hash didn't change (e.g. same metrics, new behaviorProfile)
+                            await queryClient.invalidateQueries({ queryKey: ['ai-insights-v7'] });
                             await queryClient.invalidateQueries({ queryKey: ['ai-insights-v6'] });
                             toast.success('הנתונים עודכנו בהצלחה', { id: toastId });
                           } catch (err) {

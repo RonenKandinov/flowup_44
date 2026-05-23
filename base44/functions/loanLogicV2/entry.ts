@@ -1300,6 +1300,33 @@ ${JSON.stringify(limitedExpenses)}
                 const monthsCounted = Math.max(1, history.length);
                 const avgMonthlyInvestmentOutflow = Math.round(investmentTransfers / monthsCounted);
 
+                // 5a) Pledgeable / collateralizable asset signals — money routed to investments is GOOD money.
+                // It proves saving discipline and may create lender-side collateral options.
+                const pledgeableAssets = [];
+                const investableSecurities = Math.round(liquidAssetsBreakdown.etf || 0);
+                const trainingFunds = Math.round(liquidAssetsBreakdown.trainingFund || 0);
+                if (investableSecurities > 0) {
+                    pledgeableAssets.push({
+                        type: 'marketable_securities',
+                        label: 'תיק השקעות / ניירות ערך',
+                        estimatedValue: investableSecurities,
+                        haircutPct: 20,
+                        pledgeableValue: Math.round(investableSecurities * 0.8),
+                        evidence: 'זוהה יתרת השקעות או העברות חוזרות להשקעות ב-12 החודשים האחרונים'
+                    });
+                }
+                if (trainingFunds > 0) {
+                    pledgeableAssets.push({
+                        type: 'training_fund_or_provident',
+                        label: 'קרן השתלמות / קופת גמל',
+                        estimatedValue: trainingFunds,
+                        haircutPct: 45,
+                        pledgeableValue: Math.round(trainingFunds * 0.55),
+                        evidence: 'זוהה נכס פנסיוני/חיסכון ארוך טווח שניתן לבחון כשעבוד חלקי'
+                    });
+                }
+                const totalPledgeableValue = pledgeableAssets.reduce((sum, asset) => sum + asset.pledgeableValue, 0);
+
                 // 5b) EXISTING LOANS DETECTION — scan the 12-month transaction window for
                 // recurring debits that look like loan repayments (consumer loans, credit-card
                 // installments, mortgages, BNPL, finance companies). This tells the AI Analyst
@@ -1385,7 +1412,14 @@ ${JSON.stringify(limitedExpenses)}
                     transactionsAnalyzed: transactions.length - selfTransferIndices.size,
                     existingLoans,
                     existingLoansMonthlyTotal,
-                    existingLoansCount: existingLoans.length
+                    existingLoansCount: existingLoans.length,
+                    pledgeableAssets,
+                    totalPledgeableValue,
+                    investmentDiscipline: {
+                        avgMonthlyInvestmentOutflow,
+                        totalInvestmentTransfers12m: Math.round(investmentTransfers),
+                        signal: avgMonthlyInvestmentOutflow > 0 ? 'POSITIVE_WEALTH_BUILDING' : 'NONE'
+                    }
                 };
             } catch (err) {
                 console.warn('[BehaviorProfile] Failed to build:', err?.message);
