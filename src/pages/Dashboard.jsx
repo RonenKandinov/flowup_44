@@ -94,19 +94,29 @@ export default function Dashboard() {
     () => !!new URLSearchParams(window.location.search).get('of_callback')
   );
   const [targetAccountId, setTargetAccountId] = useState(() => {
-    try { return new URLSearchParams(window.location.search).get('accountId') || ''; } catch { return ''; }
+    try {
+      const fromUrl = new URLSearchParams(window.location.search).get('accountId');
+      if (fromUrl) return fromUrl;
+      return localStorage.getItem('flowup_selected_account_id') || '';
+    } catch { return ''; }
   });
 
-  // Persist selected account in the URL so B2B Suite tabs can read it.
+  // Persist selected account in BOTH the URL (for deep-linking) AND localStorage
+  // (so it survives navigation to B2B Suite even when the <Link> drops the query).
+  // Single source of truth = localStorage; URL is just a mirror.
   useEffect(() => {
     try {
       const url = new URL(window.location.href);
       if (targetAccountId && targetAccountId !== 'all') {
         url.searchParams.set('accountId', targetAccountId);
+        localStorage.setItem('flowup_selected_account_id', targetAccountId);
       } else {
         url.searchParams.delete('accountId');
+        localStorage.removeItem('flowup_selected_account_id');
       }
       window.history.replaceState({}, '', url.toString());
+      // Notify any mounted hook (B2B Suite tabs may already be in memory in some flows)
+      window.dispatchEvent(new Event('flowup:account-changed'));
     } catch { /* no-op */ }
   }, [targetAccountId]);
   
@@ -843,7 +853,7 @@ export default function Dashboard() {
               size="sm"
               className="bg-cyan-600/20 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-600/40 hover:text-white hover:border-cyan-400/60 transition-all h-8 px-3 rounded-md shadow-sm shadow-cyan-500/10"
             >
-              <Link to="/B2BSuite">
+              <Link to={targetAccountId && targetAccountId !== 'all' ? `/B2BSuite?accountId=${targetAccountId}` : '/B2BSuite'}>
                 <Briefcase className="w-3 h-3 ml-1.5" />
                 <span className="text-[11px] font-medium">B2B Suite</span>
               </Link>

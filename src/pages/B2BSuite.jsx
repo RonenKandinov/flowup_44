@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Briefcase, FileText, Droplets, Cpu, PhoneCall, ArrowRight, ScanLine, Banknote, Repeat } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
+import { useSelectedAccount } from '@/components/hooks/useSelectedAccount';
 
 import WorkingCapitalTab from '../components/b2b/WorkingCapitalTab';
 import UnderwritingInfraTab from '../components/b2b/UnderwritingInfraTab';
@@ -24,6 +25,9 @@ const TABS = [
 
 export default function B2BSuite() {
     const [active, setActive] = useState('check_discount');
+    // Read the selected account so the "back to dashboard" link preserves it.
+    const { accountId } = useSelectedAccount();
+    const dashboardHref = accountId ? `/Dashboard?accountId=${accountId}` : '/Dashboard';
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950" dir="rtl">
@@ -45,7 +49,7 @@ export default function B2BSuite() {
                         </div>
                     </div>
                     <Button asChild variant="outline" size="sm" className="bg-slate-800/60 border-slate-700/60 text-slate-300 hover:bg-slate-700 hover:text-white h-8 px-3 text-[11px]">
-                        <Link to="/Dashboard">
+                        <Link to={dashboardHref}>
                             חזרה לדשבורד
                             <ArrowRight className="w-3 h-3 mr-1" />
                         </Link>
