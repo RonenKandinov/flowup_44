@@ -406,17 +406,18 @@ export default function Dashboard() {
 
   // Fetch AI Insights from server using React Query to avoid infinite loops
   const { data: serverInsightsData, isLoading: isInsightsLoading, error: insightsError } = useQuery({
-    queryKey: ['ai-insights-v5', stableMetricsHash],
+    queryKey: ['ai-insights-v6', stableMetricsHash],
     queryFn: async () => {
         if (!metricsForInsights) return { error: "No risk metrics available" };
 
-        // v5 — bust prior caches after lender-risk-assessment schema + human-tone summary
+        // v6 — bust prior caches after subprime-inclusive prompt (DTI low = positive, not risk)
         try {
             localStorage.removeItem('flowup_ai_insights_cache_v2');
             localStorage.removeItem('flowup_ai_insights_cache_v3');
             localStorage.removeItem('flowup_ai_insights_cache_v4');
+            localStorage.removeItem('flowup_ai_insights_cache_v5');
         } catch (_) {}
-        const cacheKey = 'flowup_ai_insights_cache_v5';
+        const cacheKey = 'flowup_ai_insights_cache_v6';
         try {
             const cached = localStorage.getItem(cacheKey);
             if (cached) {
@@ -914,12 +915,13 @@ export default function Dashboard() {
                       onClick={() => {
                         // Hard-bust all client caches so the executive summary regenerates from scratch
                         try {
-                          ['flowup_ai_insights_cache_v2', 'flowup_ai_insights_cache_v3', 'flowup_ai_insights_cache_v4', 'flowup_ai_insights_cache_v5']
+                          ['flowup_ai_insights_cache_v2', 'flowup_ai_insights_cache_v3', 'flowup_ai_insights_cache_v4', 'flowup_ai_insights_cache_v5', 'flowup_ai_insights_cache_v6']
                             .forEach(k => localStorage.removeItem(k));
                           Object.keys(sessionStorage)
                             .filter(k => k.startsWith('loanMetricsCache'))
                             .forEach(k => sessionStorage.removeItem(k));
                         } catch (_) {}
+                        queryClient.removeQueries({ queryKey: ['ai-insights-v6'] });
                         queryClient.removeQueries({ queryKey: ['ai-insights-v5'] });
                         queryClient.removeQueries({ queryKey: ['ai-insights-v4'] });
                         queryClient.removeQueries({ queryKey: ['ai-insights-v3'] });
