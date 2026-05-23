@@ -485,6 +485,8 @@ ${behaviorProfile?.existingLoans && behaviorProfile.existingLoans.length > 0
     if (income < rules.min_income) keyInsights.push(`הכנסה ₪${Math.round(income)} מתחת למינימום ₪${rules.min_income}`);
     if (signals.netFlowTrend === 'UP') keyInsights.push('תזרים מזומנים במגמת עלייה');
     if (behavior === 'IMPROVING') keyInsights.push('מגמת שיפור התנהגותית עקבית');
+    if (behaviorProfile?.investmentDiscipline?.avgMonthlyInvestmentOutflow > 0) keyInsights.push(`משמעת השקעה חיובית — ₪${Math.round(behaviorProfile.investmentDiscipline.avgMonthlyInvestmentOutflow).toLocaleString('en-US')} בחודש בממוצע להשקעות`);
+    if (behaviorProfile?.totalPledgeableValue > 0) keyInsights.push(`זוהו נכסים אפשריים לשעבוד בשווי שמרני ₪${Math.round(behaviorProfile.totalPledgeableValue).toLocaleString('en-US')}`);
     if (isSecondChance) keyInsights.push('זוהה פוטנציאל False Negative — גורמים מפצים חזקים');
     if (keyInsights.length === 0) keyInsights.push('הפרופיל עומד במדיניות החיתום');
 
@@ -508,6 +510,7 @@ ${behaviorProfile?.existingLoans && behaviorProfile.existingLoans.length > 0
           totalIncome: income,
           totalExpenses: expenses,
           liquidAssets: assets,
+          liquidAssetsBreakdown,
           dti,
           expense_to_income_ratio: expInc,
           liquidity_months: liq
