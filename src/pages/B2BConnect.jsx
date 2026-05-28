@@ -178,8 +178,8 @@ export default function B2BConnect() {
               <OpenFinanceConnect 
                 inline={true} 
                 onConnected={handleConnectedInline}
-                // Pass customerId as psuId so it's tracked correctly
-                defaultEmail={customerId} 
+                // Pass customerId as psuId so the public link does not require login
+                defaultId={customerId} 
               />
             </motion.div>
           )}

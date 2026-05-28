@@ -14,13 +14,16 @@ export default function OpenFinanceConnect({ onConnected, inline = false, defaul
   const [inputError, setInputError] = useState('');
   const [pendingProviderId, setPendingProviderId] = useState(null);
 
-  // Resolve the psuId: try base44 auth first, fall back to provided email
+  // Resolve the psuId: prefer the customer id from the public onboarding link,
+  // then fall back to authenticated user only for dashboard/self-serve flows.
   const getPsuId = async () => {
+    if (defaultId) return defaultId;
+
     try {
       const user = await base44.auth.me();
       if (user?.email || user?.id) return user.email || user.id;
     } catch (_) {
-      // not logged into base44 — fall through
+      // Public onboarding links should not require Base44 login.
     }
     return null;
   };

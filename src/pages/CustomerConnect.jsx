@@ -181,7 +181,7 @@ export default function CustomerConnect() {
               <OpenFinanceConnect
                 inline={true}
                 onConnected={handleConnectedInline}
-                defaultIid={session.customer_id}
+                defaultId={session.customer_id || session.customer_email || sessionId}
               />
             </motion.div>
           )}
