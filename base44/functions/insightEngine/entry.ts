@@ -32,7 +32,8 @@ const schema = z.object({
     trends: z.object({ income: z.number().optional(), expenses: z.number().optional(), investments: z.number().optional(), momentum: z.string().optional() }).optional(),
     history: z.array(z.object({ netFlow: z.number().optional() })).optional()
   }).optional(),
-  behaviorProfile: z.any().optional()
+  behaviorProfile: z.any().optional(),
+  deferNarrative: z.boolean().optional()
 }).passthrough();
 
 Deno.serve(withValidation(schema, async (req, body) => {
@@ -270,6 +271,7 @@ ${investmentDisciplineText}
 ${pledgeableAssetsText}
 
 חובה: כסף שהולך להשקעות/מניות/קרנות הוא סיגנל חיובי של בניית הון, לא "הפסד" ולא "הוצאה מסוכנת". אם יש נכסים לשעבוד — הצג אותם גם ב-summary וגם ב-leverage_opportunities.
+חובה לפתוח בזווית חיובית כאשר קיימים DTI תקין, היעדר הלוואות קיימות, היעדר אוברדראפט או משמעת השקעה; אל תהפוך מדד תקין לסיכון.
 
 🚨 **הלוואות קיימות ב-12 חודשים האחרונים** (מתוך סריקת התנועות):
 ${behaviorProfile?.existingLoans && behaviorProfile.existingLoans.length > 0
@@ -310,8 +312,9 @@ ${behaviorProfile?.existingLoans && behaviorProfile.existingLoans.length > 0
 
 5. **recommended_terms.conditions**: תנאים קצרים למלווה (לדוגמה: "תקופה מקסימלית 36 חודשים", "ערב עם הכנסה ₪${fmt(guarantorIncome)}+").`;
 
-    let narrative = "מצב פיננסי יציב.";
+    let narrative = "המדדים המבניים חושבו בהצלחה. הניתוח הנרטיבי מתעדכן בנפרד.";
     let llmAnalysis = null;
+    if (!body?.deferNarrative) {
     try {
       const llm = await base44.integrations.Core.InvokeLLM({
         prompt,
@@ -415,6 +418,7 @@ ${behaviorProfile?.existingLoans && behaviorProfile.existingLoans.length > 0
       }
     } catch (e) {
         console.error("LLM Error:", e);
+    }
     }
 
     // ===== Pricing (Calculated after LLM overrides) =====

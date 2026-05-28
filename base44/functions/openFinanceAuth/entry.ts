@@ -79,7 +79,7 @@ export default Deno.serve(async (req) => {
 
       // 3. Persist token + connection in base44 (non-fatal if this fails)
       try {
-        await base44.entities.OpenFinanceToken.create({
+        await base44.asServiceRole.entities.OpenFinanceToken.create({
           user_id: userId,
           access_token: accessToken,
           expires_at: new Date(Date.now() + 3600000).toISOString()
@@ -89,18 +89,18 @@ export default Deno.serve(async (req) => {
       }
 
       try {
-        const existing = await base44.entities.OpenFinanceConnection.filter({
+        const existing = await base44.asServiceRole.entities.OpenFinanceConnection.filter({
           psu_id: userId,
           provider_id: providerId || 'auto'
         });
         if (existing.length > 0) {
-          await base44.entities.OpenFinanceConnection.update(existing[0].id, {
+          await base44.asServiceRole.entities.OpenFinanceConnection.update(existing[0].id, {
             status: 'INACTIVE',
             connection_id: connectionId,
             last_synced_at: new Date().toISOString()
           });
         } else {
-          await base44.entities.OpenFinanceConnection.create({
+          await base44.asServiceRole.entities.OpenFinanceConnection.create({
             connection_id: connectionId,
             psu_id: userId,
             provider_id: providerId || 'auto',
@@ -141,11 +141,11 @@ export default Deno.serve(async (req) => {
 
       // Update status in base44 (best-effort)
       try {
-        const existing = await base44.entities.OpenFinanceConnection.filter({
+        const existing = await base44.asServiceRole.entities.OpenFinanceConnection.filter({
           connection_id: connectionId
         });
         if (existing.length > 0) {
-          await base44.entities.OpenFinanceConnection.update(existing[0].id, {
+          await base44.asServiceRole.entities.OpenFinanceConnection.update(existing[0].id, {
             status: connectionStatus,
             last_synced_at: new Date().toISOString()
           });
@@ -186,20 +186,20 @@ export default Deno.serve(async (req) => {
               upload_date: new Date().toISOString()
             };
 
-            const existingSnapshots = await base44.entities.FinancialSnapshot.list('-created_date', 50);
+            const existingSnapshots = await base44.asServiceRole.entities.FinancialSnapshot.list('-created_date', 50);
             for (const snapshot of existingSnapshots) {
-              await base44.entities.FinancialSnapshot.delete(snapshot.id);
+              await base44.asServiceRole.entities.FinancialSnapshot.delete(snapshot.id);
             }
-            await base44.entities.FinancialSnapshot.create(snapshotPayload);
+            await base44.asServiceRole.entities.FinancialSnapshot.create(snapshotPayload);
           }
 
-          const existingAccounts = await base44.entities.OpenFinanceAccount.list('-created_date', 500);
+          const existingAccounts = await base44.asServiceRole.entities.OpenFinanceAccount.list('-created_date', 500);
           for (const account of existingAccounts) {
-            await base44.entities.OpenFinanceAccount.delete(account.id);
+            await base44.asServiceRole.entities.OpenFinanceAccount.delete(account.id);
           }
 
           if (accounts.length > 0) {
-            await base44.entities.OpenFinanceAccount.bulkCreate(accounts.map((account) => ({
+            await base44.asServiceRole.entities.OpenFinanceAccount.bulkCreate(accounts.map((account) => ({
               account_id: String(account.id || account.accountId || account.accountNumber || crypto.randomUUID()),
               connection_id: connectionId,
               currency: account.currency || account?.balance?.currency || 'ILS',
@@ -210,13 +210,13 @@ export default Deno.serve(async (req) => {
             })));
           }
 
-          const existingTransactions = await base44.entities.OpenFinanceTransaction.list('-created_date', 1000);
+          const existingTransactions = await base44.asServiceRole.entities.OpenFinanceTransaction.list('-created_date', 1000);
           for (const tx of existingTransactions) {
-            await base44.entities.OpenFinanceTransaction.delete(tx.id);
+            await base44.asServiceRole.entities.OpenFinanceTransaction.delete(tx.id);
           }
 
           if (transactions.length > 0) {
-            await base44.entities.OpenFinanceTransaction.bulkCreate(transactions.slice(0, 1000).map((tx, index) => {
+            await base44.asServiceRole.entities.OpenFinanceTransaction.bulkCreate(transactions.slice(0, 1000).map((tx, index) => {
               const txDateObj = tx?.date;
               const dateStr = tx?.creationDate || (typeof txDateObj === 'string' ? txDateObj : (txDateObj?.valueDate || txDateObj?.bookingDate || txDateObj?.transactionDate)) || tx?.transactionDate || new Date().toISOString();
               let amount = 0;
@@ -258,11 +258,11 @@ export default Deno.serve(async (req) => {
         return Response.json({ success: true });
       }
       try {
-        const existing = await base44.entities.OpenFinanceConnection.filter({
+        const existing = await base44.asServiceRole.entities.OpenFinanceConnection.filter({
           connection_id: connectionId
         });
         if (existing.length > 0) {
-          await base44.entities.OpenFinanceConnection.update(existing[0].id, {
+          await base44.asServiceRole.entities.OpenFinanceConnection.update(existing[0].id, {
             status: 'ACTIVE',
             last_synced_at: new Date().toISOString()
           });

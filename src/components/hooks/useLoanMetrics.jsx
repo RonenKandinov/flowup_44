@@ -70,7 +70,8 @@ export const useLoanMetrics = (userId, targetAccountId = null) => {
                     // Behavioral story-level profile (top merchants, salary timing,
                     // spend windows within the month, overdraft touches, savings discipline)
                     // — used by InsightEngine to write a human narrative.
-                    behaviorProfile: data.behaviorProfile || null
+                    behaviorProfile: data.behaviorProfile || null,
+                    userId: userId || "ronenk2424@gmail.com"
                 };
 
                 setMetrics(transformedMetrics);

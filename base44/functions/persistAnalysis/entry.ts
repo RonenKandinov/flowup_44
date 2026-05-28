@@ -90,7 +90,9 @@ async function computeAnalysisHash(input) {
 // Build the persistence record from raw analysis bundle
 // -----------------------------------------------------------------------------
 function buildRecord(payload, user, analysisHash, encryptedNarrative) {
-    const { insights, loanMetrics, rescueResult, creditJustifications, snapshotId, connectionId, partnerId } = payload;
+    const { insights, loanMetrics, rescueResult, creditJustifications, snapshotId, connectionId, partnerId, userId, userEmail } = payload;
+    const effectiveUserId = user?.id || userId || loanMetrics?.userId || 'anonymous';
+    const effectiveUserEmail = user?.email || userEmail || '';
 
     // Slim summary of rescue strategies (no narrative text — that's encrypted separately)
     const strategiesSummary = Array.isArray(rescueResult?.rescueStrategies)
@@ -107,8 +109,8 @@ function buildRecord(payload, user, analysisHash, encryptedNarrative) {
         : [];
 
     return {
-        user_id: user.id,
-        user_email: user.email || '',
+        user_id: effectiveUserId,
+        user_email: effectiveUserEmail,
         partner_id: partnerId || '',
         snapshot_id: snapshotId || '',
         connection_id: connectionId || '',
@@ -145,10 +147,12 @@ Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
         const user = await base44.auth.me().catch(() => null);
-        if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
         const payload = await req.json().catch(() => ({}));
         const { action } = payload;
+        const effectiveUserId = user?.id || payload.userId || payload.loanMetrics?.userId || null;
+        if (!user && action !== 'save') return Response.json({ error: 'Unauthorized' }, { status: 401 });
+        if (action === 'save' && !effectiveUserId) return Response.json({ error: 'Missing userId' }, { status: 400 });
 
         // -------------------- SAVE (create or upsert by analysis_hash) --------------------
         if (action === 'save') {
@@ -179,8 +183,9 @@ Deno.serve(async (req) => {
             const analysisHash = await computeAnalysisHash(hashInput);
 
             // Dedupe: if an analysis with the same hash already exists for this user, update it instead
-            const existing = await base44.entities.UnderwritingAnalysis.filter({
-                user_id: user.id,
+            const analysisEntity = user ? base44.entities.UnderwritingAnalysis : base44.asServiceRole.entities.UnderwritingAnalysis;
+            const existing = await analysisEntity.filter({
+                user_id: effectiveUserId,
                 analysis_hash: analysisHash
             }, '-created_date', 1);
 
@@ -189,15 +194,15 @@ Deno.serve(async (req) => {
 
             let saved;
             if (existing && existing.length > 0) {
-                saved = await base44.entities.UnderwritingAnalysis.update(existing[0].id, record);
+                saved = await analysisEntity.update(existing[0].id, record);
             } else {
-                saved = await base44.entities.UnderwritingAnalysis.create(record);
+                saved = await analysisEntity.create(record);
             }
 
             // Audit (non-blocking)
             base44.asServiceRole.entities.AuditLog.create({
                 action: 'UNDERWRITING_ANALYSIS_PERSISTED',
-                user_id: user.email || user.id,
+                user_id: user?.email || effectiveUserId,
                 details: { analysis_id: saved.id, hash: analysisHash, score: record.score, risk_tier: record.risk_tier },
                 status: 'SUCCESS'
             }).catch(() => {});

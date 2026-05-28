@@ -1103,11 +1103,14 @@ ${JSON.stringify(limitedExpenses)}
         // anonymously (no token), persistence is skipped silently.
         try {
             const me = await base44.auth.me().catch(() => null);
-            if (!me?.email) {
-                console.log('[Persistence] Skipped: no authenticated user in request context');
+            const persistenceUserId = me?.id || userId;
+            const entityClient = me?.email ? base44.entities : base44.asServiceRole.entities;
+            if (!persistenceUserId) {
+                console.log('[Persistence] Skipped: no user identifier in request context');
             } else {
                 // 1. FinancialSnapshot — one consolidated record per run
                 const snapshotPayload = {
+                    user_id: persistenceUserId,
                     current_balance: Math.round(liquidAssets),
                     projected_eom_balance: Math.round(avgIncome - avgExpenses),
                     total_income: Math.round(avgIncome),
@@ -1116,7 +1119,7 @@ ${JSON.stringify(limitedExpenses)}
                     risk_level: riskStatus === 'GREEN' ? 'green' : riskStatus === 'RED' ? 'red' : 'yellow',
                     upload_date: new Date().toISOString()
                 };
-                await base44.entities.FinancialSnapshot.create(snapshotPayload);
+                await entityClient.FinancialSnapshot.create(snapshotPayload);
 
                 // 2. Transactions — persist a bounded slice of the FILTERED transactions
                 // (self-transfers excluded already). We only persist real income/expense
@@ -1136,6 +1139,7 @@ ${JSON.stringify(limitedExpenses)}
                     if (isNaN(date.getTime())) date = new Date();
 
                     txnRecords.push({
+                        user_id: persistenceUserId,
                         date: date.toISOString().split('T')[0],
                         description: String(tx?.description || tx?.details || '').slice(0, 200),
                         amount: amount,
@@ -1150,9 +1154,9 @@ ${JSON.stringify(limitedExpenses)}
                     .slice(0, 500);
 
                 if (recentTxnRecords.length > 0) {
-                    await base44.entities.Transaction.bulkCreate(recentTxnRecords);
+                    await entityClient.Transaction.bulkCreate(recentTxnRecords);
                 }
-                console.log(`[Persistence] Saved 1 FinancialSnapshot + ${recentTxnRecords.length} Transactions for ${me.email}`);
+                console.log(`[Persistence] Saved 1 FinancialSnapshot + ${recentTxnRecords.length} Transactions for ${persistenceUserId}`);
             }
         } catch (persistErr) {
             // Persistence failure must NOT break the underwriting response.

@@ -117,12 +117,43 @@ export default Deno.serve(async (req) => {
         return Response.json({ success: false, error: 'Failed to fetch bank data' });
       }
 
-      const insightRes = await base44.functions.invoke('insightEngine', { metrics: bankRes.data.metrics });
+      const insightRes = await base44.functions.invoke('insightEngine', {
+        metrics: bankRes.data.metrics,
+        behaviorProfile: bankRes.data.behaviorProfile || null,
+        deferNarrative: true
+      });
       if (!insightRes.data?.success) {
         return Response.json({ success: false, error: 'Insight engine failed' });
       }
       
       const insights = insightRes.data.insights;
+
+      const persistRes = await base44.functions.invoke('persistAnalysis', {
+        action: 'save',
+        userId: psu_id,
+        insights,
+        loanMetrics: { ...(bankRes.data.metrics || {}), userId: psu_id },
+        connectionId: connection_id || '',
+        partnerId: partner_id
+      }).catch(() => null);
+      const analysisId = persistRes?.data?.id || null;
+
+      base44.functions.invoke('generateNarrativeInsights', {
+        analysisId,
+        metrics: { ...(bankRes.data.metrics || {}), userId: psu_id },
+        insights,
+        behaviorProfile: bankRes.data.behaviorProfile || null,
+        userId: psu_id
+      }).catch(() => {});
+
+      if (body.onboarding_session_id) {
+        await base44.asServiceRole.entities.CustomerOnboardingSession.update(body.onboarding_session_id, {
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          open_finance_connection_id: connection_id || '',
+          analysis_id: analysisId || ''
+        }).catch(() => {});
+      }
 
       const webhookPayload = {
         event: "underwriting.completed",
@@ -133,7 +164,8 @@ export default Deno.serve(async (req) => {
         risk_tier: insights.risk_tier,
         metrics: insights.metrics,
         summary: insights.narrative,
-        full_analysis: insights
+        full_analysis: insights,
+        analysis_id: analysisId
       };
 
       const webhookRes = await fetch(partner.webhook_url, {
@@ -156,6 +188,19 @@ export default Deno.serve(async (req) => {
       }).catch(() => {});
 
       return Response.json({ success: true, webhook_status: webhookRes.ok ? 'delivered' : 'failed' });
+    }
+
+    // --- Onboarding: update session status (public page calls backend, backend uses service role) ---
+    if (action === 'update_onboarding_session') {
+      const { session_id, status, connection_id = '', analysis_id = '', failure_reason = '' } = body || {};
+      if (!session_id || !status) return Response.json({ error: 'session_id and status are required' }, { status: 400 });
+      const patch = { status };
+      if (connection_id) patch.open_finance_connection_id = connection_id;
+      if (analysis_id) patch.analysis_id = analysis_id;
+      if (failure_reason) patch.failure_reason = failure_reason;
+      if (status === 'completed') patch.completed_at = new Date().toISOString();
+      await base44.asServiceRole.entities.CustomerOnboardingSession.update(session_id, patch);
+      return Response.json({ success: true });
     }
 
     // --- Send Partner Webhook Logic ---

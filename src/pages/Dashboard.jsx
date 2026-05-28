@@ -89,6 +89,7 @@ export default function Dashboard() {
   // Holds the latest Deal Rescuer output so the autosave hook can persist
   // the full analysis bundle (insights + rescue + justifications) in one record.
   const [rescueBundle, setRescueBundle] = useState(null);
+  const [savedAnalysisId, setSavedAnalysisId] = useState(null);
   // True while processing /?of_callback=1 — shows an overlay so the UI doesn't feel frozen
   const [isProcessingCallback, setIsProcessingCallback] = useState(
     () => !!new URLSearchParams(window.location.search).get('of_callback')
@@ -424,7 +425,8 @@ export default function Dashboard() {
         try {
             const res = await base44.functions.invoke('insightEngine', {
                 metrics: metricsForInsights,
-                behaviorProfile: metricsForInsights?.behaviorProfile || null
+                behaviorProfile: metricsForInsights?.behaviorProfile || null,
+                deferNarrative: true
             });
             if (res.data?.success && res.data?.insights) {
                 return res.data.insights;
@@ -456,8 +458,20 @@ export default function Dashboard() {
     creditJustifications: rescueBundle?.creditJustifications || [],
     snapshotId: snapshots?.[0]?.id || null,
     connectionId: activeConnection?.connection_id || null,
-    enabled: !!(serverInsights && !serverInsights.error && originalLoanMetrics && hasData)
+    enabled: !!(serverInsights && !serverInsights.error && originalLoanMetrics && hasData),
+    onSaved: (saved) => setSavedAnalysisId(saved.id)
   });
+
+  useEffect(() => {
+    if (!savedAnalysisId || !serverInsights || !originalLoanMetrics) return;
+    base44.functions.invoke('generateNarrativeInsights', {
+      analysisId: savedAnalysisId,
+      metrics: originalLoanMetrics,
+      insights: serverInsights,
+      behaviorProfile: originalLoanMetrics?.behaviorProfile || null,
+      userId: originalLoanMetrics?.userId || user?.id || user?.email || 'dashboard'
+    }).catch((err) => console.warn('generateNarrativeInsights failed:', err?.message));
+  }, [savedAnalysisId, serverInsights, originalLoanMetrics, user]);
 
   // ── Cash-Flow Intelligence: granular OpenFinance-based repayment capacity ──
   // Fetched once when we have an active connection; cached indefinitely (recurring

@@ -61,9 +61,11 @@ export default function CustomerConnect() {
     try {
       const connectionId = localStorage.getItem('of_pending_connection');
       // Mark the session as analyzing + record the connection id
-      await base44.entities.CustomerOnboardingSession.update(sessionId, {
+      await base44.functions.invoke('b2bService', {
+        action: 'update_onboarding_session',
+        session_id: sessionId,
         status: 'analyzing',
-        open_finance_connection_id: connectionId || ''
+        connection_id: connectionId || ''
       }).catch(() => {});
 
       // Fire underwriting in the background (reuses the existing b2bService flow)
@@ -79,12 +81,7 @@ export default function CustomerConnect() {
       localStorage.removeItem('of_pending_connection');
       localStorage.removeItem('of_pending_provider');
 
-      // Mark completed (analysis continues asynchronously on the server)
-      await base44.entities.CustomerOnboardingSession.update(sessionId, {
-        status: 'completed',
-        completed_at: new Date().toISOString()
-      }).catch(() => {});
-
+      // Analysis continues asynchronously on the server; it will mark the session completed.
       setTimeout(() => setStep('success'), 2000);
     } catch (err) {
       setError(err?.message || 'שגיאה בשלב הניתוח');

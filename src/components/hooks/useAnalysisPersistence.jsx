@@ -31,7 +31,8 @@ export function useAnalysisPersistence({
     snapshotId,
     connectionId,
     partnerId,
-    enabled = true
+    enabled = true,
+    onSaved = null
 }) {
     const lastSignatureRef = useRef('');
     const inFlightRef = useRef(false);
@@ -67,12 +68,15 @@ export function useAnalysisPersistence({
             creditJustifications: creditJustifications || [],
             snapshotId: snapshotId || null,
             connectionId: connectionId || null,
-            partnerId: partnerId || null
+            partnerId: partnerId || null,
+            userId: loanMetrics?.userId || loanMetrics?.psuId || null
         })
         .then(res => {
             if (!res?.data?.success) {
                 console.warn('persistAnalysis: non-success response', res?.data);
+                return;
             }
+            if (typeof onSaved === 'function') onSaved(res.data);
         })
         .catch(err => {
             // Non-blocking: persistence failure must NOT break the analyst UI.
@@ -82,5 +86,5 @@ export function useAnalysisPersistence({
         .finally(() => {
             inFlightRef.current = false;
         });
-    }, [enabled, insights, loanMetrics, rescueResult, creditJustifications, snapshotId, connectionId, partnerId]);
+    }, [enabled, insights, loanMetrics, rescueResult, creditJustifications, snapshotId, connectionId, partnerId, onSaved]);
 }
