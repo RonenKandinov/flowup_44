@@ -2,11 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Anchor, Zap, Sparkles, ChevronDown, ChevronUp, PieChart as PieChartIcon } from 'lucide-react';
+import { base44 } from '@/api/base44Client';
+
+const iconByType = {
+  fixed: <Anchor className="w-5 h-5" />,
+  flex: <Zap className="w-5 h-5" />,
+  tax: <Sparkles className="w-4 h-4" />
+};
 
 const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 0, currency = '₪' }) => {
   const [activeIndex, setActiveIndex] = useState(null);
   const [isOpen, setIsOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [cakeData, setCakeData] = useState(null);
+  const [isCakeLoading, setIsCakeLoading] = useState(true);
 
   useEffect(() => {
     const checkScreen = () => {
@@ -20,43 +29,35 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
     return () => window.removeEventListener('resize', checkScreen);
   }, []);
 
-  // 1. Preview Mode Logic (Empty State)
-  const safeFixed = Number(fixedExpenses) || 0;
-  const safeFlex = Number(flexExpenses) || 0;
-  const safeTax = Number(taxRefundPotential) || 0;
+  useEffect(() => {
+    let cancelled = false;
 
-  const isPreviewMode = safeFixed === 0 && safeFlex === 0;
-
-  const flexPercentage = !isPreviewMode && (safeFixed + safeFlex > 0) 
-      ? Math.round((safeFlex / (safeFixed + safeFlex)) * 100) 
-      : 40;
-
-  const chartData = isPreviewMode 
-    ? [
-        { name: 'החזרי חובות קבועים', value: 6000, color: '#ec4899', icon: <Anchor className="w-5 h-5" />, type: 'fixed' },
-        { name: 'הוצאות מחיה משתנות', value: 4000, color: '#14b8a6', icon: <Zap className="w-5 h-5" />, type: 'flex' }
-      ]
-    : [
-        { name: 'החזרי חובות קבועים', value: safeFixed, color: '#ec4899', icon: <Anchor className="w-5 h-5" />, type: 'fixed' },
-        { name: 'הוצאות מחיה משתנות', value: safeFlex, color: '#14b8a6', icon: <Zap className="w-5 h-5" />, type: 'flex' },
-      ];
-
-  // 2. Add Tax Segment if exists (The Saderan Layer)
-  if (!isPreviewMode && safeTax > 0) {
-      chartData.push({
-          name: 'החזרי מס (פוטנציאל)',
-          value: safeTax,
-          color: '#F59E0B', // Amber/Gold for found money
-          icon: <Sparkles className="w-4 h-4" />,
-          type: 'tax',
-          isGlowing: true
+    const loadCakeData = async () => {
+      setIsCakeLoading(true);
+      const res = await base44.functions.invoke('futureCakeData', {
+        fixedExpenses,
+        flexExpenses,
+        taxRefundPotential
       });
-  }
 
+      if (!cancelled) {
+        setCakeData(res.data);
+        setIsCakeLoading(false);
+      }
+    };
+
+    loadCakeData();
+    return () => { cancelled = true; };
+  }, [fixedExpenses, flexExpenses, taxRefundPotential]);
+
+  const chartData = (cakeData?.chartData || []).map((item) => ({
+    ...item,
+    icon: iconByType[item.type]
+  }));
+  const isPreviewMode = !!cakeData?.isPreviewMode;
+  const totalExpenses = cakeData?.totalExpenses || 0;
   const activeItem = activeIndex !== null ? chartData[activeIndex] : null;
-  const totalExpenses = (isPreviewMode ? 10000 : safeFixed + safeFlex + safeTax);
 
-  // Custom Tooltip
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       const item = payload[0].payload;
@@ -65,7 +66,7 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
           <p className="font-bold mb-1">{item.name}</p>
           <p className={item.type === 'tax' ? "text-amber-400 font-mono" : "text-teal-400 font-mono"}>
              {currency}{item.value.toLocaleString()} 
-             {item.type !== 'tax' && ` (${Math.round((item.value / totalExpenses) * 100)}%)`}
+             {item.type !== 'tax' && ` (${item.percentage}%)`}
           </p>
         </div>
       );
@@ -75,7 +76,6 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
 
   return (
     <div className="w-full h-full flex flex-col bg-slate-800/40 rounded-xl border border-slate-700/40 overflow-hidden" dir="rtl">
-      {/* Header */}
       <div 
         className={`px-5 py-4 border-b border-slate-700/40 transition-colors flex items-center justify-between ${!isDesktop ? 'cursor-pointer hover:bg-slate-800/50' : ''}`}
         onClick={() => !isDesktop && setIsOpen(!isOpen)}
@@ -100,110 +100,114 @@ const FutureCake = ({ fixedExpenses = 0, flexExpenses = 0, taxRefundPotential = 
             className="overflow-hidden flex-1 flex flex-col"
           >
             <div className="p-5 flex flex-col items-center justify-center min-h-[300px] relative flex-1">
-              <div className="w-full h-[220px] relative">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={chartData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={70}
-                      outerRadius={86}
-                      paddingAngle={5}
-                      dataKey="value"
-                      onMouseEnter={(_, index) => setActiveIndex(index)}
-                      onMouseLeave={() => setActiveIndex(null)}
-                      stroke="none"
-                    >
-                      {chartData.map((entry, index) => (
-                        <Cell 
-                            key={`cell-${index}`} 
-                            fill={entry.color} 
-                            style={{
-                                filter: entry.isGlowing 
-                                    ? `drop-shadow(0 0 10px ${entry.color})` 
-                                    : activeIndex === index ? `drop-shadow(0 0 8px ${entry.color})` : 'none',
-                                transition: 'all 0.3s ease',
-                                opacity: activeIndex !== null && activeIndex !== index ? 0.6 : 1
-                            }}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip content={<CustomTooltip />} />
-                  </PieChart>
-                </ResponsiveContainer>
+              {isCakeLoading ? (
+                <div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <div className="w-full h-[220px] relative">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={chartData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={70}
+                          outerRadius={86}
+                          paddingAngle={5}
+                          dataKey="value"
+                          onMouseEnter={(_, index) => setActiveIndex(index)}
+                          onMouseLeave={() => setActiveIndex(null)}
+                          stroke="none"
+                        >
+                          {chartData.map((entry, index) => (
+                            <Cell 
+                                key={`cell-${index}`} 
+                                fill={entry.color} 
+                                style={{
+                                    filter: entry.isGlowing 
+                                        ? `drop-shadow(0 0 10px ${entry.color})` 
+                                        : activeIndex === index ? `drop-shadow(0 0 8px ${entry.color})` : 'none',
+                                    transition: 'all 0.3s ease',
+                                    opacity: activeIndex !== null && activeIndex !== index ? 0.6 : 1
+                                }}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip content={<CustomTooltip />} />
+                      </PieChart>
+                    </ResponsiveContainer>
 
-                {/* Center Insight Text */}
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none w-40 z-10">
-                    <AnimatePresence mode="wait">
-                        {activeItem ? (
-                            <motion.div
-                                key="active"
-                                initial={{ opacity: 0, y: 5 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -5 }}
-                                className="flex flex-col items-center"
-                            >
-                                {activeItem.type === 'tax' ? (
+                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none w-40 z-10">
+                        <AnimatePresence mode="wait">
+                            {activeItem ? (
+                                <motion.div
+                                    key="active"
+                                    initial={{ opacity: 0, y: 5 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -5 }}
+                                    className="flex flex-col items-center"
+                                >
+                                    {activeItem.type === 'tax' ? (
+                                        <>
+                                            <span className="text-amber-400 text-[10px] uppercase tracking-wider mb-1 font-bold">החזרי מס והטבות</span>
+                                            <span className="text-sm font-medium text-slate-200 leading-tight">
+                                                זיהיתי <span className="font-bold text-amber-400">{currency}{activeItem.value.toLocaleString()}</span> שמגיעים לך מהמדינה
+                                            </span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span className="text-slate-400 text-[10px] uppercase tracking-wider mb-1">{activeItem.name}</span>
+                                            <span className="text-2xl font-bold text-white font-mono">{currency}{activeItem.value.toLocaleString()}</span>
+                                        </>
+                                    )}
+                                </motion.div>
+                            ) : (
+                                <motion.div
+                                    key="default"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    className="flex flex-col items-center"
+                                >
                                     <>
-                                        <span className="text-amber-400 text-[10px] uppercase tracking-wider mb-1 font-bold">החזרי מס והטבות</span>
-                                        <span className="text-sm font-medium text-slate-200 leading-tight">
-                                            זיהיתי <span className="font-bold text-amber-400">{currency}{activeItem.value.toLocaleString()}</span> שמגיעים לך מהמדינה
-                                        </span>
+                                        <span className="text-slate-500 text-[10px] uppercase">צפי הוצאות לחודש הבא</span>
+                                        <span className="text-xl font-bold text-slate-200 font-mono">{currency}{totalExpenses.toLocaleString()}</span>
                                     </>
-                                ) : (
-                                    <>
-                                        <span className="text-slate-400 text-[10px] uppercase tracking-wider mb-1">{activeItem.name}</span>
-                                        <span className="text-2xl font-bold text-white font-mono">{currency}{activeItem.value.toLocaleString()}</span>
-                                    </>
-                                )}
-                            </motion.div>
-                        ) : (
-                            <motion.div
-                                key="default"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="flex flex-col items-center"
-                            >
-                                <>
-                                    <span className="text-slate-500 text-[10px] uppercase">צפי הוצאות לחודש הבא</span>
-                                    <span className="text-xl font-bold text-slate-200 font-mono">{currency}{totalExpenses.toLocaleString()}</span>
-                                </>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </div>
-              </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+                  </div>
 
-              {/* Legend / Key */}
-              <div className="grid grid-cols-2 gap-4 w-full mt-6 px-2">
-                 {chartData.map((item, i) => (
-                     <div 
-                        key={i} 
-                        className={`p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition-all ${activeIndex === i ? 'bg-slate-800 border-slate-700 shadow-lg scale-[1.02]' : 'bg-slate-800/30 border-slate-700/50 hover:bg-slate-800/50'} ${item.type === 'tax' ? 'col-span-2 justify-center border-amber-900/30 bg-amber-900/10' : ''}`}
-                        onMouseEnter={() => setActiveIndex(i)}
-                        onMouseLeave={() => setActiveIndex(null)}
-                     >
+                  <div className="grid grid-cols-2 gap-4 w-full mt-6 px-2">
+                     {chartData.map((item, i) => (
                          <div 
-                           className={`p-2 rounded-lg flex items-center justify-center ${item.type === 'tax' ? 'bg-amber-500/10' : 'bg-slate-900/50'}`}
-                           style={{ color: item.color, boxShadow: item.isGlowing ? `0 0 15px ${item.color}40` : `0 0 10px ${item.color}10` }}
+                            key={i} 
+                            className={`p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition-all ${activeIndex === i ? 'bg-slate-800 border-slate-700 shadow-lg scale-[1.02]' : 'bg-slate-800/30 border-slate-700/50 hover:bg-slate-800/50'} ${item.type === 'tax' ? 'col-span-2 justify-center border-amber-900/30 bg-amber-900/10' : ''}`}
+                            onMouseEnter={() => setActiveIndex(i)}
+                            onMouseLeave={() => setActiveIndex(null)}
                          >
-                           {item.icon}
-                         </div>
+                             <div 
+                               className={`p-2 rounded-lg flex items-center justify-center ${item.type === 'tax' ? 'bg-amber-500/10' : 'bg-slate-900/50'}`}
+                               style={{ color: item.color, boxShadow: item.isGlowing ? `0 0 15px ${item.color}40` : `0 0 10px ${item.color}10` }}
+                             >
+                               {item.icon}
+                             </div>
 
-                         <div className="flex flex-col">
-                             <span className={`text-[11px] font-medium tracking-wide ${item.type === 'tax' ? 'text-amber-200' : 'text-slate-400'}`}>
-                                 {item.name}
-                             </span>
-                             <span className={`text-sm font-bold font-mono leading-none mt-1 ${item.type === 'tax' ? 'text-amber-400' : 'text-white'}`}>
-                                 {currency}{item.value.toLocaleString()}
-                                 {item.type === 'tax' && <span className="text-[9px] text-amber-500/80 mr-1 font-sans font-normal">(שנתי)</span>}
-                             </span>
+                             <div className="flex flex-col">
+                                 <span className={`text-[11px] font-medium tracking-wide ${item.type === 'tax' ? 'text-amber-200' : 'text-slate-400'}`}>
+                                     {item.name}
+                                 </span>
+                                 <span className={`text-sm font-bold font-mono leading-none mt-1 ${item.type === 'tax' ? 'text-amber-400' : 'text-white'}`}>
+                                     {currency}{item.value.toLocaleString()}
+                                     {item.type === 'tax' && <span className="text-[9px] text-amber-500/80 mr-1 font-sans font-normal">(שנתי)</span>}
+                                 </span>
+                             </div>
                          </div>
-                     </div>
-                 ))}
-              </div>
+                     ))}
+                  </div>
+                </>
+              )}
             </div>
           </motion.div>
         )}
