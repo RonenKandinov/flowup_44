@@ -243,94 +243,130 @@ Deno.serve(withValidation(schema, async (req, body) => {
     const guarantorIncome = Math.round(income * 1.5);
     const liquidityGap = Math.max(0, rules.min_liquidity_months - liq);
     const decisionLabelHe = rec === 'DECLINE' ? 'דחייה' : rec === 'REVIEW' ? 'בחינה' : 'אישור';
-    const collateralAssets = (behaviorProfile?.pledgeableAssets || []).map(a =>
-      `${a.label}: שווי שמרני לשעבוד ₪${fmt(a.pledgeableValue || a.estimatedValue)}`
-    );
-    const hasInvestmentDiscipline = behaviorProfile?.investmentDiscipline?.avgMonthlyInvestmentOutflow > 0;
-    const existingLoansTotal = behaviorProfile?.existingLoansMonthlyTotal || 0;
+    const pledgeableAssetsText = behaviorProfile?.pledgeableAssets?.length
+      ? behaviorProfile.pledgeableAssets.map(a => `- ${a.label}: שווי ₪${fmt(a.estimatedValue)}, שווי לשעבוד אחרי haircut ₪${fmt(a.pledgeableValue)} (${a.evidence})`).join('\n')
+      : 'לא זוהו נכסים ברורים לשעבוד מתוך 12 חודשי הנתונים.';
+    const investmentDisciplineText = behaviorProfile?.investmentDiscipline?.avgMonthlyInvestmentOutflow > 0
+      ? `הלקוח מעביר בממוצע ₪${fmt(behaviorProfile.investmentDiscipline.avgMonthlyInvestmentOutflow)} בחודש להשקעות — זה סיגנל חיובי של בניית הון, לא הוצאה שלילית.`
+      : 'לא זוהתה משמעת השקעה חוזרת.';
 
-    const basePd = risk === 'Green' ? 4 : risk === 'Orange' ? 10 : 22;
-    const pdAdjustment =
-      (dti > rules.max_dti_review ? 8 : dti > rules.max_dti_approve ? 4 : -1) +
-      (liq < rules.min_liquidity_months ? 4 : liq > rules.min_liquidity_months * 2 ? -2 : 0) +
-      (existingLoansTotal > 0 ? 3 : 0) +
-      (hasInvestmentDiscipline ? -1 : 0);
-    const defaultProbability = Math.max(2, Math.min(45, Math.round(basePd + pdAdjustment)));
-    const lossGivenDefault = collateralAssets.length ? 35 : 60;
-    const expectedLoss = Math.round((defaultProbability * lossGivenDefault) / 100);
-    const lenderRiskAssessment = {
-      default_probability: defaultProbability,
-      loss_given_default: lossGivenDefault,
-      expected_loss: expectedLoss,
-      portfolio_view: risk === 'Green'
-        ? 'פרופיל Prime/Near-Prime עם יכולת החזר נתמכת תזרים.'
-        : risk === 'Orange'
-          ? 'עסקה גבולית המתאימה לאישור מותנה ותמחור זהיר.'
-          : 'עסקה בסיכון גבוה שדורשת ביטחונות או התאמת מבנה משמעותית.',
-      mitigations: [
-        collateralAssets.length ? 'בחינת שעבוד נכסים שזוהו בתזרים' : 'דרישת ערב או ביטחון חיצוני',
-        'קיצור תקופה להפחתת חשיפת תיק',
-        'תמחור שמכסה Expected Loss ועלויות הון'
-      ],
-      leverage_opportunities: [
-        hasInvestmentDiscipline ? 'מסלול מגובה נכסי השקעה/חיסכון' : 'הצעה מותנית לפי שיפור תזרים',
-        risk === 'Green' ? 'הגדלת סכום תחת ניטור תזרים' : 'הקטנת סכום לשיפור יחס החזר'
-      ],
-      collateral_assets: collateralAssets
-    };
+    const prompt = `אתה חתם אשראי הכותב למנהל תיק הלוואות — לא יועץ ללווה. המוקד שלך: איך המלווה יכול גם להרוויח מהלקוח וגם לגדר הפסד אם הלווה יכשל.
 
-    const compactSignals = {
-      income,
-      expenses,
-      monthlyHeadroom,
-      dti,
-      expInc,
-      liq,
-      assets,
-      risk,
-      rec,
-      behavior,
-      strengths: strengths.slice(0, 4),
-      risks: risks.slice(0, 4),
-      existingLoansMonthlyTotal: existingLoansTotal,
-      hasInvestmentDiscipline,
-      collateralAssets
-    };
+מצב הלקוח:
+- תזרים פנוי: ${monthlyHeadroom >= 0 ? 'חיובי' : 'שלילי'} (₪${fmt(monthlyHeadroom)}/חודש)
+- DTI: ${dti}% (סף אישור ${rules.max_dti_approve}%, סף דחייה ${rules.max_dti_review}%)
+- כלל מחייב: אם DTI <= ${rules.max_dti_approve}% — זה סיגנל חיובי, אסור להציג אותו כסיכון או כחריגה.
+- הוצאות/הכנסה: ${expInc}%
+- נזילות: ${liq} חודשים
+- נכסים נזילים: ₪${fmt(assets)} | מזומן ₪${fmt(liquidAssetsBreakdown.cash)} | השקעות ₪${fmt(liquidAssetsBreakdown.etf)} | גמל/השתלמות ₪${fmt(liquidAssetsBreakdown.trainingFund)}
+- המלצה נוכחית: ${decisionLabelHe}
+${isSecondChance ? `- ⚡ Second Chance פעיל — גורמים מפצים: ${strengths.join(', ')}` : ''}
 
-    const prompt = `אתה חתם אשראי למנהל תיק הלוואות. כתוב בעברית קצרה, ללא שמות פרטיים, מנקודת מבט של מלווה.
+התנהגות בתזרים (Open Finance):
+${behaviorProfile ? JSON.stringify(behaviorProfile).slice(0, 1200) : 'אין'}
 
-נתוני תיק מחייבים:
-${JSON.stringify(compactSignals)}
+💎 השקעות ונכסים לשעבוד:
+${investmentDisciplineText}
+${pledgeableAssetsText}
 
-החזר JSON בלבד:
-- decision: APPROVE / REVIEW / DECLINE
-- summary: 2 משפטים טבעיים ללא אחוזים וללא מספרים מיותרים
-- is_false_negative: boolean
-- behavior_analysis.key_positive_signals: עד 3 פריטים קצרים
-- behavior_analysis.key_risks: עד 3 פריטים קצרים; אם dti <= ${rules.max_dti_approve} אל תציג DTI כסיכון
-- recommended_terms.conditions: עד 3 תנאים קצרים למלווה`;
+חובה: כסף שהולך להשקעות/מניות/קרנות הוא סיגנל חיובי של בניית הון, לא "הפסד" ולא "הוצאה מסוכנת". אם יש נכסים לשעבוד — הצג אותם גם ב-summary וגם ב-leverage_opportunities.
+
+🚨 **הלוואות קיימות ב-12 חודשים האחרונים** (מתוך סריקת התנועות):
+${behaviorProfile?.existingLoans && behaviorProfile.existingLoans.length > 0
+    ? `זוהו ${behaviorProfile.existingLoansCount} החזרי הלוואה קבועים בסך ₪${fmt(behaviorProfile.existingLoansMonthlyTotal)}/חודש:\n` +
+      behaviorProfile.existingLoans.map(l => `  - ${l.label}: ₪${fmt(l.monthlyAmount)}/חודש (${l.loanType}, נצפה ב-${l.monthsObserved} חודשים)`).join('\n') +
+      `\n\n⚠️ **זה קריטי!** הלווה המבוקשת תצטבר ל-${behaviorProfile.existingLoansCount} הלוואות קיימות. חובה להזכיר זאת ב-summary וב-key_risks ולהתייחס אל ה-PD בהתאם. המלווה צריך להבין שמדובר ב-loan stacking.`
+    : 'לא זוהו הלוואות קיימות בתנועות החשבון (נקי מהתחייבויות קיימות במערכת הבנקאית) — זה סיגנל חיובי חזק למלווה.'
+}
+
+🔒 פרטיות: אסור להזכיר שמות פרטיים. מונחים מותרים: "הלקוח" / "המבקש".
+
+=== דרישות פלט ===
+
+1. **summary** (2-3 משפטים קצרים, אנושי, ללא מספרים מיותרים. סיפור מנקודת מבטה של המלווה):
+   - משפט 1: מה המלווה רואה — האם הלווה יחזיר את הכסף? האם המבנה התזרימי תומך תשלום חודשי נוסף? (דוגמה: "הלווה הזה אינו ברי קיימא בשוליית המלווה — המבקש כבר מוציא יותר ממה שהוא מכניס, והוספת תשלום קבוע נוסף תגדיל את הפערים").
+   - משפט 2: איך נראית ההתנהגות ומה היא אומרת למלווה על יכולת ההחזר (דוגמה: "הכסף נכנס בתחילת החודש ומתנדף תוך ימים — תשלום חדש ימצא את הלווה מתחרה על תשלומים קבועים אחרים").
+   - משפט 3 (אופציונלי): המלצה למלווה — אילו תנאים/ביטחונות יפכו את העסקה לברה (דוגמה: "גרירת הלווה לתקופה קצרה עם ערב יצמצם את החשיפה לתיקה").
+
+   ❌ אסור ב-summary: מספרים, אחוזים, ספי, סגנון רובוטי ("עומד על", "חורג ב-X נקודות"), DTI, APPROVE.
+   ✅ כתוב כמו סמנכ"ל באשראי הוועדת אשראי מסביר תיק בשפה טבעית.
+
+2. **lender_risk_assessment** — ניתוח סיכון **למלווה** (קריטי — זו התוספת הגדולה):
+   הערך את העסקה מזווית המלווה — מה הסיכוי לאיבוד כסף, מה ההפסד הצפוי במקרה של כשל, ואיך העסקה משתלבת לתיק ההלוואות הכולל.
+   - **default_probability** (מספר 0-100): הערך PD שנתי ל-12 חודשים הקרובים. ללוואות צרכניים טיפוסי PD: Prime 2-5%, Near-Prime 6-12%, Subprime 15-25%, High-Risk 30%+.
+   - **loss_given_default** (מספר 0-100): % מהקרן שיאבד במקרה של כשל. ללא ביטחונות: 55-65%. עם ערב: 30-40%. עם ביטחון מלא: 15-25%.
+   - **expected_loss** (מספר 0-100): PD × LGD / 100. זו רצפת המחיר המינימלית למלווה (לפני עלויות הון ותפעול).
+   - **portfolio_view** (משפט 1): הצג את העסקה בהקשר לתיק מגוון. אם DTI נמוך ויש משמעת השקעה — אל תסווג Subprime; כתוב Prime/Near-Prime עם מינוף זהיר.
+   - **mitigations** (מערך של 2-4 פריטים): מה המלווה יכול לעשות כדי להפחית סיכון. דוגמאות: "שעבוד תיק השקעות", "קיצור תקופה ל-24 חודשים", "העמדת תשלום ראשון גבוה", "העלאת ריבית לכיסוי ה-Expected Loss".
+   - **leverage_opportunities** (מערך של 2-4 פריטים): איך למנף את הלקוח בצורה רווחית: הגדלת סכום תחת שיעבוד, מסלול Prime/Near-Prime, cross-sell, הלוואה מגובה נכס, או הצעה מותנית לפי תזרים.
+   - **collateral_assets** (מערך): נכסים שזוהו מתוך 12 חודשים וניתנים לבחינת שעבוד.
+
+3. **behavior_analysis.key_positive_signals** (מערך של פריטים קצרים עם מספר): אם אין — מערך ריק.
+
+4. **behavior_analysis.key_risks** (מערך של סיכונים עם מספרים, קצרים):
+   - אם DTI ${dti}% נמוך או שווה לסף ${rules.max_dti_approve}% — אסור להכניס DTI ל-key_risks.
+   - רק אם DTI מעל הסף כתוב: "DTI ${dti}% — חורג מסף ${rules.max_dti_approve}%."
+   - "הוצאות/הכנסה ${expInc}% — מעל ${rules.max_expense_income_ratio}%."
+
+5. **recommended_terms.conditions**: תנאים קצרים למלווה (לדוגמה: "תקופה מקסימלית 36 חודשים", "ערב עם הכנסה ₪${fmt(guarantorIncome)}+").`;
 
     let narrative = "מצב פיננסי יציב.";
     let llmAnalysis = null;
     try {
       const llm = await base44.integrations.Core.InvokeLLM({
         prompt,
+        model: "gpt_5_mini",
+        // schema additions below carry the lender-risk fields (PD/LGD/EL/portfolio_view/mitigations)
+        // so the frontend can render LenderRiskBlock without a follow-up LLM call.
         response_json_schema: {
           type: "object",
           properties: {
             decision: { type: "string" },
+            confidence: { type: "number" },
             is_false_negative: { type: "boolean" },
             summary: { type: "string" },
+            policy_analysis: {
+              type: "object",
+              properties: {
+                policy_status: { type: "string" },
+                breaches: { type: "array", items: { type: "string" } },
+                why_policy_failed: { type: "string" }
+              }
+            },
             behavior_analysis: {
               type: "object",
               properties: {
+                trend: { type: "string" },
                 key_positive_signals: { type: "array", items: { type: "string" } },
                 key_risks: { type: "array", items: { type: "string" } }
+              }
+            },
+            lender_risk_assessment: {
+              type: "object",
+              properties: {
+                default_probability: { type: "number" },
+                loss_given_default: { type: "number" },
+                expected_loss: { type: "number" },
+                portfolio_view: { type: "string" },
+                mitigations: { type: "array", items: { type: "string" } },
+                leverage_opportunities: { type: "array", items: { type: "string" } },
+                collateral_assets: { type: "array", items: { type: "string" } }
+              }
+            },
+            override_analysis: {
+              type: "object",
+              properties: {
+                override_recommended: { type: "boolean" },
+                reason: { type: "string" },
+                confidence: { type: "number" }
               }
             },
             recommended_terms: {
               type: "object",
               properties: {
+                approve: { type: "boolean" },
+                amount: { type: "number" },
+                interest_adjustment: { type: "string" },
                 conditions: { type: "array", items: { type: "string" } }
               }
             }
@@ -342,27 +378,7 @@ ${JSON.stringify(compactSignals)}
           // Some models (e.g. Claude via the InvokeLLM bridge) wrap the JSON in { response: {...} }.
           // Unwrap so all downstream code sees a flat object with `summary`, `decision`, etc.
           const flat = (llm && typeof llm === 'object' && llm.response && typeof llm.response === 'object') ? llm.response : llm;
-          llmAnalysis = {
-              ...flat,
-              lender_risk_assessment: lenderRiskAssessment,
-              confidence: flat.confidence ?? (rec === 'REVIEW' ? 0.72 : 0.86),
-              policy_analysis: flat.policy_analysis || {
-                  policy_status: rec,
-                  breaches: policy_explanations,
-                  why_policy_failed: policy_explanations[0] || ''
-              },
-              override_analysis: flat.override_analysis || {
-                  override_recommended: !!flat.is_false_negative,
-                  reason: flat.is_false_negative ? 'זוהו גורמים מפצים חזקים במדדי ההתנהגות.' : '',
-                  confidence: flat.is_false_negative ? 0.7 : 0
-              },
-              recommended_terms: {
-                  approve: rec !== 'DECLINE',
-                  amount: Math.round(income * 6),
-                  interest_adjustment: risk === 'Green' ? 'standard' : 'risk_adjusted',
-                  conditions: flat.recommended_terms?.conditions || fixes.slice(0, 3)
-              }
-          };
+          llmAnalysis = flat;
           narrative = flat.summary || narrative;
           if (flat.decision === "APPROVE") rec = "APPROVE";
           else if (flat.decision === "REVIEW") rec = "REVIEW";
@@ -504,15 +520,7 @@ ${JSON.stringify(compactSignals)}
           score: secondChanceScore,
           reasons: strengths
         },
-        llm_analysis: llmAnalysis || {
-          lender_risk_assessment: lenderRiskAssessment,
-          summary: narrative,
-          behavior_analysis: {
-            key_positive_signals: strengths.slice(0, 3),
-            key_risks: risks.slice(0, 3)
-          },
-          recommended_terms: { conditions: fixes.slice(0, 3) }
-        },
+        llm_analysis: llmAnalysis,
         analysisInsights,
         analyst_recommendation: {
           recommendation: { decision: rec, confidence: conf },
