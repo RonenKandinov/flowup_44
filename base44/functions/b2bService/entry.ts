@@ -119,8 +119,7 @@ export default Deno.serve(async (req) => {
 
       const insightRes = await base44.functions.invoke('insightEngine', {
         metrics: bankRes.data.metrics,
-        behaviorProfile: bankRes.data.behaviorProfile || null,
-        deferNarrative: true
+        behaviorProfile: bankRes.data.behaviorProfile || null
       });
       if (!insightRes.data?.success) {
         return Response.json({ success: false, error: 'Insight engine failed' });

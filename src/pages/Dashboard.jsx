@@ -425,8 +425,7 @@ export default function Dashboard() {
         try {
             const res = await base44.functions.invoke('insightEngine', {
                 metrics: metricsForInsights,
-                behaviorProfile: metricsForInsights?.behaviorProfile || null,
-                deferNarrative: true
+                behaviorProfile: metricsForInsights?.behaviorProfile || null
             });
             if (res.data?.success && res.data?.insights) {
                 return res.data.insights;
@@ -462,16 +461,7 @@ export default function Dashboard() {
     onSaved: (saved) => setSavedAnalysisId(saved.id)
   });
 
-  useEffect(() => {
-    if (!savedAnalysisId || !serverInsights || !originalLoanMetrics) return;
-    base44.functions.invoke('generateNarrativeInsights', {
-      analysisId: savedAnalysisId,
-      metrics: originalLoanMetrics,
-      insights: serverInsights,
-      behaviorProfile: originalLoanMetrics?.behaviorProfile || null,
-      userId: originalLoanMetrics?.userId || user?.id || user?.email || 'dashboard'
-    }).catch((err) => console.warn('generateNarrativeInsights failed:', err?.message));
-  }, [savedAnalysisId, serverInsights, originalLoanMetrics, user]);
+
 
   // ── Cash-Flow Intelligence: granular OpenFinance-based repayment capacity ──
   // Fetched once when we have an active connection; cached indefinitely (recurring
