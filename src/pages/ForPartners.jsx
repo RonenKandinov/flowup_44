@@ -9,16 +9,16 @@ import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 
 const VALUE_PROPS = [
-  { icon: Zap, title: 'אוטומציה מלאה', desc: 'חיבור Open Finance + ניתוח חיתום ב-60 שניות. בלי להזין נתונים ידנית.' },
-  { icon: TrendingUp, title: 'הגדל אישורי אשראי', desc: 'מנוע Deal Rescuer מציע אסטרטגיות חילוץ במקום דחייה. יותר עסקאות סגורות.' },
-  { icon: BarChart3, title: 'תובנות ברמת בנק', desc: 'DSR, DTI, נזילות, התנהגות פיננסית — דוח מלא לכל לקוח.' },
-  { icon: Lock, title: 'אבטחה ורגולציה', desc: 'AES-256, Zero-Knowledge, תקני Open Finance של בנק ישראל.' },
+  { icon: Zap, title: 'תהליך אוטומטי לחלוטין', desc: 'הלקוח מחבר בנק בלחיצה, ואתה מקבל ניתוח מלא תוך דקה. בלי טפסים, בלי תדפיסים.' },
+  { icon: TrendingUp, title: 'יותר עסקאות מאושרות', desc: 'במקום "דחייה" — אנחנו מציעים אסטרטגיות חילוץ חכמות שמתאימות ללקוח. יותר הצלחות, פחות תסכול.' },
+  { icon: BarChart3, title: 'תובנות עומק על כל לקוח', desc: 'הבנה מלאה של הכנסות, הוצאות, נזילות והרגלי צריכה — כדי שתבנה עסקה שמתאימה בדיוק לכל לקוח.' },
+  { icon: Lock, title: 'אבטחה מהרמה הגבוהה ביותר', desc: 'אנחנו עובדים בהתאם לתקני בנק ישראל. הנתונים של הלקוחות שלך מוגנים ברמה הגבוהה ביותר.' },
 ];
 
 const STEPS = [
-  { num: '01', title: 'הירשם כשותף', desc: 'תוך 5 דקות אתה מקבל גישה לפורטל וטוקן API ייעודי.' },
-  { num: '02', title: 'שלח קישור ללקוח', desc: 'הלקוח שלך מחבר את הבנק שלו דרך Open Finance — לא צריך לאסוף תדפיסים.' },
-  { num: '03', title: 'קבל דוח חיתום מלא', desc: 'תוך דקות — ציון, תובנות AI, אסטרטגיות, והמלצות לבניית עסקה.' },
+  { title: 'הירשם כשותף', desc: 'תוך 5 דקות אתה מקבל גישה לפורטל האישי שלך — בלי התקנות, בלי הסכמים מסובכים.' },
+  { title: 'שלח קישור ללקוח', desc: 'הלקוח מקבל קישור אישי, מחבר את הבנק שלו בלחיצה — ואתה לא צריך לרדוף אחרי מסמכים.' },
+  { title: 'קבל דוח חיתום מלא', desc: 'תוך דקות אתה רואה את כל התמונה: ציון, המלצות, ואסטרטגיות לבניית עסקה מנצחת.' },
 ];
 
 export default function ForPartners() {
@@ -66,8 +66,8 @@ export default function ForPartners() {
             הפוך את העסק שלך<br />למרכז חיתום חכם
           </h1>
           <p className="text-xl text-slate-400 max-w-2xl mx-auto mb-8">
-            רואי חשבון, יועצי אשראי וחברות מימון — קבל גישה למנוע החיתום של FlowUp עבור הלקוחות שלך.
-            Open Finance + AI = יותר עסקאות, פחות עבודה ידנית.
+            רואי חשבון, יועצי אשראי וחברות מימון — תן ללקוחות שלך תשובה תוך דקות, לא ימים.
+            פחות ניירת, יותר עסקאות סגורות.
           </p>
           <div className="flex gap-3 justify-center flex-wrap">
             <Button asChild className="bg-cyan-600 hover:bg-cyan-500 text-white h-12 px-8 text-base">
@@ -101,19 +101,31 @@ export default function ForPartners() {
       {/* How It Works (Demo) */}
       <section id="demo" className="relative z-10 px-6 py-16 max-w-6xl mx-auto">
         <h2 className="text-3xl font-bold text-center mb-4">איך זה עובד</h2>
-        <p className="text-slate-400 text-center mb-12">3 צעדים מההרשמה עד דוח החיתום הראשון</p>
-        <div className="grid md:grid-cols-3 gap-6">
+        <p className="text-slate-400 text-center mb-12">פשוט. מהיר. בלי כאבי ראש.</p>
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-center gap-4 md:gap-2">
           {STEPS.map((s, i) => (
-            <motion.div key={i} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.15 }}>
-              <Card className="bg-slate-900/60 border-slate-800 p-6 h-full relative overflow-hidden">
-                <div className="absolute top-0 left-0 text-7xl font-bold text-cyan-500/10 leading-none">{s.num}</div>
-                <div className="relative">
-                  <div className="text-cyan-400 text-sm font-mono mb-3">STEP {s.num}</div>
+            <React.Fragment key={i}>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.15 }}
+                className="flex-1"
+              >
+                <Card className="bg-slate-900/60 border-slate-800 p-6 h-full hover:border-cyan-500/40 transition-all">
+                  <div className="w-10 h-10 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 font-bold flex items-center justify-center mb-4">
+                    {i + 1}
+                  </div>
                   <h3 className="font-bold text-white text-lg mb-2">{s.title}</h3>
-                  <p className="text-slate-400 text-sm">{s.desc}</p>
+                  <p className="text-slate-400 text-sm leading-relaxed">{s.desc}</p>
+                </Card>
+              </motion.div>
+              {i < STEPS.length - 1 && (
+                <div className="flex items-center justify-center text-cyan-400/60 md:px-1">
+                  <ArrowLeft className="w-7 h-7 rotate-90 md:rotate-0" />
                 </div>
-              </Card>
-            </motion.div>
+              )}
+            </React.Fragment>
           ))}
         </div>
         <div className="mt-10 text-center">
@@ -129,18 +141,18 @@ export default function ForPartners() {
           <div className="grid md:grid-cols-3 gap-6 text-center">
             <div>
               <ShieldCheck className="w-8 h-8 text-emerald-400 mx-auto mb-3" />
-              <div className="font-semibold text-white">Open Finance רשמי</div>
-              <div className="text-slate-400 text-sm mt-1">תקני בנק ישראל</div>
+              <div className="font-semibold text-white">עובדים מול הבנקים בישראל</div>
+              <div className="text-slate-400 text-sm mt-1">חיבור ישיר ומאובטח לכל הבנקים המובילים</div>
             </div>
             <div>
               <Lock className="w-8 h-8 text-cyan-400 mx-auto mb-3" />
-              <div className="font-semibold text-white">AES-256 + Zero-Knowledge</div>
-              <div className="text-slate-400 text-sm mt-1">נתוני לקוחות מוצפנים end-to-end</div>
+              <div className="font-semibold text-white">פרטיות הלקוחות שלך — מובטחת</div>
+              <div className="text-slate-400 text-sm mt-1">הנתונים מוצפנים ברמה הגבוהה ביותר</div>
             </div>
             <div>
               <Users className="w-8 h-8 text-blue-400 mx-auto mb-3" />
-              <div className="font-semibold text-white">תמיכת שותפים ייעודית</div>
-              <div className="text-slate-400 text-sm mt-1">ליווי טכני ועסקי</div>
+              <div className="font-semibold text-white">אנחנו פה בשבילך</div>
+              <div className="text-slate-400 text-sm mt-1">צוות תמיכה אנושי, לא צ׳אטבוט</div>
             </div>
           </div>
         </Card>
@@ -163,7 +175,7 @@ export default function ForPartners() {
               <div className="text-center mb-6">
                 <Building2 className="w-10 h-10 text-cyan-400 mx-auto mb-3" />
                 <h2 className="text-2xl font-bold text-white">הצטרף כשותף FlowUp</h2>
-                <p className="text-slate-400 text-sm mt-2">מלא פרטים ונחזור אליך עם גישה לפורטל וטוקן API</p>
+                <p className="text-slate-400 text-sm mt-2">השאר פרטים ונחזור אליך תוך יום עסקים אחד</p>
               </div>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid md:grid-cols-2 gap-4">
