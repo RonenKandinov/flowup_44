@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Copy, Key, Users, Link as LinkIcon, ShieldCheck, Eye, EyeOff, ArrowLeft, Plus, RefreshCw } from 'lucide-react';
+// ArrowLeft used for RTL chevron
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
@@ -174,7 +175,11 @@ export default function PartnerClientPortal() {
           ) : (
             <div className="space-y-2">
               {sessions.map(s => (
-                <div key={s.id} className="flex items-center justify-between bg-slate-950/40 border border-slate-800 rounded-lg p-3 hover:border-slate-700 transition-all">
+                <Link
+                  key={s.id}
+                  to={`/partner-portal/client/${s.id}`}
+                  className="flex items-center justify-between bg-slate-950/40 border border-slate-800 rounded-lg p-3 hover:border-cyan-500/40 hover:bg-slate-900/60 transition-all cursor-pointer"
+                >
                   <div className="min-w-0 flex-1">
                     <div className="font-medium text-white text-sm truncate">{s.customer_name || s.customer_email || '—'}</div>
                     <div className="text-xs text-slate-500 mt-0.5">{s.customer_email}</div>
@@ -184,8 +189,9 @@ export default function PartnerClientPortal() {
                       <div className="text-xs text-slate-400">₪{Number(s.requested_amount).toLocaleString('he-IL')}</div>
                     )}
                     <span className={`text-xs px-2.5 py-1 rounded-full ${statusColor(s.status)}`}>{s.status}</span>
+                    <ArrowLeft className="w-4 h-4 text-slate-600" />
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}

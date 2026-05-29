@@ -13,6 +13,7 @@ import PartnersAdmin from './pages/PartnersAdmin';
 import DevelopersPortal from './pages/DevelopersPortal';
 import ForPartners from './pages/ForPartners';
 import PartnerClientPortal from './pages/PartnerClientPortal';
+import PartnerClientDetail from './pages/PartnerClientDetail';
 import Landing from './pages/Landing';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfUse from './pages/TermsOfUse';
@@ -83,6 +84,9 @@ const AuthenticatedApp = () => {
       <Route path="/for-partners" element={<ForPartners />} />
       <Route path="/partner-portal" element={
         <LayoutWrapper currentPageName="partner-portal"><PartnerClientPortal /></LayoutWrapper>
+      } />
+      <Route path="/partner-portal/client/:sessionId" element={
+        <LayoutWrapper currentPageName="partner-client-detail"><PartnerClientDetail /></LayoutWrapper>
       } />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
