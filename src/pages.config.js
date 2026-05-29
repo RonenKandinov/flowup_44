@@ -52,6 +52,7 @@ import Home from './pages/Home';
 import AuditLogs from './pages/AuditLogs';
 import UnderwritingSettings from './pages/UnderwritingSettings';
 import B2BSuite from './pages/B2BSuite';
+import PartnersAdmin from './pages/PartnersAdmin';
 import __Layout from './Layout.jsx';
 
 
@@ -61,6 +62,7 @@ export const PAGES = {
     "AuditLogs": AuditLogs,
     "UnderwritingSettings": UnderwritingSettings,
     "B2BSuite": B2BSuite,
+    "PartnersAdmin": PartnersAdmin,
 }
 
 export const pagesConfig = {
