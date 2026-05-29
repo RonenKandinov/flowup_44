@@ -99,18 +99,30 @@ export default function ForPartners() {
       <section id="demo" className="relative z-10 px-6 py-16 max-w-6xl mx-auto">
         <h2 className="text-3xl font-bold text-center mb-4">איך זה עובד</h2>
         <p className="text-slate-400 text-center mb-12">פשוט. מהיר. בלי כאבי ראש.</p>
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-center gap-4 md:gap-2">
           {STEPS.map((s, i) => (
-            <motion.div key={i} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.15 }}>
-              <Card className="bg-slate-900/60 border-slate-800 p-6 h-full relative overflow-hidden">
-                <div className="absolute top-0 left-0 text-7xl font-bold text-cyan-500/10 leading-none select-none pointer-events-none">{s.num}</div>
-                <div className="relative">
-                  <div className="text-cyan-400 text-sm font-mono mb-3">STEP {s.num}</div>
-                  <h3 className="font-bold text-white text-lg mb-2">{s.title}</h3>
-                  <p className="text-slate-400 text-sm leading-relaxed">{s.desc}</p>
+            <React.Fragment key={i}>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.15 }}
+                className="flex-1"
+              >
+                <Card className="bg-slate-900/60 border-slate-800 p-6 h-full relative overflow-hidden">
+                  <div className="absolute top-2 left-4 text-8xl font-bold text-slate-700/40 leading-none select-none pointer-events-none tracking-tight">{s.num}</div>
+                  <div className="relative pt-6">
+                    <h3 className="font-bold text-white text-lg mb-2">{s.title}</h3>
+                    <p className="text-slate-400 text-sm leading-relaxed">{s.desc}</p>
+                  </div>
+                </Card>
+              </motion.div>
+              {i < STEPS.length - 1 && (
+                <div className="flex items-center justify-center text-cyan-400/60 md:px-1">
+                  <ArrowLeft className="w-7 h-7 rotate-90 md:rotate-0" />
                 </div>
-              </Card>
-            </motion.div>
+              )}
+            </React.Fragment>
           ))}
         </div>
         <div className="mt-10 text-center">
