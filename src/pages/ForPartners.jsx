@@ -9,16 +9,16 @@ import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 
 const VALUE_PROPS = [
-  { icon: Zap, title: 'תהליך אוטומטי לחלוטין', desc: 'הלקוח מחבר בנק בלחיצה, ואתה מקבל ניתוח מלא תוך דקה. בלי טפסים, בלי תדפיסים.' },
-  { icon: TrendingUp, title: 'יותר עסקאות מאושרות', desc: 'במקום "דחייה" — אנחנו מציעים אסטרטגיות חילוץ חכמות שמתאימות ללקוח. יותר הצלחות, פחות תסכול.' },
-  { icon: BarChart3, title: 'תובנות עומק על כל לקוח', desc: 'הבנה מלאה של הכנסות, הוצאות, נזילות והרגלי צריכה — כדי שתבנה עסקה שמתאימה בדיוק לכל לקוח.' },
-  { icon: Lock, title: 'אבטחה מהרמה הגבוהה ביותר', desc: 'אנחנו עובדים בהתאם לתקני בנק ישראל. הנתונים של הלקוחות שלך מוגנים ברמה הגבוהה ביותר.' },
+  { icon: Zap, title: 'תשובה ללקוח תוך דקות', desc: 'במקום שבוע של איסוף מסמכים אתה נותן תשובה באותה פגישה.' },
+  { icon: TrendingUp, title: 'יותר עסקאות שיוצאות לפועל', desc: 'כשעסקה לא מסתדרת בתנאים הרגילים אנחנו מציעים מבנה החזר מותאם שמאפשר לסגור.' },
+  { icon: BarChart3, title: 'מבט אמיתי על תזרים העסק', desc: 'איך הכנסות נכנסות איך הוצאות יוצאות ומתי בחודש נוצר לחץ נזילות.' },
+  { icon: Lock, title: 'בסטנדרט של בנק ישראל', desc: 'חיבור מאובטח לבנקים והגנה על נתוני הלקוחות שלך.' },
 ];
 
 const STEPS = [
-  { title: 'הירשם כשותף', desc: 'תוך 5 דקות אתה מקבל גישה לפורטל האישי שלך — בלי התקנות, בלי הסכמים מסובכים.' },
-  { title: 'שלח קישור ללקוח', desc: 'הלקוח מקבל קישור אישי, מחבר את הבנק שלו בלחיצה — ואתה לא צריך לרדוף אחרי מסמכים.' },
-  { title: 'קבל דוח חיתום מלא', desc: 'תוך דקות אתה רואה את כל התמונה: ציון, המלצות, ואסטרטגיות לבניית עסקה מנצחת.' },
+  { num: '01', title: 'הירשם כשותף', desc: 'נרשמים תוך 5 דקות ומקבלים גישה לפורטל האישי.' },
+  { num: '02', title: 'שלח קישור ללקוח', desc: 'הלקוח העסקי מחבר את חשבון הבנק שלו בלחיצה אחת ואתה רואה את תזרים העסק שלו בזמן אמת.' },
+  { num: '03', title: 'קבל תמונה מלאה על העסק', desc: 'איך נכנס הכסף איך הוא יוצא איפה הצווארי בקבוק ומה גובה ההחזר שהעסק באמת יכול לעמוד בו.' },
 ];
 
 export default function ForPartners() {
@@ -58,10 +58,7 @@ export default function ForPartners() {
       {/* Hero */}
       <section className="relative z-10 px-6 pt-16 pb-20 max-w-6xl mx-auto">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center">
-          <div className="inline-flex items-center gap-2 bg-cyan-500/10 border border-cyan-500/20 rounded-full px-4 py-1.5 mb-6">
-            <Briefcase className="w-4 h-4 text-cyan-400" />
-            <span className="text-cyan-300 text-sm font-medium">FlowUp לשותפי B2B</span>
-          </div>
+
           <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-white via-cyan-100 to-blue-200 bg-clip-text text-transparent">
             הפוך את העסק שלך<br />למרכז חיתום חכם
           </h1>
@@ -102,30 +99,18 @@ export default function ForPartners() {
       <section id="demo" className="relative z-10 px-6 py-16 max-w-6xl mx-auto">
         <h2 className="text-3xl font-bold text-center mb-4">איך זה עובד</h2>
         <p className="text-slate-400 text-center mb-12">פשוט. מהיר. בלי כאבי ראש.</p>
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-center gap-4 md:gap-2">
+        <div className="grid md:grid-cols-3 gap-6">
           {STEPS.map((s, i) => (
-            <React.Fragment key={i}>
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.15 }}
-                className="flex-1"
-              >
-                <Card className="bg-slate-900/60 border-slate-800 p-6 h-full hover:border-cyan-500/40 transition-all">
-                  <div className="w-10 h-10 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 font-bold flex items-center justify-center mb-4">
-                    {i + 1}
-                  </div>
+            <motion.div key={i} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.15 }}>
+              <Card className="bg-slate-900/60 border-slate-800 p-6 h-full relative overflow-hidden">
+                <div className="absolute top-0 left-0 text-7xl font-bold text-cyan-500/10 leading-none select-none pointer-events-none">{s.num}</div>
+                <div className="relative">
+                  <div className="text-cyan-400 text-sm font-mono mb-3">STEP {s.num}</div>
                   <h3 className="font-bold text-white text-lg mb-2">{s.title}</h3>
                   <p className="text-slate-400 text-sm leading-relaxed">{s.desc}</p>
-                </Card>
-              </motion.div>
-              {i < STEPS.length - 1 && (
-                <div className="flex items-center justify-center text-cyan-400/60 md:px-1">
-                  <ArrowLeft className="w-7 h-7 rotate-90 md:rotate-0" />
                 </div>
-              )}
-            </React.Fragment>
+              </Card>
+            </motion.div>
           ))}
         </div>
         <div className="mt-10 text-center">
