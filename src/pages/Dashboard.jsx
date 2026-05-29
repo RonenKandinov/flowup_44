@@ -892,6 +892,25 @@ export default function Dashboard() {
                       </Link>
                     </DropdownMenuItem>
                   )}
+                  <DropdownMenuSeparator className="bg-slate-800" />
+                  <DropdownMenuItem asChild className="cursor-pointer hover:bg-slate-800 focus:bg-slate-800 text-xs">
+                    <Link to="/for-partners" className="flex items-center w-full">
+                      <Briefcase className="w-3 h-3 ml-2" />
+                      דף שותפים (שיווקי)
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="cursor-pointer hover:bg-slate-800 focus:bg-slate-800 text-xs">
+                    <Link to="/partner-portal" className="flex items-center w-full">
+                      <Building2 className="w-3 h-3 ml-2" />
+                      פורטל שותף (ניהול לקוחות)
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="cursor-pointer hover:bg-slate-800 focus:bg-slate-800 text-xs">
+                    <Link to="/developers" className="flex items-center w-full">
+                      <Cpu className="w-3 h-3 ml-2" />
+                      פורטל מפתחים (API)
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem asChild className="cursor-pointer hover:bg-slate-800 focus:bg-slate-800 text-xs">
                     <Link to="/AuditLogs" className="flex items-center w-full">
                       <ShieldAlert className="w-3 h-3 ml-2" />
