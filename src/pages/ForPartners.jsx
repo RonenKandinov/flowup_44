@@ -110,8 +110,8 @@ export default function ForPartners() {
                 className="flex-1"
               >
                 <Card className="bg-slate-900/60 border-slate-800 p-6 h-full relative overflow-hidden">
-                  <div className="absolute top-2 left-4 text-8xl font-bold text-slate-700/40 leading-none select-none pointer-events-none tracking-tight">{s.num}</div>
-                  <div className="relative pt-6">
+                  <div className="absolute -bottom-4 -left-2 text-[110px] font-bold text-slate-700/25 leading-none select-none pointer-events-none tracking-tight">{s.num}</div>
+                  <div className="relative">
                     <h3 className="font-bold text-white text-lg mb-2">{s.title}</h3>
                     <p className="text-slate-400 text-sm leading-relaxed">{s.desc}</p>
                   </div>
