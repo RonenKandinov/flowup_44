@@ -11,6 +11,8 @@ import B2BConnect from './pages/B2BConnect';
 import CustomerConnect from './pages/CustomerConnect';
 import PartnersAdmin from './pages/PartnersAdmin';
 import DevelopersPortal from './pages/DevelopersPortal';
+import ForPartners from './pages/ForPartners';
+import PartnerClientPortal from './pages/PartnerClientPortal';
 import Landing from './pages/Landing';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfUse from './pages/TermsOfUse';
@@ -77,6 +79,10 @@ const AuthenticatedApp = () => {
       } />
       <Route path="/developers" element={
         <LayoutWrapper currentPageName="developers"><DevelopersPortal /></LayoutWrapper>
+      } />
+      <Route path="/for-partners" element={<ForPartners />} />
+      <Route path="/partner-portal" element={
+        <LayoutWrapper currentPageName="partner-portal"><PartnerClientPortal /></LayoutWrapper>
       } />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
