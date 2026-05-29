@@ -1,0 +1,83 @@
+{
+  "name": "OpenFinanceConnection",
+  "type": "object",
+  "properties": {
+    "connection_id": {
+      "type": "string",
+      "description": "External Connection ID"
+    },
+    "provider_id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "PENDING",
+        "ACTIVE",
+        "CONNECTED",
+        "ERROR",
+        "REVOKED",
+        "SUSPENDED_BY_PROVIDER"
+      ],
+      "default": "PENDING"
+    },
+    "psu_id": {
+      "type": "string",
+      "description": "User National ID / PSU ID"
+    },
+    "consent_url": {
+      "type": "string"
+    },
+    "last_synced_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Arbitrary provider metadata"
+    }
+  },
+  "required": [
+    "connection_id",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "data.psu_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "data.psu_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.psu_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": null
+  }
+}

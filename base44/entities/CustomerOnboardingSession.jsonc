@@ -15,10 +15,9 @@
       "type": "string",
       "description": "Customer display name (provided by the partner when creating the session)"
     },
-    "customer_id": {
+    "customer_email": {
       "type": "string",
-      "description": "Customer national ID number (9 digits)",
-      "pattern": "^[0-9]{9}$"
+      "description": "Customer email (provided by the partner)"
     },
     "customer_phone": {
       "type": "string",
@@ -87,12 +86,12 @@
     },
     "read": {
       "user_condition": {
-        "isAuthenticated": true
+        "role": "admin"
       }
     },
     "update": {
       "user_condition": {
-        "isAuthenticated": true
+        "role": "admin"
       }
     },
     "delete": {

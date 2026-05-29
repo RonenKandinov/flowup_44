@@ -1,0 +1,67 @@
+{
+  "name": "AuditLog",
+  "type": "object",
+  "properties": {
+    "action": {
+      "type": "string",
+      "description": "The action performed (e.g., LOAN_ANALYSIS, DATA_SYNC)"
+    },
+    "user_id": {
+      "type": "string",
+      "description": "The user who performed the action"
+    },
+    "details": {
+      "type": "object",
+      "description": "Additional metadata about the action"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "SUCCESS",
+        "FAILURE",
+        "PENDING"
+      ],
+      "default": "SUCCESS"
+    }
+  },
+  "required": [
+    "action",
+    "user_id"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "data.user_id": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "data.user_id": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
