@@ -53,7 +53,9 @@ export default function CustomerGateModal({ onClose, onCustomerActivated }) {
     e.preventDefault();
     if (!form.name.trim()) { toast.error('נא להזין שם לקוח'); return; }
     if (!/^[0-9]{9}$/.test(form.customerId.trim())) { toast.error('תעודת זהות חייבת להיות 9 ספרות'); return; }
-    if (!/^[0-9]{9,15}$/.test(form.phone.replace(/\D/g, ''))) { toast.error('נא להזין מספר טלפון תקין'); return; }
+    const hasPhone = /^[0-9]{9,15}$/.test(form.phone.replace(/\D/g, ''));
+    const hasEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim());
+    if (!hasPhone && !hasEmail) { toast.error('נא להזין טלפון או אימייל'); return; }
     setCreating(true);
     try {
       const res = await base44.functions.invoke('b2bService', {
@@ -68,7 +70,9 @@ export default function CustomerGateModal({ onClose, onCustomerActivated }) {
       const data = res?.data || res;
       if (data?.error) throw new Error(data.error);
       setSession(data);
-      setPhase('sent');
+      if (hasEmail) await sendEmailTo(data.link);
+      if (hasPhone) { setPhase('sent'); }
+      else { onClose(); }
     } catch (err) {
       toast.error(err?.message || 'יצירת הקישור נכשלה');
     } finally {
@@ -82,14 +86,13 @@ export default function CustomerGateModal({ onClose, onCustomerActivated }) {
     const clean = String(form.phone || '').replace(/\D/g, '');
     window.open(`https://wa.me/${clean}?text=${encodeURIComponent(msg)}`, '_blank');
   };
-  const sendEmail = async () => {
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) { toast.error('נא להזין כתובת אימייל תקינה'); return; }
+  const sendEmailTo = async (link) => {
     setSendingEmail(true);
     try {
       const res = await base44.functions.invoke('sendOnboardingEmail', {
         to: form.email.trim(),
         customer_name: form.name,
-        link: session.link
+        link
       });
       const data = res?.data || res;
       if (data?.error) throw new Error(data.error);
@@ -167,7 +170,6 @@ export default function CustomerGateModal({ onClose, onCustomerActivated }) {
           <div className="flex gap-2 justify-center">
             <Button size="sm" variant="outline" onClick={copy} className="border-slate-700 text-slate-200 hover:bg-slate-800 gap-2"><Copy className="w-3.5 h-3.5" /> העתק</Button>
             <Button size="sm" variant="outline" onClick={sendWhatsApp} className="border-emerald-700/40 text-emerald-300 hover:bg-emerald-500/10 gap-2"><Send className="w-3.5 h-3.5" /> WhatsApp</Button>
-            <Button size="sm" variant="outline" onClick={sendEmail} disabled={sendingEmail} className="border-blue-700/40 text-blue-300 hover:bg-blue-500/10 gap-2">{sendingEmail ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />} מייל</Button>
           </div>
           <div className="flex items-center justify-center gap-2 text-cyan-300 text-sm pt-2">
             <Loader2 className="w-4 h-4 animate-spin" />
