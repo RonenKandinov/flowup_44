@@ -191,6 +191,15 @@ export default function ForPartners() {
         </Card>
       </section>
 
+      <section className="relative z-10 px-6 pb-4 max-w-6xl mx-auto text-center">
+        <Button asChild variant="outline" className="bg-slate-800/50 border-slate-700 text-slate-200 hover:bg-slate-700 h-11 px-6">
+          <Link to="/">
+            <ArrowLeft className="w-4 h-4 ml-2 rotate-180" />
+            חזרה למסך הבית
+          </Link>
+        </Button>
+      </section>
+
       <footer className="relative z-10 px-6 py-8 max-w-6xl mx-auto border-t border-slate-800 mt-10">
         <div className="flex justify-between items-center text-sm text-slate-500 flex-wrap gap-3">
           <span>© FlowUp — פלטפורמת חיתום חכמה</span>

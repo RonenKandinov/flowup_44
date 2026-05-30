@@ -104,7 +104,7 @@ export default function Landing() {
                                 >
                                     <Link to="/for-partners">
                                         <Briefcase className="w-4 h-4 ml-2" />
-                                        איך זה עובד לשותפים
+                                        איך זה עובד
                                     </Link>
                                 </Button>
                             </div>
