@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserPlus, Loader2, Copy, Send, Link as LinkIcon, X } from 'lucide-react';
+import { UserPlus, Loader2, Copy, Send, Link as LinkIcon, Mail, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 /**
@@ -20,7 +20,8 @@ export default function CustomerGateModal({ onClose, onCustomerActivated }) {
   const [phase, setPhase] = useState('form'); // form | sent | waiting
   const [creating, setCreating] = useState(false);
   const [partnerId, setPartnerId] = useState('');
-  const [form, setForm] = useState({ name: '', customerId: '', phone: '' });
+  const [form, setForm] = useState({ name: '', customerId: '', phone: '', email: '' });
+  const [sendingEmail, setSendingEmail] = useState(false);
   const [session, setSession] = useState(null); // { session_id, link, expires_at }
 
   const { data: partners = [] } = useQuery({
@@ -61,6 +62,7 @@ export default function CustomerGateModal({ onClose, onCustomerActivated }) {
         customer_name: form.name,
         customer_id: form.customerId.trim(),
         customer_phone: form.phone.trim(),
+        customer_email: form.email.trim(),
         base_url: window.location.origin
       });
       const data = res?.data || res;
@@ -79,6 +81,24 @@ export default function CustomerGateModal({ onClose, onCustomerActivated }) {
     const msg = `שלום, להמשך בקשת האשראי אנא חבר את חשבון הבנק שלך בקישור המאובטח: ${session.link}`;
     const clean = String(form.phone || '').replace(/\D/g, '');
     window.open(`https://wa.me/${clean}?text=${encodeURIComponent(msg)}`, '_blank');
+  };
+  const sendEmail = async () => {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) { toast.error('נא להזין כתובת אימייל תקינה'); return; }
+    setSendingEmail(true);
+    try {
+      const res = await base44.functions.invoke('sendOnboardingEmail', {
+        to: form.email.trim(),
+        customer_name: form.name,
+        link: session.link
+      });
+      const data = res?.data || res;
+      if (data?.error) throw new Error(data.error);
+      toast.success('הקישור נשלח לאימייל הלקוח');
+    } catch (err) {
+      toast.error(err?.message || 'שליחת המייל נכשלה');
+    } finally {
+      setSendingEmail(false);
+    }
   };
 
   return (
@@ -116,17 +136,21 @@ export default function CustomerGateModal({ onClose, onCustomerActivated }) {
           )}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label className="text-slate-300 text-xs">שם הלקוח</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="ישראל ישראלי" className="bg-slate-800 border-slate-700 text-slate-200 mt-1" />
+              <Label className="text-slate-300 text-xs">שם הלקוח <span className="text-red-400">*</span></Label>
+              <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="ישראל ישראלי" className="bg-slate-800 border-slate-700 text-slate-200 mt-1" />
             </div>
             <div>
-              <Label className="text-slate-300 text-xs">תעודת זהות</Label>
-              <Input value={form.customerId} maxLength="9" onChange={(e) => setForm({ ...form, customerId: e.target.value.replace(/\D/g, '') })} placeholder="9 ספרות" className="bg-slate-800 border-slate-700 text-slate-200 mt-1" />
+              <Label className="text-slate-300 text-xs">תעודת זהות <span className="text-red-400">*</span></Label>
+              <Input required value={form.customerId} maxLength="9" onChange={(e) => setForm({ ...form, customerId: e.target.value.replace(/\D/g, '') })} placeholder="9 ספרות" className="bg-slate-800 border-slate-700 text-slate-200 mt-1" />
             </div>
           </div>
           <div>
             <Label className="text-slate-300 text-xs">טלפון</Label>
             <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="972501234567" dir="ltr" className="bg-slate-800 border-slate-700 text-slate-200 mt-1 text-left" />
+          </div>
+          <div>
+            <Label className="text-slate-300 text-xs">אימייל (לשליחה במייל)</Label>
+            <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="customer@email.com" dir="ltr" className="bg-slate-800 border-slate-700 text-slate-200 mt-1 text-left" />
           </div>
           <Button type="submit" disabled={creating} className="w-full bg-blue-600 hover:bg-blue-500 text-white h-11 gap-2">
             {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <LinkIcon className="w-4 h-4" />}
@@ -143,6 +167,7 @@ export default function CustomerGateModal({ onClose, onCustomerActivated }) {
           <div className="flex gap-2 justify-center">
             <Button size="sm" variant="outline" onClick={copy} className="border-slate-700 text-slate-200 hover:bg-slate-800 gap-2"><Copy className="w-3.5 h-3.5" /> העתק</Button>
             <Button size="sm" variant="outline" onClick={sendWhatsApp} className="border-emerald-700/40 text-emerald-300 hover:bg-emerald-500/10 gap-2"><Send className="w-3.5 h-3.5" /> WhatsApp</Button>
+            <Button size="sm" variant="outline" onClick={sendEmail} disabled={sendingEmail} className="border-blue-700/40 text-blue-300 hover:bg-blue-500/10 gap-2">{sendingEmail ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />} מייל</Button>
           </div>
           <div className="flex items-center justify-center gap-2 text-cyan-300 text-sm pt-2">
             <Loader2 className="w-4 h-4 animate-spin" />
