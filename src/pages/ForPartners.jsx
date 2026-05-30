@@ -10,9 +10,9 @@ import { base44 } from '@/api/base44Client';
 
 const VALUE_PROPS = [
   { icon: Zap, title: 'תשובה ללקוח תוך דקות', desc: 'במקום שבוע של איסוף מסמכים אתה נותן תשובה באותה פגישה.' },
-  { icon: TrendingUp, title: 'יותר עסקאות שיוצאות לפועל', desc: 'כשעסקה לא מסתדרת בתנאים הרגילים אנחנו מציעים מבנה החזר מותאם שמאפשר לסגור.' },
+  { icon: TrendingUp, title: 'יותר עסקאות שנסגרות', desc: 'גם כשעסקה לא עומדת בתנאים הרגילים — אנחנו בונים מבנה החזר מותאם שמאפשר ללקוח לסגור אותה.' },
   { icon: BarChart3, title: 'מבט אמיתי על תזרים העסק', desc: 'איך הכנסות נכנסות איך הוצאות יוצאות ומתי בחודש נוצר לחץ נזילות.' },
-  { icon: Lock, title: 'בסטנדרט של בנק ישראל', desc: 'חיבור מאובטח לבנקים והגנה על נתוני הלקוחות שלך.' },
+  { icon: Lock, title: 'סטנדרט אבטחה כללי', desc: 'חיבור מאובטח לבנקים והגנה על נתוני הלקוחות שלך.' },
 ];
 
 const STEPS = [
@@ -68,7 +68,7 @@ export default function ForPartners() {
           </p>
           <div className="flex gap-3 justify-center flex-wrap">
             <Button asChild className="bg-cyan-600 hover:bg-cyan-500 text-white h-12 px-8 text-base">
-              <a href="#signup">הצטרף עכשיו <ArrowLeft className="w-4 h-4 mr-2" /></a>
+              <a href="#signup">הצטרף עכשיו</a>
             </Button>
             <Button asChild variant="outline" className="bg-slate-800/50 border-slate-700 text-slate-200 hover:bg-slate-700 h-12 px-8 text-base">
               <a href="#demo">צפה בהדגמה</a>
@@ -125,11 +125,7 @@ export default function ForPartners() {
             </React.Fragment>
           ))}
         </div>
-        <div className="mt-10 text-center">
-          <Button asChild variant="outline" className="bg-slate-800/50 border-slate-700 text-slate-200 hover:bg-slate-700">
-            <Link to="/partner-portal">לחווית הניהול של השותף <ArrowLeft className="w-4 h-4 mr-2" /></Link>
-          </Button>
-        </div>
+
       </section>
 
       {/* Trust Bar */}
@@ -138,7 +134,7 @@ export default function ForPartners() {
           <div className="grid md:grid-cols-3 gap-6 text-center">
             <div>
               <ShieldCheck className="w-8 h-8 text-emerald-400 mx-auto mb-3" />
-              <div className="font-semibold text-white">עובדים מול הבנקים בישראל</div>
+              <div className="font-semibold text-white">סטנדרט אבטחה כללי</div>
               <div className="text-slate-400 text-sm mt-1">חיבור ישיר ומאובטח לכל הבנקים המובילים</div>
             </div>
             <div>
