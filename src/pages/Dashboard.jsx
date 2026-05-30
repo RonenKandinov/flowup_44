@@ -20,6 +20,7 @@ import InsightsAgent from '../components/dashboard/InsightsAgent'; // New
 import EmptyState from '../components/dashboard/EmptyState';
 import Disclaimer from '../components/dashboard/Disclaimer';
 import OpenFinanceConnect from '../components/connect/OpenFinanceConnect';
+import CustomerGateModal from '../components/dashboard/CustomerGateModal';
 
 import { useTransactionSync } from '../components/hooks/useTransactionSync';
 import { useLoanMetrics } from '../components/hooks/useLoanMetrics';
@@ -80,6 +81,10 @@ function generateLocalInsights(metrics) {
 
 export default function Dashboard() {
   const [showOpenFinance, setShowOpenFinance] = useState(false);
+  const [showCustomerGate, setShowCustomerGate] = useState(false);
+  const [activeCustomerId, setActiveCustomerId] = useState(() => {
+    try { return localStorage.getItem('flowup_active_customer_id') || ''; } catch { return ''; }
+  });
   const [whatIfAmount, setWhatIfAmount] = useState(0);
   const [whatIfName, setWhatIfName] = useState('');
   const [localData, setLocalData] = useState(null);
@@ -137,7 +142,9 @@ export default function Dashboard() {
   });
 
   const { sync, data: loanLogicData, isLoading: isSyncing, metrics: loanMetrics } = useTransactionSync();
-  const { metrics: originalLoanMetrics, isLoading: isLoanMetricsLoading, error: loanMetricsError, refetch: refetchLoanMetrics } = useLoanMetrics(user?.email || user?.id, targetAccountId || null);
+  // When an analyst is viewing a customer, the customer's id overrides the analyst's own id.
+  const effectiveUserId = activeCustomerId || user?.email || user?.id;
+  const { metrics: originalLoanMetrics, isLoading: isLoanMetricsLoading, error: loanMetricsError, refetch: refetchLoanMetrics } = useLoanMetrics(effectiveUserId, targetAccountId || null);
   const newLoanMetrics = simulatedMetrics || originalLoanMetrics;
   const queryClient = useQueryClient();
 
@@ -774,6 +781,23 @@ export default function Dashboard() {
     }
   };
 
+  // Context switch: clear the previous customer's view and load the newly-verified customer.
+  const handleCustomerActivated = (customerId) => {
+    setLocalData(null);
+    setEngineData(null);
+    setSimulatedMetrics(null);
+    setRescueBundle(null);
+    setSavedAnalysisId(null);
+    try {
+      Object.keys(sessionStorage).filter(k => k.startsWith('loanMetricsCache')).forEach(k => sessionStorage.removeItem(k));
+    } catch (_) {}
+    queryClient.removeQueries({ queryKey: ['ai-insights-v7'] });
+    queryClient.removeQueries({ queryKey: ['cash-flow-profile-v1'] });
+    setActiveCustomerId(customerId);
+    try { localStorage.setItem('flowup_active_customer_id', customerId); } catch (_) {}
+    setShowCustomerGate(false);
+  };
+
   if (isProcessingCallback) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-4">
@@ -807,6 +831,11 @@ export default function Dashboard() {
               FlowUp
             </h1>
             <p className="text-slate-500 text-xs mt-2 tracking-[0.2em] uppercase">FutureFlow Dashboard</p>
+            {activeCustomerId && (
+              <span className="inline-block mt-2 text-[11px] font-medium text-cyan-300 bg-cyan-500/10 border border-cyan-500/30 rounded-full px-3 py-0.5">
+                לקוח פעיל: {activeCustomerId}
+              </span>
+            )}
           </div>
           
           <div className="flex items-center gap-3 flex-wrap">
@@ -840,13 +869,13 @@ export default function Dashboard() {
               </Button>
             )}
             <Button
-              onClick={() => setShowOpenFinance(true)}
+              onClick={() => setShowCustomerGate(true)}
               variant="ghost"
               size="sm"
               className="bg-blue-600/20 border border-blue-500/40 text-blue-300 hover:bg-blue-600/40 hover:text-white hover:border-blue-400/60 transition-all h-8 px-3 rounded-md shadow-sm shadow-blue-500/10"
             >
               <Plus className="w-3 h-3 ml-1.5" />
-              <span className="text-[11px] font-medium">חבר חשבון בנק</span>
+              <span className="text-[11px] font-medium">{activeCustomerId ? 'החלף לקוח' : 'חבר לקוח'}</span>
             </Button>
             <Button
               asChild
@@ -1105,6 +1134,24 @@ export default function Dashboard() {
                     setShowOpenFinance(false);
                 }} 
              />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Customer gate — dual-purpose: pick a new customer OR switch the active one */}
+      <AnimatePresence>
+        {showCustomerGate && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={(e) => e.target === e.currentTarget && setShowCustomerGate(false)}
+          >
+            <CustomerGateModal
+              onClose={() => setShowCustomerGate(false)}
+              onCustomerActivated={handleCustomerActivated}
+            />
           </motion.div>
         )}
       </AnimatePresence>
