@@ -263,13 +263,24 @@ export default Deno.serve(async (req) => {
         base_url = ''
       } = body || {};
 
-      if (!b2b_partner_id) {
-        return Response.json({ error: 'b2b_partner_id is required' }, { status: 400 });
+      // Partner is optional for the analyst gate: fall back to the first active partner,
+      // and auto-create an internal 'FlowUp' house partner if none exist yet.
+      let partner = null;
+      if (b2b_partner_id) {
+        partner = await base44.asServiceRole.entities.B2BPartner.get(b2b_partner_id).catch(() => null);
       }
-
-      const partner = await base44.asServiceRole.entities.B2BPartner.get(b2b_partner_id).catch(() => null);
       if (!partner || !partner.active) {
-        return Response.json({ error: 'Partner not found or inactive' }, { status: 404 });
+        const actives = await base44.asServiceRole.entities.B2BPartner.filter({ active: true }).catch(() => []);
+        partner = actives[0] || null;
+      }
+      if (!partner) {
+        const origin = String(base_url || '').replace(/\/$/, '');
+        partner = await base44.asServiceRole.entities.B2BPartner.create({
+          name: 'FlowUp',
+          api_key: randomToken(24),
+          webhook_url: `${origin}/api/noop`,
+          active: true
+        });
       }
 
       const rawToken = randomToken(32);

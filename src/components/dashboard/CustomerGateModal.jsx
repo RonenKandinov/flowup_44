@@ -20,7 +20,7 @@ export default function CustomerGateModal({ onClose, onCustomerActivated }) {
   const [phase, setPhase] = useState('form'); // form | sent | waiting
   const [creating, setCreating] = useState(false);
   const [partnerId, setPartnerId] = useState('');
-  const [form, setForm] = useState({ name: '', customerId: '', phone: '', email: '', amount: '' });
+  const [form, setForm] = useState({ name: '', customerId: '', phone: '' });
   const [session, setSession] = useState(null); // { session_id, link, expires_at }
 
   const { data: partners = [] } = useQuery({
@@ -50,9 +50,9 @@ export default function CustomerGateModal({ onClose, onCustomerActivated }) {
 
   const handleCreate = async (e) => {
     e.preventDefault();
+    if (!form.name.trim()) { toast.error('נא להזין שם לקוח'); return; }
     if (!/^[0-9]{9}$/.test(form.customerId.trim())) { toast.error('תעודת זהות חייבת להיות 9 ספרות'); return; }
-    if (!form.phone.trim()) { toast.error('נא להזין מספר טלפון של הלקוח'); return; }
-    if (!partnerId) { toast.error('לא נמצא שותף פעיל ליצירת הקישור'); return; }
+    if (!/^[0-9]{9,15}$/.test(form.phone.replace(/\D/g, ''))) { toast.error('נא להזין מספר טלפון תקין'); return; }
     setCreating(true);
     try {
       const res = await base44.functions.invoke('b2bService', {
@@ -61,7 +61,6 @@ export default function CustomerGateModal({ onClose, onCustomerActivated }) {
         customer_name: form.name,
         customer_id: form.customerId.trim(),
         customer_phone: form.phone.trim(),
-        requested_amount: form.amount ? Number(form.amount) : null,
         base_url: window.location.origin
       });
       const data = res?.data || res;
@@ -125,15 +124,9 @@ export default function CustomerGateModal({ onClose, onCustomerActivated }) {
               <Input value={form.customerId} maxLength="9" onChange={(e) => setForm({ ...form, customerId: e.target.value.replace(/\D/g, '') })} placeholder="9 ספרות" className="bg-slate-800 border-slate-700 text-slate-200 mt-1" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-slate-300 text-xs">טלפון (חובה)</Label>
-              <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="972501234567" dir="ltr" className="bg-slate-800 border-slate-700 text-slate-200 mt-1 text-left" />
-            </div>
-            <div>
-              <Label className="text-slate-300 text-xs">סכום מבוקש (₪)</Label>
-              <Input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="50000" className="bg-slate-800 border-slate-700 text-slate-200 mt-1" />
-            </div>
+          <div>
+            <Label className="text-slate-300 text-xs">טלפון</Label>
+            <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="972501234567" dir="ltr" className="bg-slate-800 border-slate-700 text-slate-200 mt-1 text-left" />
           </div>
           <Button type="submit" disabled={creating} className="w-full bg-blue-600 hover:bg-blue-500 text-white h-11 gap-2">
             {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <LinkIcon className="w-4 h-4" />}
