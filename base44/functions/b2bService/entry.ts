@@ -288,7 +288,7 @@ export default Deno.serve(async (req) => {
       const expiresAt = new Date(Date.now() + TTL_HOURS * 60 * 60 * 1000).toISOString();
 
       const session = await base44.asServiceRole.entities.CustomerOnboardingSession.create({
-        b2b_partner_id,
+        b2b_partner_id: partner.id,
         b2b_partner_name: partner.name,
         customer_name,
         customer_id,
