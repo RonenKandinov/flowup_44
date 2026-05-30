@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ShieldCheck, Cpu, Sparkles, ArrowLeft, Lock, Activity } from 'lucide-react';
+import { ShieldCheck, Cpu, Sparkles, Lock, Activity, Briefcase } from 'lucide-react';
 
 const FEATURES = [
     {
@@ -90,13 +90,24 @@ export default function Landing() {
                         </p>
 
                         <div className="flex flex-col items-center gap-4 mt-12">
-                            <Button
-                                onClick={handleLogin}
-                                className="bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-semibold h-11 px-8 shadow-xl shadow-cyan-500/30 border-0 text-sm tracking-wide"
-                            >
-                                כניסה למערכת
-                                <ArrowLeft className="w-3.5 h-3.5 mr-1.5" />
-                            </Button>
+                            <div className="flex flex-col sm:flex-row items-center gap-3">
+                                <Button
+                                    onClick={handleLogin}
+                                    className="bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-semibold h-11 px-8 shadow-xl shadow-cyan-500/30 border-0 text-sm tracking-wide"
+                                >
+                                    כניסה למערכת
+                                </Button>
+                                <Button
+                                    asChild
+                                    variant="outline"
+                                    className="h-11 px-6 bg-transparent border-cyan-400/30 text-cyan-200 hover:bg-cyan-500/10 hover:text-cyan-100 hover:border-cyan-300/60 text-sm tracking-wide"
+                                >
+                                    <Link to="/for-partners">
+                                        <Briefcase className="w-4 h-4 ml-2" />
+                                        איך זה עובד לשותפים
+                                    </Link>
+                                </Button>
+                            </div>
 
                             <p className="text-slate-500 text-[11px] tracking-wider flex items-center justify-center gap-1.5">
                                 <Lock className="w-3 h-3" />
