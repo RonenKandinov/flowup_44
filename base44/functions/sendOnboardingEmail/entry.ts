@@ -13,26 +13,45 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Missing email or link' }, { status: 400 });
     }
 
+    const apiKey = Deno.env.get('RESEND_API_KEY');
+    if (!apiKey) {
+      return Response.json({ error: 'RESEND_API_KEY not configured' }, { status: 500 });
+    }
+
     const safeName = customer_name || 'לקוח/ה יקר/ה';
-    const body = `שלום ${safeName},
+    const html = `
+      <div dir="rtl" style="font-family:Arial,sans-serif;font-size:15px;color:#1e293b;line-height:1.7">
+        <p>שלום ${safeName},</p>
+        <p>לצורך המשך טיפול בבקשת האשראי שלך, אנא חבר/י את חשבון הבנק שלך באמצעות הקישור המאובטח הבא:</p>
+        <p style="margin:24px 0">
+          <a href="${link}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block">
+            חיבור חשבון הבנק
+          </a>
+        </p>
+        <p style="font-size:13px;color:#64748b">הקישור מאובטח וחד-פעמי. אם לא ביקשת זאת, ניתן להתעלם מהודעה זו.</p>
+        <p style="font-size:13px;color:#64748b">בברכה,<br/>צוות FlowUp</p>
+      </div>`;
 
-לצורך המשך טיפול בבקשת האשראי שלך, אנא חבר/י את חשבון הבנק שלך באמצעות הקישור המאובטח הבא:
-
-${link}
-
-הקישור מאובטח וחד-פעמי. אם לא ביקשת זאת, ניתן להתעלם מהודעה זו.
-
-בברכה,
-צוות FlowUp`;
-
-    await base44.integrations.Core.SendEmail({
-      from_name: 'FlowUp',
-      to,
-      subject: 'חיבור חשבון הבנק להמשך בקשת האשראי — FlowUp',
-      body
+    const resp = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: 'FlowUp <onboarding@resend.dev>',
+        to: [to],
+        subject: 'חיבור חשבון הבנק להמשך בקשת האשראי — FlowUp',
+        html
+      })
     });
 
-    return Response.json({ success: true });
+    const data = await resp.json();
+    if (!resp.ok) {
+      return Response.json({ error: data?.message || 'Email sending failed' }, { status: 502 });
+    }
+
+    return Response.json({ success: true, id: data?.id });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
