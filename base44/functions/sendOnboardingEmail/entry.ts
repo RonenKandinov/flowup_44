@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        from: 'FlowUp <onboarding@resend.dev>',
+        from: 'FlowUp <noreply@flowupfinance.com>',
         to: [to],
         subject: 'חיבור חשבון הבנק להמשך בקשת האשראי — FlowUp',
         html
