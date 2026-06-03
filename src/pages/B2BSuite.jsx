@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Briefcase, FileText, Droplets, Cpu, PhoneCall, ArrowRight, ScanLine, Banknote, Repeat } from 'lucide-react';
+import { Briefcase, FileText, Droplets, Cpu, PhoneCall, ArrowRight, Banknote, Repeat } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { useSelectedAccount } from '@/components/hooks/useSelectedAccount';
@@ -9,13 +9,11 @@ import { useSelectedAccount } from '@/components/hooks/useSelectedAccount';
 import WorkingCapitalTab from '../components/b2b/WorkingCapitalTab';
 import UnderwritingInfraTab from '../components/b2b/UnderwritingInfraTab';
 import CollectionsTab from '../components/b2b/CollectionsTab';
-import CheckDiscountTab from '../components/b2b/CheckDiscountTab';
 import B2BFinancingTab from '../components/b2b/B2BFinancingTab';
 import DirectDebitsTab from '../components/b2b/DirectDebitsTab';
 import LoanLogicSummary from '../components/b2b/LoanLogicSummary';
 
 const TABS = [
-    { id: 'check_discount', label: 'ניכיון צ׳קים', icon: ScanLine, Component: CheckDiscountTab },
     { id: 'financing', label: 'מימון עסקי', icon: Banknote, Component: B2BFinancingTab },
     { id: 'direct_debits', label: 'הרשאות חיוב', icon: Repeat, Component: DirectDebitsTab },
     { id: 'working_capital', label: 'הון חוזר', icon: Droplets, Component: WorkingCapitalTab },
@@ -24,7 +22,7 @@ const TABS = [
 ];
 
 export default function B2BSuite() {
-    const [active, setActive] = useState('check_discount');
+    const [active, setActive] = useState('financing');
     // Read the selected account so the "back to dashboard" link preserves it.
     const { accountId } = useSelectedAccount();
     const dashboardHref = accountId ? `/Dashboard?accountId=${accountId}` : '/Dashboard';

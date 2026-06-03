@@ -148,37 +148,6 @@ export default function Dashboard() {
   const newLoanMetrics = simulatedMetrics || originalLoanMetrics;
   const queryClient = useQueryClient();
 
-  const exportSnapshotsToSheetsMutation = useMutation({
-    mutationFn: async () => {
-      const report = {
-        email: user?.email || '',
-        score: newLoanMetrics?.score ?? '',
-        risk_level: serverInsights?.risk_tier || newLoanMetrics?.status || snapshot?.risk_level || '',
-        dsr: newLoanMetrics?.dsr ?? '',
-        dti: newLoanMetrics?.dti ?? '',
-        ltv: newLoanMetrics?.ltv ?? '',
-        total_income: newLoanMetrics?.totalIncome ?? snapshot?.total_income ?? '',
-        total_expenses: newLoanMetrics?.totalExpenses ?? snapshot?.total_expenses ?? '',
-        fixed_expenses: newLoanMetrics?.totalFixedExpenses ?? '',
-        liquid_assets: newLoanMetrics?.liquidAssets ?? snapshot?.current_balance ?? '',
-        projected_eom_balance: snapshot?.projected_eom_balance ?? '',
-        recommendation: serverInsights?.executive_summary || ''
-      };
-
-      const response = await base44.functions.invoke('exportFinancialSnapshotsToGoogleSheets', { report });
-      return response.data;
-    },
-    onSuccess: (data) => {
-      toast.success('דוח החיתום הופק בהצלחה');
-      if (data.spreadsheetUrl) {
-        window.open(data.spreadsheetUrl, '_blank');
-      }
-    },
-    onError: () => {
-      toast.error('הפקת דוח החיתום נכשלה');
-    }
-  });
-
   // Load from Local Storage on mount (skip when no token to avoid 500 in console)
   useEffect(() => {
     if (!appParams.token) {
@@ -855,18 +824,6 @@ export default function Dashboard() {
                   </SelectContent>
                 </Select>
               </div>
-            )}
-            {hasData && (
-              <Button
-                onClick={() => exportSnapshotsToSheetsMutation.mutate()}
-                disabled={exportSnapshotsToSheetsMutation.isPending}
-                variant="outline"
-                size="sm"
-                className="bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/40 hover:text-white hover:border-emerald-400/60 transition-all h-8 px-3 rounded-md shadow-sm shadow-emerald-500/10"
-              >
-                <RefreshCw className={`w-3 h-3 ml-1.5 ${exportSnapshotsToSheetsMutation.isPending ? 'animate-spin' : ''}`} />
-                <span className="text-[11px] font-medium">הפק דוח חיתום</span>
-              </Button>
             )}
             <Button
               onClick={() => setShowCustomerGate(true)}
