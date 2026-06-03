@@ -7,54 +7,60 @@ export const PROVIDERS = {
   leumi: {
     id: 'leumi',
     name: 'בנק לאומי',
-    displayName: 'LEUMI',
+    displayName: 'לאומי',
     color: '#E31937',
     logo: '🏦',
+    logoUrl: 'https://logo.clearbit.com/leumi.co.il',
     category: 'bank',
     supported: true
   },
   hapoalim: {
     id: 'hapoalim',
     name: 'בנק הפועלים',
-    displayName: 'POALIM',
+    displayName: 'הפועלים',
     color: '#0047BB',
     logo: '🏦',
+    logoUrl: 'https://logo.clearbit.com/bankhapoalim.co.il',
     category: 'bank',
     supported: true
   },
   mizrahi: {
     id: 'mizrahi',
     name: 'מזרחי טפחות',
-    displayName: 'MIZRAHI',
+    displayName: 'מזרחי טפחות',
     color: '#00A6A0',
     logo: '🏦',
+    logoUrl: 'https://logo.clearbit.com/mizrahi-tefahot.co.il',
     category: 'bank',
     supported: true
   },
   discount: {
     id: 'discount',
     name: 'בנק דיסקונט',
-    displayName: 'DISCOUNT',
+    displayName: 'דיסקונט',
     color: '#00529B',
     logo: '🏦',
+    logoUrl: 'https://logo.clearbit.com/discountbank.co.il',
     category: 'bank',
     supported: true
   },
   beinleumi: {
     id: 'beinleumi',
     name: 'הבינלאומי',
-    displayName: 'BEINLEUMI',
+    displayName: 'הבינלאומי',
     color: '#ED8B00',
     logo: '🏦',
+    logoUrl: 'https://logo.clearbit.com/fibi.co.il',
     category: 'bank',
     supported: true
   },
   yahavcredit: {
     id: 'yahavcredit',
     name: 'יהב - אשראי',
-    displayName: 'YAHAV',
+    displayName: 'יהב',
     color: '#4A5D23',
     logo: '💳',
+    logoUrl: 'https://logo.clearbit.com/bank-yahav.co.il',
     category: 'credit',
     supported: true
   }
