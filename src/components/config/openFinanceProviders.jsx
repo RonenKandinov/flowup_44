@@ -1,26 +1,22 @@
 /**
  * Open Finance Provider Configuration
- * Maps provider IDs to their display names, logos, and metadata
+ * Maps provider IDs to their display names and metadata
  */
 
 export const PROVIDERS = {
-  leumi: {
-    id: 'leumi',
-    name: 'בנק לאומי',
-    displayName: 'לאומי',
-    color: '#E31937',
-    logo: '🏦',
-    logoUrl: 'https://logo.clearbit.com/leumi.co.il',
-    category: 'bank',
-    supported: true
-  },
   hapoalim: {
     id: 'hapoalim',
     name: 'בנק הפועלים',
-    displayName: 'הפועלים',
+    displayName: 'בנק הפועלים',
     color: '#0047BB',
-    logo: '🏦',
-    logoUrl: 'https://logo.clearbit.com/bankhapoalim.co.il',
+    category: 'bank',
+    supported: true
+  },
+  leumi: {
+    id: 'leumi',
+    name: 'בנק לאומי',
+    displayName: 'בנק לאומי',
+    color: '#E31937',
     category: 'bank',
     supported: true
   },
@@ -29,18 +25,14 @@ export const PROVIDERS = {
     name: 'מזרחי טפחות',
     displayName: 'מזרחי טפחות',
     color: '#00A6A0',
-    logo: '🏦',
-    logoUrl: 'https://logo.clearbit.com/mizrahi-tefahot.co.il',
     category: 'bank',
     supported: true
   },
   discount: {
     id: 'discount',
     name: 'בנק דיסקונט',
-    displayName: 'דיסקונט',
+    displayName: 'בנק דיסקונט',
     color: '#00529B',
-    logo: '🏦',
-    logoUrl: 'https://logo.clearbit.com/discountbank.co.il',
     category: 'bank',
     supported: true
   },
@@ -49,19 +41,15 @@ export const PROVIDERS = {
     name: 'הבינלאומי',
     displayName: 'הבינלאומי',
     color: '#ED8B00',
-    logo: '🏦',
-    logoUrl: 'https://logo.clearbit.com/fibi.co.il',
     category: 'bank',
     supported: true
   },
   yahavcredit: {
     id: 'yahavcredit',
-    name: 'יהב - אשראי',
-    displayName: 'יהב',
+    name: 'בנק יהב',
+    displayName: 'בנק יהב',
     color: '#4A5D23',
-    logo: '💳',
-    logoUrl: 'https://logo.clearbit.com/bank-yahav.co.il',
-    category: 'credit',
+    category: 'bank',
     supported: true
   }
 };
