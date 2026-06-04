@@ -5,28 +5,27 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Users } from 'lucide-react';
 
 /**
- * Dropdown of customers who fully COMPLETED the onboarding flow
- * (CustomerOnboardingSession.status === 'completed'). Customers who stopped
- * mid-flow are intentionally excluded. Lets the analyst switch the active
- * customer in the dashboard. Renders nothing when there are no completed customers.
+ * Dropdown of customers we already ran an underwriting analysis on
+ * (UnderwritingAnalysis records). These are the real customers that have
+ * been processed end-to-end in the system. Lets the analyst switch the
+ * active customer in the dashboard. Renders nothing when there are none.
  */
 export default function CustomerSwitcher({ activeCustomerId, onSelect }) {
-  const { data: sessions = [] } = useQuery({
-    queryKey: ['completed-onboarding-sessions'],
-    queryFn: () =>
-      base44.entities.CustomerOnboardingSession.filter({ status: 'completed' }, '-completed_at', 100),
+  const { data: analyses = [] } = useQuery({
+    queryKey: ['underwritten-customers'],
+    queryFn: () => base44.entities.UnderwritingAnalysis.list('-created_date', 200),
   });
 
-  // De-dupe by customer id (one entry per customer, latest session wins)
+  // De-dupe by customer identity (one entry per customer, latest analysis wins)
   const customers = React.useMemo(() => {
     const map = new Map();
-    for (const s of sessions) {
-      const id = s.customer_id || s.customer_email;
+    for (const a of analyses) {
+      const id = a.user_id || a.user_email;
       if (!id || map.has(id)) continue;
-      map.set(id, { id, name: s.customer_name || id });
+      map.set(id, { id, name: a.user_email || id });
     }
     return Array.from(map.values());
-  }, [sessions]);
+  }, [analyses]);
 
   if (customers.length === 0) return null;
 
