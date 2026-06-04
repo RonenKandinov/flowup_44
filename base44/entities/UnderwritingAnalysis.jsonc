@@ -192,6 +192,10 @@
         }
       ]
     },
-    "delete": null
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
   }
 }
