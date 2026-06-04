@@ -21,6 +21,7 @@ import EmptyState from '../components/dashboard/EmptyState';
 import Disclaimer from '../components/dashboard/Disclaimer';
 import OpenFinanceConnect from '../components/connect/OpenFinanceConnect';
 import CustomerGateModal from '../components/dashboard/CustomerGateModal';
+import CustomerSwitcher from '../components/dashboard/CustomerSwitcher';
 
 import { useTransactionSync } from '../components/hooks/useTransactionSync';
 import { useLoanMetrics } from '../components/hooks/useLoanMetrics';
@@ -808,6 +809,10 @@ export default function Dashboard() {
           </div>
           
           <div className="flex items-center gap-3 flex-wrap">
+            <CustomerSwitcher
+              activeCustomerId={activeCustomerId}
+              onSelect={handleCustomerActivated}
+            />
             {originalLoanMetrics?.availableAccounts?.length > 0 && (
               <div className="w-56">
                 <Select value={targetAccountId || originalLoanMetrics.activeTargetAccountId || ''} onValueChange={setTargetAccountId}>
