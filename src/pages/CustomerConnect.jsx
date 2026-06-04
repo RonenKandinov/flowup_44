@@ -17,7 +17,17 @@ import { Card, CardContent } from '@/components/ui/card';
 export default function CustomerConnect() {
   const { sessionId } = useParams();
   const [searchParams] = useSearchParams();
-  const token = searchParams.get('t');
+
+  // The bank redirects back WITHOUT the token (?t=) — only with ?of_callback=1.
+  // So we persist the raw token on first landing and restore it on the way back.
+  const tokenKey = `onboarding_token_${sessionId}`;
+  const urlToken = searchParams.get('t');
+  const token = urlToken || (typeof window !== 'undefined' ? localStorage.getItem(tokenKey) : null);
+  const isCallback = searchParams.get('of_callback') === '1';
+
+  if (urlToken && typeof window !== 'undefined') {
+    localStorage.setItem(tokenKey, urlToken);
+  }
 
   const [session, setSession] = useState(null);
   const [step, setStep] = useState('validating'); // validating | welcome | connect | analyzing | success | error
@@ -43,7 +53,8 @@ export default function CustomerConnect() {
           return;
         }
         setSession(data);
-        setStep('welcome');
+        // If we're returning from the bank, jump straight to the callback handler
+        setStep(isCallback ? 'analyzing' : 'welcome');
       })
       .catch((err) => {
         const msg = err?.response?.data?.error || err?.message || 'שגיאה באימות הקישור';
@@ -88,6 +99,85 @@ export default function CustomerConnect() {
       setStep('error');
     }
   };
+
+  // Step 4 — Returning from the bank's consent page (?of_callback=1).
+  // The bank dropped our token, but we restored it from localStorage above.
+  // Here we poll Open Finance for the connection status, then fire underwriting.
+  useEffect(() => {
+    if (!isCallback || !session) return;
+
+    let cancelled = false;
+
+    const runCallback = async () => {
+      const connectionId = localStorage.getItem('of_pending_connection');
+      const psuId = session.customer_id || session.customer_email || sessionId;
+
+      if (!connectionId) {
+        setError('פג תוקף סשן החיבור. אנא נסו שוב מההתחלה.');
+        setStep('error');
+        return;
+      }
+
+      const READY = ['ACTIVE', 'COMPLETED', 'CONNECTED'];
+      const ERRORS = ['ERROR', 'FETCHING_ERROR', 'EXPIRED', 'REJECTED', 'REVOKED'];
+      let connStatus = 'INACTIVE';
+      let attempts = 0;
+
+      // Poll until the connection becomes active (data fetched) or fails
+      while (!READY.includes(connStatus) && !ERRORS.includes(connStatus) && attempts < 20 && !cancelled) {
+        await new Promise((r) => setTimeout(r, 3000));
+        try {
+          const res = await base44.functions.invoke('openFinanceAuth', {
+            action: 'check_status',
+            connectionId,
+            psuId
+          });
+          connStatus = res?.data?.status || 'UNKNOWN';
+        } catch (e) {
+          console.error('Status check error:', e);
+          break;
+        }
+        attempts++;
+      }
+
+      if (cancelled) return;
+
+      if (ERRORS.includes(connStatus)) {
+        setError(`החיבור לבנק נכשל (${connStatus}). אנא נסו שוב.`);
+        setStep('error');
+        return;
+      }
+
+      // Connection ready → mark session analyzing + fire underwriting in the background
+      try {
+        await base44.functions.invoke('b2bService', {
+          action: 'update_onboarding_session',
+          session_id: sessionId,
+          status: 'analyzing',
+          connection_id: connectionId
+        }).catch(() => {});
+
+        base44.functions.invoke('b2bService', {
+          action: 'process_underwriting',
+          partner_id: session.b2b_partner_id,
+          customer_id: session.customer_id || sessionId,
+          connection_id: connectionId,
+          psu_id: psuId,
+          onboarding_session_id: sessionId
+        }).catch((err) => console.error('Background underwriting failed:', err));
+
+        localStorage.removeItem('of_pending_connection');
+        localStorage.removeItem('of_pending_provider');
+        setStep('success');
+      } catch (err) {
+        setError(err?.message || 'שגיאה בשלב הניתוח');
+        setStep('error');
+      }
+    };
+
+    runCallback();
+    return () => { cancelled = true; };
+  }, [isCallback, session, sessionId]);
 
   // ── Error ──
   if (step === 'error') {
