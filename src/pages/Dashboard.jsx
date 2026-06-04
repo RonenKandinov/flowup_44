@@ -809,6 +809,10 @@ export default function Dashboard() {
           </div>
           
           <div className="flex items-center gap-3 flex-wrap">
+            <CustomerSwitcher
+              activeCustomerId={activeCustomerId}
+              onSelect={handleCustomerActivated}
+            />
             {originalLoanMetrics?.availableAccounts?.length > 0 && (
               <div className="w-56">
                 <Select value={targetAccountId || originalLoanMetrics.activeTargetAccountId || ''} onValueChange={setTargetAccountId}>
@@ -835,10 +839,6 @@ export default function Dashboard() {
               <Plus className="w-3 h-3 ml-1.5" />
               <span className="text-[11px] font-medium">{activeCustomerId ? 'החלף לקוח' : 'חבר לקוח'}</span>
             </Button>
-            <CustomerSwitcher
-              activeCustomerId={activeCustomerId}
-              onSelect={handleCustomerActivated}
-            />
             <Button
               asChild
               variant="ghost"
