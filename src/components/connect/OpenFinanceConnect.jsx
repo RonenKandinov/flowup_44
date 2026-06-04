@@ -6,25 +6,6 @@ import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import { getSupportedProviders } from '@/components/config/openFinanceProviders';
 
-function BankLogo({ provider }) {
-  const [failed, setFailed] = useState(false);
-  if (failed || !provider.logoUrl) {
-    return (
-      <span className="w-7 h-7 shrink-0 flex items-center justify-center text-lg bg-white/5 rounded-md">
-        {provider.logo}
-      </span>
-    );
-  }
-  return (
-    <img
-      src={provider.logoUrl}
-      alt={provider.displayName}
-      onError={() => setFailed(true)}
-      className="w-7 h-7 shrink-0 rounded-md object-contain bg-white p-0.5"
-    />
-  );
-}
-
 export default function OpenFinanceConnect({ onConnected, inline = false, defaultId = '' }) {
   const [status, setStatus] = useState('idle'); // idle, email_required, connecting, redirecting, success
   const [selectedProvider, setSelectedProvider] = useState(null);
@@ -132,21 +113,25 @@ export default function OpenFinanceConnect({ onConnected, inline = false, defaul
               provider.comingSoon ? (
                 <div
                   key={provider.id}
-                  className="relative bg-slate-800/30 rounded-lg p-3 flex items-center gap-2.5 border border-slate-700/50 opacity-50 cursor-not-allowed"
+                  className="relative bg-slate-800/30 rounded-lg p-3 flex items-center justify-center border border-slate-700/50 opacity-50 cursor-not-allowed"
                 >
-                  <BankLogo provider={provider} />
-                  <span className="text-xs text-slate-500 font-medium truncate">{provider.displayName}</span>
-                  <span className="absolute top-1 left-1 text-[8px] bg-slate-700 text-slate-400 px-1 rounded">בקרוב</span>
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-xl">{provider.logo}</span>
+                    <span className="text-[10px] text-slate-500 font-medium">{provider.displayName}</span>
+                  </div>
+                  <span className="absolute top-1 right-1 text-[8px] bg-slate-700 text-slate-400 px-1 rounded">בקרוב</span>
                 </div>
               ) : (
                 <Button
                   key={provider.id}
                   onClick={() => handleConnect(provider.id)}
                   variant="outline"
-                  className="bg-slate-800/50 hover:bg-slate-700 rounded-lg p-3 h-auto flex items-center justify-start gap-2.5 border border-slate-700 hover:border-cyan-500 transition-all"
+                  className="bg-slate-800/50 hover:bg-slate-700 rounded-lg p-3 flex items-center justify-center border border-slate-700 hover:border-cyan-500 transition-all"
                 >
-                  <BankLogo provider={provider} />
-                  <span className="text-xs text-slate-300 font-medium truncate">{provider.displayName}</span>
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-xl">{provider.logo}</span>
+                    <span className="text-[10px] text-slate-400 font-medium">{provider.displayName}</span>
+                  </div>
                 </Button>
               )
             ))}
@@ -161,8 +146,32 @@ export default function OpenFinanceConnect({ onConnected, inline = false, defaul
             className="w-full bg-blue-600 hover:bg-blue-500 text-white h-12 rounded-xl text-base shadow-lg shadow-blue-900/20"
           >
             <Lock className="w-4 h-4 mr-2" />
-            התחבר מאובטח
+            התחבר מאובטח (מזרחי)
           </Button>
+
+          <div className="flex gap-2 mt-3 w-full">
+            <Button
+              onClick={() => handleConnect('mizrahi-sandbox')}
+              variant="outline"
+              className="flex-1 bg-slate-800/50 border-slate-700 text-slate-300 hover:bg-slate-700 h-10 text-xs"
+            >
+              מזרחי Sandbox
+            </Button>
+            <Button
+              onClick={() => handleConnect('leumi-sandbox')}
+              variant="outline"
+              className="flex-1 bg-slate-800/50 border-slate-700 text-slate-300 hover:bg-slate-700 h-10 text-xs"
+            >
+              לאומי Sandbox
+            </Button>
+            <Button
+              onClick={() => handleConnect('hapoalim-sandbox')}
+              variant="outline"
+              className="flex-1 bg-slate-800/50 border-slate-700 text-slate-300 hover:bg-slate-700 h-10 text-xs"
+            >
+              פועלים Sandbox
+            </Button>
+          </div>
 
           <div className="flex items-center justify-center gap-2 mt-4 text-[10px] text-slate-500">
             <ShieldCheck className="w-3 h-3" />
