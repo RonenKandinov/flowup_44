@@ -187,35 +187,6 @@ function detectSelfTransfers(transactions, parseAmount) {
     return matched;
 }
 
-/**
- * Tolerant account-id matcher.
- *
- * The UI passes a composite account id like:
- *   ACCOUNT#TYPE#CHECKING#PROVIDER#leumi#RESOURCE#0b7a49d5-...
- * while individual accounts/transactions from Open Finance may carry the id in
- * different shapes (full composite, just the RESOURCE uuid, accountId, accountNumber).
- * An exact === comparison silently filters EVERYTHING out → "no transactions found"
- * → the dashboard shows ₪0. This matcher compares on the meaningful identifiers
- * (full id, and the trailing RESOURCE uuid) so a single-account view still works.
- */
-function extractResourceId(compositeId) {
-    if (!compositeId) return null;
-    const s = String(compositeId);
-    const marker = '#RESOURCE#';
-    const idx = s.indexOf(marker);
-    return idx !== -1 ? s.slice(idx + marker.length) : s;
-}
-
-function idMatches(candidate, target) {
-    if (!candidate || !target) return false;
-    const c = String(candidate);
-    const t = String(target);
-    if (c === t) return true;
-    const cRes = extractResourceId(c);
-    const tRes = extractResourceId(t);
-    return Boolean(cRes && tRes && cRes === tRes);
-}
-
 function extractBalance(acc) {
     let balance = 0;
     let extractionPath = 'none';
@@ -457,11 +428,7 @@ Deno.serve(withValidation(loanLogicSchema, async (req) => {
 
                 // Filter to activeTargetAccountId if provided (skip if 'all' is selected to aggregate multiple banks)
                 if (activeTargetAccountId && activeTargetAccountId !== 'all') {
-                    accounts = accounts.filter(acc =>
-                        idMatches(acc.id, activeTargetAccountId) ||
-                        idMatches(acc.accountId, activeTargetAccountId) ||
-                        idMatches(acc.accountNumber, activeTargetAccountId)
-                    );
+                    accounts = accounts.filter(acc => String(acc.id || acc.accountId || acc.accountNumber) === String(activeTargetAccountId));
                 }
                 
                 console.log(`[Liquid Assets] Processing ${accounts.length} unique accounts (from ${rawAccounts.length} raw)`);
@@ -537,15 +504,10 @@ Deno.serve(withValidation(loanLogicSchema, async (req) => {
         let transactions = txData?.data || txData?.items || txData?.transactions || [];
 
         if (activeTargetAccountId && activeTargetAccountId !== 'all') {
-            const filteredTx = transactions.filter(tx =>
-                idMatches(tx.accountId, activeTargetAccountId) ||
-                idMatches(tx.account_id, activeTargetAccountId) ||
-                idMatches(tx.accountNumber, activeTargetAccountId)
-            );
-            // Safety net: if account-id matching yields nothing (provider didn't tag
-            // transactions with an account id at all), fall back to all transactions
-            // rather than crashing with "no transactions found" and showing ₪0.
-            transactions = filteredTx.length > 0 ? filteredTx : transactions;
+            transactions = transactions.filter(tx => {
+                const txAccId = String(tx.accountId || tx.account_id || tx.accountNumber || "");
+                return txAccId === String(activeTargetAccountId);
+            });
         }
 
         // 4. Process Transactions into Monthly History
