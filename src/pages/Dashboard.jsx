@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle, Plus, FileSpreadsheet, ShieldAlert, Settings, Building2, Briefcase, Home as HomeIcon } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -81,6 +81,7 @@ function generateLocalInsights(metrics) {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [showOpenFinance, setShowOpenFinance] = useState(false);
   const [showCustomerGate, setShowCustomerGate] = useState(false);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
@@ -800,6 +801,32 @@ export default function Dashboard() {
     setShowCustomerGate(false);
   };
 
+  const resetAnalystScreen = () => {
+    clearCustomerViewState();
+    setActiveCustomerId('');
+    setActiveCustomerName('');
+    setShowDisconnectConfirm(false);
+    setShowOpenFinance(false);
+    try {
+      [
+        'of_pending_connection',
+        'of_pending_provider',
+        'of_psu_id',
+        'flowup_selected_account_id',
+        'flowup_active_customer_id',
+        'flowup_active_customer_name'
+      ].forEach(k => localStorage.removeItem(k));
+      Object.keys(sessionStorage).filter(k => k.startsWith('loanMetricsCache')).forEach(k => sessionStorage.removeItem(k));
+    } catch (_) {}
+    queryClient.setQueryData(['financial-snapshots'], []);
+    queryClient.setQueryData(['shadow-entries'], []);
+    queryClient.removeQueries({ queryKey: ['active-connection'] });
+    queryClient.removeQueries({ queryKey: ['active-customer-session'] });
+    queryClient.removeQueries({ queryKey: ['ai-insights-v7'] });
+    queryClient.removeQueries({ queryKey: ['cash-flow-profile-v1'] });
+    navigate('/Dashboard', { replace: true });
+  };
+
   const handleAccountSelection = (value) => {
     if (value === 'disconnect') {
       handleRevokeConnection();
@@ -811,33 +838,23 @@ export default function Dashboard() {
   const handleRevokeConnection = async () => {
     const toastId = toast.loading('מנתק חשבון בנק...');
     const connectionId = activeConnection?.connection_id || currentEngineData?.connectionId || localStorage.getItem('of_pending_connection');
-    const psuId = effectiveUserId || activeCustomerId || localStorage.getItem('of_psu_id');
+    const psuId = activeCustomerId || localStorage.getItem('flowup_active_customer_id') || localStorage.getItem('of_psu_id') || effectiveUserId;
 
-    if (!connectionId && !psuId) {
-      toast.error('לא נמצא חיבור פעיל לניתוק', { id: toastId });
-      return;
-    }
-
-    await base44.functions.invoke('openFinanceAuth', {
-      action: 'revoke',
-      connectionId,
-      psuId
-    });
-
-    clearCustomerViewState();
-    setActiveCustomerId('');
-    setActiveCustomerName('');
-    setShowDisconnectConfirm(false);
-    setShowOpenFinance(false);
     try {
-      ['of_pending_connection', 'of_pending_provider', 'of_psu_id', 'flowup_selected_account_id', 'flowup_active_customer_id', 'flowup_active_customer_name'].forEach(k => localStorage.removeItem(k));
-      Object.keys(sessionStorage).filter(k => k.startsWith('loanMetricsCache')).forEach(k => sessionStorage.removeItem(k));
-    } catch (_) {}
-    queryClient.setQueryData(['financial-snapshots'], []);
-    queryClient.setQueryData(['shadow-entries'], []);
-    queryClient.removeQueries({ queryKey: ['active-connection'] });
-    queryClient.removeQueries({ queryKey: ['active-customer-session'] });
-    toast.success('חשבון הבנק נותק והמסך אופס', { id: toastId });
+      if (connectionId || psuId) {
+        await base44.functions.invoke('openFinanceAuth', {
+          action: 'revoke',
+          connectionId,
+          psuId
+        });
+      }
+      resetAnalystScreen();
+      toast.success('חשבון הבנק נותק והמסך אופס', { id: toastId });
+    } catch (error) {
+      console.warn('Provider revoke failed, resetting analyst screen locally:', error?.message || error);
+      resetAnalystScreen();
+      toast.success('המסך אופס והלקוח נותק מהתצוגה', { id: toastId });
+    }
   };
 
   if (isProcessingCallback) {
