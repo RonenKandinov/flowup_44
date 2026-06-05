@@ -18,6 +18,7 @@ export default function CustomerConnect() {
   const { sessionId } = useParams();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('t');
+  const ofCallback = searchParams.get('of_callback');
 
   const [session, setSession] = useState(null);
   const [step, setStep] = useState('validating'); // validating | welcome | connect | analyzing | success | error
@@ -43,7 +44,11 @@ export default function CustomerConnect() {
           return;
         }
         setSession(data);
-        setStep('welcome');
+        if (ofCallback) {
+          handleConnectedInline(data);
+        } else {
+          setStep('welcome');
+        }
       })
       .catch((err) => {
         const msg = err?.response?.data?.error || err?.message || 'שגיאה באימות הקישור';
@@ -56,9 +61,10 @@ export default function CustomerConnect() {
   }, [sessionId, token]);
 
   // Step 3 — Open Finance finished inline
-  const handleConnectedInline = async () => {
+  const handleConnectedInline = async (sessionContext = session) => {
     setStep('analyzing');
     try {
+      const currentSession = sessionContext || session;
       const connectionId = localStorage.getItem('of_pending_connection');
       // Mark the session as analyzing + record the connection id
       await base44.functions.invoke('b2bService', {
@@ -71,10 +77,10 @@ export default function CustomerConnect() {
       // Fire underwriting in the background (reuses the existing b2bService flow)
       base44.functions.invoke('b2bService', {
         action: 'process_underwriting',
-        partner_id: session?.b2b_partner_id,
-        customer_id: session?.customer_id || sessionId,
+        partner_id: currentSession?.b2b_partner_id,
+        customer_id: currentSession?.customer_id || sessionId,
         connection_id: connectionId,
-        psu_id: session?.customer_id || sessionId,
+        psu_id: currentSession?.customer_id || sessionId,
         onboarding_session_id: sessionId
       }).catch((err) => console.error('Background underwriting failed:', err));
 
@@ -208,9 +214,15 @@ export default function CustomerConnect() {
                   <p className="text-slate-600 mb-6">
                     הנתונים נותחו והועברו באופן מאובטח ל{session.b2b_partner_name}.
                   </p>
-                  <p className="text-sm text-slate-500 font-medium">
+                  <p className="text-sm text-slate-500 font-medium mb-5">
                     ניתן לסגור חלון זה ולחזור לאתר של {session.b2b_partner_name}.
                   </p>
+                  <button
+                    onClick={() => window.close()}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 rounded-lg transition-colors"
+                  >
+                    סגור חלון
+                  </button>
                 </CardContent>
               </Card>
             </motion.div>

@@ -35,7 +35,9 @@ export default function OpenFinanceConnect({ onConnected, inline = false, defaul
 
     try {
       setProgress(50);
-      const redirectUrl = `${window.location.origin}${window.location.pathname}?of_callback=1`;
+      const callbackUrl = new URL(window.location.href);
+      callbackUrl.searchParams.set('of_callback', '1');
+      const redirectUrl = callbackUrl.toString();
       const initResponse = await base44.functions.invoke("openFinanceAuth", {
         action: 'init_connection',
         psuId,
