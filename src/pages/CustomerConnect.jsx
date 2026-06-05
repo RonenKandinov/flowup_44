@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, Loader2, ShieldCheck, Building2, AlertTriangle } from 'lucide-react';
@@ -24,6 +24,7 @@ export default function CustomerConnect() {
   const [step, setStep] = useState('validating'); // validating | welcome | connect | analyzing | success | error
   const [error, setError] = useState(null);
   const [analysisData, setAnalysisData] = useState(null);
+  const callbackHandledRef = useRef(false);
 
   // Step 1 — validate the link
   useEffect(() => {
@@ -45,7 +46,10 @@ export default function CustomerConnect() {
           return;
         }
         setSession(data);
-        if (ofCallback) {
+        if (data.status === 'completed') {
+          setStep('success');
+        } else if (ofCallback && !callbackHandledRef.current) {
+          callbackHandledRef.current = true;
           handleConnectedInline(data);
         } else {
           setStep('welcome');
@@ -66,7 +70,8 @@ export default function CustomerConnect() {
     setStep('analyzing');
     try {
       const currentSession = sessionContext || session;
-      const connectionId = localStorage.getItem('of_pending_connection');
+      const connectionId = localStorage.getItem('of_pending_connection') || currentSession?.open_finance_connection_id;
+      if (!connectionId) throw new Error('לא נמצא מזהה התחברות. נא לפתוח את הקישור מחדש ולנסות שוב.');
       // Mark the session as analyzing + record the connection id
       await base44.functions.invoke('b2bService', {
         action: 'update_onboarding_session',

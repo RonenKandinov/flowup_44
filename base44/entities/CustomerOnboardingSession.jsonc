@@ -1,7 +1,7 @@
 {
   "name": "CustomerOnboardingSession",
   "type": "object",
-  "description": "B2B onboarding session \u2014 a single-use, time-limited link that a partner company sends to a customer to connect their bank account via Open Finance. Each session is bound to a single B2BPartner and tracks the customer's progress through the consent flow until analysis is complete.",
+  "description": "B2B onboarding session \u2014 a single-use, time-limited link that a partner company sends to a customer to authenticate via Open Finance. Each session is bound to a single B2BPartner and tracks the customer's progress through the consent flow until analysis is complete.",
   "properties": {
     "b2b_partner_id": {
       "type": "string",
@@ -14,6 +14,10 @@
     "customer_name": {
       "type": "string",
       "description": "Customer display name (provided by the partner when creating the session)"
+    },
+    "customer_id": {
+      "type": "string",
+      "description": "Customer national ID / PSU ID used to bind Open Finance data to the correct borrower"
     },
     "customer_email": {
       "type": "string",

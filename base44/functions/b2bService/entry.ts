@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 // ── Onboarding link crypto helpers (HMAC-SHA256, base64url) ──
 const TTL_HOURS = 24;
@@ -285,6 +285,7 @@ export default Deno.serve(async (req) => {
         b2b_partner_id,
         customer_name = '',
         customer_id = '',
+        customer_email = '',
         customer_phone = '',
         requested_amount = null,
         base_url = ''
@@ -319,6 +320,7 @@ export default Deno.serve(async (req) => {
         b2b_partner_name: partner.name,
         customer_name,
         customer_id,
+        customer_email,
         customer_phone,
         requested_amount: requested_amount ? Number(requested_amount) : null,
         status: 'pending',
@@ -367,7 +369,7 @@ export default Deno.serve(async (req) => {
         return Response.json({ error: 'expired' }, { status: 410 });
       }
 
-      if (['completed', 'failed'].includes(session.status)) {
+      if (session.status === 'failed') {
         return Response.json({ error: 'already_used', status: session.status }, { status: 409 });
       }
 
@@ -389,8 +391,11 @@ export default Deno.serve(async (req) => {
         b2b_partner_name: session.b2b_partner_name,
         customer_name: session.customer_name,
         customer_id: session.customer_id,
+        customer_email: session.customer_email,
         requested_amount: session.requested_amount,
         expires_at: session.expires_at,
+        open_finance_connection_id: session.open_finance_connection_id,
+        analysis_id: session.analysis_id,
         status: session.status === 'pending' ? 'link_opened' : session.status
       });
     }
