@@ -23,6 +23,7 @@ export default function CustomerConnect() {
   const [session, setSession] = useState(null);
   const [step, setStep] = useState('validating'); // validating | welcome | connect | analyzing | success | error
   const [error, setError] = useState(null);
+  const [analysisData, setAnalysisData] = useState(null);
 
   // Step 1 — validate the link
   useEffect(() => {
@@ -74,21 +75,40 @@ export default function CustomerConnect() {
         connection_id: connectionId || ''
       }).catch(() => {});
 
-      // Fire underwriting in the background (reuses the existing b2bService flow)
-      base44.functions.invoke('b2bService', {
-        action: 'process_underwriting',
-        partner_id: currentSession?.b2b_partner_id,
-        customer_id: currentSession?.customer_id || sessionId,
-        connection_id: connectionId,
-        psu_id: currentSession?.customer_id || sessionId,
-        onboarding_session_id: sessionId
-      }).catch((err) => console.error('Background underwriting failed:', err));
+      const psuId = currentSession?.customer_id || sessionId;
+
+      const statusRes = await base44.functions.invoke('openFinanceAuth', {
+        action: 'check_status',
+        connectionId,
+        psuId
+      });
+
+      if (!['ACTIVE', 'CONNECTED', 'COMPLETED'].includes(statusRes.data?.status)) {
+        throw new Error('נתוני הבנק עדיין נטענים. נסה לרענן בעוד רגע.');
+      }
+
+      const bankRes = await base44.functions.invoke('loanLogicV2', {
+        userId: psuId,
+        targetAccountId: 'all'
+      });
+
+      if (!bankRes.data?.success) {
+        throw new Error(bankRes.data?.error || 'לא הצלחנו לפתוח את נתוני הבנק.');
+      }
+
+      setAnalysisData(bankRes.data);
+
+      await base44.functions.invoke('b2bService', {
+        action: 'update_onboarding_session',
+        session_id: sessionId,
+        status: 'completed',
+        connection_id: connectionId || ''
+      }).catch(() => {});
 
       localStorage.removeItem('of_pending_connection');
       localStorage.removeItem('of_pending_provider');
 
-      // Analysis continues asynchronously on the server; it will mark the session completed.
-      setTimeout(() => setStep('success'), 2000);
+      setStep('success');
     } catch (err) {
       setError(err?.message || 'שגיאה בשלב הניתוח');
       setStep('error');
@@ -212,10 +232,30 @@ export default function CustomerConnect() {
                   </div>
                   <h2 className="text-2xl font-bold text-slate-800 mb-2">התהליך הושלם בהצלחה!</h2>
                   <p className="text-slate-600 mb-6">
-                    הנתונים נותחו והועברו באופן מאובטח ל{session.b2b_partner_name}.
+                    הנתונים נותחו ונפתחו בהצלחה ב־FlowUp.
                   </p>
+                  {analysisData?.metrics && (
+                    <div className="grid grid-cols-2 gap-3 text-right mb-6">
+                      <div className="bg-white/80 rounded-xl p-3 border border-emerald-100">
+                        <p className="text-xs text-slate-500">ציון</p>
+                        <p className="text-lg font-bold text-slate-800">{analysisData.metrics.score}</p>
+                      </div>
+                      <div className="bg-white/80 rounded-xl p-3 border border-emerald-100">
+                        <p className="text-xs text-slate-500">נזילות</p>
+                        <p className="text-lg font-bold text-slate-800">₪{Number(analysisData.metrics.liquidAssets || 0).toLocaleString()}</p>
+                      </div>
+                      <div className="bg-white/80 rounded-xl p-3 border border-emerald-100">
+                        <p className="text-xs text-slate-500">הכנסה חודשית</p>
+                        <p className="text-lg font-bold text-slate-800">₪{Number(analysisData.metrics.totalIncome || 0).toLocaleString()}</p>
+                      </div>
+                      <div className="bg-white/80 rounded-xl p-3 border border-emerald-100">
+                        <p className="text-xs text-slate-500">הוצאות חודשיות</p>
+                        <p className="text-lg font-bold text-slate-800">₪{Number(analysisData.metrics.totalExpenses || 0).toLocaleString()}</p>
+                      </div>
+                    </div>
+                  )}
                   <p className="text-sm text-slate-500 font-medium mb-5">
-                    ניתן לסגור חלון זה ולחזור לאתר של {session.b2b_partner_name}.
+                    ניתן לחזור לאתר של {session.b2b_partner_name}.
                   </p>
                   <button
                     onClick={() => window.close()}

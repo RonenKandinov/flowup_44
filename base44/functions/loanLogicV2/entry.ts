@@ -505,30 +505,32 @@ Deno.serve(withValidation(loanLogicSchema, async (req) => {
 
         if (activeTargetAccountId && activeTargetAccountId !== 'all') {
             transactions = transactions.filter(tx => {
-                const txAccId = String(tx.accountId || tx.account_id || tx.accountNumber || "");
+                const txAccId = String(tx.accountId || tx.account_id || tx.resourceId || tx.accountNumber || "");
                 return txAccId === String(activeTargetAccountId);
             });
         }
 
         // 4. Process Transactions into Monthly History
-        const parseTransactionAmount = (tx) => {
-            if (tx.amount !== undefined) {
-                if (typeof tx.amount === 'object') {
-                    let val = Number(tx.amount.amount || tx.amount.chargedAmount?.amount || 0);
-                    const ind = String(tx.creditDebitIndicator || tx.indicator || "").toUpperCase();
-                    if (ind === 'DBIT' || ind === 'DEBIT') return -Math.abs(val);
-                    if (ind === 'CRDT' || ind === 'CREDIT') return Math.abs(val);
-                    return val; // Assume it's signed if no indicator
-                }
-                return Number(tx.amount);
-            }
-            if (tx.credit !== undefined || tx.debit !== undefined) {
-                return (Number(tx.credit) || 0) - (Number(tx.debit) || 0);
-            }
-            if (tx.amount_ils !== undefined) {
-                return Number(tx.amount_ils);
+        const asNumber = (value) => {
+            if (value === undefined || value === null) return 0;
+            if (typeof value === 'number') return value;
+            if (typeof value === 'string') return Number(value.replace(/,/g, '')) || 0;
+            if (typeof value === 'object') {
+                return asNumber(value.amount ?? value.value ?? value.chargedAmount?.amount ?? value.balanceAmount?.amount);
             }
             return 0;
+        };
+
+        const parseTransactionAmount = (tx) => {
+            const raw = tx.amount ?? tx.transactionAmount ?? tx.instructedAmount ?? tx.entryAmount ?? tx.bookingAmount ?? tx.value ?? tx.amount_ils;
+            let amount = asNumber(raw);
+            if (amount === 0 && (tx.credit !== undefined || tx.debit !== undefined)) {
+                amount = asNumber(tx.credit) - asNumber(tx.debit);
+            }
+            const ind = String(tx.creditDebitIndicator || tx.indicator || tx.type || "").toUpperCase();
+            if (ind.includes('DBIT') || ind.includes('DEBIT')) return -Math.abs(amount);
+            if (ind.includes('CRDT') || ind.includes('CREDIT')) return Math.abs(amount);
+            return amount;
         };
 
         const monthlyData = {};

@@ -96,15 +96,38 @@ export default Deno.serve(async (req) => {
 
       const READY = ['ACTIVE', 'COMPLETED', 'CONNECTED'];
       const ERROR_STATES = ['ERROR', 'FETCHING_ERROR', 'EXPIRED', 'REJECTED', 'REVOKED'];
+      const API_ROOT = "https://api.open-finance.ai";
+      const API_KEY = Deno.env.get("OPEN_FINANCE_API_KEY");
+      const API_SECRET = Deno.env.get("OPEN_FINANCE_API_SECRET");
       let status = 'INACTIVE';
       let attempts = 0;
 
+      const getOpenFinanceToken = async () => {
+        const tokenRes = await fetch(`${API_ROOT}/oauth/token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: psu_id, clientId: API_KEY, clientSecret: API_SECRET })
+        });
+        const tokenJson = await tokenRes.json();
+        if (!tokenRes.ok || !tokenJson?.accessToken) throw new Error('Open Finance authentication failed');
+        return tokenJson.accessToken;
+      };
+
       while (!READY.includes(status) && !ERROR_STATES.includes(status) && attempts < 20) {
         await new Promise(r => setTimeout(r, 3000));
-        const statusRes = await base44.functions.invoke('openFinanceAuth', {
-          action: 'check_status', connectionId: connection_id, psuId: psu_id
+        const accessToken = await getOpenFinanceToken();
+        const statusRes = await fetch(`${API_ROOT}/v2/connections/${connection_id}`, {
+          headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' }
         });
-        status = statusRes.data?.status || 'UNKNOWN';
+        const statusJson = statusRes.ok ? await statusRes.json() : {};
+        status = statusJson.status || 'UNKNOWN';
+        await base44.asServiceRole.entities.OpenFinanceConnection
+          .filter({ connection_id })
+          .then((records) => records[0] ? base44.asServiceRole.entities.OpenFinanceConnection.update(records[0].id, {
+            status,
+            last_synced_at: new Date().toISOString()
+          }) : null)
+          .catch(() => null);
         attempts++;
       }
 
@@ -112,12 +135,16 @@ export default Deno.serve(async (req) => {
         return Response.json({ success: false, error: `Connection failed: ${status}` });
       }
 
-      const bankRes = await base44.functions.invoke('loanLogicV2', { userId: psu_id });
+      if (!READY.includes(status)) {
+        return Response.json({ success: false, error: `Bank data is still syncing: ${status}` });
+      }
+
+      const bankRes = await base44.asServiceRole.functions.invoke('loanLogicV2', { userId: psu_id, targetAccountId: 'all' });
       if (!bankRes.data?.success) {
         return Response.json({ success: false, error: 'Failed to fetch bank data' });
       }
 
-      const insightRes = await base44.functions.invoke('insightEngine', {
+      const insightRes = await base44.asServiceRole.functions.invoke('insightEngine', {
         metrics: bankRes.data.metrics,
         behaviorProfile: bankRes.data.behaviorProfile || null
       });
@@ -127,7 +154,7 @@ export default Deno.serve(async (req) => {
       
       const insights = insightRes.data.insights;
 
-      const persistRes = await base44.functions.invoke('persistAnalysis', {
+      const persistRes = await base44.asServiceRole.functions.invoke('persistAnalysis', {
         action: 'save',
         userId: psu_id,
         insights,
@@ -137,7 +164,7 @@ export default Deno.serve(async (req) => {
       }).catch(() => null);
       const analysisId = persistRes?.data?.id || null;
 
-      base44.functions.invoke('generateNarrativeInsights', {
+      base44.asServiceRole.functions.invoke('generateNarrativeInsights', {
         analysisId,
         metrics: { ...(bankRes.data.metrics || {}), userId: psu_id },
         insights,

@@ -18,6 +18,44 @@ export default Deno.serve(async (req) => {
     const { action, psuId, providerId, connectionId: bodyConnectionId, redirectUrl: bodyRedirectUrl } = body;
     const userId = psuId;
 
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    const asNumber = (value) => {
+      if (value === undefined || value === null) return 0;
+      if (typeof value === 'number') return value;
+      if (typeof value === 'string') return Number(value.replace(/,/g, '')) || 0;
+      if (typeof value === 'object') {
+        return asNumber(value.amount ?? value.value ?? value.chargedAmount?.amount ?? value.balanceAmount?.amount);
+      }
+      return 0;
+    };
+
+    const getTransactionAmount = (tx) => {
+      const raw = tx.amount ?? tx.transactionAmount ?? tx.instructedAmount ?? tx.entryAmount ?? tx.bookingAmount ?? tx.value;
+      let amount = asNumber(raw);
+      if (amount === 0 && (tx.credit !== undefined || tx.debit !== undefined)) {
+        amount = asNumber(tx.credit) - asNumber(tx.debit);
+      }
+      const indicator = String(tx.creditDebitIndicator || tx.indicator || tx.type || '').toUpperCase();
+      if (indicator.includes('DBIT') || indicator.includes('DEBIT')) return -Math.abs(amount);
+      if (indicator.includes('CRDT') || indicator.includes('CREDIT')) return Math.abs(amount);
+      return amount;
+    };
+
+    const getTransactionDate = (tx) => {
+      const txDateObj = tx?.date;
+      return tx?.creationDate || tx?.bookingDate || tx?.valueDate || tx?.transactionDate ||
+        (typeof txDateObj === 'string' ? txDateObj : (txDateObj?.valueDate || txDateObj?.bookingDate || txDateObj?.transactionDate)) ||
+        new Date().toISOString();
+    };
+
+    const getTransactionDescription = (tx) => {
+      const desc = tx.description ?? tx.details ?? tx.remittanceInformation ?? tx.narrative ?? '';
+      if (typeof desc === 'string') return desc;
+      if (desc && typeof desc === 'object') return desc.description || desc.text || desc.value || desc.initialClean || '';
+      return String(desc || '');
+    };
+
     // Helper: get a fresh access token for a given userId
     async function getToken(uid) {
       const res = await fetch(`${API_ROOT}/oauth/token`, {
@@ -164,13 +202,30 @@ export default Deno.serve(async (req) => {
           const accountsJson = accountsRes.ok ? await accountsRes.json() : {};
           const accounts = accountsJson?.data || accountsJson?.items || accountsJson?.accounts || [];
 
-          const txRes = await fetch(`${API_ROOT}/v2/data/transactions`, {
-            headers: { "Authorization": `Bearer ${accessToken}`, "Accept": "application/json" }
-          });
-          const txJson = txRes.ok ? await txRes.json() : {};
-          const transactions = txJson?.data || txJson?.items || txJson?.transactions || [];
+          let transactions = [];
+          let txJson = {};
+          for (let attempt = 0; attempt < 6; attempt++) {
+            const txRes = await fetch(`${API_ROOT}/v2/data/transactions`, {
+              headers: { "Authorization": `Bearer ${accessToken}`, "Accept": "application/json" }
+            });
+            txJson = txRes.ok ? await txRes.json() : {};
+            transactions = txJson?.data || txJson?.items || txJson?.transactions || [];
+            if (transactions.length > 0) break;
+            await sleep(5000);
+          }
 
-          const loanLogicRes = await base44.functions.invoke('loanLogicV2', { userId });
+          if (transactions.length === 0) {
+            return Response.json({
+              success: true,
+              status: 'FETCHING_DATA',
+              rawStatus: connectionStatus,
+              connectionId,
+              accountsCount: accounts.length,
+              transactionsCount: 0
+            });
+          }
+
+          const loanLogicRes = await base44.asServiceRole.functions.invoke('loanLogicV2', { userId, targetAccountId: 'all' });
           const loanLogicData = loanLogicRes?.data;
 
           if (loanLogicData?.success) {
@@ -217,26 +272,17 @@ export default Deno.serve(async (req) => {
 
           if (transactions.length > 0) {
             await base44.asServiceRole.entities.OpenFinanceTransaction.bulkCreate(transactions.slice(0, 1000).map((tx, index) => {
-              const txDateObj = tx?.date;
-              const dateStr = tx?.creationDate || (typeof txDateObj === 'string' ? txDateObj : (txDateObj?.valueDate || txDateObj?.bookingDate || txDateObj?.transactionDate)) || tx?.transactionDate || new Date().toISOString();
-              let amount = 0;
-              if (tx.amount !== undefined) {
-                amount = typeof tx.amount === 'object' ? Number(tx.amount.amount || tx.amount.chargedAmount?.amount || 0) : Number(tx.amount);
-                const ind = String(tx.creditDebitIndicator || tx.indicator || '').toUpperCase();
-                if (ind === 'DBIT' || ind === 'DEBIT') amount = -Math.abs(amount);
-                if (ind === 'CRDT' || ind === 'CREDIT') amount = Math.abs(amount);
-              } else if (tx.credit !== undefined || tx.debit !== undefined) {
-                amount = (Number(tx.credit) || 0) - (Number(tx.debit) || 0);
-              }
+              const dateStr = getTransactionDate(tx);
+              const amount = getTransactionAmount(tx);
 
               return {
-                transaction_id: String(tx.id || tx.transactionId || `${connectionId}-${index}`),
-                account_id: String(tx.accountId || tx.account_id || tx.accountNumber || 'unknown-account'),
+                transaction_id: String(tx.id || tx.transactionId || tx.entryReference || `${connectionId}-${index}`),
+                account_id: String(tx.accountId || tx.account_id || tx.resourceId || tx.accountNumber || 'unknown-account'),
                 connection_id: connectionId,
                 amount,
-                currency: tx.currency || tx?.amount?.currency || 'ILS',
+                currency: tx.currency || tx?.amount?.currency || tx?.transactionAmount?.currency || 'ILS',
                 date: new Date(dateStr).toISOString(),
-                description: tx.description || tx.details || '',
+                description: getTransactionDescription(tx),
                 category: String(tx?.category?.main || tx?.categoryName || tx?.category || 'general'),
                 status: 'booked'
               };
