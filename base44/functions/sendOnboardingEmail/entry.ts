@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
         <p>לצורך המשך טיפול בבקשת האשראי שלך, אנא פתח/י את קישור האימות המאובטח הבא:</p>
         <p style="margin:24px 0">
           <a href="${link}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block">
-            פתיחת קישור אימות
+            התחברות
           </a>
         </p>
         <p style="direction:ltr;text-align:left;word-break:break-all;font-size:13px;color:#334155">${link}</p>
