@@ -867,8 +867,8 @@ export default function Dashboard() {
 
       {/* Header */}
       <header className="relative z-10 px-6 py-8 md:px-10 lg:px-12">
-        <div className="max-w-7xl mx-auto flex items-center justify-between border-b border-slate-800/60 pb-8 gap-4 flex-wrap">
-          <div>
+        <div className="max-w-7xl mx-auto flex flex-col items-stretch border-b border-slate-800/60 pb-8 gap-4">
+          <div className="text-right">
             <h1 className="text-4xl font-bold text-white tracking-tight bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
               FlowUp
             </h1>
@@ -880,7 +880,8 @@ export default function Dashboard() {
             )}
           </div>
           
-          <div className="flex items-center gap-3 flex-wrap">
+          <div dir="rtl" className="w-full flex items-center justify-between gap-3 flex-wrap">
+            <div dir="rtl" className="flex items-center gap-3 flex-wrap justify-start">
             {originalLoanMetrics?.availableAccounts?.length > 0 && (
               <div className="w-56">
                 <Select value={targetAccountId || originalLoanMetrics.activeTargetAccountId || ''} onValueChange={handleAccountSelection}>
@@ -901,17 +902,6 @@ export default function Dashboard() {
                 </Select>
               </div>
             )}
-            {activeCustomerId && (
-              <Button
-                onClick={handleRevokeConnection}
-                variant="ghost"
-                size="sm"
-                className="bg-red-600/20 border border-red-500/40 text-red-300 hover:bg-red-600/40 hover:text-white hover:border-red-400/60 transition-all h-8 px-3 rounded-md shadow-sm shadow-red-500/10"
-              >
-                <Trash2 className="w-3 h-3 ml-1.5" />
-                <span className="text-[11px] font-medium">נתק חשבון</span>
-              </Button>
-            )}
             <Button
               onClick={() => setShowCustomerGate(true)}
               variant="ghost"
@@ -921,6 +911,8 @@ export default function Dashboard() {
               <Plus className="w-3 h-3 ml-1.5" />
               <span className="text-[11px] font-medium">{activeCustomerId ? 'החלף לקוח' : 'חבר לקוח'}</span>
             </Button>
+            </div>
+            <div dir="rtl" className="flex items-center gap-3 flex-wrap justify-end">
             <Button
               asChild
               variant="ghost"
@@ -1024,6 +1016,7 @@ export default function Dashboard() {
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
+            </div>
           </div>
         </div>
       </header>
