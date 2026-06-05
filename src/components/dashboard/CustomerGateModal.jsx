@@ -83,7 +83,7 @@ export default function CustomerGateModal({ onClose, onCustomerActivated }) {
 
   const copy = () => { navigator.clipboard.writeText(session.link); toast.success('הקישור הועתק'); };
   const sendWhatsApp = () => {
-    const msg = `שלום, להמשך בקשת האשראי אנא חבר את חשבון הבנק שלך בקישור המאובטח: ${session.link}`;
+    const msg = `שלום, להמשך בקשת האשראי אנא התחבר/י באמצעות הקישור המאובטח: ${session.link}`;
     const clean = String(form.phone || '').replace(/\D/g, '');
     window.open(`https://wa.me/${clean}?text=${encodeURIComponent(msg)}`, '_blank');
   };

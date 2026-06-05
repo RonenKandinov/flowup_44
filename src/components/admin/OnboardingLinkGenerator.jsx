@@ -53,7 +53,7 @@ export default function OnboardingLinkGenerator({ partner, onCreated }) {
   };
 
   const sendWhatsApp = (phone, link) => {
-    const msg = `שלום, להמשך בקשת האשראי מול ${partner.name} אנא חבר את חשבון הבנק שלך בקישור הבא: ${link}`;
+    const msg = `שלום, להמשך בקשת האשראי מול ${partner.name} אנא התחבר/י באמצעות הקישור המאובטח: ${link}`;
     const clean = String(phone || '').replace(/\D/g, '');
     const url = clean
       ? `https://wa.me/${clean}?text=${encodeURIComponent(msg)}`
@@ -62,8 +62,8 @@ export default function OnboardingLinkGenerator({ partner, onCreated }) {
   };
 
   const sendEmail = (email, link) => {
-    const subject = `בקשת אשראי מול ${partner.name} – חיבור בנק מאובטח`;
-    const body = `שלום,\n\nלהמשך בקשת האשראי שלך מול ${partner.name}, אנא חבר את חשבון הבנק שלך באמצעות הקישור המאובטח הבא:\n\n${link}\n\nהקישור חד-פעמי ויפוג תוך 24 שעות.\n\nFlowUp`;
+    const subject = `בקשת אשראי מול ${partner.name} – קישור התחברות מאובטח`;
+    const body = `שלום,\n\nלהמשך בקשת האשראי שלך מול ${partner.name}, אנא התחבר/י באמצעות הקישור המאובטח הבא:\n\n${link}\n\nהקישור חד-פעמי ויפוג תוך 24 שעות.\n\nFlowUp`;
     const to = email || '';
     window.location.href = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
