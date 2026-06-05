@@ -172,7 +172,7 @@ export default function CustomerConnect() {
                     onClick={() => setStep('connect')}
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition-colors"
                   >
-                    המשך לחיבור הבנק
+                    התחברות
                   </button>
                 </CardContent>
               </Card>
