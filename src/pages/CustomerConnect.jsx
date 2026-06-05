@@ -83,19 +83,23 @@ export default function CustomerConnect() {
       const psuId = currentSession?.customer_id || localStorage.getItem('of_psu_id') || sessionId;
 
       let statusData = null;
-      for (let attempt = 0; attempt < 8; attempt++) {
-        const statusRes = await base44.functions.invoke('openFinanceAuth', {
-          action: 'check_status',
-          connectionId,
-          psuId
-        });
-        statusData = statusRes.data;
-        if (['ACTIVE', 'CONNECTED', 'COMPLETED'].includes(statusData?.status)) break;
-        await new Promise((resolve) => setTimeout(resolve, 4000));
+      for (let attempt = 0; attempt < 12; attempt++) {
+        try {
+          const statusRes = await base44.functions.invoke('openFinanceAuth', {
+            action: 'check_status',
+            connectionId,
+            psuId
+          });
+          statusData = statusRes.data;
+          if (['ACTIVE', 'CONNECTED', 'COMPLETED'].includes(statusData?.status)) break;
+        } catch (_) {
+          statusData = { status: 'FETCHING_DATA' };
+        }
+        await new Promise((resolve) => setTimeout(resolve, 5000));
       }
 
       if (!['ACTIVE', 'CONNECTED', 'COMPLETED'].includes(statusData?.status)) {
-        throw new Error('נתוני הבנק עדיין נטענים. אנא המתן עוד רגע ונסה שוב.');
+        throw new Error('הבנק עדיין מסנכרן את הנתונים. אנא המתן עוד רגע ולחץ רענון בדפדפן.');
       }
 
       let bankData = null;

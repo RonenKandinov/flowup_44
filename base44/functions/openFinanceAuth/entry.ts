@@ -168,10 +168,13 @@ export default Deno.serve(async (req) => {
       });
 
       if (!statusRes.ok) {
-        return Response.json(
-          { error: "Failed to check connection status", httpStatus: statusRes.status },
-          { status: 500 }
-        );
+        return Response.json({
+          success: true,
+          status: 'FETCHING_DATA',
+          rawStatus: 'STATUS_PENDING',
+          connectionId,
+          httpStatus: statusRes.status
+        });
       }
 
       const statusJson = await statusRes.json();
