@@ -148,8 +148,8 @@ export default function Dashboard() {
   });
 
   const { sync, data: loanLogicData, isLoading: isSyncing, metrics: loanMetrics } = useTransactionSync();
-  // When an analyst is viewing a customer, the customer's id overrides the analyst's own id.
-  const effectiveUserId = activeCustomerId || user?.email || user?.id;
+  // Analyst dashboard should load underwriting data only for an explicitly active customer.
+  const effectiveUserId = activeCustomerId || '';
   const { metrics: originalLoanMetrics, isLoading: isLoanMetricsLoading, error: loanMetricsError, refetch: refetchLoanMetrics } = useLoanMetrics(effectiveUserId, targetAccountId || null);
   const newLoanMetrics = simulatedMetrics || originalLoanMetrics;
   const queryClient = useQueryClient();
@@ -369,7 +369,7 @@ export default function Dashboard() {
       risk_day: newLoanMetrics.riskDay || null,
       avg_daily_spending: Math.round((newLoanMetrics.totalExpenses || 0) / 30)
   } : undefined;
-  const snapshot = localData?.snapshot || metricsSnapshot || snapshots?.[0];
+  const snapshot = activeCustomerId ? (localData?.snapshot || metricsSnapshot || snapshots?.[0]) : null;
   const hasData = !!snapshot;
 
   // Fallback metrics from snapshot/CSV so AI insights can run when backend loan metrics are missing
@@ -785,6 +785,8 @@ export default function Dashboard() {
     } catch (_) {}
     queryClient.removeQueries({ queryKey: ['ai-insights-v7'] });
     queryClient.removeQueries({ queryKey: ['cash-flow-profile-v1'] });
+    queryClient.removeQueries({ queryKey: ['financial-snapshots'] });
+    queryClient.removeQueries({ queryKey: ['shadow-entries'] });
   };
 
   // Context switch: clear the previous customer's view and load the newly-verified customer.
@@ -820,6 +822,8 @@ export default function Dashboard() {
     } catch (_) {}
     queryClient.setQueryData(['financial-snapshots'], []);
     queryClient.setQueryData(['shadow-entries'], []);
+    queryClient.removeQueries({ queryKey: ['financial-snapshots'] });
+    queryClient.removeQueries({ queryKey: ['shadow-entries'] });
     queryClient.removeQueries({ queryKey: ['active-connection'] });
     queryClient.removeQueries({ queryKey: ['active-customer-session'] });
     queryClient.removeQueries({ queryKey: ['ai-insights-v7'] });
@@ -899,7 +903,7 @@ export default function Dashboard() {
           
           <div dir="rtl" className="w-full flex items-center justify-between gap-3 flex-wrap">
             <div dir="rtl" className="flex items-center gap-3 flex-wrap justify-start">
-            {originalLoanMetrics?.availableAccounts?.length > 0 && (
+            {activeCustomerId && originalLoanMetrics?.availableAccounts?.length > 0 && (
               <div className="w-56">
                 <Select value={targetAccountId || originalLoanMetrics.activeTargetAccountId || ''} onValueChange={handleAccountSelection}>
                   <SelectTrigger className="h-9 bg-slate-800/60 border-slate-700/60 text-xs backdrop-blur-sm">
