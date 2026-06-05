@@ -33,24 +33,38 @@ export default function CustomerGateModal({ onClose, onCustomerActivated }) {
     if (!partnerId && partners.length > 0) setPartnerId(partners[0].id);
   }, [partners, partnerId]);
 
-  // Real-time: watch the onboarding session created for this customer.
+  // Real-time + polling fallback: watch the onboarding session created for this customer.
   useEffect(() => {
     if (!session?.session_id) return;
-    const unsub = base44.entities.CustomerOnboardingSession.subscribe((event) => {
-      if (event.id !== session.session_id) return;
-      const status = event.data?.status;
+
+    const activateIfCompleted = (data = {}) => {
+      const status = data?.status;
       if (status === 'completed') {
         toast.success('הלקוח סיים אימות — טוען נתונים');
         onCustomerActivated({
-          customer_id: event.data?.customer_id || form.customerId,
-          customer_name: event.data?.customer_name || form.name
+          customer_id: data?.customer_id || form.customerId,
+          customer_name: data?.customer_name || form.name
         });
       } else if (['link_opened', 'consent_started', 'consent_granted', 'analyzing'].includes(status)) {
         setPhase('waiting');
       }
+    };
+
+    const unsub = base44.entities.CustomerOnboardingSession.subscribe((event) => {
+      if (event.id !== session.session_id) return;
+      activateIfCompleted(event.data);
     });
-    return () => { try { unsub && unsub(); } catch (_) {} };
-  }, [session, form.customerId, onCustomerActivated]);
+
+    const intervalId = setInterval(async () => {
+      const records = await base44.entities.CustomerOnboardingSession.filter({ id: session.session_id });
+      activateIfCompleted(records?.[0]);
+    }, 5000);
+
+    return () => {
+      clearInterval(intervalId);
+      try { unsub && unsub(); } catch (_) {}
+    };
+  }, [session, form.customerId, form.name, onCustomerActivated]);
 
   const handleCreate = async (e) => {
     e.preventDefault();

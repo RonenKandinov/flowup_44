@@ -82,26 +82,38 @@ export default function CustomerConnect() {
 
       const psuId = currentSession?.customer_id || localStorage.getItem('of_psu_id') || sessionId;
 
-      const statusRes = await base44.functions.invoke('openFinanceAuth', {
-        action: 'check_status',
-        connectionId,
-        psuId
-      });
-
-      if (!['ACTIVE', 'CONNECTED', 'COMPLETED'].includes(statusRes.data?.status)) {
-        throw new Error('נתוני הבנק עדיין נטענים. נסה לרענן בעוד רגע.');
+      let statusData = null;
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const statusRes = await base44.functions.invoke('openFinanceAuth', {
+          action: 'check_status',
+          connectionId,
+          psuId
+        });
+        statusData = statusRes.data;
+        if (['ACTIVE', 'CONNECTED', 'COMPLETED'].includes(statusData?.status)) break;
+        await new Promise((resolve) => setTimeout(resolve, 4000));
       }
 
-      const bankRes = await base44.functions.invoke('loanLogicV2', {
-        userId: psuId,
-        targetAccountId: 'all'
-      });
-
-      if (!bankRes.data?.success) {
-        throw new Error(bankRes.data?.error || 'לא הצלחנו לפתוח את נתוני הבנק.');
+      if (!['ACTIVE', 'CONNECTED', 'COMPLETED'].includes(statusData?.status)) {
+        throw new Error('נתוני הבנק עדיין נטענים. אנא המתן עוד רגע ונסה שוב.');
       }
 
-      setAnalysisData(bankRes.data);
+      let bankData = null;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const bankRes = await base44.functions.invoke('loanLogicV2', {
+          userId: psuId,
+          targetAccountId: 'all'
+        });
+        bankData = bankRes.data;
+        if (bankData?.success) break;
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+      }
+
+      if (!bankData?.success) {
+        throw new Error(bankData?.error || 'לא הצלחנו לפתוח את נתוני הבנק.');
+      }
+
+      setAnalysisData(bankData);
 
       await base44.functions.invoke('b2bService', {
         action: 'update_onboarding_session',
