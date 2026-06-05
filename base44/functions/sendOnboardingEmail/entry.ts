@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
         <p>לצורך המשך טיפול בבקשת האשראי שלך, אנא חבר/י את חשבון הבנק שלך באמצעות הקישור המאובטח הבא:</p>
         <p style="margin:24px 0">
           <a href="${link}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block">
-            חיבור חשבון הבנק
+            התחברות
           </a>
         </p>
         <p style="font-size:13px;color:#64748b">הקישור מאובטח וחד-פעמי. אם לא ביקשת זאת, ניתן להתעלם מהודעה זו.</p>
