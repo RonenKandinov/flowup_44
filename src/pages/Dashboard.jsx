@@ -750,21 +750,35 @@ export default function Dashboard() {
     }
   };
 
-  // Context switch: clear the previous customer's view and load the newly-verified customer.
-  const handleCustomerActivated = (customerId) => {
+  const clearCustomerViewState = () => {
     setLocalData(null);
     setEngineData(null);
     setSimulatedMetrics(null);
     setRescueBundle(null);
     setSavedAnalysisId(null);
+    setTargetAccountId('');
     try {
+      localStorage.removeItem('flowup_selected_account_id');
       Object.keys(sessionStorage).filter(k => k.startsWith('loanMetricsCache')).forEach(k => sessionStorage.removeItem(k));
     } catch (_) {}
     queryClient.removeQueries({ queryKey: ['ai-insights-v7'] });
     queryClient.removeQueries({ queryKey: ['cash-flow-profile-v1'] });
+  };
+
+  // Context switch: clear the previous customer's view and load the newly-verified customer.
+  const handleCustomerActivated = (customerId) => {
+    clearCustomerViewState();
     setActiveCustomerId(customerId);
     try { localStorage.setItem('flowup_active_customer_id', customerId); } catch (_) {}
     setShowCustomerGate(false);
+  };
+
+  const handleCustomerDisconnected = () => {
+    if (!window.confirm('לנתק את הלקוח הפעיל מהמסך? נתוני הלקוח לא יימחקו.')) return;
+    clearCustomerViewState();
+    setActiveCustomerId('');
+    try { localStorage.removeItem('flowup_active_customer_id'); } catch (_) {}
+    toast.success('הלקוח נותק מהמסך');
   };
 
   if (isProcessingCallback) {
@@ -824,6 +838,17 @@ export default function Dashboard() {
                   </SelectContent>
                 </Select>
               </div>
+            )}
+            {activeCustomerId && (
+              <Button
+                onClick={handleCustomerDisconnected}
+                variant="ghost"
+                size="sm"
+                className="bg-red-600/20 border border-red-500/40 text-red-300 hover:bg-red-600/40 hover:text-white hover:border-red-400/60 transition-all h-8 px-3 rounded-md shadow-sm shadow-red-500/10"
+              >
+                <Trash2 className="w-3 h-3 ml-1.5" />
+                <span className="text-[11px] font-medium">נתק לקוח</span>
+              </Button>
             )}
             <Button
               onClick={() => setShowCustomerGate(true)}
