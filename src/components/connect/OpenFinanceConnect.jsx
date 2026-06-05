@@ -105,7 +105,7 @@ export default function OpenFinanceConnect({ onConnected, inline = false, defaul
             <Building2 className="w-8 h-8 text-blue-400" />
           </div>
 
-          <h2 className="text-xl font-bold text-white mb-2">חיבור לחשבון הבנק</h2>
+          <h2 className="text-xl font-bold text-white mb-2">התחברות</h2>
           <p className="text-slate-400 text-sm mb-6">
             חבר את חשבונך באופן מאובטח באמצעות Open Finance לקבלת ניתוח חיתום מיידי.
           </p>
@@ -203,7 +203,7 @@ export default function OpenFinanceConnect({ onConnected, inline = false, defaul
               type="submit"
               className="w-full bg-blue-600 hover:bg-blue-500 text-white h-12 rounded-xl text-base"
             >
-              המשך לחיבור הבנק
+              התחברות
             </Button>
             <Button
               type="button"
