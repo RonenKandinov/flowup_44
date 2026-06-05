@@ -250,6 +250,80 @@ export default Deno.serve(async (req) => {
       return Response.json({ success: true, status: connectionStatus, connectionId });
     }
 
+    // --- REVOKE CONNECTION (local cleanup + best-effort provider revoke) ---
+    if (action === 'revoke') {
+      const connectionId = bodyConnectionId;
+      const psuId = userId;
+
+      if (!connectionId && !psuId) {
+        return Response.json({ error: "connectionId or psuId is required" }, { status: 400 });
+      }
+
+      const connections = connectionId
+        ? await base44.asServiceRole.entities.OpenFinanceConnection.filter({ connection_id: connectionId })
+        : await base44.asServiceRole.entities.OpenFinanceConnection.filter({ psu_id: psuId });
+
+      const connectionIds = Array.from(new Set([
+        ...(connectionId ? [connectionId] : []),
+        ...connections.map((conn) => conn.connection_id).filter(Boolean)
+      ]));
+
+      // Best-effort revoke at Open Finance provider level. Local cleanup continues even if the provider has no DELETE endpoint.
+      if (connectionIds.length > 0 && psuId) {
+        try {
+          const accessToken = await getToken(psuId);
+          for (const id of connectionIds) {
+            await fetch(`${API_ROOT}/v2/connections/${id}`, {
+              method: "DELETE",
+              headers: { "Authorization": `Bearer ${accessToken}` }
+            }).catch(() => null);
+          }
+        } catch (e) {
+          console.warn("Provider revoke skipped/failed:", e?.message || e);
+        }
+      }
+
+      let deleted = { connections: 0, accounts: 0, transactions: 0, snapshots: 0, tokens: 0 };
+
+      for (const id of connectionIds) {
+        const accounts = await base44.asServiceRole.entities.OpenFinanceAccount.filter({ connection_id: id });
+        for (const account of accounts) {
+          await base44.asServiceRole.entities.OpenFinanceAccount.delete(account.id);
+          deleted.accounts += 1;
+        }
+
+        const transactions = await base44.asServiceRole.entities.OpenFinanceTransaction.filter({ connection_id: id });
+        for (const tx of transactions) {
+          await base44.asServiceRole.entities.OpenFinanceTransaction.delete(tx.id);
+          deleted.transactions += 1;
+        }
+      }
+
+      for (const conn of connections) {
+        await base44.asServiceRole.entities.OpenFinanceConnection.delete(conn.id);
+        deleted.connections += 1;
+      }
+
+      if (psuId) {
+        const userSnapshots = await base44.asServiceRole.entities.FinancialSnapshot.filter({ user_id: psuId });
+        const snapshots = userSnapshots.length > 0
+          ? userSnapshots
+          : await base44.asServiceRole.entities.FinancialSnapshot.list('-created_date', 100);
+        for (const snapshot of snapshots) {
+          await base44.asServiceRole.entities.FinancialSnapshot.delete(snapshot.id);
+          deleted.snapshots += 1;
+        }
+
+        const tokens = await base44.asServiceRole.entities.OpenFinanceToken.filter({ user_id: psuId });
+        for (const token of tokens) {
+          await base44.asServiceRole.entities.OpenFinanceToken.delete(token.id);
+          deleted.tokens += 1;
+        }
+      }
+
+      return Response.json({ success: true, revoked: true, connectionIds, deleted });
+    }
+
     // --- FINALIZE CONNECTION (legacy / status update) ---
     if (action === 'finalize_connection') {
       const connectionId = bodyConnectionId;

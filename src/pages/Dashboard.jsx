@@ -4,6 +4,7 @@ import { Wallet, TrendingDown, TrendingUp, Trash2, RefreshCw, Cpu, CheckCircle, 
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { base44 } from '@/api/base44Client';
 import { appParams } from '@/lib/app-params';
@@ -82,6 +83,7 @@ function generateLocalInsights(metrics) {
 export default function Dashboard() {
   const [showOpenFinance, setShowOpenFinance] = useState(false);
   const [showCustomerGate, setShowCustomerGate] = useState(false);
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
   const [activeCustomerId, setActiveCustomerId] = useState(() => {
     try { return localStorage.getItem('flowup_active_customer_id') || ''; } catch { return ''; }
   });
@@ -190,10 +192,10 @@ export default function Dashboard() {
 
   // Check for active Open Finance connection
   const { data: activeConnection, refetch: refetchConnection } = useQuery({
-    queryKey: ['active-connection', user?.id],
-    enabled: !!user?.id,
+    queryKey: ['active-connection', effectiveUserId],
+    enabled: !!effectiveUserId,
     queryFn: async () => {
-        const conns = await base44.entities.OpenFinanceConnection.filter({ psu_id: user.id, status: 'ACTIVE' }, '-created_date', 1);
+        const conns = await base44.entities.OpenFinanceConnection.filter({ psu_id: effectiveUserId, status: 'ACTIVE' }, '-created_date', 1);
         return conns[0] || null;
     }
   });
@@ -774,11 +776,34 @@ export default function Dashboard() {
   };
 
   const handleCustomerDisconnected = () => {
-    if (!window.confirm('לנתק את הלקוח הפעיל מהמסך? נתוני הלקוח לא יימחקו.')) return;
     clearCustomerViewState();
     setActiveCustomerId('');
     try { localStorage.removeItem('flowup_active_customer_id'); } catch (_) {}
     toast.success('הלקוח נותק מהמסך');
+  };
+
+  const handleAccountSelection = (value) => {
+    if (value === 'disconnect') {
+      setShowDisconnectConfirm(true);
+      return;
+    }
+    setTargetAccountId(value);
+  };
+
+  const handleRevokeConnection = async () => {
+    const toastId = toast.loading('מנתק חשבון בנק...');
+    const connectionId = activeConnection?.connection_id || currentEngineData?.connectionId || localStorage.getItem('of_pending_connection');
+    await base44.functions.invoke('openFinanceAuth', {
+      action: 'revoke',
+      connectionId,
+      psuId: effectiveUserId
+    });
+    try {
+      ['of_pending_connection', 'of_pending_provider', 'of_psu_id', 'flowup_selected_account_id'].forEach(k => localStorage.removeItem(k));
+      Object.keys(sessionStorage).filter(k => k.startsWith('loanMetricsCache')).forEach(k => sessionStorage.removeItem(k));
+    } catch (_) {}
+    toast.success('חשבון הבנק נותק והנתונים המקומיים נוקו', { id: toastId });
+    window.location.reload();
   };
 
   if (isProcessingCallback) {
@@ -824,7 +849,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-3 flex-wrap">
             {originalLoanMetrics?.availableAccounts?.length > 0 && (
               <div className="w-56">
-                <Select value={targetAccountId || originalLoanMetrics.activeTargetAccountId || ''} onValueChange={setTargetAccountId}>
+                <Select value={targetAccountId || originalLoanMetrics.activeTargetAccountId || ''} onValueChange={handleAccountSelection}>
                   <SelectTrigger className="h-9 bg-slate-800/60 border-slate-700/60 text-xs backdrop-blur-sm">
                     <SelectValue placeholder="בחר חשבון" />
                   </SelectTrigger>
@@ -835,6 +860,9 @@ export default function Dashboard() {
                         {acc.name} ({acc.number ? acc.number.slice(-4) : '****'})
                       </SelectItem>
                     ))}
+                    <SelectItem value="disconnect" className="text-red-600 focus:text-red-700 font-semibold">
+                      נתק חשבון בנק
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1098,6 +1126,25 @@ export default function Dashboard() {
       </main>
 
 
+
+      <AlertDialog open={showDisconnectConfirm} onOpenChange={setShowDisconnectConfirm}>
+        <AlertDialogContent dir="rtl" className="bg-slate-950 border-slate-800 text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>לנתק את חשבון הבנק?</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              פעולה זו תנתק את החיבור ותנקה מהמערכת את החשבונות, התנועות ותמונת המצב ששויכו אליו. לא ניתן לבטל פעולה זו.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:justify-start">
+            <AlertDialogCancel className="bg-slate-900 border-slate-700 text-slate-200 hover:bg-slate-800 hover:text-white">
+              ביטול
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleRevokeConnection} className="bg-red-600 hover:bg-red-700 text-white">
+              כן, נתק חשבון
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Connect Modal */}
       <AnimatePresence>
