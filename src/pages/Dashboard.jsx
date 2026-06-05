@@ -87,6 +87,9 @@ export default function Dashboard() {
   const [activeCustomerId, setActiveCustomerId] = useState(() => {
     try { return localStorage.getItem('flowup_active_customer_id') || ''; } catch { return ''; }
   });
+  const [activeCustomerName, setActiveCustomerName] = useState(() => {
+    try { return localStorage.getItem('flowup_active_customer_name') || ''; } catch { return ''; }
+  });
   const [whatIfAmount, setWhatIfAmount] = useState(0);
   const [whatIfName, setWhatIfName] = useState('');
   const [localData, setLocalData] = useState(null);
@@ -195,10 +198,25 @@ export default function Dashboard() {
     queryKey: ['active-connection', effectiveUserId],
     enabled: !!effectiveUserId,
     queryFn: async () => {
-        const conns = await base44.entities.OpenFinanceConnection.filter({ psu_id: effectiveUserId, status: 'ACTIVE' }, '-created_date', 1);
-        return conns[0] || null;
+        const conns = await base44.entities.OpenFinanceConnection.filter({ psu_id: effectiveUserId }, '-created_date', 10);
+        return conns.find(conn => ['ACTIVE', 'CONNECTED', 'COMPLETED', 'PENDING'].includes(conn.status)) || conns[0] || null;
     }
   });
+
+  const { data: activeCustomerSession } = useQuery({
+    queryKey: ['active-customer-session', activeCustomerId],
+    enabled: !!activeCustomerId,
+    queryFn: async () => {
+      const sessions = await base44.entities.CustomerOnboardingSession.filter({ customer_id: activeCustomerId }, '-created_date', 1);
+      return sessions[0] || null;
+    }
+  });
+
+  useEffect(() => {
+    if (!activeCustomerSession?.customer_name) return;
+    setActiveCustomerName(activeCustomerSession.customer_name);
+    try { localStorage.setItem('flowup_active_customer_name', activeCustomerSession.customer_name); } catch (_) {}
+  }, [activeCustomerSession]);
 
   // Handle Open Finance OAuth Callback (user returns from bank consent)
   useEffect(() => {
@@ -349,8 +367,8 @@ export default function Dashboard() {
       risk_level: 'green',
       risk_day: null
   };
-  const snapshot = localData?.snapshot || snapshots?.[0] || (isAdmin || newLoanMetrics ? emptySnapshot : undefined);
-  const hasData = !!(snapshot && snapshot.current_balance !== undefined);
+  const snapshot = localData?.snapshot || snapshots?.[0] || (newLoanMetrics ? emptySnapshot : undefined);
+  const hasData = !!(localData?.snapshot || snapshots?.[0] || newLoanMetrics);
 
   // Fallback metrics from snapshot/CSV so AI insights can run when backend loan metrics are missing
   const metricsFromSnapshot = React.useMemo(() => {
@@ -768,23 +786,22 @@ export default function Dashboard() {
   };
 
   // Context switch: clear the previous customer's view and load the newly-verified customer.
-  const handleCustomerActivated = (customerId) => {
+  const handleCustomerActivated = (customer) => {
+    const customerId = typeof customer === 'string' ? customer : customer?.customer_id;
+    const customerName = typeof customer === 'string' ? '' : (customer?.customer_name || '');
     clearCustomerViewState();
-    setActiveCustomerId(customerId);
-    try { localStorage.setItem('flowup_active_customer_id', customerId); } catch (_) {}
+    setActiveCustomerId(customerId || '');
+    setActiveCustomerName(customerName);
+    try {
+      localStorage.setItem('flowup_active_customer_id', customerId || '');
+      if (customerName) localStorage.setItem('flowup_active_customer_name', customerName);
+    } catch (_) {}
     setShowCustomerGate(false);
-  };
-
-  const handleCustomerDisconnected = () => {
-    clearCustomerViewState();
-    setActiveCustomerId('');
-    try { localStorage.removeItem('flowup_active_customer_id'); } catch (_) {}
-    toast.success('הלקוח נותק מהמסך');
   };
 
   const handleAccountSelection = (value) => {
     if (value === 'disconnect') {
-      setShowDisconnectConfirm(true);
+      handleRevokeConnection();
       return;
     }
     setTargetAccountId(value);
@@ -793,17 +810,33 @@ export default function Dashboard() {
   const handleRevokeConnection = async () => {
     const toastId = toast.loading('מנתק חשבון בנק...');
     const connectionId = activeConnection?.connection_id || currentEngineData?.connectionId || localStorage.getItem('of_pending_connection');
+    const psuId = effectiveUserId || activeCustomerId || localStorage.getItem('of_psu_id');
+
+    if (!connectionId && !psuId) {
+      toast.error('לא נמצא חיבור פעיל לניתוק', { id: toastId });
+      return;
+    }
+
     await base44.functions.invoke('openFinanceAuth', {
       action: 'revoke',
       connectionId,
-      psuId: effectiveUserId
+      psuId
     });
+
+    clearCustomerViewState();
+    setActiveCustomerId('');
+    setActiveCustomerName('');
+    setShowDisconnectConfirm(false);
+    setShowOpenFinance(false);
     try {
-      ['of_pending_connection', 'of_pending_provider', 'of_psu_id', 'flowup_selected_account_id'].forEach(k => localStorage.removeItem(k));
+      ['of_pending_connection', 'of_pending_provider', 'of_psu_id', 'flowup_selected_account_id', 'flowup_active_customer_id', 'flowup_active_customer_name'].forEach(k => localStorage.removeItem(k));
       Object.keys(sessionStorage).filter(k => k.startsWith('loanMetricsCache')).forEach(k => sessionStorage.removeItem(k));
     } catch (_) {}
-    toast.success('חשבון הבנק נותק והנתונים המקומיים נוקו', { id: toastId });
-    window.location.reload();
+    queryClient.setQueryData(['financial-snapshots'], []);
+    queryClient.setQueryData(['shadow-entries'], []);
+    queryClient.removeQueries({ queryKey: ['active-connection'] });
+    queryClient.removeQueries({ queryKey: ['active-customer-session'] });
+    toast.success('חשבון הבנק נותק והמסך אופס', { id: toastId });
   };
 
   if (isProcessingCallback) {
@@ -841,7 +874,7 @@ export default function Dashboard() {
             <p className="text-slate-500 text-xs mt-2 tracking-[0.2em] uppercase">FutureFlow Dashboard</p>
             {activeCustomerId && (
               <span className="inline-block mt-2 text-[11px] font-medium text-cyan-300 bg-cyan-500/10 border border-cyan-500/30 rounded-full px-3 py-0.5">
-                לקוח פעיל: {activeCustomerId}
+                לקוח פעיל: {activeCustomerName ? `${activeCustomerName} · ${activeCustomerId}` : activeCustomerId}
               </span>
             )}
           </div>
@@ -869,13 +902,13 @@ export default function Dashboard() {
             )}
             {activeCustomerId && (
               <Button
-                onClick={handleCustomerDisconnected}
+                onClick={handleRevokeConnection}
                 variant="ghost"
                 size="sm"
                 className="bg-red-600/20 border border-red-500/40 text-red-300 hover:bg-red-600/40 hover:text-white hover:border-red-400/60 transition-all h-8 px-3 rounded-md shadow-sm shadow-red-500/10"
               >
                 <Trash2 className="w-3 h-3 ml-1.5" />
-                <span className="text-[11px] font-medium">נתק לקוח</span>
+                <span className="text-[11px] font-medium">נתק חשבון</span>
               </Button>
             )}
             <Button

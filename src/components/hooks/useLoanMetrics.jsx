@@ -7,6 +7,13 @@ export const useLoanMetrics = (userId, targetAccountId = null) => {
     const [error, setError] = useState(null);
 
     const fetchMetrics = useCallback(async (force = false) => {
+        if (!userId) {
+            setMetrics(null);
+            setIsLoading(false);
+            setError(null);
+            return;
+        }
+
         setIsLoading(true);
         setError(null);
 
@@ -23,7 +30,7 @@ export const useLoanMetrics = (userId, targetAccountId = null) => {
             // Note: Using SDK to ensure correct routing within the Base44 environment
             // effectively acting as a fetch wrapper to the Edge Function.
             const response = await base44.functions.invoke('loanLogicV2', {
-                userId: userId || "ronenk2424@gmail.com",
+                userId,
                 targetAccountId
             });
             
@@ -71,7 +78,7 @@ export const useLoanMetrics = (userId, targetAccountId = null) => {
                     // spend windows within the month, overdraft touches, savings discipline)
                     // — used by InsightEngine to write a human narrative.
                     behaviorProfile: data.behaviorProfile || null,
-                    userId: userId || "ronenk2424@gmail.com"
+                    userId
                 };
 
                 setMetrics(transformedMetrics);

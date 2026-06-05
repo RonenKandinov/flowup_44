@@ -41,7 +41,10 @@ export default function CustomerGateModal({ onClose, onCustomerActivated }) {
       const status = event.data?.status;
       if (status === 'completed') {
         toast.success('הלקוח סיים אימות — טוען נתונים');
-        onCustomerActivated(event.data?.customer_id || form.customerId);
+        onCustomerActivated({
+          customer_id: event.data?.customer_id || form.customerId,
+          customer_name: event.data?.customer_name || form.name
+        });
       } else if (['link_opened', 'consent_started', 'consent_granted', 'analyzing'].includes(status)) {
         setPhase('waiting');
       }
