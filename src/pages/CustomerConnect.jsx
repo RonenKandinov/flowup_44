@@ -80,7 +80,7 @@ export default function CustomerConnect() {
         connection_id: connectionId || ''
       }).catch(() => {});
 
-      const psuId = currentSession?.customer_id || sessionId;
+      const psuId = currentSession?.customer_id || localStorage.getItem('of_psu_id') || sessionId;
 
       const statusRes = await base44.functions.invoke('openFinanceAuth', {
         action: 'check_status',
@@ -112,10 +112,12 @@ export default function CustomerConnect() {
 
       localStorage.removeItem('of_pending_connection');
       localStorage.removeItem('of_pending_provider');
+      localStorage.removeItem('of_psu_id');
 
       setStep('success');
     } catch (err) {
-      setError(err?.message || 'שגיאה בשלב הניתוח');
+      const serverError = err?.response?.data?.details || err?.response?.data?.error;
+      setError(serverError || err?.message || 'שגיאה בשלב הניתוח');
       setStep('error');
     }
   };
