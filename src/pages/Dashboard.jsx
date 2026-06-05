@@ -359,16 +359,17 @@ export default function Dashboard() {
   }, [shadowEntries]);
 
   // Use local data if exists, otherwise use saved data. Admins get a blank slate bypass.
-  const emptySnapshot = {
-      current_balance: 0,
-      total_income: 0,
-      total_expenses: 0,
-      projected_eom_balance: 0,
-      risk_level: 'green',
-      risk_day: null
-  };
-  const snapshot = localData?.snapshot || snapshots?.[0] || (newLoanMetrics ? emptySnapshot : undefined);
-  const hasData = !!(localData?.snapshot || snapshots?.[0] || newLoanMetrics);
+  const metricsSnapshot = newLoanMetrics ? {
+      current_balance: newLoanMetrics.liquidAssets || 0,
+      total_income: newLoanMetrics.totalIncome || 0,
+      total_expenses: newLoanMetrics.totalExpenses || 0,
+      projected_eom_balance: (newLoanMetrics.totalIncome || 0) - (newLoanMetrics.totalExpenses || 0),
+      risk_level: String(newLoanMetrics.status || 'green').toLowerCase(),
+      risk_day: newLoanMetrics.riskDay || null,
+      avg_daily_spending: Math.round((newLoanMetrics.totalExpenses || 0) / 30)
+  } : undefined;
+  const snapshot = localData?.snapshot || metricsSnapshot || snapshots?.[0];
+  const hasData = !!snapshot;
 
   // Fallback metrics from snapshot/CSV so AI insights can run when backend loan metrics are missing
   const metricsFromSnapshot = React.useMemo(() => {
@@ -1059,8 +1060,18 @@ export default function Dashboard() {
                 <div className="col-span-1 md:col-span-2 h-72 bg-slate-800/50 rounded-2xl mt-8" />
                 <div className="h-72 bg-slate-800/50 rounded-2xl mt-8" />
              </div>
-          ) : (!loanMetricsError && !hasData) ? (
+          ) : (!loanMetricsError && !hasData && !activeCustomerId) ? (
             <EmptyState onDataParsed={handleDataParsed} />
+          ) : (!loanMetricsError && !hasData && activeCustomerId) ? (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4">
+              <div className="w-10 h-10 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+              <h3 className="text-xl font-bold text-white">טוען נתוני לקוח מחובר...</h3>
+              <p className="text-slate-400 max-w-md">החשבון כבר מחובר. אנחנו מושכים את נתוני Open Finance ומכינים את תצוגת החיתום.</p>
+              <Button onClick={refetchLoanMetrics} className="bg-cyan-600 hover:bg-cyan-500 text-white">
+                <RefreshCw className="w-4 h-4 ml-2" />
+                טען נתונים מחדש
+              </Button>
+            </div>
           ) : (!loanMetricsError && (
             <>
               {/* Stats Row — generous spacing on all breakpoints */}
