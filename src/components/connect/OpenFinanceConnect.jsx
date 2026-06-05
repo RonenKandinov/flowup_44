@@ -111,69 +111,43 @@ export default function OpenFinanceConnect({ onConnected, inline = false, defaul
           </p>
 
           <div className="grid grid-cols-2 gap-2 mb-6">
-            {getSupportedProviders().map(provider => (
-              provider.comingSoon ? (
+            {getSupportedProviders().map(provider => {
+              const isSelected = selectedProvider === provider.id;
+
+              return provider.comingSoon ? (
                 <div
                   key={provider.id}
                   className="relative bg-slate-800/30 rounded-lg p-3 flex items-center justify-center border border-slate-700/50 opacity-50 cursor-not-allowed"
                 >
-                  <div className="flex flex-col items-center gap-1">
-                    <span className="text-xl">{provider.logo}</span>
-                    <span className="text-[10px] text-slate-500 font-medium">{provider.displayName}</span>
-                  </div>
+                  <span className="text-[10px] text-slate-500 font-medium">{provider.displayName}</span>
                   <span className="absolute top-1 right-1 text-[8px] bg-slate-700 text-slate-400 px-1 rounded">בקרוב</span>
                 </div>
               ) : (
                 <Button
                   key={provider.id}
-                  onClick={() => handleConnect(provider.id)}
+                  type="button"
+                  onClick={() => setSelectedProvider(provider.id)}
                   variant="outline"
-                  className="bg-slate-800/50 hover:bg-slate-700 rounded-lg p-3 flex items-center justify-center border border-slate-700 hover:border-cyan-500 transition-all"
+                  className={isSelected
+                    ? "relative bg-blue-500/10 hover:bg-blue-500/15 rounded-lg p-3 flex items-center justify-center border border-blue-500 text-white transition-all"
+                    : "relative bg-slate-800/50 hover:bg-slate-700 rounded-lg p-3 flex items-center justify-center border border-slate-700 hover:border-cyan-500 text-slate-400 transition-all"
+                  }
                 >
-                  <div className="flex flex-col items-center gap-1">
-                    <span className="text-xl">{provider.logo}</span>
-                    <span className="text-[10px] text-slate-400 font-medium">{provider.displayName}</span>
-                  </div>
+                  <span className="text-[10px] font-medium">{provider.displayName}</span>
+                  {isSelected && <CheckCircle2 className="absolute top-1 right-1 w-3.5 h-3.5 text-blue-400" />}
                 </Button>
-              )
-            ))}
-          </div>
-
-          <div className="text-center text-xs text-slate-500 mb-4">
-            או
+              );
+            })}
           </div>
 
           <Button
-            onClick={() => handleConnect('mizrahi')}
-            className="w-full bg-blue-600 hover:bg-blue-500 text-white h-12 rounded-xl text-base shadow-lg shadow-blue-900/20"
+            onClick={() => handleConnect(selectedProvider)}
+            disabled={!selectedProvider}
+            className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-400 disabled:cursor-not-allowed text-white h-12 rounded-xl text-base shadow-lg shadow-blue-900/20"
           >
             <Lock className="w-4 h-4 mr-2" />
-            התחבר מאובטח (מזרחי)
+            התחברות
           </Button>
-
-          <div className="flex gap-2 mt-3 w-full">
-            <Button
-              onClick={() => handleConnect('mizrahi-sandbox')}
-              variant="outline"
-              className="flex-1 bg-slate-800/50 border-slate-700 text-slate-300 hover:bg-slate-700 h-10 text-xs"
-            >
-              מזרחי Sandbox
-            </Button>
-            <Button
-              onClick={() => handleConnect('leumi-sandbox')}
-              variant="outline"
-              className="flex-1 bg-slate-800/50 border-slate-700 text-slate-300 hover:bg-slate-700 h-10 text-xs"
-            >
-              לאומי Sandbox
-            </Button>
-            <Button
-              onClick={() => handleConnect('hapoalim-sandbox')}
-              variant="outline"
-              className="flex-1 bg-slate-800/50 border-slate-700 text-slate-300 hover:bg-slate-700 h-10 text-xs"
-            >
-              פועלים Sandbox
-            </Button>
-          </div>
 
           <div className="flex items-center justify-center gap-2 mt-4 text-[10px] text-slate-500">
             <ShieldCheck className="w-3 h-3" />
