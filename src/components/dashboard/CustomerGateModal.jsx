@@ -21,6 +21,7 @@ export default function CustomerGateModal({ onClose, onCustomerActivated }) {
   const [creating, setCreating] = useState(false);
   const [partnerId, setPartnerId] = useState('');
   const [form, setForm] = useState({ name: '', customerId: '', phone: '', email: '' });
+  const [sendingEmail, setSendingEmail] = useState(false);
   const [session, setSession] = useState(null); // { session_id, link, expires_at }
 
   const { data: partners = [] } = useQuery({
@@ -69,9 +70,10 @@ export default function CustomerGateModal({ onClose, onCustomerActivated }) {
       const data = res?.data || res;
       if (data?.error) throw new Error(data.error);
       setSession(data);
+      if (hasEmail) await sendEmailTo(data.link);
       setPhase('sent');
-      if (hasPhone) toast.success('הקישור נוצר — אפשר לשלוח ב-WhatsApp או להעתיק');
-      else toast.success('הקישור נוצר — אפשר להעתיק ולשלוח ידנית');
+      if (hasPhone) toast.success('הקישור נוצר — אפשר לשלוח גם ב-WhatsApp או להעתיק');
+      else toast.success('הקישור נוצר ונשלח במייל');
     } catch (err) {
       toast.error(err?.message || 'יצירת הקישור נכשלה');
     } finally {
@@ -85,6 +87,25 @@ export default function CustomerGateModal({ onClose, onCustomerActivated }) {
     const clean = String(form.phone || '').replace(/\D/g, '');
     window.open(`https://wa.me/${clean}?text=${encodeURIComponent(msg)}`, '_blank');
   };
+
+  const sendEmailTo = async (link) => {
+    setSendingEmail(true);
+    try {
+      const res = await base44.functions.invoke('sendOnboardingEmail', {
+        to: form.email.trim(),
+        customer_name: form.name,
+        link
+      });
+      const data = res?.data || res;
+      if (data?.error) throw new Error(data.error);
+      toast.success('הקישור נשלח לאימייל הלקוח');
+    } catch (err) {
+      toast.error(err?.message || 'שליחת המייל נכשלה');
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   return (
     <motion.div
       initial={{ scale: 0.95, opacity: 0 }}
@@ -133,12 +154,12 @@ export default function CustomerGateModal({ onClose, onCustomerActivated }) {
             <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="972501234567" dir="ltr" className="bg-slate-800 border-slate-700 text-slate-200 mt-1 text-left" />
           </div>
           <div>
-            <Label className="text-slate-300 text-xs">אימייל (אופציונלי, ללא שליחה אוטומטית)</Label>
+            <Label className="text-slate-300 text-xs">אימייל (לשליחה אוטומטית)</Label>
             <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="customer@email.com" dir="ltr" className="bg-slate-800 border-slate-700 text-slate-200 mt-1 text-left" />
           </div>
-          <Button type="submit" disabled={creating} className="w-full bg-blue-600 hover:bg-blue-500 text-white h-11 gap-2">
-            {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <LinkIcon className="w-4 h-4" />}
-            צור קישור אימות
+          <Button type="submit" disabled={creating || sendingEmail} className="w-full bg-blue-600 hover:bg-blue-500 text-white h-11 gap-2">
+            {creating || sendingEmail ? <Loader2 className="w-4 h-4 animate-spin" /> : <LinkIcon className="w-4 h-4" />}
+            צור ושלח קישור אימות
           </Button>
         </form>
       )}
