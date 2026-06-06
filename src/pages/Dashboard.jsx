@@ -193,6 +193,7 @@ export default function Dashboard() {
   }, [appParams.token]);
 
   const isAdmin = user?.role === 'admin';
+  const isNationalId = (value) => /^[0-9]{9}$/.test(String(value || '').trim());
 
   // Check for active Open Finance connection
   const { data: activeConnection, refetch: refetchConnection } = useQuery({
@@ -208,16 +209,32 @@ export default function Dashboard() {
     queryKey: ['active-customer-session', activeCustomerId],
     enabled: !!activeCustomerId,
     queryFn: async () => {
-      const sessions = await base44.entities.CustomerOnboardingSession.filter({ customer_id: activeCustomerId }, '-created_date', 1);
-      return sessions[0] || null;
+      if (isNationalId(activeCustomerId)) {
+        const sessions = await base44.entities.CustomerOnboardingSession.filter({ customer_id: activeCustomerId }, '-created_date', 1);
+        return sessions[0] || null;
+      }
+
+      const bySessionId = await base44.entities.CustomerOnboardingSession.filter({ id: activeCustomerId }, '-created_date', 1);
+      if (bySessionId[0]) return bySessionId[0];
+
+      const latestCompleted = await base44.entities.CustomerOnboardingSession.filter({ status: 'completed' }, '-updated_date', 1);
+      return latestCompleted[0] || null;
     }
   });
 
   useEffect(() => {
-    if (!activeCustomerSession?.customer_name) return;
-    setActiveCustomerName(activeCustomerSession.customer_name);
-    try { localStorage.setItem('flowup_active_customer_name', activeCustomerSession.customer_name); } catch (_) {}
-  }, [activeCustomerSession]);
+    if (!activeCustomerSession) return;
+
+    if (activeCustomerSession.customer_id && activeCustomerSession.customer_id !== activeCustomerId) {
+      setActiveCustomerId(activeCustomerSession.customer_id);
+      try { localStorage.setItem('flowup_active_customer_id', activeCustomerSession.customer_id); } catch (_) {}
+    }
+
+    if (activeCustomerSession.customer_name) {
+      setActiveCustomerName(activeCustomerSession.customer_name);
+      try { localStorage.setItem('flowup_active_customer_name', activeCustomerSession.customer_name); } catch (_) {}
+    }
+  }, [activeCustomerSession, activeCustomerId]);
 
   // Handle Open Finance OAuth Callback (user returns from bank consent)
   useEffect(() => {
