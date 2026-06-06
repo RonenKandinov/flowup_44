@@ -60,7 +60,7 @@ export default function OpenFinanceConnect({ onConnected, inline = false, defaul
 
     } catch (error) {
       console.error("Open Finance Error:", error);
-      toast.error(`לא הצלחנו להמשיך כרגע: ${error.message}`);
+      toast.error(`חיבור נכשל: ${error.message}`);
       setStatus('idle');
       setSelectedProvider(null);
       setProgress(0);
@@ -105,9 +105,9 @@ export default function OpenFinanceConnect({ onConnected, inline = false, defaul
             <Building2 className="w-8 h-8 text-blue-400" />
           </div>
 
-          <h2 className="text-xl font-bold text-white mb-2">אימות נתונים פיננסיים</h2>
+          <h2 className="text-xl font-bold text-white mb-2">התחברות</h2>
           <p className="text-slate-400 text-sm mb-6">
-            בחר את הבנק שבו מתנהל החשבון העסקי לצורך השלמת בדיקת הזכאות.
+            חבר את חשבונך באופן מאובטח באמצעות Open Finance לקבלת ניתוח חיתום מיידי.
           </p>
 
           <div className="grid grid-cols-2 gap-2 mb-6">
@@ -146,12 +146,12 @@ export default function OpenFinanceConnect({ onConnected, inline = false, defaul
             className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-400 disabled:cursor-not-allowed text-white h-12 rounded-xl text-base shadow-lg shadow-blue-900/20"
           >
             <Lock className="w-4 h-4 mr-2" />
-            המשך לבנק
+            התחברות
           </Button>
 
           <div className="flex items-center justify-center gap-2 mt-4 text-[10px] text-slate-500">
             <ShieldCheck className="w-3 h-3" />
-            <span>בדיקה מאובטחת ומבוצעת באישורכם בלבד</span>
+            <span>מוצפן בתקן AES-256 (Zero-Knowledge)</span>
           </div>
         </motion.div>
       )}
@@ -166,10 +166,10 @@ export default function OpenFinanceConnect({ onConnected, inline = false, defaul
             <Mail className="w-8 h-8 text-blue-400" />
           </div>
 
-          <h2 className="text-xl font-bold text-white mb-2">המשך לבדיקת הזכאות</h2>
+          <h2 className="text-xl font-bold text-white mb-2">הזן את תעודת הזהות שלך</h2>
           <p className="text-slate-400 text-sm mb-6">
-            <span className="block">לצורך השלמת הבדיקה, נדרש זיהוי פיננסי מאובטח.</span>
-            <span className="block mt-1">נא להזין מספר תעודת זהות (9 ספרות).</span>
+            <span className="block">כדי לשמור את נתוני החיבור, נא להזין מספר תעודת זהות</span>
+            <span className="block mt-1">(9 ספרות)</span>
           </p>
 
           <form onSubmit={handleIdSubmit} className="w-full space-y-3">
@@ -190,7 +190,7 @@ export default function OpenFinanceConnect({ onConnected, inline = false, defaul
                     setIdInput(val);
                   }
                 }}
-                placeholder="מספר תעודת זהות"
+                placeholder="הכנס תעודת זהות"
                 autoFocus
                 className={`w-full bg-slate-800 border ${inputError ? 'border-red-500' : 'border-slate-600'} text-white placeholder-slate-500 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition-colors`}
               />
@@ -203,7 +203,7 @@ export default function OpenFinanceConnect({ onConnected, inline = false, defaul
               type="submit"
               className="w-full bg-blue-600 hover:bg-blue-500 text-white h-12 rounded-xl text-base"
             >
-              המשך לאימות
+              התחברות
             </Button>
             <Button
               type="button"
@@ -233,13 +233,13 @@ export default function OpenFinanceConnect({ onConnected, inline = false, defaul
 
           <h3 className="text-lg font-medium text-white mb-1">
             {status === 'redirecting'
-              ? 'מעביר אותך לאישור מאובטח...'
-              : 'מכין את בדיקת הזכאות...'}
+              ? 'מפנה לעמוד הסכמה של הבנק...'
+              : `מתחבר ל${selectedProvider?.toUpperCase() || 'בנק'}...`}
           </h3>
           <p className="text-sm text-slate-400">
             {status === 'redirecting'
-              ? 'תועבר לבנק להשלמת האישור המאובטח'
-              : 'מכין מעבר מאובטח להמשך הבדיקה'}
+              ? 'תועבר לבנק לאישור הגישה — חזור לאחר האישור'
+              : 'יוצר ערוץ תקשורת מאובטח'}
           </p>
         </motion.div>
       )}
@@ -253,8 +253,8 @@ export default function OpenFinanceConnect({ onConnected, inline = false, defaul
           <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-500/20">
             <CheckCircle2 className="w-8 h-8 text-green-400" />
           </div>
-          <h2 className="text-xl font-bold text-white mb-2">בדיקת הזכאות הושלמה</h2>
-          <p className="text-slate-400 text-sm">מעביר אותך לשלב הבא...</p>
+          <h2 className="text-xl font-bold text-white mb-2">הניתוח הושלם</h2>
+          <p className="text-slate-400 text-sm">מעביר אותך לדאשבורד...</p>
     
         </motion.div>
       )}

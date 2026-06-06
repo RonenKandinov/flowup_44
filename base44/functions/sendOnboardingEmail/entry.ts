@@ -22,14 +22,14 @@ Deno.serve(async (req) => {
     const html = `
       <div dir="rtl" style="font-family:Arial,sans-serif;font-size:15px;color:#1e293b;line-height:1.7">
         <p>שלום ${safeName},</p>
-        <p>כדי להתקדם לקבלת החלטת אשראי מהירה ומדויקת, יש להשלים בדיקת זכאות מאובטחת.</p>
+        <p>לצורך המשך טיפול בבקשת האשראי שלך, אנא פתח/י את קישור האימות המאובטח הבא:</p>
         <p style="margin:24px 0">
           <a href="${link}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block">
-            המשך לבדיקת הזכאות
+            התחברות
           </a>
         </p>
         <p style="direction:ltr;text-align:left;word-break:break-all;font-size:13px;color:#334155">${link}</p>
-        <p style="font-size:13px;color:#64748b">הקישור אישי וחד-פעמי ונועד להשלמת בדיקת הזכאות בצורה מאובטחת.</p>
+        <p style="font-size:13px;color:#64748b">הקישור מאובטח וחד-פעמי. אם לא ביקשת זאת, ניתן להתעלם מהודעה זו.</p>
         <p style="font-size:13px;color:#64748b">בברכה,<br/>צוות FlowUp</p>
       </div>`;
 
@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         from: 'FlowUp <noreply@flowupfinance.com>',
         to: [to],
-        subject: 'המשך לבדיקת הזכאות למימון עסקי — FlowUp',
+        subject: 'קישור אימות מאובטח להמשך בקשת האשראי — FlowUp',
         html
       })
     });
