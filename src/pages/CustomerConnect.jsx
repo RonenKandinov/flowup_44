@@ -177,7 +177,7 @@ export default function CustomerConnect() {
             </div>
           </div>
           <h1 className="text-2xl font-bold text-slate-800">
-            אישור אשראי מהיר עבור {session.b2b_partner_name}
+            בדיקת זכאות למימון עסקי
           </h1>
           {session.customer_name && (
             <p className="text-slate-600 mt-1">שלום {session.customer_name},</p>
@@ -195,27 +195,27 @@ export default function CustomerConnect() {
               <Card className="border-0 shadow-xl">
                 <CardContent className="p-6 space-y-6">
                   <div className="bg-blue-50 text-blue-800 p-4 rounded-lg text-sm leading-relaxed">
-                    כדי שנוכל לאשר את בקשתך באופן מיידי, אנו זקוקים לחיבור מאובטח לחשבון הבנק שלך. התהליך לוקח פחות מדקה.
+                    השלמת השלב הבא תאפשר לנו להציג עבורך הערכה מדויקת ומהירה יותר — תוך דקות, ללא ניירת.
                   </div>
                   <ul className="space-y-3 text-sm text-slate-600">
                     <li className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      חיבור מאובטח בתקן בנק ישראל (Open Banking)
+                      ללא העלאת מסמכים ידנית
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      קריאה בלבד – אין אפשרות לבצע פעולות בחשבון
+                      תשובה מהירה ומדויקת יותר
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      הנתונים משמשים אך ורק לבחינת בקשה זו
+                      מאושר ומאובטח בהתאם לתקן בנק ישראל
                     </li>
                   </ul>
                   <button
                     onClick={() => setStep('connect')}
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition-colors"
                   >
-                    התחברות
+                    המשך לבדיקה
                   </button>
                 </CardContent>
               </Card>
