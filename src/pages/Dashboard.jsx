@@ -221,6 +221,10 @@ export default function Dashboard() {
     enabled: !!activeCustomerId,
     queryFn: async () => {
       if (isNationalId(activeCustomerId)) {
+        // A national-id active context is a self-connected account (e.g. the analyst's
+        // own account). Only attach a matching session — NEVER fall back to another
+        // customer's "latest completed" session, which would hijack the active context
+        // and bounce the view back to the empty/wrong state.
         const sessions = await base44.entities.CustomerOnboardingSession.filter({ customer_id: activeCustomerId }, '-created_date', 1);
         return sessions[0] || null;
       }
@@ -345,6 +349,13 @@ export default function Dashboard() {
             localStorage.removeItem('of_pending_connection');
             localStorage.removeItem('of_pending_provider');
             toast.success('חשבון הבנק חובר בהצלחה!', { id: 'of-toast' });
+
+            // Persist the just-connected account as the active context so a page
+            // refresh restores its view instead of falling back to the empty screen.
+            if (psuId) {
+              setActiveCustomerId(psuId);
+              try { localStorage.setItem('flowup_active_customer_id', psuId); } catch (_) {}
+            }
 
             await handleDataParsed(dashboardData);
             await refetchConnection();
