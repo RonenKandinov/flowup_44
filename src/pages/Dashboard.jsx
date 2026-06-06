@@ -154,6 +154,17 @@ export default function Dashboard() {
   const newLoanMetrics = simulatedMetrics || originalLoanMetrics;
   const queryClient = useQueryClient();
 
+  // Self-heal stale account selection: if we requested a specific account but the
+  // engine fell back (e.g. that account belonged to a previous customer), sync the
+  // UI to the account the engine actually used so we stop re-sending the stale id.
+  useEffect(() => {
+    const resolved = originalLoanMetrics?.activeTargetAccountId;
+    if (resolved && targetAccountId && targetAccountId !== 'all' && resolved !== targetAccountId) {
+      const stillValid = originalLoanMetrics?.availableAccounts?.some(a => a.id === targetAccountId);
+      if (!stillValid) setTargetAccountId('all');
+    }
+  }, [originalLoanMetrics, targetAccountId]);
+
   // Load from Local Storage on mount (skip when no token to avoid 500 in console)
   useEffect(() => {
     if (!appParams.token) {
