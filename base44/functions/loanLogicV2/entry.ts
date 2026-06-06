@@ -428,7 +428,17 @@ Deno.serve(withValidation(loanLogicSchema, async (req) => {
 
                 // Filter to activeTargetAccountId if provided (skip if 'all' is selected to aggregate multiple banks)
                 if (activeTargetAccountId && activeTargetAccountId !== 'all') {
-                    accounts = accounts.filter(acc => String(acc.id || acc.accountId || acc.accountNumber) === String(activeTargetAccountId));
+                    const filteredAccounts = accounts.filter(acc => String(acc.id || acc.accountId || acc.accountNumber) === String(activeTargetAccountId));
+                    // SAFETY: a stale accountId (e.g. left over from a different customer's session)
+                    // would filter to 0 accounts and crash the whole analysis. If the requested
+                    // account doesn't belong to THIS customer, ignore the filter and aggregate
+                    // all of this customer's accounts instead of returning "No transactions found".
+                    if (filteredAccounts.length === 0) {
+                        console.warn(`[Account Filter] targetAccountId "${activeTargetAccountId}" not found for this customer — falling back to ALL accounts.`);
+                        activeTargetAccountId = 'all';
+                    } else {
+                        accounts = filteredAccounts;
+                    }
                 }
                 
                 console.log(`[Liquid Assets] Processing ${accounts.length} unique accounts (from ${rawAccounts.length} raw)`);

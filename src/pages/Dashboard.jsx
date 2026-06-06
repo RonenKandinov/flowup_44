@@ -811,6 +811,12 @@ export default function Dashboard() {
     const customerId = typeof customer === 'string' ? customer : customer?.customer_id;
     const customerName = typeof customer === 'string' ? '' : (customer?.customer_name || '');
     clearCustomerViewState();
+    // Drop any stale account selection from the URL — it may belong to the previous customer.
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('accountId');
+      window.history.replaceState({}, '', url.toString());
+    } catch (_) {}
     setActiveCustomerId(customerId || '');
     setActiveCustomerName(customerName);
     try {
