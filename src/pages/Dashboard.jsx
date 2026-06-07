@@ -19,6 +19,7 @@ import DealRescuer from '../components/dashboard/DealRescuer';
 import FutureCake from '../components/dashboard/FutureCake';
 import InsightsAgent from '../components/dashboard/InsightsAgent'; // New
 import EmptyState from '../components/dashboard/EmptyState';
+import CustomerSwitcher from '../components/dashboard/CustomerSwitcher';
 import Disclaimer from '../components/dashboard/Disclaimer';
 import OpenFinanceConnect from '../components/connect/OpenFinanceConnect';
 import CustomerGateModal from '../components/dashboard/CustomerGateModal';
@@ -884,6 +885,20 @@ export default function Dashboard() {
     setTargetAccountId(value);
   };
 
+  // Switch the active customer (single source of truth = OpenFinanceConnection.psu_id).
+  // Resets the per-customer account filter so the new customer loads its own accounts.
+  const handleCustomerSwitch = (psuId) => {
+    if (!psuId || psuId === activeCustomerId) return;
+    setActiveCustomerId(psuId);
+    setActiveCustomerName('');
+    setTargetAccountId('all');
+    try {
+      localStorage.setItem('flowup_active_customer_id', psuId);
+      localStorage.removeItem('flowup_active_customer_name');
+      localStorage.removeItem('flowup_selected_account_id');
+    } catch (_) {}
+  };
+
   const handleRevokeConnection = async () => {
     const toastId = toast.loading('מנתק חשבון בנק...');
     const connectionId = activeConnection?.connection_id || currentEngineData?.connectionId || localStorage.getItem('of_pending_connection');
@@ -948,6 +963,7 @@ export default function Dashboard() {
           
           <div dir="rtl" className="w-full flex items-center justify-end gap-3 flex-wrap">
             <div dir="rtl" className="flex items-center gap-3 flex-wrap justify-end">
+            <CustomerSwitcher activeCustomerId={activeCustomerId} onSelect={handleCustomerSwitch} />
             {activeCustomerId && originalLoanMetrics?.availableAccounts?.length > 0 && (
               <div className="w-56">
                 <Select value={targetAccountId || originalLoanMetrics.activeTargetAccountId || ''} onValueChange={handleAccountSelection}>
