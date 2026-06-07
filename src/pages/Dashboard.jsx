@@ -869,15 +869,11 @@ export default function Dashboard() {
       ].forEach(k => localStorage.removeItem(k));
       Object.keys(sessionStorage).filter(k => k.startsWith('loanMetricsCache')).forEach(k => sessionStorage.removeItem(k));
     } catch (_) {}
-    queryClient.setQueryData(['financial-snapshots'], []);
-    queryClient.setQueryData(['shadow-entries'], []);
-    queryClient.removeQueries({ queryKey: ['financial-snapshots'] });
-    queryClient.removeQueries({ queryKey: ['shadow-entries'] });
-    queryClient.removeQueries({ queryKey: ['active-connection'] });
-    queryClient.removeQueries({ queryKey: ['active-customer-session'] });
-    queryClient.removeQueries({ queryKey: ['ai-insights-v7'] });
-    queryClient.removeQueries({ queryKey: ['cash-flow-profile-v1'] });
-    navigate('/Dashboard', { replace: true });
+    queryClient.clear();
+    // Hard reload guarantees every cached query, in-flight request and component
+    // state is fully reset — prevents the stale "active-customer-session" query
+    // from re-hydrating activeCustomerId and bouncing back into the loading screen.
+    window.location.replace('/Dashboard');
   };
 
   const handleAccountSelection = (value) => {
@@ -1128,10 +1124,16 @@ export default function Dashboard() {
               <div className="w-10 h-10 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
               <h3 className="text-xl font-bold text-white">טוען נתוני לקוח מחובר...</h3>
               <p className="text-slate-400 max-w-md">החשבון כבר מחובר. אנחנו מושכים את נתוני Open Finance ומכינים את תצוגת החיתום.</p>
-              <Button onClick={refetchLoanMetrics} className="bg-cyan-600 hover:bg-cyan-500 text-white">
-                <RefreshCw className="w-4 h-4 ml-2" />
-                טען נתונים מחדש
-              </Button>
+              <div className="flex items-center gap-3">
+                <Button onClick={refetchLoanMetrics} className="bg-cyan-600 hover:bg-cyan-500 text-white">
+                  <RefreshCw className="w-4 h-4 ml-2" />
+                  טען נתונים מחדש
+                </Button>
+                <Button onClick={resetAnalystScreen} variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800">
+                  <Trash2 className="w-4 h-4 ml-2" />
+                  נתק לקוח
+                </Button>
+              </div>
             </div>
           ) : (!loanMetricsError && (
             <>
