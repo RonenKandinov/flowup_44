@@ -13,10 +13,14 @@ export default function CustomerSwitcher({ activeCustomerId, onSelect }) {
     queryKey: ['of-connected-customers'],
     queryFn: async () => {
       const conns = await base44.entities.OpenFinanceConnection.list('-created_date', 200);
-      // Dedupe by psu_id — one entry per customer, keep the most recent connection.
+      // A real customer is keyed by a valid Israeli national ID (9 digits).
+      // Internal Open Finance ids (long hex strings, e.g. "6a2056cba0...") are
+      // connection artifacts — NOT customers — so we filter them out to avoid the
+      // "ghost customer" duplicates seen in the dropdown.
+      const isNationalId = (v) => /^[0-9]{9}$/.test(String(v || '').trim());
       const seen = new Map();
       for (const c of conns) {
-        if (!c.psu_id) continue;
+        if (!isNationalId(c.psu_id)) continue;
         if (!seen.has(c.psu_id)) seen.set(c.psu_id, c);
       }
       return Array.from(seen.values());
