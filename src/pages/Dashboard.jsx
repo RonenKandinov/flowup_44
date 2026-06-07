@@ -474,11 +474,15 @@ export default function Dashboard() {
         }
     },
     enabled: !!(metricsForInsights && hasData),
-    staleTime: 0,
-    gcTime: 0,
-    cacheTime: 0,
-    refetchOnWindowFocus: true,
-    refetchOnMount: 'always'
+    // Stable per customer/metrics: once the analysis is fetched for a given
+    // stableMetricsHash, keep it. Re-runs only when the underlying metrics change
+    // (e.g. switching customer/account) — never on window focus or remount.
+    // This stops the AI Analyst narrative from changing every few minutes.
+    staleTime: Infinity,
+    gcTime: Infinity,
+    cacheTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false
   });
 
   const serverInsights = serverInsightsData || (insightsError ? { error: "Network error" } : null);
@@ -932,8 +936,8 @@ export default function Dashboard() {
       <div className="fixed bottom-0 left-0 w-[600px] h-[600px] bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
 
       {/* Header */}
-      <header className="relative z-10 px-6 py-8 md:px-10 lg:px-12">
-        <div className="max-w-7xl mx-auto flex flex-col items-stretch border-b border-slate-800/60 pb-8 gap-4">
+      <header className="relative z-10 px-6 py-8 md:px-12 lg:px-16">
+        <div className="max-w-7xl mx-auto flex flex-col items-stretch border-b border-slate-800/60 pb-8 gap-6">
           <div className="text-right">
             <h1 className="text-4xl font-bold text-white tracking-tight bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
               FlowUp
@@ -946,8 +950,8 @@ export default function Dashboard() {
             )}
           </div>
           
-          <div dir="rtl" className="w-full flex items-center justify-between gap-3 flex-wrap">
-            <div dir="rtl" className="flex items-center gap-3 flex-wrap justify-start">
+          <div dir="rtl" className="w-full flex items-center justify-end gap-3 flex-wrap">
+            <div dir="rtl" className="flex items-center gap-3 flex-wrap justify-end">
             {activeCustomerId && originalLoanMetrics?.availableAccounts?.length > 0 && (
               <div className="w-56">
                 <Select value={targetAccountId || originalLoanMetrics.activeTargetAccountId || ''} onValueChange={handleAccountSelection}>
@@ -977,8 +981,6 @@ export default function Dashboard() {
               <Plus className="w-3 h-3 ml-1.5" />
               <span className="text-[11px] font-medium">{activeCustomerId ? 'החלף לקוח' : 'חבר לקוח'}</span>
             </Button>
-            </div>
-            <div dir="rtl" className="flex items-center gap-3 flex-wrap justify-end">
             <Button
               asChild
               variant="ghost"
@@ -1088,7 +1090,7 @@ export default function Dashboard() {
       </header>
 
       {/* Main content */}
-      <main className="relative z-10 px-6 pb-12 md:px-10 lg:px-12 pt-2">
+      <main className="relative z-10 px-6 pb-16 md:px-12 lg:px-16 pt-4">
         <div className="max-w-7xl mx-auto">
           {/* System Calibration Error State */}
           {loanMetricsError && (
@@ -1134,7 +1136,7 @@ export default function Dashboard() {
           ) : (!loanMetricsError && (
             <>
               {/* Stats Row — generous spacing on all breakpoints */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8 items-stretch">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 mb-10 md:mb-12 items-stretch">
                 {/* Replaced Balance StatCard with LiquidAssetsCard */}
                 <LiquidAssetsCard 
                     cash={newLoanMetrics?.liquidAssetsBreakdown?.cash ?? (loanLogicData ? loanMetrics?.liquidAssetsBreakdown?.cash : (snapshot.current_balance || 0))} 
@@ -1160,7 +1162,7 @@ export default function Dashboard() {
               </div>
 
               {/* Main Dashboard Grid — more breathing room between panels */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-stretch">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-10 items-stretch">
                 {/* Speedometer: Mobile 1, Desktop 1 (Top Left) */}
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
