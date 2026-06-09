@@ -459,6 +459,188 @@ function buildForensicIntelligence({ behaviorProfile, history, trends, declaredM
     }
 }
 
+// --- POSITIVE SIGNALS ENGINE ---
+// FlowUp's core differentiator: instead of "why decline", surface "why approve".
+// Detects quality borrowers the formal score may underrate. Purely additive — never
+// touches the scoring pipeline. Built on the already-cleaned monthly history.
+function buildPositiveSignals({ history, behaviorProfile, trends }) {
+    const out = {
+        surplusCreation: { detected: false, monthlySurplus: 0, surplusRatio: 0 },
+        financialDiscipline: { detected: false, expenseCV: 0 },
+        upwardMobility: { detected: false, growthPct: 0 },
+        incomeMomentum: { direction: 'STABLE', changePct: 0 },
+        wealthBuilding: { detected: false, monthlyOutflow: 0 },
+        resilience: { score: 0, recovered: false, label: 'NONE' },
+        opportunityScore: 0
+    };
+    try {
+        if (!history || history.length < 3) return out;
+
+        // 1) SURPLUS CREATION — consistently keeps a meaningful share of income.
+        const last3 = history.slice(-3);
+        const avgIncome3 = last3.reduce((s, m) => s + m.income, 0) / 3;
+        const avgSurplus3 = last3.reduce((s, m) => s + (m.income - m.expenses), 0) / 3;
+        if (avgIncome3 > 0 && avgSurplus3 > avgIncome3 * 0.15) {
+            out.surplusCreation = {
+                detected: true,
+                monthlySurplus: Math.round(avgSurplus3),
+                surplusRatio: Math.round((avgSurplus3 / avgIncome3) * 100)
+            };
+        }
+
+        // 2) FINANCIAL DISCIPLINE — low expense volatility = stable, non-impulsive spend.
+        const expenseValues = history.map(m => m.expenses).filter(v => v > 0);
+        if (expenseValues.length >= 4) {
+            const expCV = getCoefficientOfVariation(expenseValues);
+            out.financialDiscipline = { detected: expCV < 0.15, expenseCV: parseFloat(expCV.toFixed(2)) };
+        }
+
+        // 3) UPWARD MOBILITY — median income of last third vs first third (≥25% growth).
+        const incomeHistory = history.map(m => m.income).filter(v => v > 0);
+        if (incomeHistory.length >= 6) {
+            const early = getMedian(incomeHistory.slice(0, 3));
+            const recent = getMedian(incomeHistory.slice(-3));
+            if (early > 0) {
+                const growthPct = Math.round(((recent - early) / early) * 100);
+                out.upwardMobility = { detected: growthPct >= 25, growthPct };
+            }
+        }
+
+        // 4) INCOME MOMENTUM — directional read of the income trend (uses computed trends).
+        const incChange = trends?.income || 0;
+        out.incomeMomentum = {
+            direction: incChange > 8 ? 'UP' : incChange < -8 ? 'DOWN' : 'STABLE',
+            changePct: Math.round(incChange)
+        };
+
+        // 5) WEALTH BUILDING — recurring outflow to long-term savings/investments.
+        const wbOutflow = behaviorProfile?.investmentDiscipline?.avgMonthlyInvestmentOutflow || 0;
+        out.wealthBuilding = { detected: wbOutflow > 0, monthlyOutflow: Math.round(wbOutflow) };
+
+        // 6) RESILIENCE — handled a rough month WITHOUT defaulting (recovered to positive).
+        const last6 = history.slice(-6);
+        const negMonths = last6.filter(m => m.netFlow < 0).length;
+        const lastMonthPositive = last6.length > 0 && last6[last6.length - 1].netFlow >= 0;
+        const noOverdraft = (behaviorProfile?.overdraftDays || 0) === 0;
+        if (negMonths >= 1 && lastMonthPositive && noOverdraft) {
+            out.resilience = {
+                score: negMonths === 1 ? 85 : 70,
+                recovered: true,
+                label: 'RECOVERED_FROM_DIP'
+            };
+        } else if (negMonths === 0 && noOverdraft) {
+            out.resilience = { score: 60, recovered: false, label: 'STEADY' };
+        }
+
+        // 7) OPPORTUNITY SCORE — composite "why approve" index (0-100).
+        let opp = 0;
+        if (out.surplusCreation.detected) opp += 25;
+        if (out.financialDiscipline.detected) opp += 20;
+        if (out.upwardMobility.detected) opp += 20;
+        if (out.incomeMomentum.direction === 'UP') opp += 15;
+        if (out.wealthBuilding.detected) opp += 10;
+        if (out.resilience.recovered) opp += 10;
+        out.opportunityScore = Math.min(100, opp);
+
+        return out;
+    } catch (err) {
+        console.warn('[PositiveSignals] Failed:', err?.message);
+        return out;
+    }
+}
+
+// --- ADVANCED FACTUAL SIGNALS ENGINE ---
+// Factual, evidence-based behavioral signals (not moral judgments). Helps the lender
+// understand WHY a number moved (seasonality), HOW money is used (reinvestment),
+// and DEPENDENCY patterns (cash). Additive only — never touches the score.
+function buildAdvancedSignals({ history, behaviorProfile, transactions, parseAmount, getDesc }) {
+    const out = {
+        cashDependency: { score: 0, level: 'LOW', cashShare: 0 },
+        seasonality: { detected: false, pattern: 'NONE', volatilityPct: 0 },
+        recovery: { detected: false, narrative: null },
+        lifestyleInflation: { detected: false, incomeGrowthPct: 0, expenseGrowthPct: 0 },
+        reinvestment: { detected: false, reinvestRatio: 0 }
+    };
+    try {
+        // A) CASH DEPENDENCY — share of activity that is physical cash (deposits/withdrawals).
+        const cashTokens = ['מזומן', 'משיכת מזומן', 'הפקדת מזומן', 'כספומט', 'atm', 'cash', 'withdrawal'];
+        let cashVolume = 0, totalVolume = 0;
+        (transactions || []).forEach(tx => {
+            const amt = Math.abs(parseAmount(tx));
+            if (!amt || isNaN(amt)) return;
+            totalVolume += amt;
+            const d = getDesc(tx).toLowerCase();
+            if (cashTokens.some(t => d.includes(t))) cashVolume += amt;
+        });
+        const cashShare = totalVolume > 0 ? Math.round((cashVolume / totalVolume) * 100) : 0;
+        out.cashDependency = {
+            score: cashShare,
+            cashShare,
+            level: cashShare >= 40 ? 'HIGH' : cashShare >= 20 ? 'MEDIUM' : 'LOW'
+        };
+
+        // B) SEASONALITY — detect cyclical income swings vs a genuine decline.
+        const incomeMonths = (history || []).map(m => m.income).filter(v => v > 0);
+        if (incomeMonths.length >= 8) {
+            const cv = getCoefficientOfVariation(incomeMonths);
+            const recentMed = getMedian(incomeMonths.slice(-3));
+            const priorMed = getMedian(incomeMonths.slice(0, -3));
+            // High swings BUT prior peaks were similar → likely seasonal, not collapse.
+            const cyclical = cv > 0.25 && recentMed < priorMed;
+            out.seasonality = {
+                detected: cyclical,
+                pattern: cyclical ? 'CYCLICAL_DIP' : (cv > 0.25 ? 'VOLATILE' : 'NONE'),
+                volatilityPct: Math.round(cv * 100)
+            };
+        }
+
+        // C) FINANCIAL RECOVERY — went negative, climbed back to positive + rebuilt buffer.
+        const last8 = (history || []).slice(-8);
+        if (last8.length >= 4) {
+            const dipIdx = last8.findIndex(m => m.netFlow < 0);
+            if (dipIdx >= 0 && dipIdx < last8.length - 1) {
+                const afterDip = last8.slice(dipIdx + 1);
+                const recoveredFlow = afterDip.filter(m => m.netFlow > 0).length >= Math.ceil(afterDip.length / 2);
+                if (recoveredFlow && (behaviorProfile?.overdraftDays || 0) <= 2) {
+                    out.recovery = {
+                        detected: true,
+                        narrative: 'הלקוח חווה חודש קשה בעבר אך חזר לתזרים חיובי ובנה מחדש כרית ביטחון — סימן לחוסן פיננסי אמיתי.'
+                    };
+                }
+            }
+        }
+
+        // D) LIFESTYLE INFLATION — expenses growing faster than income.
+        const incs = (history || []).map(m => m.income).filter(v => v > 0);
+        const exps = (history || []).map(m => m.expenses).filter(v => v > 0);
+        if (incs.length >= 6 && exps.length >= 6) {
+            const incEarly = getMedian(incs.slice(0, 3)), incRecent = getMedian(incs.slice(-3));
+            const expEarly = getMedian(exps.slice(0, 3)), expRecent = getMedian(exps.slice(-3));
+            const incG = incEarly > 0 ? Math.round(((incRecent - incEarly) / incEarly) * 100) : 0;
+            const expG = expEarly > 0 ? Math.round(((expRecent - expEarly) / expEarly) * 100) : 0;
+            out.lifestyleInflation = {
+                detected: incG > 0 && expG > incG + 10,
+                incomeGrowthPct: incG,
+                expenseGrowthPct: expG
+            };
+        }
+
+        // E) BUSINESS REINVESTMENT — when income rises, money flows to investments/savings
+        //    (proxy for equipment/inventory/marketing) rather than being fully drained.
+        const wbOutflow = behaviorProfile?.investmentDiscipline?.avgMonthlyInvestmentOutflow || 0;
+        const avgInc = incomeMonths.length ? getMedian(incomeMonths) : 0;
+        if (avgInc > 0 && wbOutflow > 0) {
+            const ratio = Math.round((wbOutflow / avgInc) * 100);
+            out.reinvestment = { detected: ratio >= 8, reinvestRatio: ratio };
+        }
+
+        return out;
+    } catch (err) {
+        console.warn('[AdvancedSignals] Failed:', err?.message);
+        return out;
+    }
+}
+
 // --- MAIN EDGE FUNCTION ---
 
 Deno.serve(withValidation(loanLogicSchema, async (req) => {
@@ -1663,6 +1845,19 @@ ${JSON.stringify(limitedExpenses)}
             declaredMonthlyExpenses
         });
 
+        // ── POSITIVE SIGNALS + ADVANCED FACTUAL SIGNALS ──
+        // "Why approve" intelligence — quality signals the formal score may underrate,
+        // plus factual behavioral context (cash dependency, seasonality, recovery,
+        // lifestyle inflation, reinvestment). Both additive — never touch the score.
+        const positiveSignals = buildPositiveSignals({ history, behaviorProfile, trends });
+        const advancedSignals = buildAdvancedSignals({
+            history,
+            behaviorProfile,
+            transactions,
+            parseAmount: parseTransactionAmount,
+            getDesc: safeDesc
+        });
+
         return Response.json({
             success: true,
             status: riskStatus,
@@ -1670,6 +1865,8 @@ ${JSON.stringify(limitedExpenses)}
             behaviorProfile,
             undeclaredIncomeAnalysis,
             forensicIntelligence,
+            positiveSignals,
+            advancedSignals,
             report: {
                 score: finalScore,
                 status: riskStatus,
@@ -1714,7 +1911,9 @@ ${JSON.stringify(limitedExpenses)}
                 trends: trends,
                 forceRedReason: forceRedReason,
                 undeclaredIncomeAnalysis,
-                forensicIntelligence
+                forensicIntelligence,
+                positiveSignals,
+                advancedSignals
             },
             availableAccounts,
             activeTargetAccountId,

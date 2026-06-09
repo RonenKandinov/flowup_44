@@ -49,6 +49,9 @@ Deno.serve(withValidation(schema, async (req, body) => {
     const undeclaredIncome = m?.undeclaredIncomeAnalysis || behaviorProfile?.undeclaredIncomeAnalysis || null;
     // Forensic Intelligence — must-have signals BDI/credit reports can't see.
     const forensic = m?.forensicIntelligence || behaviorProfile?.forensicIntelligence || null;
+    // Positive "why approve" signals + factual advanced signals.
+    const positive = m?.positiveSignals || behaviorProfile?.positiveSignals || null;
+    const advanced = m?.advancedSignals || behaviorProfile?.advancedSignals || null;
 
     const income = m.totalIncome ?? 0;
     const expenses = m.totalExpenses ?? 0;
@@ -304,6 +307,25 @@ ${forensic.declarationGap?.materialMismatch
     ? `• פער הצהרה מול מציאות: הלקוח הצהיר על ₪${fmt(forensic.declarationGap.declaredMonthlyExpenses)}/חודש הוצאות מחיה, אך בפועל ההוצאות החציוניות הן ₪${fmt(forensic.declarationGap.actualMonthlyExpenses)} (פער ${forensic.declarationGap.gapPct}%, ${forensic.declarationGap.direction === 'UNDER_DECLARED' ? 'הצהרת חסר' : 'הצהרת יתר'}). חובה לציין כנקודה לתשומת לב בבניית התנאים.`
     : ''}` : 'לא זוהו סיגנלים פורנזיים חריגים מעבר לניתוח הסטנדרטי.'}
 
+🟢 **Positive Underwriting Memo — "למה דווקא כן לאשר" (סיגנלים שהשוק מפספס)**:
+${positive ? `
+${positive.opportunityScore >= 50 ? `⭐ Opportunity Score: ${positive.opportunityScore}/100 — לקוח שנראה טוב יותר מהציון הרשמי שלו. חובה לפתוח בכך ב-summary.` : ''}
+${positive.surplusCreation?.detected ? `• יצירת עודף: מייצר עודף תזרימי עקבי של ₪${fmt(positive.surplusCreation.monthlySurplus)}/חודש (${positive.surplusCreation.surplusRatio}% מההכנסה) — לא שורף הכול.` : ''}
+${positive.financialDiscipline?.detected ? `• משמעת פיננסית: הוצאות יציבות מאוד (שונות ${Math.round((positive.financialDiscipline.expenseCV || 0) * 100)}%) — אין קפיצות אימפולסיביות. סיגנל ש-BDI לא רואה.` : ''}
+${positive.upwardMobility?.detected ? `• מוביליות כלפי מעלה: ההכנסה צמחה ${positive.upwardMobility.growthPct}% לאורך התקופה — מסלול פיננסי משתפר.` : ''}
+${positive.incomeMomentum?.direction === 'UP' ? `• תאוצת הכנסה חיובית (+${positive.incomeMomentum.changePct}%).` : ''}
+${positive.wealthBuilding?.detected ? `• בניית הון: הפקדות קבועות של ₪${fmt(positive.wealthBuilding.monthlyOutflow)}/חודש לחיסכון/השקעות — חושב לטווח ארוך.` : ''}
+${positive.resilience?.recovered ? `• חוסן פיננסי: התמודד עם חודש ירידה וחזר לתזרים חיובי ללא כניסה למינוס — סימן חזק יותר ממי שלא חווה קושי כלל.` : ''}
+חובה: שקף את הסיגנלים האלו ב-summary, ב-behavior_analysis.key_positive_signals וב-lender_risk_assessment.leverage_opportunities.` : 'לא חושבו סיגנלים חיוביים מובחנים.'}
+
+📊 **סיגנלים עובדתיים מתקדמים (קונטקסט, לא שיפוט)**:
+${advanced ? `
+${advanced.cashDependency?.level !== 'LOW' ? `• תלות במזומן: ${advanced.cashDependency.level} (${advanced.cashDependency.cashShare}% מהפעילות במזומן). עובדה לתמחור — לא "עבודה בשחור".` : ''}
+${advanced.seasonality?.detected ? `• עונתיות: זוהה דפוס מחזורי (${advanced.seasonality.volatilityPct}% תנודתיות) — הירידה האחרונה עשויה להיות עונתית ולא היחלשות אמיתית. אל תתייחס אליה כקריסה.` : ''}
+${advanced.recovery?.detected ? `• ${advanced.recovery.narrative}` : ''}
+${advanced.lifestyleInflation?.detected ? `• אינפלציית אורח חיים: ההכנסה עלתה ${advanced.lifestyleInflation.incomeGrowthPct}% אך ההוצאות עלו ${advanced.lifestyleInflation.expenseGrowthPct}% — השיפור בהכנסה לא בהכרח חיזק את המצב. נקודה לתשומת לב.` : ''}
+${advanced.reinvestment?.detected ? `• השקעה מחדש: ${advanced.reinvestment.reinvestRatio}% מההכנסה מנותב לחיסכון/השקעה — מעיד על צמיחה ולא רק משיכת רווחים.` : ''}` : 'לא חושבו סיגנלים מתקדמים.'}
+
 🔒 פרטיות: אסור להזכיר שמות פרטיים. מונחים מותרים: "הלקוח" / "המבקש".
 
 === דרישות פלט ===
@@ -521,6 +543,16 @@ ${forensic.declarationGap?.materialMismatch
     if (forensic?.activityDecline?.detected) keyInsights.push(`⚠️ ירידה בפעילות — הכנסה ירדה ${forensic.activityDecline.incomeDropPct}% (סיגנל מקדים ל-BDI)`);
     if (forensic?.earlyDistress?.detected) keyInsights.push(`⚠️ מצוקה מוקדמת (${forensic.earlyDistress.riskLevel}) — ${forensic.earlyDistress.flags.length} סימני לחץ שקטים`);
     if (forensic?.declarationGap?.materialMismatch) keyInsights.push(`פער הצהרה מול מציאות — ${forensic.declarationGap.gapPct}% בהוצאות המחיה`);
+    // ── Positive "why approve" signals ──
+    if (positive?.opportunityScore >= 50) keyInsights.push(`⭐ Opportunity Score ${positive.opportunityScore}/100 — טוב יותר מהציון הרשמי`);
+    if (positive?.surplusCreation?.detected) keyInsights.push(`יצירת עודף עקבי — ₪${Math.round(positive.surplusCreation.monthlySurplus).toLocaleString('en-US')}/חודש (${positive.surplusCreation.surplusRatio}%)`);
+    if (positive?.financialDiscipline?.detected) keyInsights.push('משמעת פיננסית — הוצאות יציבות ללא קפיצות אימפולסיביות');
+    if (positive?.upwardMobility?.detected) keyInsights.push(`מוביליות כלפי מעלה — צמיחת הכנסה ${positive.upwardMobility.growthPct}%`);
+    if (positive?.resilience?.recovered) keyInsights.push('חוסן פיננסי — התאושש מחודש קשה ללא כניסה למינוס');
+    // ── Advanced factual signals ──
+    if (advanced?.cashDependency?.level !== 'LOW' && advanced?.cashDependency) keyInsights.push(`תלות במזומן ${advanced.cashDependency.level} (${advanced.cashDependency.cashShare}%)`);
+    if (advanced?.seasonality?.detected) keyInsights.push(`עונתיות זוהתה — הירידה עשויה להיות מחזורית ולא אמיתית`);
+    if (advanced?.lifestyleInflation?.detected) keyInsights.push(`אינפלציית אורח חיים — הוצאות (${advanced.lifestyleInflation.expenseGrowthPct}%) גדלו מהר מהכנסה (${advanced.lifestyleInflation.incomeGrowthPct}%)`);
     if (keyInsights.length === 0) keyInsights.push('הפרופיל עומד במדיניות החיתום');
 
     const analysisInsights = {

@@ -20,6 +20,7 @@ import FutureCake from '../components/dashboard/FutureCake';
 import InsightsAgent from '../components/dashboard/InsightsAgent'; // New
 import EmptyState from '../components/dashboard/EmptyState';
 import CustomerSwitcher from '../components/dashboard/CustomerSwitcher';
+import PositiveSignalsPanel from '../components/dashboard/PositiveSignalsPanel';
 import Disclaimer from '../components/dashboard/Disclaimer';
 import OpenFinanceConnect from '../components/connect/OpenFinanceConnect';
 import CustomerGateModal from '../components/dashboard/CustomerGateModal';
@@ -447,6 +448,13 @@ export default function Dashboard() {
       activityDecline: metricsForInsights.forensicIntelligence?.activityDecline?.incomeDropPct || 0,
       earlyDistress: metricsForInsights.forensicIntelligence?.earlyDistress?.flags?.length || 0,
       declarationGap: metricsForInsights.forensicIntelligence?.declarationGap?.gapPct || 0,
+      // Positive + advanced signals — re-run the AI Analyst when they surface/change
+      opportunityScore: metricsForInsights.positiveSignals?.opportunityScore || 0,
+      surplus: metricsForInsights.positiveSignals?.surplusCreation?.monthlySurplus || 0,
+      upwardMobility: metricsForInsights.positiveSignals?.upwardMobility?.growthPct || 0,
+      cashDependency: metricsForInsights.advancedSignals?.cashDependency?.cashShare || 0,
+      seasonality: metricsForInsights.advancedSignals?.seasonality?.detected ? 1 : 0,
+      lifestyleInflation: metricsForInsights.advancedSignals?.lifestyleInflation?.detected ? 1 : 0,
     };
     return JSON.stringify(stable);
   }, [metricsForInsights]);
@@ -1246,6 +1254,15 @@ export default function Dashboard() {
                     />
                 </div>
               </div>
+
+              {(originalLoanMetrics?.positiveSignals || originalLoanMetrics?.advancedSignals) && (
+                <div className="mt-8 lg:mt-10">
+                  <PositiveSignalsPanel
+                    positiveSignals={originalLoanMetrics?.positiveSignals}
+                    advancedSignals={originalLoanMetrics?.advancedSignals}
+                  />
+                </div>
+              )}
 
               <Disclaimer />
             </>
