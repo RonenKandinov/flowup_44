@@ -47,6 +47,8 @@ Deno.serve(withValidation(schema, async (req, body) => {
     if (!m) return Response.json({ success: false, error: "metrics required" });
     const behaviorProfile = body?.behaviorProfile || m?.behaviorProfile || null;
     const undeclaredIncome = m?.undeclaredIncomeAnalysis || behaviorProfile?.undeclaredIncomeAnalysis || null;
+    // Forensic Intelligence — must-have signals BDI/credit reports can't see.
+    const forensic = m?.forensicIntelligence || behaviorProfile?.forensicIntelligence || null;
 
     const income = m.totalIncome ?? 0;
     const expenses = m.totalExpenses ?? 0;
@@ -287,6 +289,21 @@ ${undeclaredIncome?.hasUnreportedInflowIndication
     ? `⚡ הופעלה אינדיקציה! התזרים הנכנס העקבי בפועל (₪${fmt(undeclaredIncome.actualInflow)}/חודש) גבוה ב-${Math.round((undeclaredIncome.discrepancyRatio || 0) * 100)}% מההכנסה המדווחת (₪${fmt(undeclaredIncome.formalIncome)}). זהו "יהלום בלתי מלוטש": מודלים מסורתיים עלולים לדחות את הלקוח בשל שכר פורמלי נמוך, אך התזרים העקבי, ללא משיכות יתר וללא חודשים שליליים, מעיד על כושר החזר ריאלי חזק. חובה לציין זאת במפורש ב-summary, ב-behavior_analysis.key_positive_signals וב-lender_risk_assessment.leverage_opportunities, ולהמליץ על מסלול מותאם אישית המבוסס על התזרים בפועל ולא על השכר המוצהר. אסור לכנות זאת "כסף שחור" — מדובר בזיהוי חוזק כלכלי שלא משתקף בנתונים המסורתיים.`
     : 'לא זוהתה אינדיקציה לפער בין הכנסה מדווחת לתזרים בפועל.'}
 
+🔬 **מודיעין פורנזי (Forensic Intelligence — סיגנלים שדוח אשראי/BDI לא רואים)**:
+${forensic?.summary?.hasForensicInsight ? `
+${forensic.sideIncome?.hasSideIncome
+    ? `• הכנסה צדדית: זוהו ₪${fmt(forensic.sideIncome.monthlyTotal)}/חודש מהכנסות עקביות מעבר למשכורת הבסיס${forensic.sideIncome.gigEconomyDetected ? ' (כולל פלטפורמות Gig/דיגיטל)' : ''}. זהו תזרים תומך-החזר נוסף — חובה להציגו ב-key_positive_signals וב-leverage_opportunities כבסיס להגדלת היקף ההלוואה.`
+    : ''}
+${forensic.activityDecline?.detected
+    ? `• ירידה בפעילות (Velocity): ההכנסה החציונית ב-3 החודשים האחרונים ירדה ב-${forensic.activityDecline.incomeDropPct}% מול הבסיס הקודם (חומרה: ${forensic.activityDecline.severity}). זהו סיגנל מקדים לעצמאי/עסק שמאט — הקדם ל-BDI. חובה לציין ב-key_risks ולהתאים את ה-PD ואת מבנה התשלום.`
+    : ''}
+${forensic.earlyDistress?.detected
+    ? `• מצוקה מוקדמת (${forensic.earlyDistress.riskLevel}): ${forensic.earlyDistress.flags.map(f => f.label).join('; ')}. ${forensic.earlyDistress.leadIndicator}. חובה לציין ב-key_risks ובהערכת ה-PD — אלו "נורות אדומות שקטות".`
+    : ''}
+${forensic.declarationGap?.materialMismatch
+    ? `• פער הצהרה מול מציאות: הלקוח הצהיר על ₪${fmt(forensic.declarationGap.declaredMonthlyExpenses)}/חודש הוצאות מחיה, אך בפועל ההוצאות החציוניות הן ₪${fmt(forensic.declarationGap.actualMonthlyExpenses)} (פער ${forensic.declarationGap.gapPct}%, ${forensic.declarationGap.direction === 'UNDER_DECLARED' ? 'הצהרת חסר' : 'הצהרת יתר'}). חובה לציין כנקודה לתשומת לב בבניית התנאים.`
+    : ''}` : 'לא זוהו סיגנלים פורנזיים חריגים מעבר לניתוח הסטנדרטי.'}
+
 🔒 פרטיות: אסור להזכיר שמות פרטיים. מונחים מותרים: "הלקוח" / "המבקש".
 
 === דרישות פלט ===
@@ -499,6 +516,11 @@ ${undeclaredIncome?.hasUnreportedInflowIndication
     if (behaviorProfile?.totalPledgeableValue > 0) keyInsights.push(`זוהו נכסים אפשריים לשעבוד בשווי שמרני ₪${Math.round(behaviorProfile.totalPledgeableValue).toLocaleString('en-US')}`);
     if (isSecondChance) keyInsights.push('זוהה פוטנציאל False Negative — גורמים מפצים חזקים');
     if (undeclaredIncome?.hasUnreportedInflowIndication) keyInsights.push(`חוזק פיננסי סמוי — תזרים בפועל גבוה ב-${Math.round((undeclaredIncome.discrepancyRatio || 0) * 100)}% מההכנסה המדווחת`);
+    // ── Forensic Intelligence signals (BDI can't see these) ──
+    if (forensic?.sideIncome?.hasSideIncome) keyInsights.push(`הכנסה צדדית תומכת-החזר — ₪${Math.round(forensic.sideIncome.monthlyTotal).toLocaleString('en-US')}/חודש${forensic.sideIncome.gigEconomyDetected ? ' (Gig)' : ''}`);
+    if (forensic?.activityDecline?.detected) keyInsights.push(`⚠️ ירידה בפעילות — הכנסה ירדה ${forensic.activityDecline.incomeDropPct}% (סיגנל מקדים ל-BDI)`);
+    if (forensic?.earlyDistress?.detected) keyInsights.push(`⚠️ מצוקה מוקדמת (${forensic.earlyDistress.riskLevel}) — ${forensic.earlyDistress.flags.length} סימני לחץ שקטים`);
+    if (forensic?.declarationGap?.materialMismatch) keyInsights.push(`פער הצהרה מול מציאות — ${forensic.declarationGap.gapPct}% בהוצאות המחיה`);
     if (keyInsights.length === 0) keyInsights.push('הפרופיל עומד במדיניות החיתום');
 
     const analysisInsights = {

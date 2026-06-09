@@ -81,6 +81,9 @@ export const useLoanMetrics = (userId, targetAccountId = null) => {
                     // Undeclared Income Discrepancy — surfaces "strong-on-paper-weak" customers
                     // whose real consistent inflow exceeds declared income (FlowUp differentiator).
                     undeclaredIncomeAnalysis: data.undeclaredIncomeAnalysis || metrics.undeclaredIncomeAnalysis || null,
+                    // Forensic Intelligence — side-income, activity decline, early distress,
+                    // declaration-vs-reality gaps. Signals BDI / credit reports can't see.
+                    forensicIntelligence: data.forensicIntelligence || metrics.forensicIntelligence || null,
                     userId
                 };
 

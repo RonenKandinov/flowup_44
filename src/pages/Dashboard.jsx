@@ -442,6 +442,11 @@ export default function Dashboard() {
       investmentOutflow: Math.round(metricsForInsights.behaviorProfile?.investmentDiscipline?.avgMonthlyInvestmentOutflow || 0),
       pledgeableValue: Math.round(metricsForInsights.behaviorProfile?.totalPledgeableValue || 0),
       existingLoans: Math.round(metricsForInsights.behaviorProfile?.existingLoansMonthlyTotal || 0),
+      // Forensic signals — ensure the AI Analyst re-runs when these surface/change
+      sideIncome: Math.round(metricsForInsights.forensicIntelligence?.sideIncome?.monthlyTotal || 0),
+      activityDecline: metricsForInsights.forensicIntelligence?.activityDecline?.incomeDropPct || 0,
+      earlyDistress: metricsForInsights.forensicIntelligence?.earlyDistress?.flags?.length || 0,
+      declarationGap: metricsForInsights.forensicIntelligence?.declarationGap?.gapPct || 0,
     };
     return JSON.stringify(stable);
   }, [metricsForInsights]);

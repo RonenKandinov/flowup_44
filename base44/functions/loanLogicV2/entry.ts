@@ -307,6 +307,158 @@ function runBalanceExtractionTests() {
 // Execute tests
 runBalanceExtractionTests();
 
+// --- FORENSIC INTELLIGENCE ENGINE ---
+// FlowUp's "must-have" layer: surfaces signals that BDI / credit reports CANNOT see,
+// because they are built on raw transaction-level cash-flow rather than reported events.
+// Everything below is computed on top of the ALREADY-CLEANED data (self-transfers,
+// one-offs and MAD outliers excluded upstream) and is purely additive — it never
+// touches the scoring pipeline. Returns a compact, narrative-friendly object.
+function buildForensicIntelligence({ behaviorProfile, history, trends, declaredMonthlyExpenses }) {
+    try {
+        const out = {};
+
+        // ── CHANNEL A: SIDE-INCOME DETECTION (salaried with a side hustle / gig) ──
+        // Recurring income streams that are NOT salary/pension but appear consistently.
+        // Tells the lender: "this borrower has repayment-supporting income beyond base salary".
+        const isSalaryLabel = (label) => {
+            const l = String(label || '').toLowerCase();
+            return ['משכורת', 'משכ', 'שכר', 'salary', 'payroll', 'פנסיה', 'קצבה', 'ביטוח לאומי', 'מלגה'].some(kw => l.includes(kw));
+        };
+        const gigTokens = ['wolt', 'וולט', 'shopify', 'fiverr', 'upwork', 'paypal', 'פייפאל', 'bit', 'ביט', 'paybox', 'uber', 'airbnb', 'etsy', 'amazon', 'freelance', 'עצמאי', 'הכנסה'];
+        const sideIncomeStreams = (behaviorProfile?.recurringIncome || [])
+            .filter(r => !isSalaryLabel(r.label))
+            .map(r => {
+                const l = String(r.label || '').toLowerCase();
+                const isGig = gigTokens.some(t => l.includes(t));
+                return { label: r.label, avgAmount: r.avgAmount, occurrences: r.occurrences, isGigPlatform: isGig };
+            })
+            .filter(r => r.avgAmount > 0);
+        const sideIncomeMonthlyTotal = sideIncomeStreams.reduce((s, r) => s + r.avgAmount, 0);
+        out.sideIncome = {
+            hasSideIncome: sideIncomeStreams.length > 0 && sideIncomeMonthlyTotal > 0,
+            monthlyTotal: Math.round(sideIncomeMonthlyTotal),
+            streams: sideIncomeStreams.slice(0, 4),
+            gigEconomyDetected: sideIncomeStreams.some(r => r.isGigPlatform)
+        };
+
+        // ── CHANNEL B: ACTIVITY DECLINE / VELOCITY (self-employed hiding a slowdown) ──
+        // Compares the income velocity of the last ~3 months vs the prior baseline.
+        // A consistent drop is an early signal of a shrinking business that VAT reports
+        // and BDI won't reflect for months.
+        let activityDecline = { detected: false, incomeDropPct: 0, severity: 'NONE' };
+        const incomeMonths = (history || []).filter(m => m.income > 0).map(m => m.income);
+        if (incomeMonths.length >= 5) {
+            const recent = incomeMonths.slice(-3);
+            const prior = incomeMonths.slice(0, -3);
+            const recentMed = getMedian(recent);
+            const priorMed = getMedian(prior);
+            if (priorMed > 0) {
+                const dropPct = Math.round(((priorMed - recentMed) / priorMed) * 100);
+                if (dropPct >= 15) {
+                    activityDecline = {
+                        detected: true,
+                        incomeDropPct: dropPct,
+                        recentMedianIncome: Math.round(recentMed),
+                        priorMedianIncome: Math.round(priorMed),
+                        severity: dropPct >= 35 ? 'HIGH' : dropPct >= 25 ? 'MEDIUM' : 'LOW'
+                    };
+                }
+            }
+        }
+        out.activityDecline = activityDecline;
+
+        // ── CHANNEL C: EARLY DISTRESS DETECTION (3 months before BDI) ──
+        // Silent flags that precede a formal default by months:
+        //  1. micro-overdraft touches (repeated brief dips into the overdraft line)
+        //  2. rising fixed-vs-income pressure in recent months (priority shifting)
+        //  3. recent net-flow turning negative (running dry)
+        const distressFlags = [];
+        const overdraftDays = behaviorProfile?.overdraftDays || 0;
+        if (overdraftDays >= 3) {
+            distressFlags.push({
+                flag: 'micro_overdraft_touches',
+                label: `נגיעות חוזרות במסגרת האשראי (${overdraftDays} ימים שליליים)`,
+                weight: overdraftDays >= 8 ? 'HIGH' : 'MEDIUM'
+            });
+        }
+        const last6 = (history || []).slice(-6);
+        const recentNeg = last6.filter(m => m.netFlow < 0).length;
+        if (recentNeg >= 2) {
+            distressFlags.push({
+                flag: 'recurring_negative_cashflow',
+                label: `${recentNeg} חודשים עם תזרים שלילי מתוך 6 האחרונים`,
+                weight: recentNeg >= 4 ? 'HIGH' : 'MEDIUM'
+            });
+        }
+        // Priority shifting: fixed-expense share of income climbing over the last 4 months
+        if ((trends?.dti || 0) >= 8 && (trends?.income || 0) <= 0) {
+            distressFlags.push({
+                flag: 'priority_shifting',
+                label: `עליית נטל ההוצאות הקבועות (+${Math.round(trends.dti)}% DTI) ללא גידול בהכנסה`,
+                weight: 'MEDIUM'
+            });
+        }
+        // Lowest balance deeply negative — acute pressure
+        if (typeof behaviorProfile?.lowestBalanceSeen === 'number' && behaviorProfile.lowestBalanceSeen < -5000) {
+            distressFlags.push({
+                flag: 'deep_overdraft',
+                label: `יתרת שפל שלילית עמוקה (₪${Math.round(behaviorProfile.lowestBalanceSeen).toLocaleString('en-US')})`,
+                weight: 'HIGH'
+            });
+        }
+        const highWeightCount = distressFlags.filter(f => f.weight === 'HIGH').length;
+        out.earlyDistress = {
+            detected: distressFlags.length > 0,
+            flags: distressFlags,
+            riskLevel: highWeightCount >= 1 || distressFlags.length >= 3 ? 'HIGH'
+                : distressFlags.length >= 1 ? 'MEDIUM' : 'NONE',
+            leadIndicator: distressFlags.length > 0
+                ? 'זוהו סימני לחץ מוקדמים — לרוב מקדימים הופעה ב-BDI ב-60 עד 90 יום'
+                : null
+        };
+
+        // ── CHANNEL D: DECLARATION-vs-REALITY (expense gap) ──
+        // Only computed when the partner passed the customer's self-declared expenses.
+        // Compares declared monthly living expenses against the actual classified spend.
+        let declarationGap = { available: false };
+        const declared = Number(declaredMonthlyExpenses || 0);
+        if (declared > 0) {
+            const actual = getMedian((history || []).filter(m => m.expenses > 0).map(m => m.expenses));
+            const gap = Math.round(actual - declared);
+            const gapPct = declared > 0 ? Math.round((gap / declared) * 100) : 0;
+            declarationGap = {
+                available: true,
+                declaredMonthlyExpenses: Math.round(declared),
+                actualMonthlyExpenses: Math.round(actual),
+                gap,
+                gapPct,
+                materialMismatch: Math.abs(gapPct) >= 20,
+                direction: gap > 0 ? 'UNDER_DECLARED' : 'OVER_DECLARED'
+            };
+        }
+        out.declarationGap = declarationGap;
+
+        // ── COMPOSITE SUMMARY ──
+        const positiveSignals = [];
+        if (out.sideIncome.hasSideIncome) positiveSignals.push('side_income');
+        const riskSignals = [];
+        if (out.activityDecline.detected) riskSignals.push('activity_decline');
+        if (out.earlyDistress.detected) riskSignals.push('early_distress');
+        if (out.declarationGap.materialMismatch && out.declarationGap.direction === 'UNDER_DECLARED') riskSignals.push('expense_under_declaration');
+
+        out.summary = {
+            hiddenStrengthSignals: positiveSignals,
+            hiddenRiskSignals: riskSignals,
+            hasForensicInsight: positiveSignals.length > 0 || riskSignals.length > 0
+        };
+
+        return out;
+    } catch (err) {
+        console.warn('[ForensicIntelligence] Failed to compute:', err?.message);
+        return null;
+    }
+}
+
 // --- MAIN EDGE FUNCTION ---
 
 Deno.serve(withValidation(loanLogicSchema, async (req) => {
@@ -316,6 +468,9 @@ Deno.serve(withValidation(loanLogicSchema, async (req) => {
         const userId = body?.userId || "ronenk2424@gmail.com";
         const targetAccountId = body?.targetAccountId;
         const manualLiquidAssets = Number(body?.manualLiquidAssets || body?.metrics?.liquidAssets || body?.liquidAssets || 0);
+        // Optional: customer's self-declared monthly living expenses (from the partner's
+        // intake form). Enables the Declaration-vs-Reality forensic channel when present.
+        const declaredMonthlyExpenses = Number(body?.declaredMonthlyExpenses || body?.metrics?.declaredMonthlyExpenses || 0);
 
         const API_ROOT = "https://api.open-finance.ai";
         const API_V2 = "https://api.open-finance.ai/v2";
@@ -1497,12 +1652,24 @@ ${JSON.stringify(limitedExpenses)}
             }
         })();
 
+        // ── FORENSIC INTELLIGENCE (must-have signals BDI can't see) ──
+        // Built on the cleaned behaviorProfile + monthly history. Purely additive —
+        // surfaces side-income, activity decline, early-distress and declaration gaps
+        // for the AI Analyst and the underwriter, without touching the score.
+        const forensicIntelligence = buildForensicIntelligence({
+            behaviorProfile,
+            history,
+            trends,
+            declaredMonthlyExpenses
+        });
+
         return Response.json({
             success: true,
             status: riskStatus,
             score: finalScore,
             behaviorProfile,
             undeclaredIncomeAnalysis,
+            forensicIntelligence,
             report: {
                 score: finalScore,
                 status: riskStatus,
@@ -1546,7 +1713,8 @@ ${JSON.stringify(limitedExpenses)}
                 runway: parseFloat(runwayMonths.toFixed(1)),
                 trends: trends,
                 forceRedReason: forceRedReason,
-                undeclaredIncomeAnalysis
+                undeclaredIncomeAnalysis,
+                forensicIntelligence
             },
             availableAccounts,
             activeTargetAccountId,
