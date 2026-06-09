@@ -78,6 +78,9 @@ export const useLoanMetrics = (userId, targetAccountId = null) => {
                     // spend windows within the month, overdraft touches, savings discipline)
                     // — used by InsightEngine to write a human narrative.
                     behaviorProfile: data.behaviorProfile || null,
+                    // Undeclared Income Discrepancy — surfaces "strong-on-paper-weak" customers
+                    // whose real consistent inflow exceeds declared income (FlowUp differentiator).
+                    undeclaredIncomeAnalysis: data.undeclaredIncomeAnalysis || metrics.undeclaredIncomeAnalysis || null,
                     userId
                 };
 

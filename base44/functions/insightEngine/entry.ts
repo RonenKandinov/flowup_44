@@ -46,6 +46,7 @@ Deno.serve(withValidation(schema, async (req, body) => {
     const m = body?.metrics;
     if (!m) return Response.json({ success: false, error: "metrics required" });
     const behaviorProfile = body?.behaviorProfile || m?.behaviorProfile || null;
+    const undeclaredIncome = m?.undeclaredIncomeAnalysis || behaviorProfile?.undeclaredIncomeAnalysis || null;
 
     const income = m.totalIncome ?? 0;
     const expenses = m.totalExpenses ?? 0;
@@ -281,6 +282,11 @@ ${behaviorProfile?.existingLoans && behaviorProfile.existingLoans.length > 0
     : 'לא זוהו הלוואות קיימות בתנועות החשבון (נקי מהתחייבויות קיימות במערכת הבנקאית) — זה סיגנל חיובי חזק למלווה.'
 }
 
+💎 **זיהוי חוזק פיננסי סמוי (Undeclared Income Discrepancy)**:
+${undeclaredIncome?.hasUnreportedInflowIndication
+    ? `⚡ הופעלה אינדיקציה! התזרים הנכנס העקבי בפועל (₪${fmt(undeclaredIncome.actualInflow)}/חודש) גבוה ב-${Math.round((undeclaredIncome.discrepancyRatio || 0) * 100)}% מההכנסה המדווחת (₪${fmt(undeclaredIncome.formalIncome)}). זהו "יהלום בלתי מלוטש": מודלים מסורתיים עלולים לדחות את הלקוח בשל שכר פורמלי נמוך, אך התזרים העקבי, ללא משיכות יתר וללא חודשים שליליים, מעיד על כושר החזר ריאלי חזק. חובה לציין זאת במפורש ב-summary, ב-behavior_analysis.key_positive_signals וב-lender_risk_assessment.leverage_opportunities, ולהמליץ על מסלול מותאם אישית המבוסס על התזרים בפועל ולא על השכר המוצהר. אסור לכנות זאת "כסף שחור" — מדובר בזיהוי חוזק כלכלי שלא משתקף בנתונים המסורתיים.`
+    : 'לא זוהתה אינדיקציה לפער בין הכנסה מדווחת לתזרים בפועל.'}
+
 🔒 פרטיות: אסור להזכיר שמות פרטיים. מונחים מותרים: "הלקוח" / "המבקש".
 
 === דרישות פלט ===
@@ -492,6 +498,7 @@ ${behaviorProfile?.existingLoans && behaviorProfile.existingLoans.length > 0
     if (behaviorProfile?.investmentDiscipline?.avgMonthlyInvestmentOutflow > 0) keyInsights.push(`משמעת השקעה חיובית — ₪${Math.round(behaviorProfile.investmentDiscipline.avgMonthlyInvestmentOutflow).toLocaleString('en-US')} בחודש בממוצע להשקעות`);
     if (behaviorProfile?.totalPledgeableValue > 0) keyInsights.push(`זוהו נכסים אפשריים לשעבוד בשווי שמרני ₪${Math.round(behaviorProfile.totalPledgeableValue).toLocaleString('en-US')}`);
     if (isSecondChance) keyInsights.push('זוהה פוטנציאל False Negative — גורמים מפצים חזקים');
+    if (undeclaredIncome?.hasUnreportedInflowIndication) keyInsights.push(`חוזק פיננסי סמוי — תזרים בפועל גבוה ב-${Math.round((undeclaredIncome.discrepancyRatio || 0) * 100)}% מההכנסה המדווחת`);
     if (keyInsights.length === 0) keyInsights.push('הפרופיל עומד במדיניות החיתום');
 
     const analysisInsights = {

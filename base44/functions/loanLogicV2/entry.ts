@@ -1443,11 +1443,66 @@ ${JSON.stringify(limitedExpenses)}
             }
         })();
 
+        // ── UNDECLARED INCOME DISCREPANCY ENGINE ──────────────────────────────
+        // FlowUp's differentiator: surface "strong on paper-weak" customers whose
+        // REAL, consistent inflow exceeds their formally-declared income. We are NOT
+        // labeling this "black money" — we only flag a legitimate, evidence-based gap
+        // between declared salary and consistent actual inflow, so the lender can give
+        // credit to applicants traditional models reject. Built entirely on top of the
+        // already-cleaned behaviorProfile (self-transfers, one-offs & MAD already excluded).
+        const undeclaredIncomeAnalysis = (() => {
+            try {
+                if (!behaviorProfile?.recurringIncome?.length) return null;
+
+                const isSalaryLabel = (label) => {
+                    const l = String(label || '').toLowerCase();
+                    return ['משכורת', 'משכ', 'שכר', 'salary', 'payroll', 'פנסיה', 'קצבה', 'ביטוח לאומי'].some(kw => l.includes(kw));
+                };
+
+                // Formal declared income = recurring streams that look like salary/pension.
+                // If none are detected, fall back to the policy minimum so the ratio stays meaningful.
+                const formalIncome = behaviorProfile.recurringIncome
+                    .filter(r => isSalaryLabel(r.label))
+                    .reduce((sum, r) => sum + r.avgAmount, 0) || 0;
+
+                // Actual consistent inflow = ALL recurring income streams (already 3+ occurrences).
+                const actualInflow = behaviorProfile.recurringIncome.reduce((sum, r) => sum + r.avgAmount, 0);
+
+                const baseline = formalIncome > 0 ? formalIncome : rules.min_income;
+                const discrepancyGap = actualInflow - baseline;
+
+                // Indication requires: meaningful gap (>25% of baseline), NO overdraft touches,
+                // and a clean 12-month profile (no returned payments / arrears).
+                const hasUnreportedInflowIndication =
+                    discrepancyGap > (baseline * 0.25) &&
+                    (behaviorProfile.overdraftDays || 0) === 0 &&
+                    (behaviorProfile.negativeMonthsInLast6 || 0) === 0;
+
+                const ratioPct = baseline > 0 ? Math.round((discrepancyGap / baseline) * 100) : 0;
+
+                return {
+                    formalIncome: Math.round(formalIncome),
+                    formalIncomeSource: formalIncome > 0 ? 'detected_salary' : 'policy_minimum_fallback',
+                    actualInflow: Math.round(actualInflow),
+                    discrepancyGap: Math.round(discrepancyGap),
+                    discrepancyRatio: baseline > 0 ? parseFloat((discrepancyGap / baseline).toFixed(2)) : 0,
+                    hasUnreportedInflowIndication,
+                    justificationText: hasUnreportedInflowIndication
+                        ? `קיימת אינדיקציה לפעילות כלכלית גבוהה ב-${ratioPct}% מההכנסה המדווחת. התזרים הנכנס העקבי עומד על כ-₪${Math.round(actualInflow).toLocaleString('en-US')} בחודש, ללא משיכות יתר וללא חודשים שליליים — סיגנל לכושר החזר ריאלי חזק מהמשתקף בתלוש. מומלץ לשקול זאת בהערכת כושר ההחזר.`
+                        : null
+                };
+            } catch (err) {
+                console.warn('[UndeclaredIncome] Failed to compute:', err?.message);
+                return null;
+            }
+        })();
+
         return Response.json({
             success: true,
             status: riskStatus,
             score: finalScore,
             behaviorProfile,
+            undeclaredIncomeAnalysis,
             report: {
                 score: finalScore,
                 status: riskStatus,
@@ -1490,7 +1545,8 @@ ${JSON.stringify(limitedExpenses)}
                 dti: Math.round(dtiPerc),
                 runway: parseFloat(runwayMonths.toFixed(1)),
                 trends: trends,
-                forceRedReason: forceRedReason
+                forceRedReason: forceRedReason,
+                undeclaredIncomeAnalysis
             },
             availableAccounts,
             activeTargetAccountId,

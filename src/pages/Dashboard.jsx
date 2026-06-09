@@ -956,7 +956,7 @@ export default function Dashboard() {
             <p className="text-slate-500 text-xs mt-2 tracking-[0.2em] uppercase">FutureFlow Dashboard</p>
             {activeCustomerId && (
               <span className="inline-block mt-2 text-[11px] font-medium text-cyan-300 bg-cyan-500/10 border border-cyan-500/30 rounded-full px-3 py-0.5">
-                לקוח פעיל: {activeCustomerName ? `${activeCustomerName} · ${activeCustomerId}` : activeCustomerId}
+                לקוח פעיל: {activeCustomerId}
               </span>
             )}
           </div>
