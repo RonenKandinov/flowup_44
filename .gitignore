@@ -32,3 +32,4 @@ dist-ssr
 # User-requested: local prompt and pic folder
 prompt.txt
 pic/
+base44/.app.jsonc
