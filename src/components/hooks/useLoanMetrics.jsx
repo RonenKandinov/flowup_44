@@ -84,6 +84,9 @@ export const useLoanMetrics = (userId, targetAccountId = null) => {
                     // Forensic Intelligence — side-income, activity decline, early distress,
                     // declaration-vs-reality gaps. Signals BDI / credit reports can't see.
                     forensicIntelligence: data.forensicIntelligence || metrics.forensicIntelligence || null,
+                    // Positive + advanced factual signals — "why approve" intelligence
+                    positiveSignals: data.positiveSignals || metrics.positiveSignals || null,
+                    advancedSignals: data.advancedSignals || metrics.advancedSignals || null,
                     userId
                 };
 
