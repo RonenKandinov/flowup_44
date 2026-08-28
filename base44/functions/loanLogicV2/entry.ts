@@ -689,6 +689,8 @@ Deno.serve(withValidation(loanLogicSchema, async (req) => {
         let liquidAssetsBreakdown = { cash: 0, etf: 0, trainingFund: 0 };
         let debugAccountsData = [];
         let availableAccounts = [];
+        // Maps a displayed account id → ALL duplicate provider ids of the same real account
+        let accountIdGroups = {};
         let activeTargetAccountId = targetAccountId;
         console.log(`[Debug] Starting to fetch accounts...`);
         try {
@@ -753,10 +755,32 @@ Deno.serve(withValidation(loanLogicSchema, async (req) => {
                             id: a.id || a.accountId || a.accountNumber,
                             name: displayName,
                             number: a.accountNumber || a.accountNo || "",
+                            balance: extractBalance(a).balance,
                             isChecking
                         };
                     })
                     .filter(a => a.isChecking);
+
+                // Collapse duplicates of the SAME real bank account (same account number)
+                // that arrive as multiple records with different provider ids. The UI shows
+                // ONE entry per account; selecting it still matches transactions from ALL
+                // of its duplicate ids via accountIdGroups below.
+                const accountGroups = new Map();
+                availableAccounts.forEach(a => {
+                    const key = a.number || a.name;
+                    if (!accountGroups.has(key)) {
+                        accountGroups.set(key, { primary: a, ids: new Set([String(a.id)]) });
+                    } else {
+                        const g = accountGroups.get(key);
+                        g.ids.add(String(a.id));
+                        if (Math.abs(a.balance || 0) > Math.abs(g.primary.balance || 0)) g.primary = a;
+                    }
+                });
+                availableAccounts = Array.from(accountGroups.values()).map(g => {
+                    accountIdGroups[String(g.primary.id)] = Array.from(g.ids);
+                    const { balance, ...rest } = g.primary;
+                    return rest;
+                });
 
                 if (!activeTargetAccountId && availableAccounts.length > 0) {
                     const preferredAccount = availableAccounts.find(a => a.number && a.number.endsWith('4498'));
@@ -765,6 +789,7 @@ Deno.serve(withValidation(loanLogicSchema, async (req) => {
 
                 // Filter to activeTargetAccountId if provided (skip if 'all' is selected to aggregate multiple banks)
                 if (activeTargetAccountId && activeTargetAccountId !== 'all') {
+                    // Only the PRIMARY record counts for balances (duplicates would double-count)
                     const filteredAccounts = accounts.filter(acc => String(acc.id || acc.accountId || acc.accountNumber) === String(activeTargetAccountId));
                     // SAFETY: a stale accountId (e.g. left over from a different customer's session)
                     // would filter to 0 accounts and crash the whole analysis. If the requested
@@ -851,9 +876,12 @@ Deno.serve(withValidation(loanLogicSchema, async (req) => {
         let transactions = txData?.data || txData?.items || txData?.transactions || [];
 
         if (activeTargetAccountId && activeTargetAccountId !== 'all') {
+            // A merged account entry may represent several duplicate provider ids —
+            // accept transactions from ANY id in the group so none are lost.
+            const targetIdSet = new Set(accountIdGroups[String(activeTargetAccountId)] || [String(activeTargetAccountId)]);
             transactions = transactions.filter(tx => {
                 const txAccId = String(tx.accountId || tx.account_id || tx.resourceId || tx.accountNumber || "");
-                return txAccId === String(activeTargetAccountId);
+                return targetIdSet.has(txAccId);
             });
         }
 

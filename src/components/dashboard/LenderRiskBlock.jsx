@@ -30,51 +30,51 @@ export default function LenderRiskBlock({ assessment }) {
     const elColor = el === null ? 'text-slate-300' : el >= 8 ? 'text-red-400' : el >= 3 ? 'text-amber-400' : 'text-emerald-400';
 
     return (
-        <div className="bg-gradient-to-br from-purple-950/30 to-slate-900/40 p-3 rounded-lg border border-purple-500/20">
-            <div className="flex items-center gap-2 mb-3">
-                <Shield className="w-4 h-4 text-purple-400" />
-                <p className="text-[10px] text-purple-300 uppercase font-bold tracking-wider">סיכון למלווה (תיק)</p>
+        <div className="bg-gradient-to-br from-purple-950/30 to-slate-900/40 p-4 rounded-lg border border-purple-500/20">
+            <div className="flex items-center gap-2 mb-4">
+                <Shield className="w-5 h-5 text-purple-400" />
+                <p className="text-sm text-purple-300 uppercase font-bold tracking-wider">סיכון למלווה (תיק)</p>
             </div>
 
             {/* PD / LGD / EL trio — the underwriter's break-even calculus */}
-            <div className="grid grid-cols-3 gap-2 mb-3">
-                <div className="bg-slate-900/60 p-2 rounded border border-slate-700/40">
-                    <div className="flex items-center gap-1 mb-0.5">
-                        <AlertOctagon className="w-3 h-3 text-slate-500" />
-                        <span className="text-[9px] text-slate-500 uppercase">סיכוי לכשל</span>
+            <div className="grid grid-cols-3 gap-2 mb-4">
+                <div className="bg-slate-900/60 p-3 rounded border border-slate-700/40">
+                    <div className="flex items-center gap-1 mb-1">
+                        <AlertOctagon className="w-3.5 h-3.5 text-slate-500" />
+                        <span className="text-xs text-slate-400 uppercase">סיכוי לכשל</span>
                     </div>
-                    <p className={`text-base font-bold font-mono ${pdColor}`}>{pd !== null ? `${pd}%` : '—'}</p>
+                    <p className={`text-2xl font-bold font-mono ${pdColor}`}>{pd !== null ? `${pd}%` : '—'}</p>
                 </div>
-                <div className="bg-slate-900/60 p-2 rounded border border-slate-700/40">
-                    <div className="flex items-center gap-1 mb-0.5">
-                        <TrendingDown className="w-3 h-3 text-slate-500" />
-                        <span className="text-[9px] text-slate-500 uppercase">הפסד אם יכשל</span>
+                <div className="bg-slate-900/60 p-3 rounded border border-slate-700/40">
+                    <div className="flex items-center gap-1 mb-1">
+                        <TrendingDown className="w-3.5 h-3.5 text-slate-500" />
+                        <span className="text-xs text-slate-400 uppercase">הפסד אם יכשל</span>
                     </div>
-                    <p className="text-base font-bold font-mono text-slate-200">{lgd !== null ? `${lgd}%` : '—'}</p>
+                    <p className="text-2xl font-bold font-mono text-slate-200">{lgd !== null ? `${lgd}%` : '—'}</p>
                 </div>
-                <div className="bg-slate-900/60 p-2 rounded border border-slate-700/40">
-                    <div className="flex items-center gap-1 mb-0.5">
-                        <Briefcase className="w-3 h-3 text-slate-500" />
-                        <span className="text-[9px] text-slate-500 uppercase">הפסד צפוי</span>
+                <div className="bg-slate-900/60 p-3 rounded border border-slate-700/40">
+                    <div className="flex items-center gap-1 mb-1">
+                        <Briefcase className="w-3.5 h-3.5 text-slate-500" />
+                        <span className="text-xs text-slate-400 uppercase">הפסד צפוי</span>
                     </div>
-                    <p className={`text-base font-bold font-mono ${elColor}`}>{el !== null ? `${el}%` : '—'}</p>
+                    <p className={`text-2xl font-bold font-mono ${elColor}`}>{el !== null ? `${el}%` : '—'}</p>
                 </div>
             </div>
 
             {/* Portfolio-level narrative */}
             {portfolioView && (
-                <p className="text-xs text-slate-300 leading-relaxed mb-2">{portfolioView}</p>
+                <p className="text-base text-slate-200 leading-relaxed mb-3">{portfolioView}</p>
             )}
 
             {/* Leverage opportunities — how to grow profitably, not just avoid loss */}
             {leverageOpportunities.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-emerald-500/10">
-                    <p className="text-[10px] text-emerald-300/80 uppercase font-bold mb-1 flex items-center gap-1">
-                        <Sparkles className="w-3 h-3" /> איך למנף את הלקוח
+                <div className="mt-3 pt-3 border-t border-emerald-500/10">
+                    <p className="text-sm text-emerald-300/90 uppercase font-bold mb-2 flex items-center gap-1.5">
+                        <Sparkles className="w-4 h-4" /> איך למנף את הלקוח
                     </p>
-                    <ul className="space-y-0.5">
+                    <ul className="space-y-1.5">
                         {leverageOpportunities.slice(0, 4).map((item, i) => (
-                            <li key={i} className="text-[11px] text-emerald-100/90 flex items-start gap-1.5">
+                            <li key={i} className="text-sm text-emerald-100/90 leading-relaxed flex items-start gap-2">
                                 <span className="text-emerald-400 mt-0.5">•</span>
                                 <span>{item}</span>
                             </li>
@@ -85,13 +85,13 @@ export default function LenderRiskBlock({ assessment }) {
 
             {/* Collateral assets — pledgeable sources found in 12m history */}
             {collateralAssets.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-cyan-500/10">
-                    <p className="text-[10px] text-cyan-300/80 uppercase font-bold mb-1 flex items-center gap-1">
-                        <Gem className="w-3 h-3" /> נכסים לבחינת שיעבוד
+                <div className="mt-3 pt-3 border-t border-cyan-500/10">
+                    <p className="text-sm text-cyan-300/90 uppercase font-bold mb-2 flex items-center gap-1.5">
+                        <Gem className="w-4 h-4" /> נכסים לבחינת שיעבוד
                     </p>
-                    <ul className="space-y-0.5">
+                    <ul className="space-y-1.5">
                         {collateralAssets.slice(0, 4).map((item, i) => (
-                            <li key={i} className="text-[11px] text-cyan-100/90 flex items-start gap-1.5">
+                            <li key={i} className="text-sm text-cyan-100/90 leading-relaxed flex items-start gap-2">
                                 <span className="text-cyan-400 mt-0.5">•</span>
                                 <span>{item}</span>
                             </li>
@@ -102,11 +102,11 @@ export default function LenderRiskBlock({ assessment }) {
 
             {/* Mitigations — what the lender can do to make this work */}
             {mitigations.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-purple-500/10">
-                    <p className="text-[10px] text-purple-300/70 uppercase font-bold mb-1">דרכים להפחית סיכון</p>
-                    <ul className="space-y-0.5">
+                <div className="mt-3 pt-3 border-t border-purple-500/10">
+                    <p className="text-sm text-purple-300/80 uppercase font-bold mb-2">דרכים להפחית סיכון</p>
+                    <ul className="space-y-1.5">
                         {mitigations.slice(0, 4).map((m, i) => (
-                            <li key={i} className="text-[11px] text-slate-300 flex items-start gap-1.5">
+                            <li key={i} className="text-sm text-slate-200 leading-relaxed flex items-start gap-2">
                                 <span className="text-purple-400 mt-0.5">•</span>
                                 <span>{m}</span>
                             </li>
