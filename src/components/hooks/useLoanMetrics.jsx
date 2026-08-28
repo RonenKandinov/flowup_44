@@ -5,6 +5,9 @@ export const useLoanMetrics = (userId, targetAccountId = null) => {
     const [metrics, setMetrics] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
+    // True when Open Finance has NO accounts/transactions for this customer
+    // (consent expired or was never completed) — a distinct, recoverable state.
+    const [noData, setNoData] = useState(false);
 
     const fetchMetrics = useCallback(async (force = false) => {
         if (!userId) {
@@ -16,6 +19,7 @@ export const useLoanMetrics = (userId, targetAccountId = null) => {
 
         setIsLoading(true);
         setError(null);
+        setNoData(false);
 
         // Always use fresh backend metrics. FlowUp's B2B underwriting layer must reflect
         // the latest loanLogicV2 behavior immediately after backend updates.
@@ -84,6 +88,9 @@ export const useLoanMetrics = (userId, targetAccountId = null) => {
                     // Forensic Intelligence — side-income, activity decline, early distress,
                     // declaration-vs-reality gaps. Signals BDI / credit reports can't see.
                     forensicIntelligence: data.forensicIntelligence || metrics.forensicIntelligence || null,
+                    // Positive + advanced factual signals — power the PositiveSignalsPanel
+                    positiveSignals: data.positiveSignals || metrics.positiveSignals || null,
+                    advancedSignals: data.advancedSignals || metrics.advancedSignals || null,
                     userId
                 };
 
@@ -93,7 +100,12 @@ export const useLoanMetrics = (userId, targetAccountId = null) => {
             }
         } catch (err) {
             const status = err.response?.status;
-            if (status === 401 || status === 405 || status === 500 || status === 503) {
+            const serverMsg = err.response?.data?.error || err.message || '';
+            if (String(serverMsg).includes('No valid transactions')) {
+                // Open Finance returned zero data for this PSU — consent likely expired.
+                setNoData(true);
+                setError(null);
+            } else if (status === 401 || status === 405 || status === 500 || status === 503) {
                 setError(null);
             } else {
                 console.error("Failed to fetch loan metrics:", err);
@@ -112,6 +124,7 @@ export const useLoanMetrics = (userId, targetAccountId = null) => {
         metrics,
         isLoading,
         error,
+        noData,
         refetch: () => fetchMetrics(true)
     };
 };

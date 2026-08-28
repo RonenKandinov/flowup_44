@@ -152,7 +152,7 @@ export default function Dashboard() {
   const { sync, data: loanLogicData, isLoading: isSyncing, metrics: loanMetrics } = useTransactionSync();
   // Analyst dashboard should load underwriting data only for an explicitly active customer.
   const effectiveUserId = activeCustomerId || '';
-  const { metrics: originalLoanMetrics, isLoading: isLoanMetricsLoading, error: loanMetricsError, refetch: refetchLoanMetrics } = useLoanMetrics(effectiveUserId, targetAccountId || null);
+  const { metrics: originalLoanMetrics, isLoading: isLoanMetricsLoading, error: loanMetricsError, noData: loanMetricsNoData, refetch: refetchLoanMetrics } = useLoanMetrics(effectiveUserId, targetAccountId || null);
   const newLoanMetrics = simulatedMetrics || originalLoanMetrics;
   const queryClient = useQueryClient();
 
@@ -1150,19 +1150,44 @@ export default function Dashboard() {
             <EmptyState onDataParsed={handleDataParsed} />
           ) : (!loanMetricsError && !hasData && activeCustomerId) ? (
             <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4">
-              <div className="w-10 h-10 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
-              <h3 className="text-xl font-bold text-white">טוען נתוני לקוח מחובר...</h3>
-              <p className="text-slate-400 max-w-md">החשבון כבר מחובר. אנחנו מושכים את נתוני Open Finance ומכינים את תצוגת החיתום.</p>
-              <div className="flex items-center gap-3">
-                <Button onClick={refetchLoanMetrics} className="bg-cyan-600 hover:bg-cyan-500 text-white">
-                  <RefreshCw className="w-4 h-4 ml-2" />
-                  טען נתונים מחדש
-                </Button>
-                <Button onClick={resetAnalystScreen} variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800">
-                  <Trash2 className="w-4 h-4 ml-2" />
-                  נתק לקוח
-                </Button>
-              </div>
+              {loanMetricsNoData ? (
+                <>
+                  <div className="p-4 bg-amber-500/10 rounded-full">
+                    <ShieldAlert className="w-8 h-8 text-amber-400" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white">אין נתוני Open Finance ללקוח {activeCustomerId}</h3>
+                  <p className="text-slate-400 max-w-md">
+                    החיבור הבנקאי של הלקוח אינו פעיל — ככל הנראה ההסכמה (Consent) פגה או שהחיבור לא הושלם.
+                    יש לשלוח ללקוח קישור חיבור חדש, או לעבור ללקוח אחר.
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <Button onClick={() => setShowCustomerGate(true)} className="bg-blue-600 hover:bg-blue-500 text-white">
+                      <Plus className="w-4 h-4 ml-2" />
+                      חבר לקוח מחדש
+                    </Button>
+                    <Button onClick={resetAnalystScreen} variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800">
+                      <Trash2 className="w-4 h-4 ml-2" />
+                      נתק לקוח
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="w-10 h-10 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                  <h3 className="text-xl font-bold text-white">טוען נתוני לקוח מחובר...</h3>
+                  <p className="text-slate-400 max-w-md">החשבון כבר מחובר. אנחנו מושכים את נתוני Open Finance ומכינים את תצוגת החיתום.</p>
+                  <div className="flex items-center gap-3">
+                    <Button onClick={refetchLoanMetrics} className="bg-cyan-600 hover:bg-cyan-500 text-white">
+                      <RefreshCw className="w-4 h-4 ml-2" />
+                      טען נתונים מחדש
+                    </Button>
+                    <Button onClick={resetAnalystScreen} variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800">
+                      <Trash2 className="w-4 h-4 ml-2" />
+                      נתק לקוח
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           ) : (!loanMetricsError && (
             <>
