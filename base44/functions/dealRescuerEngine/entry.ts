@@ -500,7 +500,9 @@ const aggressiveApprovalSearch = ({ income, existingDebtPayments, estimatedExpen
   const isHighRisk = trust < 0.5 || flagCount >= 2 || (Number.isFinite(runwayMonths) && runwayMonths < 3);
   const baseTerms = [60, 72, 84];
   const terms = isHighRisk ? [72, 84, 96] : baseTerms; // +12 months in high-risk
-  const baseRatios = [1.2, 1.15, 1.1, 1.05, 1.0];
+  // CTO direction: the engine may only offer AT MOST the requested amount — never more.
+  // Ratios stay ≤ 1.0; high-risk profiles shrink the amount further.
+  const baseRatios = [1.0, 0.95, 0.9, 0.85, 0.8];
   const ratios = isHighRisk ? baseRatios.map(r => r * 0.9) : baseRatios; // shrink amount by 10%
   const dpCap = Number.isFinite(maxDownPayment) && maxDownPayment > 0 ? maxDownPayment : Infinity;
 
@@ -1269,7 +1271,9 @@ Deno.serve(async (req) => {
         const headroom = disposableIncome > 0 ? dsrLimit * disposableIncome : 0;
         if (headroom > 0) {
           let lo = 0;
-          let hi = Math.max(requestedLoanAmount, 1000) * 1.2; // search up to 120% of requested
+          // Never search above the requested amount — the max-approvable offer
+          // can only be equal to or less than what the customer asked for.
+          let hi = Math.max(requestedLoanAmount, 1000);
           for (let i = 0; i < 32; i++) {
             const mid = (lo + hi) / 2;
             const payment = pmt(mid, offerRate, maxTerm);

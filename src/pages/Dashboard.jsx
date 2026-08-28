@@ -20,7 +20,6 @@ import FutureCake from '../components/dashboard/FutureCake';
 import InsightsAgent from '../components/dashboard/InsightsAgent'; // New
 import EmptyState from '../components/dashboard/EmptyState';
 import CustomerSwitcher from '../components/dashboard/CustomerSwitcher';
-import PositiveSignalsPanel from '../components/dashboard/PositiveSignalsPanel';
 import Disclaimer from '../components/dashboard/Disclaimer';
 import OpenFinanceConnect from '../components/connect/OpenFinanceConnect';
 import CustomerGateModal from '../components/dashboard/CustomerGateModal';
@@ -1279,15 +1278,6 @@ export default function Dashboard() {
                     />
                 </div>
               </div>
-
-              {(originalLoanMetrics?.positiveSignals || originalLoanMetrics?.advancedSignals) && (
-                <div className="mt-8 lg:mt-10">
-                  <PositiveSignalsPanel
-                    positiveSignals={originalLoanMetrics?.positiveSignals}
-                    advancedSignals={originalLoanMetrics?.advancedSignals}
-                  />
-                </div>
-              )}
 
               <Disclaimer />
             </>
