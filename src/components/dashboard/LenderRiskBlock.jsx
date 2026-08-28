@@ -43,27 +43,27 @@ export default function LenderRiskBlock({ assessment }) {
                         <AlertOctagon className="w-3.5 h-3.5 text-slate-500" />
                         <span className="text-xs text-slate-400 uppercase">סיכוי לכשל</span>
                     </div>
-                    <p className={`text-2xl font-bold font-mono ${pdColor}`}>{pd !== null ? `${pd}%` : '—'}</p>
+                    <p className={`text-xl font-bold font-mono ${pdColor}`}>{pd !== null ? `${pd}%` : '—'}</p>
                 </div>
                 <div className="bg-slate-900/60 p-3 rounded border border-slate-700/40">
                     <div className="flex items-center gap-1 mb-1">
                         <TrendingDown className="w-3.5 h-3.5 text-slate-500" />
                         <span className="text-xs text-slate-400 uppercase">הפסד אם יכשל</span>
                     </div>
-                    <p className="text-2xl font-bold font-mono text-slate-200">{lgd !== null ? `${lgd}%` : '—'}</p>
+                    <p className="text-xl font-bold font-mono text-slate-200">{lgd !== null ? `${lgd}%` : '—'}</p>
                 </div>
                 <div className="bg-slate-900/60 p-3 rounded border border-slate-700/40">
                     <div className="flex items-center gap-1 mb-1">
                         <Briefcase className="w-3.5 h-3.5 text-slate-500" />
                         <span className="text-xs text-slate-400 uppercase">הפסד צפוי</span>
                     </div>
-                    <p className={`text-2xl font-bold font-mono ${elColor}`}>{el !== null ? `${el}%` : '—'}</p>
+                    <p className={`text-xl font-bold font-mono ${elColor}`}>{el !== null ? `${el}%` : '—'}</p>
                 </div>
             </div>
 
             {/* Portfolio-level narrative */}
             {portfolioView && (
-                <p className="text-base text-slate-200 leading-relaxed mb-3">{portfolioView}</p>
+                <p className="text-[13px] text-slate-200 leading-relaxed mb-3">{portfolioView}</p>
             )}
 
             {/* Leverage opportunities — how to grow profitably, not just avoid loss */}
@@ -74,7 +74,7 @@ export default function LenderRiskBlock({ assessment }) {
                     </p>
                     <ul className="space-y-1.5">
                         {leverageOpportunities.slice(0, 4).map((item, i) => (
-                            <li key={i} className="text-sm text-emerald-100/90 leading-relaxed flex items-start gap-2">
+                            <li key={i} className="text-[13px] text-emerald-100/90 leading-relaxed flex items-start gap-2">
                                 <span className="text-emerald-400 mt-0.5">•</span>
                                 <span>{item}</span>
                             </li>
@@ -91,7 +91,7 @@ export default function LenderRiskBlock({ assessment }) {
                     </p>
                     <ul className="space-y-1.5">
                         {collateralAssets.slice(0, 4).map((item, i) => (
-                            <li key={i} className="text-sm text-cyan-100/90 leading-relaxed flex items-start gap-2">
+                            <li key={i} className="text-[13px] text-cyan-100/90 leading-relaxed flex items-start gap-2">
                                 <span className="text-cyan-400 mt-0.5">•</span>
                                 <span>{item}</span>
                             </li>
@@ -106,7 +106,7 @@ export default function LenderRiskBlock({ assessment }) {
                     <p className="text-sm text-purple-300/80 uppercase font-bold mb-2">דרכים להפחית סיכון</p>
                     <ul className="space-y-1.5">
                         {mitigations.slice(0, 4).map((m, i) => (
-                            <li key={i} className="text-sm text-slate-200 leading-relaxed flex items-start gap-2">
+                            <li key={i} className="text-[13px] text-slate-200 leading-relaxed flex items-start gap-2">
                                 <span className="text-purple-400 mt-0.5">•</span>
                                 <span>{m}</span>
                             </li>

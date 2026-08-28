@@ -101,12 +101,14 @@ export default function InsightsAgent({ analysis, isLoading, rescueOverlay = nul
                                 {(() => {
                                     const isRescued = !!rescueOverlay?.active;
                                     const rescuedStatus = rescueOverlay?.status; // 'GREEN' | 'ORANGE' | 'RED'
+                                    // A successful rescue (GREEN or ORANGE) is an approval under
+                                    // rescue conditions — not a "further review" outcome.
                                     const effectiveDecision = isRescued
-                                        ? (rescuedStatus === 'GREEN' ? 'APPROVE' : rescuedStatus === 'ORANGE' ? 'REVIEW' : recommendation.decision)
+                                        ? (rescuedStatus === 'RED' ? recommendation.decision : 'APPROVE')
                                         : recommendation.decision;
                                     const labelMap = {
-                                        APPROVE: isRescued ? 'אישור — בתנאי חילוץ' : 'אישור',
-                                        REVIEW: isRescued ? 'בחינה נוספת — מחולצת' : 'בחינה נוספת',
+                                        APPROVE: isRescued ? 'אישור בתנאי חילוץ' : 'אישור',
+                                        REVIEW: 'בחינה נוספת',
                                         REJECT: 'דחייה'
                                     };
                                     return (
@@ -121,7 +123,7 @@ export default function InsightsAgent({ analysis, isLoading, rescueOverlay = nul
                                                  <XCircle className="w-6 h-6 text-red-400" />}
                                                 <div>
                                                     <p className="text-[10px] text-slate-400 uppercase font-bold">המלצת מערכת</p>
-                                                    <p className={`text-base font-bold ${
+                                                    <p className={`text-sm font-bold ${
                                                         effectiveDecision === 'APPROVE' ? 'text-emerald-400' :
                                                         effectiveDecision === 'REVIEW' ? 'text-amber-400' :
                                                         'text-red-400'
@@ -298,7 +300,7 @@ function EnhancedMetricBox({ label, value, isDanger, isWarning, icon: Icon, reve
                 {Icon && <Icon className={`w-3.5 h-3.5 ${statusColor} opacity-70`} />}
             </div>
             <div className="relative z-10">
-                <p className={`text-xl font-black font-mono tracking-tight ${statusColor}`}>{value}</p>
+                <p className={`text-lg font-black font-mono tracking-tight ${statusColor}`}>{value}</p>
                 <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
                     <div className={`h-full ${barColor} rounded-full`} style={{ width: isDanger ? '85%' : isWarning ? '60%' : '30%' }} />
                 </div>
@@ -314,7 +316,7 @@ function Section({ title, children }) {
             <p className="text-xs text-slate-400 uppercase font-bold mb-2 tracking-wider flex items-center gap-2">
                 <Focus className="w-3.5 h-3.5 text-indigo-400" /> {title}
             </p>
-            <div className="text-sm text-slate-200 leading-relaxed whitespace-pre-line font-medium">
+            <div className="text-[13px] text-slate-200 leading-relaxed whitespace-pre-line font-medium">
                 {children}
             </div>
         </div>

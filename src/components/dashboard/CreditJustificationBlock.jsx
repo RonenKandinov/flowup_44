@@ -10,7 +10,7 @@ export default function CreditJustificationBlock({ aiText, isLoading, error }) {
     return (
         <div className="text-sm text-slate-400 border-t border-slate-800 pt-3">
             <div className="flex items-center gap-2 mb-2">
-                <span className="text-slate-200 font-bold text-base">נימוק אשראי</span>
+                <span className="text-slate-200 font-bold text-sm">נימוק אשראי</span>
                 {isLoading && <Loader2 className="w-3.5 h-3.5 text-cyan-400 animate-spin" />}
             </div>
             {isLoading ? (
@@ -22,7 +22,7 @@ export default function CreditJustificationBlock({ aiText, isLoading, error }) {
             ) : error ? (
                 <div className="text-slate-500 italic">נימוק האשראי אינו זמין כרגע.</div>
             ) : (
-                <div className="text-slate-200 text-base leading-relaxed transition-opacity duration-300">{aiText}</div>
+                <div className="text-slate-200 text-[13px] leading-relaxed transition-opacity duration-300">{aiText}</div>
             )}
         </div>
     );
