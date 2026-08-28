@@ -21,9 +21,6 @@ import InsightsAgent from '../components/dashboard/InsightsAgent'; // New
 import EmptyState from '../components/dashboard/EmptyState';
 import CustomerSwitcher from '../components/dashboard/CustomerSwitcher';
 import PositiveSignalsPanel from '../components/dashboard/PositiveSignalsPanel';
-import ForensicPanel from '../components/dashboard/ForensicPanel';
-import LoanImpactSimulator from '../components/dashboard/LoanImpactSimulator';
-import UnderwritingMemo from '../components/dashboard/UnderwritingMemo';
 import Disclaimer from '../components/dashboard/Disclaimer';
 import OpenFinanceConnect from '../components/connect/OpenFinanceConnect';
 import CustomerGateModal from '../components/dashboard/CustomerGateModal';
@@ -980,9 +977,6 @@ export default function Dashboard() {
           <div dir="rtl" className="w-full flex items-center justify-end gap-3 flex-wrap">
             <div dir="rtl" className="flex items-center gap-3 flex-wrap justify-end">
             <CustomerSwitcher activeCustomerId={activeCustomerId} onSelect={handleCustomerSwitch} />
-            {hasData && originalLoanMetrics && (
-              <UnderwritingMemo metrics={originalLoanMetrics} insights={serverInsights} customerId={activeCustomerId} />
-            )}
             {activeCustomerId && originalLoanMetrics?.availableAccounts?.length > 0 && (
               <div className="w-56">
                 <Select value={targetAccountId || originalLoanMetrics.activeTargetAccountId || ''} onValueChange={handleAccountSelection}>
@@ -1261,26 +1255,11 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {originalLoanMetrics && (
-                <div className="mt-8 lg:mt-10">
-                  <LoanImpactSimulator metrics={originalLoanMetrics} />
-                </div>
-              )}
-
               {(originalLoanMetrics?.positiveSignals || originalLoanMetrics?.advancedSignals) && (
                 <div className="mt-8 lg:mt-10">
                   <PositiveSignalsPanel
                     positiveSignals={originalLoanMetrics?.positiveSignals}
                     advancedSignals={originalLoanMetrics?.advancedSignals}
-                  />
-                </div>
-              )}
-
-              {(originalLoanMetrics?.forensicIntelligence || originalLoanMetrics?.undeclaredIncomeAnalysis) && (
-                <div className="mt-8 lg:mt-10">
-                  <ForensicPanel
-                    forensic={originalLoanMetrics?.forensicIntelligence}
-                    undeclared={originalLoanMetrics?.undeclaredIncomeAnalysis}
                   />
                 </div>
               )}
