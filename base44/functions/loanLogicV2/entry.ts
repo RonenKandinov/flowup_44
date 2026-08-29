@@ -1024,6 +1024,7 @@ ${JSON.stringify(limitedExpenses)}
                 
                 const llmRes = await base44.integrations.Core.InvokeLLM({
                     prompt,
+                    model: 'gpt_5_mini', // faster model — this call blocks the whole response
                     response_json_schema: {
                         type: "object",
                         properties: {
@@ -1478,6 +1479,8 @@ ${JSON.stringify(limitedExpenses)}
         // entity RLS auto-stamps `created_by` to user.email — service-role writes
         // are blocked by the RLS rule (`created_by == {{user.email}}`). When called
         // anonymously (no token), persistence is skipped silently.
+        // Fire-and-forget — DB persistence isn't needed for the response and must not add to its latency.
+        (async () => {
         try {
             const me = await base44.auth.me().catch(() => null);
             const persistenceUserId = me?.id || userId;
@@ -1539,6 +1542,7 @@ ${JSON.stringify(limitedExpenses)}
             // Persistence failure must NOT break the underwriting response.
             console.error('[Persistence] Failed to save analytics data:', persistErr?.message || persistErr);
         }
+        })(); // not awaited — response returns immediately, persistence finishes in background
 
         // ── BEHAVIOR PROFILE (story-level data for the AI Analyst) ──
         // We already have the filtered transactions, the recurring-income map, the
