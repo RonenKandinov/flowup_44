@@ -869,10 +869,13 @@ const strategyScore = (type, c, requestedLoanAmount, insights, dsrLimit) => {
     return (1 - closeness) * 0.4 + dpRatio * 0.25 + dsrHeadroom * 0.25 + (1 - termRatio) * 0.1 + statusBonus;
   }
   // behavioral_approval — Goal: closest to the original request, leveraging behavioral flexibility.
+  // Net closeness is the DOMINANT factor — this lane exists specifically to bring the
+  // customer as close to the full requested amount as possible, so a small DSR-positioning
+  // gain must never outweigh giving less money than a candidate that offers more.
   const behavioralBoost = (insights?.isFalseNegative || Number(insights?.behavioralScore) >= 0.6) ? 0.1 : 0;
-  // Encourage using the flexibility band (dsr closer to limit) while staying closest to request.
+  // Encourage using the flexibility band (dsr closer to limit) only as a minor tiebreaker.
   const nearLimit = 1 - clamp(Math.abs(c.dsr - (dsrLimit - 0.02)) / 0.1, 0, 1);
-  return netCloseness * 0.6 + nearLimit * 0.2 + (1 - termRatio) * 0.1 + behavioralBoost + statusBonus;
+  return netCloseness * 0.8 + nearLimit * 0.05 + (1 - termRatio) * 0.05 + behavioralBoost + statusBonus;
 };
 
 // Stage 5 — pick 3 distinct strategies
