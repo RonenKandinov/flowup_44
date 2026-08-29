@@ -38,7 +38,7 @@ const STRATEGY_META = {
 
 const STATUS_META = {
     approved: { label: 'אישור', color: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' },
-    conditional: { label: 'אישור מותנה', color: 'bg-amber-500/15 text-amber-300 border-amber-500/30' },
+    conditional: { label: 'אישור', color: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' },
     failed: { label: 'לא עובר', color: 'bg-red-500/15 text-red-300 border-red-500/30' }
 };
 
@@ -126,7 +126,7 @@ export default function DealRescuer({ onSimulate, onAnalysisComplete, baseMetric
                     ...baseMetrics,
                     score: res.data.after.score,
                     dsr: res.data.after.dsr,
-                    status: res.data.after.status === 'approved' ? 'GREEN' : 'ORANGE'
+                    status: (res.data.after.status === 'approved' || res.data.after.status === 'conditional') ? 'GREEN' : 'ORANGE'
                 });
             } else if (onSimulate) {
                 onSimulate(null);
@@ -364,7 +364,7 @@ export default function DealRescuer({ onSimulate, onAnalysisComplete, baseMetric
                                                 {/* Tier badge intentionally hidden from UI per CTO direction —
                                                     tier is preserved in s.tier for internal pricing/meta only. */}
                                                 <span className={`text-[10px] px-2 py-0.5 rounded-full border ${statusMeta.color} flex items-center gap-1`}>
-                                                    {s.status === 'approved' ? <CheckCircle2 className="w-3 h-3" /> : s.status === 'conditional' ? <AlertTriangle className="w-3 h-3" /> : null}
+                                                    {(s.status === 'approved' || s.status === 'conditional') ? <CheckCircle2 className="w-3 h-3" /> : null}
                                                     {statusMeta.label}
                                                 </span>
                                             </div>

@@ -229,7 +229,6 @@ export default function SpeedometerGauge({
         {isScore && (
           <div className="mt-2 text-sm font-semibold">
             {statusColor === 'green' && <span className="text-green-400">העסקה ניתנת לאישור במסלול רגיל</span>}
-            {statusColor === 'yellow' && <span className="text-yellow-400">ניתן לאשר במסלול 72 חודשים או בלון</span>}
             {statusColor === 'red' && <span className="text-red-400">נדרש שינוי מבנה העסקה</span>}
           </div>
         )}
