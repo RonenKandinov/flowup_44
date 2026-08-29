@@ -393,7 +393,7 @@ export default function DealRescuer({ onSimulate, onAnalysisComplete, baseMetric
                                             </div>
                                             <div>
                                                 <div className="text-slate-500 text-[10px]">DSR חדש</div>
-                                                <div className={`font-medium ${s.dsr <= 40 ? 'text-emerald-300' : s.dsr <= 45 ? 'text-amber-300' : 'text-red-300'}`}>{s.dsr}%</div>
+                                                <div className={`font-medium ${s.status === 'approved' ? 'text-emerald-300' : s.status === 'conditional' ? 'text-amber-300' : 'text-red-300'}`}>{s.dsr}%</div>
                                             </div>
                                         </div>
 
