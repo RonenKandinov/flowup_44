@@ -684,6 +684,18 @@ Deno.serve(withValidation(loanLogicSchema, async (req) => {
         }
         const accessToken = tokenJson.accessToken;
 
+        // Kick off the transactions fetch NOW, in parallel with account fetching below —
+        // both are independent network calls using the same accessToken. We only await
+        // the response after account processing (which computes accountIdGroups needed
+        // to filter transactions) completes. This removes one full round-trip from the
+        // critical path.
+        const txFetchPromise = fetch(`${API_V2}/data/transactions`, {
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+                Accept: "application/json"
+            }
+        });
+
         // 2. Fetch Accounts & Calculate Real Liquid Assets
         let liquidAssets = 0;
         let liquidAssetsBreakdown = { cash: 0, etf: 0, trainingFund: 0 };
@@ -860,13 +872,8 @@ Deno.serve(withValidation(loanLogicSchema, async (req) => {
         liquidAssetsBreakdown.cash += manualLiquidAssets;
         liquidAssets = Math.max(0, liquidAssets);
 
-        // 3. Fetch Transactions
-        const txRes = await fetch(`${API_V2}/data/transactions`, {
-            headers: {
-                Authorization: `Bearer ${accessToken}`,
-                Accept: "application/json"
-            }
-        });
+        // 3. Await Transactions (fetch was already kicked off in parallel with accounts above)
+        const txRes = await txFetchPromise;
 
         if (!txRes.ok) {
             throw new Error(`Open Finance TX Error: ${txRes.status} ${txRes.statusText}`);
