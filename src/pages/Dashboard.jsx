@@ -458,9 +458,39 @@ export default function Dashboard() {
     return JSON.stringify(stable);
   }, [metricsForInsights]);
 
-  // Fetch AI Insights from server using React Query to avoid infinite loops
-  const { data: serverInsightsData, isLoading: isInsightsLoading, error: insightsError } = useQuery({
-    queryKey: ['ai-insights-v7', stableMetricsHash],
+  // Fetch AI Insights from server in TWO PHASES so the decision/metrics render
+  // immediately while the LLM narrative streams in asynchronously behind it.
+  // Phase 1 — deferNarrative:true — skips the LLM call entirely (instant).
+  const { data: phase1Data, isLoading: isPhase1Loading } = useQuery({
+    queryKey: ['ai-insights-phase1', stableMetricsHash],
+    queryFn: async () => {
+        if (!metricsForInsights) return { error: "No risk metrics available" };
+        try {
+            const res = await base44.functions.invoke('insightEngine', {
+                metrics: metricsForInsights,
+                behaviorProfile: metricsForInsights?.behaviorProfile || null,
+                deferNarrative: true
+            });
+            if (res.data?.success && res.data?.insights) {
+                return res.data.insights;
+            }
+            return generateLocalInsights(metricsForInsights) || { error: "Failed to generate insights" };
+        } catch (e) {
+            console.error("insightEngine phase1 failed, using local insights", e);
+            return generateLocalInsights(metricsForInsights) || { error: "Insights unavailable" };
+        }
+    },
+    enabled: !!(metricsForInsights && hasData),
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false
+  });
+
+  // Phase 2 — full LLM narrative. Runs in parallel with phase 1; the UI shows a
+  // skeleton for the narrative-dependent sections until this resolves.
+  const { data: phase2Data, isLoading: isPhase2Loading, error: insightsError } = useQuery({
+    queryKey: ['ai-insights-phase2', stableMetricsHash],
     queryFn: async () => {
         if (!metricsForInsights) return { error: "No risk metrics available" };
 
@@ -498,20 +528,26 @@ export default function Dashboard() {
     refetchOnMount: false
   });
 
-  const serverInsights = serverInsightsData || (insightsError ? { error: "Network error" } : null);
+  // Phase 2 (full narrative) wins once ready; phase 1 (instant decision/metrics) fills the gap.
+  const serverInsights = phase2Data || phase1Data || (insightsError ? { error: "Network error" } : null);
+  const isInsightsLoading = isPhase1Loading || isPhase2Loading;
+  // True only while phase 1 hasn't returned anything yet — drives the full-panel spinner.
+  const isAnalystInitialLoading = !serverInsights && isInsightsLoading;
+  // True while phase 2 (LLM narrative) is still in flight — drives narrative-section skeletons.
+  const isNarrativeLoading = !phase2Data && isPhase2Loading;
 
   // ── Autosave underwriting analysis to UnderwritingAnalysis entity ──
   // Hybrid privacy model: structured intelligence plaintext, narrative encrypted.
   // Triggered automatically whenever insights + loanMetrics are ready, and re-runs
   // (with dedupe by analysis_hash on the server) when rescue/justifications arrive.
   useAnalysisPersistence({
-    insights: serverInsights,
+    insights: phase2Data,
     loanMetrics: originalLoanMetrics,
     rescueResult: rescueBundle?.rescueResult || null,
     creditJustifications: rescueBundle?.creditJustifications || [],
     snapshotId: snapshots?.[0]?.id || null,
     connectionId: activeConnection?.connection_id || null,
-    enabled: !!(serverInsights && !serverInsights.error && originalLoanMetrics && hasData),
+    enabled: !!(phase2Data && !phase2Data.error && originalLoanMetrics && hasData),
     onSaved: (saved) => setSavedAnalysisId(saved.id)
   });
 
@@ -839,7 +875,8 @@ export default function Dashboard() {
       localStorage.removeItem('flowup_selected_account_id');
       Object.keys(sessionStorage).filter(k => k.startsWith('loanMetricsCache')).forEach(k => sessionStorage.removeItem(k));
     } catch (_) {}
-    queryClient.removeQueries({ queryKey: ['ai-insights-v7'] });
+    queryClient.removeQueries({ queryKey: ['ai-insights-phase1'] });
+    queryClient.removeQueries({ queryKey: ['ai-insights-phase2'] });
     queryClient.removeQueries({ queryKey: ['cash-flow-profile-v1'] });
     queryClient.removeQueries({ queryKey: ['financial-snapshots'] });
     queryClient.removeQueries({ queryKey: ['shadow-entries'] });
@@ -1088,12 +1125,13 @@ export default function Dashboard() {
                                 .filter(k => k.startsWith('loanMetricsCache'))
                                 .forEach(k => sessionStorage.removeItem(k));
                             } catch (_) {}
-                            queryClient.removeQueries({ queryKey: ['ai-insights-v7'] });
-                            queryClient.removeQueries({ queryKey: ['ai-insights-v6'] });
+                            queryClient.removeQueries({ queryKey: ['ai-insights-phase1'] });
+                            queryClient.removeQueries({ queryKey: ['ai-insights-phase2'] });
                             queryClient.removeQueries({ queryKey: ['cash-flow-profile-v1'] });
                             // Await the actual refresh — this triggers loanLogicV2 → new behaviorProfile → fresh insightEngine result
                             await refetchLoanMetrics();
-                            await queryClient.refetchQueries({ queryKey: ['ai-insights-v7'], type: 'active' });
+                            await queryClient.refetchQueries({ queryKey: ['ai-insights-phase1'], type: 'active' });
+                            await queryClient.refetchQueries({ queryKey: ['ai-insights-phase2'], type: 'active' });
                             toast.success('הנתונים עודכנו בהצלחה', { id: toastId });
                           } catch (err) {
                             console.error('Refresh failed:', err);
@@ -1257,7 +1295,8 @@ export default function Dashboard() {
                 <div className="order-3 lg:order-3 h-full w-full">
                     <InsightsAgent
                         analysis={serverInsights}
-                        isLoading={isInsightsLoading}
+                        isLoading={isAnalystInitialLoading}
+                        isNarrativeLoading={isNarrativeLoading}
                         rescueOverlay={simulatedMetrics ? {
                             active: true,
                             score: simulatedMetrics.score,

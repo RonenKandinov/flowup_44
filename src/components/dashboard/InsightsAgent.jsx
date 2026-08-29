@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp, AlertTriangle, BrainCircuit, Activity, FileText, CheckCircle2, XCircle, Zap, ShieldCheck, AlertOctagon, TrendingUp, TrendingDown, Target, Focus } from 'lucide-react';
 import LenderRiskBlock from './LenderRiskBlock';
 
-export default function InsightsAgent({ analysis, isLoading, rescueOverlay = null }) {
+export default function InsightsAgent({ analysis, isLoading, rescueOverlay = null, isNarrativeLoading = false }) {
     const [isOpen, setIsOpen] = useState(true);
     const [isMobile, setIsMobile] = useState(false);
 
@@ -175,11 +175,23 @@ export default function InsightsAgent({ analysis, isLoading, rescueOverlay = nul
                                 </div>
 
                                 <Section title="תקציר מנהלים (Executive Summary)">
-                                    {narrative}
+                                    {isNarrativeLoading ? (
+                                        <div className="space-y-2 animate-pulse">
+                                            <div className="h-3 bg-slate-700/50 rounded w-full" />
+                                            <div className="h-3 bg-slate-700/50 rounded w-5/6" />
+                                            <div className="h-3 bg-slate-700/50 rounded w-2/3" />
+                                        </div>
+                                    ) : narrative}
                                 </Section>
 
                                 {/* Lender Risk Assessment — portfolio-level view (PD/LGD/EL) */}
-                                {llm_analysis?.lender_risk_assessment && (
+                                {isNarrativeLoading ? (
+                                    <div className="bg-slate-800/30 p-3 rounded-lg border border-slate-700/50 animate-pulse space-y-2">
+                                        <div className="h-3 bg-slate-700/50 rounded w-1/3" />
+                                        <div className="h-3 bg-slate-700/50 rounded w-full" />
+                                        <div className="h-3 bg-slate-700/50 rounded w-4/5" />
+                                    </div>
+                                ) : llm_analysis?.lender_risk_assessment && (
                                     <LenderRiskBlock assessment={llm_analysis.lender_risk_assessment} />
                                 )}
 

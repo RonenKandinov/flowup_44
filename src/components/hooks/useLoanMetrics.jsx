@@ -1,6 +1,29 @@
 import { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 
+// Short-lived cache so switching back to a recently-viewed customer is instant.
+const CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes
+
+const cacheKey = (userId, targetAccountId) => `loanMetricsCache_${userId}_${targetAccountId || 'all'}`;
+
+const readCache = (key) => {
+    try {
+        const raw = sessionStorage.getItem(key);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed?.timestamp || Date.now() - parsed.timestamp > CACHE_TTL_MS) return null;
+        return parsed.data || null;
+    } catch (_) {
+        return null;
+    }
+};
+
+const writeCache = (key, data) => {
+    try {
+        sessionStorage.setItem(key, JSON.stringify({ timestamp: Date.now(), data }));
+    } catch (_) { /* no-op */ }
+};
+
 export const useLoanMetrics = (userId, targetAccountId = null) => {
     const [metrics, setMetrics] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -17,17 +40,25 @@ export const useLoanMetrics = (userId, targetAccountId = null) => {
             return;
         }
 
+        const key = cacheKey(userId, targetAccountId);
+
+        if (force) {
+            try { sessionStorage.removeItem(key); } catch (_) {}
+        } else {
+            // Fast path: recently-viewed customer within the TTL window — skip the network call entirely.
+            const cached = readCache(key);
+            if (cached) {
+                setMetrics(cached);
+                setIsLoading(false);
+                setError(null);
+                setNoData(false);
+                return;
+            }
+        }
+
         setIsLoading(true);
         setError(null);
         setNoData(false);
-
-        // Always use fresh backend metrics. FlowUp's B2B underwriting layer must reflect
-        // the latest loanLogicV2 behavior immediately after backend updates.
-        try {
-            Object.keys(sessionStorage)
-                .filter(k => k.startsWith('loanMetricsCache'))
-                .forEach(k => sessionStorage.removeItem(k));
-        } catch (_) {}
 
         try {
             // Native Fetch Implementation (via SDK Wrapper for Environment Routing)
@@ -95,6 +126,7 @@ export const useLoanMetrics = (userId, targetAccountId = null) => {
                 };
 
                 setMetrics(transformedMetrics);
+                writeCache(key, transformedMetrics);
             } else {
                 throw new Error("Analysis failed to return success status");
             }
