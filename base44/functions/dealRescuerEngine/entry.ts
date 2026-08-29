@@ -775,7 +775,9 @@ const computeAdjustedDsrLimit = (basePolicyLimit, insights) => {
 // than in classic bank underwriting (20%), at the expense of "closeness to requested
 // amount". DSR safety remains the top priority (40%).
 const compositeScore = (c, requestedLoanAmount, dsrLimit) => {
-  const closeness = clamp(c.grossAmount / requestedLoanAmount, 0, 1);
+  // Net closeness — the amount the customer actually receives (gross minus down
+  // payment) — so the overall headline pick doesn't favor a needless down payment.
+  const closeness = clamp(c.loanAmount / requestedLoanAmount, 0, 1);
   const dsrRatio = clamp(c.dsr / dsrLimit, 0, 1.5);
   const termShortness = 1 - c.termMonths / 84;
   return (1 - dsrRatio) * 0.4 + termShortness * 0.4 + closeness * 0.2;
@@ -845,6 +847,11 @@ const buildFrontloadedSchedule = (principal, annualRatePct, termMonths, { boostM
 // so the three results are meaningfully distinct.
 const strategyScore = (type, c, requestedLoanAmount, insights, dsrLimit) => {
   const closeness = clamp(c.grossAmount / requestedLoanAmount, 0, 1);
+  // Net closeness = how much of the requested amount the customer actually RECEIVES
+  // (gross minus any down payment). Lanes whose goal is "stay close to the request"
+  // must be scored on this — otherwise a needless down payment scores just as well
+  // as a full disbursal simply because it lowers the monthly payment.
+  const netCloseness = clamp(c.loanAmount / requestedLoanAmount, 0, 1);
   const dsrHeadroom = clamp((dsrLimit - c.dsr) / dsrLimit, -0.5, 1); // how far below policy threshold
   const termRatio = c.termMonths / 84;
   const dpRatio = c.downPayment / Math.max(1, c.grossAmount);
@@ -852,9 +859,9 @@ const strategyScore = (type, c, requestedLoanAmount, insights, dsrLimit) => {
 
   if (type === 'cash_flow_alignment') {
     // Goal: keep requested amount, lower monthly payment via longer term.
-    // Reward: high closeness + long term + low monthly burden.
+    // Reward: high NET closeness (actual disbursed amount) + long term + low monthly burden.
     const monthlyBurden = c.monthlyPayment / Math.max(1, requestedLoanAmount / 48);
-    return closeness * 0.55 + termRatio * 0.25 + (1 - clamp(monthlyBurden, 0, 2) / 2) * 0.15 + statusBonus;
+    return netCloseness * 0.55 + termRatio * 0.25 + (1 - clamp(monthlyBurden, 0, 2) / 2) * 0.15 + statusBonus;
   }
   if (type === 'exposure_reduction') {
     // Goal: reduce exposure — smaller principal and/or higher down payment.
@@ -865,7 +872,7 @@ const strategyScore = (type, c, requestedLoanAmount, insights, dsrLimit) => {
   const behavioralBoost = (insights?.isFalseNegative || Number(insights?.behavioralScore) >= 0.6) ? 0.1 : 0;
   // Encourage using the flexibility band (dsr closer to limit) while staying closest to request.
   const nearLimit = 1 - clamp(Math.abs(c.dsr - (dsrLimit - 0.02)) / 0.1, 0, 1);
-  return closeness * 0.6 + nearLimit * 0.2 + (1 - termRatio) * 0.1 + behavioralBoost + statusBonus;
+  return netCloseness * 0.6 + nearLimit * 0.2 + (1 - termRatio) * 0.1 + behavioralBoost + statusBonus;
 };
 
 // Stage 5 — pick 3 distinct strategies
