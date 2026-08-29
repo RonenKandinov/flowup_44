@@ -1182,6 +1182,14 @@ Deno.serve(async (req) => {
     const runwayGate = applyLiquidityRunwayGate(strategies, runwayMonths, policy.minLiquidityRunwayMonths);
     strategies = runwayGate.strategies;
 
+    // Order strategies by actual quality (approval status, then composite score) so
+    // the UI always shows the objectively best option first — not just insertion
+    // order of the fixed ['cash_flow_alignment','exposure_reduction','behavioral_approval'] list.
+    strategies = [...strategies].sort((a, b) => {
+      const rank = { approved: 2, conditional: 1 };
+      return ((rank[b.status] || 0) - (rank[a.status] || 0)) || (b.score - a.score);
+    });
+
     // ── Aggressive Approval — SEPARATE PRODUCT (not a strategy) ──
     // CTO direction: aggressive_approval is a distinct PRODUCT with its own
     // pricing rules and DSR ceiling — not one more "strategy" in the menu.
