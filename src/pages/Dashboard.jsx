@@ -535,20 +535,17 @@ export default function Dashboard() {
     queryKey: ['ai-insights-summary', stableMetricsHash],
     queryFn: async () => {
         if (!metricsForInsights) return null;
-        // Local, instant fallback text — used if the LLM call errors OR takes too long,
-        // so the Executive Summary never gets stuck on an endless spinner.
-        const fallback = generateLocalInsights(metricsForInsights)?.executive_summary || null;
-        const call = base44.functions.invoke('insightEngine', {
-            metrics: metricsForInsights,
-            behaviorProfile: metricsForInsights?.behaviorProfile || null,
-            summaryOnly: true
-        }).then(res => res.data?.success ? (res.data?.insights?.narrative || null) : null)
-          .catch((e) => { console.error("insightEngine summaryOnly failed", e); return null; });
-
-        // Race the LLM call against a 10s timeout — whichever resolves first wins.
-        const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 10000));
-        const result = await Promise.race([call, timeout]);
-        return result || fallback;
+        try {
+            const res = await base44.functions.invoke('insightEngine', {
+                metrics: metricsForInsights,
+                behaviorProfile: metricsForInsights?.behaviorProfile || null,
+                summaryOnly: true
+            });
+            return res.data?.success ? (res.data?.insights?.narrative || null) : null;
+        } catch (e) {
+            console.error("insightEngine summaryOnly failed", e);
+            return null;
+        }
     },
     enabled: !!(metricsForInsights && hasData),
     staleTime: Infinity,
@@ -977,7 +974,7 @@ export default function Dashboard() {
     if (!psuId || psuId === activeCustomerId) return;
     setActiveCustomerId(psuId);
     setActiveCustomerName('');
-    setTargetAccountId('');
+    setTargetAccountId('all');
     try {
       localStorage.setItem('flowup_active_customer_id', psuId);
       localStorage.removeItem('flowup_active_customer_name');
@@ -1057,6 +1054,7 @@ export default function Dashboard() {
                     <SelectValue placeholder="בחר חשבון" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="all" className="font-bold text-cyan-400">כל החשבונות (תצוגה משולבת)</SelectItem>
                     {originalLoanMetrics.availableAccounts.map(acc => (
                       <SelectItem key={acc.id} value={acc.id}>
                         {acc.name} ({acc.number ? acc.number.slice(-4) : '****'})
