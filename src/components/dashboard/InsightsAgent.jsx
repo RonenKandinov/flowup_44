@@ -3,7 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp, AlertTriangle, BrainCircuit, Activity, FileText, CheckCircle2, XCircle, Zap, ShieldCheck, AlertOctagon, TrendingUp, TrendingDown, Target, Focus } from 'lucide-react';
 import LenderRiskBlock from './LenderRiskBlock';
 
-export default function InsightsAgent({ analysis, isLoading, rescueOverlay = null, isNarrativeLoading = false }) {
+export default function InsightsAgent({ analysis, isLoading, rescueOverlay = null, isNarrativeLoading = false, isSummaryLoading }) {
+    // Executive Summary has its own (faster) loading gate; fall back to isNarrativeLoading
+    // if the caller doesn't pass it, so this component still works standalone.
+    const summaryLoading = isSummaryLoading ?? isNarrativeLoading;
     const [isOpen, setIsOpen] = useState(true);
     const [isMobile, setIsMobile] = useState(false);
 
@@ -175,7 +178,7 @@ export default function InsightsAgent({ analysis, isLoading, rescueOverlay = nul
                                 </div>
 
                                 <Section title="תקציר מנהלים (Executive Summary)">
-                                    {isNarrativeLoading ? (
+                                    {summaryLoading ? (
                                         <div className="space-y-2 animate-pulse">
                                             <div className="h-3 bg-slate-700/50 rounded w-full" />
                                             <div className="h-3 bg-slate-700/50 rounded w-5/6" />

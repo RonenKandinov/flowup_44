@@ -528,13 +528,47 @@ export default function Dashboard() {
     refetchOnMount: false
   });
 
+  // Phase "fast summary" — a lightweight LLM call that returns ONLY the executive summary
+  // (skips the heavy lender-risk/behavior schema phase 2 has to generate), so the
+  // Executive Summary text can render seconds before the full narrative is ready.
+  const { data: summaryPhaseNarrative, isLoading: isSummaryPhaseLoading } = useQuery({
+    queryKey: ['ai-insights-summary', stableMetricsHash],
+    queryFn: async () => {
+        if (!metricsForInsights) return null;
+        try {
+            const res = await base44.functions.invoke('insightEngine', {
+                metrics: metricsForInsights,
+                behaviorProfile: metricsForInsights?.behaviorProfile || null,
+                summaryOnly: true
+            });
+            return res.data?.success ? (res.data?.insights?.narrative || null) : null;
+        } catch (e) {
+            console.error("insightEngine summaryOnly failed", e);
+            return null;
+        }
+    },
+    enabled: !!(metricsForInsights && hasData),
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false
+  });
+
   // Phase 2 (full narrative) wins once ready; phase 1 (instant decision/metrics) fills the gap.
   const serverInsights = phase2Data || phase1Data || (insightsError ? { error: "Network error" } : null);
   const isInsightsLoading = isPhase1Loading || isPhase2Loading;
   // True only while phase 1 hasn't returned anything yet — drives the full-panel spinner.
   const isAnalystInitialLoading = !serverInsights && isInsightsLoading;
-  // True while phase 2 (LLM narrative) is still in flight — drives narrative-section skeletons.
+  // True while phase 2 (LLM narrative) is still in flight — drives Lender Risk / Behavior
+  // Analysis skeletons (those sections only exist once the full narrative arrives).
   const isNarrativeLoading = !phase2Data && isPhase2Loading;
+  // Executive Summary has its OWN loading gate — it's ready as soon as EITHER the fast
+  // summary call or the full phase 2 call resolves, whichever comes first.
+  const fastNarrative = phase2Data?.narrative || summaryPhaseNarrative || null;
+  const isSummaryLoading = !fastNarrative && (isSummaryPhaseLoading || isPhase2Loading);
+  const displayedInsights = serverInsights
+    ? { ...serverInsights, narrative: fastNarrative || serverInsights.narrative }
+    : serverInsights;
 
   // ── Autosave underwriting analysis to UnderwritingAnalysis entity ──
   // Hybrid privacy model: structured intelligence plaintext, narrative encrypted.
@@ -1294,9 +1328,10 @@ export default function Dashboard() {
                 {/* InsightsAgent: Mobile 3, Desktop 3 (Bottom Left) */}
                 <div className="order-3 lg:order-3 h-full w-full">
                     <InsightsAgent
-                        analysis={serverInsights}
+                        analysis={displayedInsights}
                         isLoading={isAnalystInitialLoading}
                         isNarrativeLoading={isNarrativeLoading}
+                        isSummaryLoading={isSummaryLoading}
                         rescueOverlay={simulatedMetrics ? {
                             active: true,
                             score: simulatedMetrics.score,

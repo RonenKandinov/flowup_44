@@ -359,13 +359,28 @@ ${advanced.reinvestment?.detected ? `• השקעה מחדש: ${advanced.reinves
     let narrative = "המדדים המבניים חושבו בהצלחה. הניתוח הנרטיבי מתעדכן בנפרד.";
     let llmAnalysis = null;
     if (!body?.deferNarrative) {
+    // summaryOnly: a lightweight LLM call that requests ONLY the executive summary
+    // (+ decision/is_false_negative) — skips the heavy lender-risk/behavior/recommended-terms
+    // schema entirely. An LLM's response time scales with how much JSON it has to generate,
+    // not with the prompt length — so asking for 3 small fields instead of ~20 nested ones
+    // returns in a fraction of the time. Used to show the Executive Summary fast while the
+    // full narrative (with Lender Risk Assessment etc.) keeps generating in parallel.
+    const isSummaryOnly = body?.summaryOnly === true;
     try {
       const llm = await base44.integrations.Core.InvokeLLM({
         prompt,
         model: "gpt_5_mini",
         // schema additions below carry the lender-risk fields (PD/LGD/EL/portfolio_view/mitigations)
         // so the frontend can render LenderRiskBlock without a follow-up LLM call.
-        response_json_schema: {
+        response_json_schema: isSummaryOnly ? {
+          type: "object",
+          properties: {
+            decision: { type: "string" },
+            is_false_negative: { type: "boolean" },
+            summary: { type: "string" }
+          },
+          required: ["decision", "summary", "is_false_negative"]
+        } : {
           type: "object",
           properties: {
             decision: { type: "string" },
