@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ShieldCheck, Cpu, Sparkles, Lock, Activity, Briefcase } from 'lucide-react';
+import { ShieldCheck, Cpu, Users, Lock, Activity, Briefcase } from 'lucide-react';
 
 const FEATURES = [
     {
@@ -18,9 +18,9 @@ const FEATURES = [
         accent: 'emerald'
     },
     {
-        icon: Sparkles,
-        title: 'B2B Suite מלא',
-        text: 'חיווי אשראי ללקוח, ניתוח עסקי, מימון ספקים, ניהול הון חוזר ואוצר — הכל ממקום אחד.',
+        icon: Users,
+        title: 'ניהול לקוחות פרטיים',
+        text: 'חיבור מאובטח לחשבון הבנק, ניתוח יכולת החזר וקבלת החלטת אשראי מותאמת אישית — בתוך דקות.',
         accent: 'amber'
     }
 ];

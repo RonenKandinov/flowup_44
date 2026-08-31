@@ -45,7 +45,7 @@ const STATUS_META = {
 export default function DealRescuer({ onSimulate, onAnalysisComplete, baseMetrics, analysisInsights, cashFlowProfile }) {
     const [step, setStep] = useState('input'); // 'input' | 'analyzing' | 'result'
     const [loanAmount, setLoanAmount] = useState('');
-    const [loanSegment, setLoanSegment] = useState('business'); // 'business' | 'personal'
+    const loanSegment = 'personal';
     const [result, setResult] = useState(null);
     const [justifications, setJustifications] = useState([]);
     const [justificationsLoading, setJustificationsLoading] = useState(false);
@@ -252,28 +252,6 @@ export default function DealRescuer({ onSimulate, onAnalysisComplete, baseMetric
                         </p>
 
                         <div className="space-y-3">
-                            <div>
-                                <div className="text-[10px] text-slate-400 mb-1">סוג הלוואה</div>
-                                <div className="grid grid-cols-2 gap-1.5">
-                                    {[
-                                        { id: 'business', label: 'עסקית' },
-                                        { id: 'personal', label: 'פרטית' }
-                                    ].map(opt => (
-                                        <button
-                                            key={opt.id}
-                                            type="button"
-                                            onClick={() => setLoanSegment(opt.id)}
-                                            className={`text-[11px] font-medium h-8 rounded-md border transition-colors ${
-                                                loanSegment === opt.id
-                                                    ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-200'
-                                                    : 'bg-slate-900/60 border-slate-700 text-slate-400 hover:text-slate-200'
-                                            }`}
-                                        >
-                                            {opt.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
                             <div>
                                 <div className="text-[10px] text-slate-400 mb-1">סכום הלוואה (₪)</div>
                                 <Input
