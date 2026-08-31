@@ -247,7 +247,6 @@ Deno.serve(withValidation(schema, async (req, body) => {
     const debtReductionNeeded = Math.max(0, Math.round((dti - rules.max_dti_approve) / 100 * income));
     const targetFixedExpenses = Math.round(income * rules.max_dti_approve / 100);
     const fixedExpensesReduction = Math.max(0, fixedExpenses - targetFixedExpenses);
-    const guarantorIncome = Math.round(income * 1.5);
     const liquidityGap = Math.max(0, rules.min_liquidity_months - liq);
     const decisionLabelHe = rec === 'DECLINE' ? 'דחייה' : rec === 'REVIEW' ? 'בחינה' : 'אישור';
     const pledgeableAssetsText = behaviorProfile?.pledgeableAssets?.length
@@ -352,9 +351,7 @@ ${advanced.reinvestment?.detected ? `• השקעה מחדש: ${advanced.reinves
 4. **behavior_analysis.key_risks** (מערך קצר של דברים שהמלווה צריך לקחת בחשבון בעת בניית התנאים — לא סיבות לדחייה. נסח כ"נקודות לתשומת לב" בטון מאוזן):
    - אם DTI ${dti}% נמוך או שווה לסף ${rules.max_dti_approve}% — אסור להכניס DTI כסיכון.
    - הימנע מניסוחים כמו "חורג", "מסוכן", "לא עומד". העדף: "כדאי לתמחר בהתאם ל...", "שווה לבחון מבנה תשלום מותאם ל...".
-   - אם אין הלוואות קיימות בפועל ב-behaviorProfile.existingLoans — אסור להזכיר loan stacking.
-
-5. **recommended_terms.conditions**: תנאים קצרים למלווה (לדוגמה: "תקופה מקסימלית 36 חודשים", "ערב עם הכנסה ₪${fmt(guarantorIncome)}+").`;
+   - אם אין הלוואות קיימות בפועל ב-behaviorProfile.existingLoans — אסור להזכיר loan stacking.`;
 
     let narrative = "המדדים המבניים חושבו בהצלחה. הניתוח הנרטיבי מתעדכן בנפרד.";
     let llmAnalysis = null;
@@ -372,14 +369,6 @@ ${advanced.reinvestment?.detected ? `• השקעה מחדש: ${advanced.reinves
             confidence: { type: "number" },
             is_false_negative: { type: "boolean" },
             summary: { type: "string" },
-            policy_analysis: {
-              type: "object",
-              properties: {
-                policy_status: { type: "string" },
-                breaches: { type: "array", items: { type: "string" } },
-                why_policy_failed: { type: "string" }
-              }
-            },
             behavior_analysis: {
               type: "object",
               properties: {
@@ -403,18 +392,7 @@ ${advanced.reinvestment?.detected ? `• השקעה מחדש: ${advanced.reinves
             override_analysis: {
               type: "object",
               properties: {
-                override_recommended: { type: "boolean" },
-                reason: { type: "string" },
-                confidence: { type: "number" }
-              }
-            },
-            recommended_terms: {
-              type: "object",
-              properties: {
-                approve: { type: "boolean" },
-                amount: { type: "number" },
-                interest_adjustment: { type: "string" },
-                conditions: { type: "array", items: { type: "string" } }
+                override_recommended: { type: "boolean" }
               }
             }
           },
