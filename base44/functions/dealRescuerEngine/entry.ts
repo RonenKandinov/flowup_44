@@ -1085,19 +1085,25 @@ Deno.serve(async (req) => {
         rawInsights?.estimatedExpenses ??
         (income * 0.7)
       );
+      // Fixed expenses must be a SUBSET of total expenses. Upstream metrics (loanLogicV2)
+      // compute "fixed" and "total" independently, and can report fixed > total — if we used
+      // fixedExpensesInput as-is, estimatedExpenses would balloon ABOVE the real, known total
+      // expenses shown elsewhere in the UI (e.g. the dashboard's expense stat card), breaking
+      // the correlation between the two screens. Clamp fixed to total so that never happens.
+      const clampedFixedExpenses = Math.min(fixedExpensesInput, totalExpensesInput);
       // Aggressive variable-expense offset: once a loan is on the table, assume the
       // borrower can trim ~12% of their VARIABLE (non-fixed) monthly spend — within
       // the 10-15% aggressive band. Only applied when we actually know the fixed/variable
       // split (otherwise we don't know how much of the total is even cuttable).
       const VARIABLE_EXPENSE_CUT = 0.12;
-      const variableExpenses = Math.max(0, totalExpensesInput - fixedExpensesInput);
-      const adjustedVariable = fixedExpensesInput > 0
+      const variableExpenses = Math.max(0, totalExpensesInput - clampedFixedExpenses);
+      const adjustedVariable = clampedFixedExpenses > 0
         ? variableExpenses * (1 - VARIABLE_EXPENSE_CUT)
         : variableExpenses;
-      estimatedExpenses = fixedExpensesInput + adjustedVariable;
-      // Existing debt is already inside estimatedExpenses (fixedExpensesInput) — no double count.
+      estimatedExpenses = clampedFixedExpenses + adjustedVariable;
+      // Existing debt is already inside estimatedExpenses (clampedFixedExpenses) — no double count.
       disposableIncome = income - estimatedExpenses;
-      dsrBasis = fixedExpensesInput > 0 ? 'disposable_income_variable_cut' : 'disposable_income';
+      dsrBasis = clampedFixedExpenses > 0 ? 'disposable_income_variable_cut' : 'disposable_income';
     }
 
     // ── Dynamic risk-adjustment layer ──
