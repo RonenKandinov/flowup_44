@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 import CreditJustificationBlock from './CreditJustificationBlock';
-import AggressiveProductCard from './AggressiveProductCard';
 
 const STRATEGY_META = {
     cash_flow_alignment: {
@@ -405,13 +404,6 @@ export default function DealRescuer({ onSimulate, onAnalysisComplete, baseMetric
                                 );
                             })}
                         </div>
-
-                        {/* Aggressive Approval — rendered as a SEPARATE PRODUCT CARD,
-                            not as one more strategy. Distinct framing emphasizes that
-                            this offer has its own pricing rules and DSR ceiling. */}
-                        {result.aggressiveProduct && (
-                            <AggressiveProductCard product={result.aggressiveProduct} />
-                        )}
                     </div>
                 )}
             </div>

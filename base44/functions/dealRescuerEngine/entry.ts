@@ -868,11 +868,12 @@ const strategyScore = (type, c, requestedLoanAmount, insights, dsrLimit) => {
   const statusBonus = c.status === 'approved' ? 0.1 : 0;
 
   if (type === 'cash_flow_alignment') {
-    // Goal: comfortable monthly payment via the longest term — amount is secondary to
-    // burden here, which is what leaves behavioral_approval (netCloseness-driven) as
-    // the usually-stronger offer in terms of loan amount.
+    // Goal: deliver an amount just as close to the request as behavioral_approval,
+    // but structured with the longest comfortable term so the monthly burden stays
+    // low. Amount closeness is now the DOMINANT factor (matches behavioral_approval),
+    // term length is the secondary differentiator between the two lanes.
     const monthlyBurden = c.monthlyPayment / Math.max(1, requestedLoanAmount / 48);
-    return (1 - clamp(monthlyBurden, 0, 2) / 2) * 0.45 + termRatio * 0.35 + netCloseness * 0.2 + statusBonus;
+    return netCloseness * 0.55 + termRatio * 0.35 + (1 - clamp(monthlyBurden, 0, 2) / 2) * 0.1 + statusBonus;
   }
   if (type === 'exposure_reduction') {
     // Goal: reduce exposure — smaller principal and/or higher down payment.
@@ -1257,50 +1258,9 @@ Deno.serve(async (req) => {
     // pricing rules and DSR ceiling — not one more "strategy" in the menu.
     // It's surfaced under `aggressiveProduct` at the top level so the UI
     // can render it as a separate offer card with its own framing.
-    const stretchEligible = isEligibleForStretch({
-      insights,
-      runwayMonths,
-      stretchPolicy: policy.stretch
-    });
-    let aggressiveProduct = null;
-    if (stretchEligible) {
-      const aggressiveCandidate = aggressiveApprovalSearch({
-        income,
-        existingDebtPayments,
-        estimatedExpenses,
-        requestedLoanAmount,
-        insights,
-        maxDownPayment,
-        aggressivePolicy: policy.aggressive,
-        pdCoeffs: policy.pdCoeffs,
-        lgd: policy.lgd,
-        minExpectedProfitMargin: policy.minExpectedProfitMargin,
-        runwayMonths
-      });
-      if (aggressiveCandidate) {
-        const dsrPct = (aggressiveCandidate.dsr * 100).toFixed(1);
-        aggressiveProduct = {
-          productKey: 'aggressive_approval',
-          productLabel: 'מוצר אישור אגרסיבי',
-          status: aggressiveCandidate.status,
-          loanAmount: aggressiveCandidate.loanAmount,
-          termMonths: aggressiveCandidate.termMonths,
-          interestRate: aggressiveCandidate.interestRate,
-          downPayment: aggressiveCandidate.downPayment,
-          monthlyPayment: aggressiveCandidate.monthlyPayment,
-          dsr: Number(dsrPct),
-          tier: 'C',
-          reason: `מוצר נפרד בתנאים אגרסיביים — סכום ₪${aggressiveCandidate.loanAmount.toLocaleString('he-IL')} ל-${aggressiveCandidate.termMonths} חודשים בריבית ${aggressiveCandidate.interestRate}%. DSR ${dsrPct}% — מחוץ לתנאי האישור הסטנדרטיים, מאושר בזכות תמחור סיכון גבוה.`,
-          // ─── Profit Engine fields ───
-          pd: aggressiveCandidate.pd,
-          expectedValue: aggressiveCandidate.expectedValue,
-          totalRevenue: aggressiveCandidate.totalRevenue,
-          expectedLoss: aggressiveCandidate.expectedLoss,
-          riskPremium: aggressiveCandidate.riskPremium,
-          profitMargin: aggressiveCandidate.profitMargin
-        };
-      }
-    }
+    // Aggressive Approval product removed per CTO direction — no longer offered.
+    const stretchEligible = false;
+    const aggressiveProduct = null;
 
     // Fallback: no passing combos in any stage
     let fallback = null;
