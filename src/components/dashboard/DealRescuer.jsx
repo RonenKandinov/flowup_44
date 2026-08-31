@@ -81,24 +81,20 @@ export default function DealRescuer({ onSimulate, onAnalysisComplete, baseMetric
 
         setStep('analyzing');
         try {
-            const income = baseMetrics?.totalIncome || 0;
-            // Existing debt payments must come from ACTUAL detected loan repayments
-            // (behaviorProfile.existingLoansMonthlyTotal, found in real transaction history) —
-            // never from a % of totalFixedExpenses. That heuristic double-counted fixed
-            // obligations already subtracted inside the engine's own expense calc,
-            // artificially shrinking disposable income and cutting approvable amounts in half.
-            const existingDebtPayments = baseMetrics?.existingDebtPayments
-                ?? baseMetrics?.debtPayments
-                ?? baseMetrics?.totalDebtPayments
-                ?? baseMetrics?.behaviorProfile?.existingLoansMonthlyTotal
-                ?? 0;
+            // Use whichever is higher — the stable 12-month average or the recent
+            // (last ~4 months) trend — so a customer with real income growth is
+            // never penalized by an older, lower 12-month baseline.
+            const income = Math.max(baseMetrics?.totalIncome || 0, baseMetrics?.recentIncome || 0);
+            // Existing debt is NOT passed separately anymore — it's already counted
+            // inside totalExpenses/totalFixedExpenses (loanLogicV2 classifies loan
+            // repayments as fixed expenses). Passing it again double-counted the same
+            // debt and crushed disposable income, causing DSR readings like 999%.
 
             const res = await base44.functions.invoke('dealRescuerEngine', {
                 requestedLoanAmount: amount,
                 // No requestedTermMonths — engine picks the optimal term from its grid
                 baseInterestRate: 0.09,
                 income,
-                existingDebtPayments,
                 // Real fixed/total expense split — lets the engine apply the aggressive
                 // variable-expense offset when cashFlowProfile isn't available.
                 fixedExpenses: baseMetrics?.totalFixedExpenses || 0,

@@ -91,6 +91,7 @@ export const useLoanMetrics = (userId, targetAccountId = null) => {
                     dti: report.metrics?.dti ?? metrics.dti ?? 0,
                     riskDay: null, // Deprecated in V3
                     totalIncome: report.metrics?.monthlyAverageIncome ?? metrics.totalIncome ?? 0,
+                    recentIncome: report.metrics?.recentAverageIncome ?? metrics.recentAverageIncome ?? null,
                     totalExpenses: report.metrics?.monthlyAverageExpenses ?? metrics.totalExpenses ?? 0,
                     totalFixedExpenses: metrics.fixedExpenses ?? 0,
                     totalLifestyleExpenses: metrics.lifestyleExpenses ?? 0,

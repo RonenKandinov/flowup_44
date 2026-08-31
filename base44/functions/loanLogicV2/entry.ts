@@ -1325,6 +1325,15 @@ ${JSON.stringify(limitedExpenses)}
         const avgIncome = rawAvgIncome * (1 - incomeHaircut);
         console.log(`[Income Haircut] CV=${incomeCV.toFixed(3)}, Haircut=${(incomeHaircut * 100).toFixed(1)}%, Raw=${Math.round(rawAvgIncome)}, Adjusted=${Math.round(avgIncome)}`);
 
+        // Recent-income read (last up-to-4 active months) — lets downstream underwriting
+        // (Deal Rescuer) use whichever is higher: the stable 12-month average or the
+        // recent trend, so a customer with real income growth is never penalized by
+        // an older, lower 12-month baseline.
+        const recentIncomeMonths = incomeValuesFiltered.slice(-4);
+        const recentAverageIncome = recentIncomeMonths.length > 0
+            ? Math.round(recentIncomeMonths.reduce((a, b) => a + b, 0) / recentIncomeMonths.length)
+            : Math.round(avgIncome);
+
         // Legacy incomeVolatility retained for scoring (same definition as CV)
         const incomeVolatility = incomeCV;
         const DTI = avgIncome > 0 ? avgFixedExpenses / avgIncome : 1;
@@ -1913,6 +1922,7 @@ ${JSON.stringify(limitedExpenses)}
                     dti: Math.round(dtiPerc),
                     runwayMonths: parseFloat(runwayMonths.toFixed(1)),
                     monthlyAverageIncome: Math.round(avgIncome),
+                    recentAverageIncome: recentAverageIncome,
                     monthlyAverageExpenses: Math.round(avgExpenses),
                     liquidAssets: Math.round(liquidAssets),
                     liquidAssetsBreakdown: {
@@ -1926,6 +1936,7 @@ ${JSON.stringify(limitedExpenses)}
             },
             metrics: {
                 totalIncome: Math.round(avgIncome),
+                recentAverageIncome: recentAverageIncome,
                 rawIncome: Math.round(rawAvgIncome),
                 incomeCV: parseFloat(incomeCV.toFixed(3)),
                 incomeHaircutPct: parseFloat((incomeHaircut * 100).toFixed(1)),

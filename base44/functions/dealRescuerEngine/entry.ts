@@ -49,7 +49,7 @@ const runStressTest = ({ candidate, income, existingDebtPayments, estimatedExpen
     const stressedPayment = pmt(principal, stressedRate, candidate.termMonths);
     // CRITICAL: stress test against DISPOSABLE income (after living expenses), not gross income.
     // Expenses are assumed to scale modestly with income shock — we keep them flat (worst case).
-    const stressedDisposable = stressedIncome - existingDebtPayments - estimatedExpenses;
+    const stressedDisposable = stressedIncome - estimatedExpenses;
     if (stressedDisposable <= 0) { failures += 1; severeFailure = true; continue; }
     const stressedDsr = stressedPayment / stressedDisposable;
 
@@ -313,9 +313,12 @@ const gridSearch = ({ income, existingDebtPayments, estimatedExpenses, requested
   const behavioralFlex = insights?.isFalseNegative || Number(insights?.behavioralScore) >= 0.6;
   const qf = qualityFactor(insights);
 
-  // CRITICAL: DSR is computed against DISPOSABLE income (income − existing debt − living expenses).
+  // CRITICAL: DSR is computed against DISPOSABLE income (income − living expenses).
+  // Existing debt payments are already included inside estimatedExpenses (they come
+  // from loanLogicV2's totalExpenses, which classifies loan repayments as fixed expenses) —
+  // subtracting existingDebtPayments again here double-counted the same debt.
   // If disposable is non-positive, the client cannot service ANY new debt — short-circuit.
-  const disposableIncome = income - existingDebtPayments - estimatedExpenses;
+  const disposableIncome = income - estimatedExpenses;
   if (disposableIncome <= 0) return [];
 
   // Stage-bound term and amount ratios
@@ -482,7 +485,8 @@ const isEligibleForStretch = ({ insights, runwayMonths, stretchPolicy }) => {
 
 const aggressiveApprovalSearch = ({ income, existingDebtPayments, estimatedExpenses, requestedLoanAmount, insights, maxDownPayment, aggressivePolicy, pdCoeffs, lgd, minExpectedProfitMargin, runwayMonths }) => {
   if (!aggressivePolicy.enabled) return null;
-  const disposableIncome = income - existingDebtPayments - estimatedExpenses;
+  // Existing debt is already inside estimatedExpenses — see gridSearch comment above.
+  const disposableIncome = income - estimatedExpenses;
   if (disposableIncome <= 0) return null;
 
   const qf = qualityFactor(insights);
@@ -1047,11 +1051,19 @@ Deno.serve(async (req) => {
       const rampFactor = computeRampFactor();
       const effectiveBeta = calibratedBeta * rampFactor;
 
-      // 3. Tiered cut (or uniform fallback if no breakdown available)
-      const { adjustedDiscretionary, tiers } = applyTieredCut(breakdown, discretionary, effectiveBeta);
+      // Aggressive variable-expense offset — applied to ALL paths (not just fallback).
+      // Once a loan is on the table, assume the borrower can trim ~12% of discretionary
+      // spend BEFORE the adaptive β cut is layered on top.
+      const VARIABLE_EXPENSE_CUT = 0.12;
+      const preCutDiscretionary = discretionary * (1 - VARIABLE_EXPENSE_CUT);
 
+      // 3. Tiered cut (or uniform fallback if no breakdown available)
+      const { adjustedDiscretionary, tiers } = applyTieredCut(breakdown, preCutDiscretionary, effectiveBeta);
+
+      // Existing debt is already inside estimatedExpenses via loanLogicV2's fixedExpenses
+      // (loan repayments are classified as fixed) — do not subtract existingDebtPayments again.
       estimatedExpenses = fixedExpenses + adjustedDiscretionary;
-      disposableIncome = Math.max(0, income - existingDebtPayments - estimatedExpenses);
+      disposableIncome = Math.max(0, income - estimatedExpenses);
       dsrBasis = 'adaptive_discretionary_cut_v2';
       adaptiveCutMeta = {
         fixed_expenses: Math.round(fixedExpenses),
@@ -1083,7 +1095,8 @@ Deno.serve(async (req) => {
         ? variableExpenses * (1 - VARIABLE_EXPENSE_CUT)
         : variableExpenses;
       estimatedExpenses = fixedExpensesInput + adjustedVariable;
-      disposableIncome = income - existingDebtPayments - estimatedExpenses;
+      // Existing debt is already inside estimatedExpenses (fixedExpensesInput) — no double count.
+      disposableIncome = income - estimatedExpenses;
       dsrBasis = fixedExpensesInput > 0 ? 'disposable_income_variable_cut' : 'disposable_income';
     }
 
