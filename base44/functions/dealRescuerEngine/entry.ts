@@ -1065,18 +1065,6 @@ Deno.serve(async (req) => {
       estimatedExpenses = fixedExpenses + adjustedDiscretionary;
       disposableIncome = Math.max(0, income - estimatedExpenses);
       dsrBasis = 'adaptive_discretionary_cut_v2';
-
-      // ── Sanity cap: never let disposable income exceed the conservative,
-      // recurring-only repayment capacity cashFlowIntelligence computed
-      // (income.recurring − expenses.fixed). The adaptive discretionary-cut
-      // model above can overstate disposable income when it assumes the
-      // borrower trims variable spending aggressively — that produced DSR
-      // readings that were unrealistically low. Only tightens, never loosens.
-      const realCapacity = Number(cashFlowProfile?.realRepaymentCapacity);
-      if (Number.isFinite(realCapacity) && realCapacity >= 0 && realCapacity < disposableIncome) {
-        disposableIncome = realCapacity;
-        dsrBasis = 'real_repayment_capacity_capped';
-      }
       adaptiveCutMeta = {
         fixed_expenses: Math.round(fixedExpenses),
         original_discretionary: Math.round(discretionary),
@@ -1487,6 +1475,12 @@ Deno.serve(async (req) => {
             key: 'low_data_confidence',
             label: 'איכות נתונים נמוכה',
             detail: `רק ${insights.confidence?.dataPoints || 0} תנועות לאורך ${insights.confidence?.monthsCovered || 0} חודשים — חיזוי שמרני`,
+            impact: 'negative'
+          }] : []),
+          ...(insights?.incomeVolatility?.isHigh ? [{
+            key: 'income_volatility_high',
+            label: 'תנודתיות הכנסה',
+            detail: `מקדם שונות ${((insights.incomeVolatility.coefficient || 0) * 100).toFixed(0)}% — קשה לסמוך על ממוצע ההכנסה`,
             impact: 'negative'
           }] : []),
           ...(runwayGate.gated ? [{
