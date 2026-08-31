@@ -1054,7 +1054,6 @@ export default function Dashboard() {
                     <SelectValue placeholder="בחר חשבון" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all" className="font-bold text-cyan-400">כל החשבונות (תצוגה משולבת)</SelectItem>
                     {originalLoanMetrics.availableAccounts.map(acc => (
                       <SelectItem key={acc.id} value={acc.id}>
                         {acc.name} ({acc.number ? acc.number.slice(-4) : '****'})

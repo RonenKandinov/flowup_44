@@ -1270,7 +1270,20 @@ Deno.serve(async (req) => {
 
     // Fallback: no passing combos in any stage
     let fallback = null;
-    if (strategies.length === 0) {
+    if (strategies.length === 0 && disposableIncome <= 0) {
+      // No disposable income AT ALL — income doesn't even cover living expenses before any
+      // new loan payment. DSR is mathematically undefined here (division by zero/negative),
+      // not a real number — showing a synthetic "999%" was misleading. State this plainly instead.
+      fallback = {
+        closestAttempt: null,
+        whyFailed: `להכנסה הפנויה של הלקוח (₪${Math.round(income).toLocaleString('he-IL')} הכנסה מול ₪${Math.round(estimatedExpenses).toLocaleString('he-IL')} הוצאות משוערות) אין יתרה לשירות חוב כלל — לא ניתן להציע מבנה הלוואה כלשהו במצב הנוכחי.`,
+        improvements: [
+          `הפחתת הוצאות קבועות/משתנות בכ-₪${Math.round(Math.abs(disposableIncome) + 500).toLocaleString('he-IL')} לפחות כדי לפתוח מרווח לשירות חוב`,
+          `הגדלת הכנסה חודשית בסכום דומה`,
+          `הפחתת החזרי חוב קיימים (אם קיימים)`
+        ]
+      };
+    } else if (strategies.length === 0) {
       // Run a broad scan with no DSR filter to find the closest attempt
       const broadBase = adjustRate(baseInterestRate, insights, policy.pricingCoeffs);
       let closest = null;
@@ -1278,8 +1291,7 @@ Deno.serve(async (req) => {
         for (const ratio of [1.0, 0.8, 0.6, 0.5]) {
           const grossAmount = requestedLoanAmount * ratio;
           const monthlyPayment = pmt(grossAmount, broadBase, term);
-          // DSR against disposable income (real capacity); if disposable ≤ 0, DSR is effectively infinite.
-          const dsr = disposableIncome > 0 ? (monthlyPayment / disposableIncome) : 9.99;
+          const dsr = monthlyPayment / disposableIncome;
           const cand = {
             loanAmount: Math.round(grossAmount),
             termMonths: term,
