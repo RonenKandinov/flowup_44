@@ -386,8 +386,15 @@ const gridSearch = ({ income, existingDebtPayments, estimatedExpenses, requested
         });
         const minProfit = netLoan * minExpectedProfitMargin;
         const evRejectThreshold = -netLoan * 0.05; // 5% of principal — deep loss line
+        const dsrHeadroom = DSR_LIMIT - dsr;
 
-        if (ev <= evRejectThreshold) continue; // deep expected loss — uneconomic
+        // Deep-loss rejection only applies when DSR is close to the policy ceiling.
+        // A structurally safe loan (large DSR headroom) must not be blocked purely by
+        // the profit model — otherwise a customer with plenty of repayment capacity
+        // gets capped well below their requested amount for a marginal pricing reason
+        // they never see. Profit concerns on safe loans are surfaced via XAI, not by
+        // shrinking the approved amount.
+        if (ev <= evRejectThreshold && dsrHeadroom < 0.15) continue; // deep expected loss — uneconomic AND DSR-tight
 
         // Tier-based status FIRST, then profit signal can downgrade (never upgrade).
         let status;
@@ -403,7 +410,6 @@ const gridSearch = ({ income, existingDebtPayments, estimatedExpenses, requested
         // the limit (≥ 10pp of headroom), the loan is structurally safe and the
         // status should remain 'approved' regardless of marginal EV — profit concerns
         // are surfaced via the XAI panel and pricing engine, not via UI status.
-        const dsrHeadroom = DSR_LIMIT - dsr;
         if (ev < minProfit && status === 'approved' && dsrHeadroom < 0.10) {
           status = 'conditional';
         }
