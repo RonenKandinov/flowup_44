@@ -99,6 +99,10 @@ export default function DealRescuer({ onSimulate, onAnalysisComplete, baseMetric
                 baseInterestRate: 0.09,
                 income,
                 existingDebtPayments,
+                // Real fixed/total expense split — lets the engine apply the aggressive
+                // variable-expense offset when cashFlowProfile isn't available.
+                fixedExpenses: baseMetrics?.totalFixedExpenses || 0,
+                estimatedExpenses: baseMetrics?.totalExpenses || undefined,
                 maxDownPayment,
                 score: baseMetrics?.score,
                 currentStatus: score < 55 ? 'rejected' : score < 75 ? 'borderline' : 'approved',

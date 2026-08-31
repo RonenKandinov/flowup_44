@@ -858,10 +858,11 @@ const strategyScore = (type, c, requestedLoanAmount, insights, dsrLimit) => {
   const statusBonus = c.status === 'approved' ? 0.1 : 0;
 
   if (type === 'cash_flow_alignment') {
-    // Goal: keep requested amount, lower monthly payment via longer term.
-    // Reward: high NET closeness (actual disbursed amount) + long term + low monthly burden.
+    // Goal: comfortable monthly payment via the longest term — amount is secondary to
+    // burden here, which is what leaves behavioral_approval (netCloseness-driven) as
+    // the usually-stronger offer in terms of loan amount.
     const monthlyBurden = c.monthlyPayment / Math.max(1, requestedLoanAmount / 48);
-    return netCloseness * 0.55 + termRatio * 0.25 + (1 - clamp(monthlyBurden, 0, 2) / 2) * 0.15 + statusBonus;
+    return (1 - clamp(monthlyBurden, 0, 2) / 2) * 0.45 + termRatio * 0.35 + netCloseness * 0.2 + statusBonus;
   }
   if (type === 'exposure_reduction') {
     // Goal: reduce exposure — smaller principal and/or higher down payment.
@@ -1066,13 +1067,24 @@ Deno.serve(async (req) => {
         guardrails: { min_pct: policy.betaGuardrails.min * 100, max_pct: policy.betaGuardrails.max * 100 }
       };
     } else {
-      estimatedExpenses = Number(
+      const fixedExpensesInput = Number(body?.fixedExpenses ?? rawInsights?.fixedExpenses ?? 0);
+      const totalExpensesInput = Number(
         body?.estimatedExpenses ??
         rawInsights?.estimatedExpenses ??
         (income * 0.7)
       );
+      // Aggressive variable-expense offset: once a loan is on the table, assume the
+      // borrower can trim ~12% of their VARIABLE (non-fixed) monthly spend — within
+      // the 10-15% aggressive band. Only applied when we actually know the fixed/variable
+      // split (otherwise we don't know how much of the total is even cuttable).
+      const VARIABLE_EXPENSE_CUT = 0.12;
+      const variableExpenses = Math.max(0, totalExpensesInput - fixedExpensesInput);
+      const adjustedVariable = fixedExpensesInput > 0
+        ? variableExpenses * (1 - VARIABLE_EXPENSE_CUT)
+        : variableExpenses;
+      estimatedExpenses = fixedExpensesInput + adjustedVariable;
       disposableIncome = income - existingDebtPayments - estimatedExpenses;
-      dsrBasis = 'disposable_income';
+      dsrBasis = fixedExpensesInput > 0 ? 'disposable_income_variable_cut' : 'disposable_income';
     }
 
     // ── Dynamic risk-adjustment layer ──
