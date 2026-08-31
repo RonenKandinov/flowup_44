@@ -1292,10 +1292,17 @@ Deno.serve(async (req) => {
         }
       }
       if (closest) {
+        // disposableIncome ≤ 0 means the client's expenses already meet or exceed income
+        // BEFORE any new loan — there's no room for any structure, not "a very high DSR".
+        // We flag this explicitly (noCapacity) instead of showing a fake 999% number.
+        const noCapacity = disposableIncome <= 0;
         const overshoot = Math.round((closest.dsr - dsrLimit) * 100 * 10) / 10;
         fallback = {
+          noCapacity,
           closestAttempt: { ...closest, dsr: Number((closest.dsr * 100).toFixed(1)), status: 'failed', type: 'closest_attempt' },
-          whyFailed: `גם במבנה האופטימלי ה-DSR עומד על ${(closest.dsr * 100).toFixed(1)}% — חורג ב-${overshoot} נק׳ אחוז מהמקסימום של ${dsrLimitPct}%.`,
+          whyFailed: noCapacity
+            ? `להכנסה הפנויה של הלקוח אין יתרה לכיסוי החזר חדש כלל — ההוצאות (₪${Math.round(estimatedExpenses).toLocaleString('he-IL')}) גבוהות מההכנסה (₪${Math.round(income).toLocaleString('he-IL')}) עוד לפני בדיקת ההלוואה המבוקשת.`
+            : `גם במבנה האופטימלי ה-DSR עומד על ${(closest.dsr * 100).toFixed(1)}% — חורג ב-${overshoot} נק׳ אחוז מהמקסימום של ${dsrLimitPct}%.`,
           improvements: [
             `הקטנת סכום הבקשה ב-₪${Math.round(requestedLoanAmount * 0.2).toLocaleString('he-IL')} לפחות`,
             `הגדלת הכנסה חודשית ב-₪${Math.max(500, Math.round((existingDebtPayments + closest.monthlyPayment) / dsrLimit - income)).toLocaleString('he-IL')}`,
