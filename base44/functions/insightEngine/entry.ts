@@ -464,6 +464,8 @@ ${advanced.reinvestment?.detected ? `• השקעה מחדש: ${advanced.reinves
               llmAnalysis.is_false_negative = false;
           } else if (risk === "Green" && rec === "DECLINE") {
               rec = "REVIEW"; // At worst, a Green score requires human review, not auto-decline
+          } else if (risk === "Orange" && rec === "DECLINE") {
+              rec = "REVIEW"; // Orange risk can never surface as a hard rejection — keep it consistent with the gauge color
           }
 
           if (isExtremeReject) {

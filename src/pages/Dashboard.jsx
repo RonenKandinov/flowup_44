@@ -162,7 +162,7 @@ export default function Dashboard() {
     const resolved = originalLoanMetrics?.activeTargetAccountId;
     if (resolved && targetAccountId && targetAccountId !== 'all' && resolved !== targetAccountId) {
       const stillValid = originalLoanMetrics?.availableAccounts?.some(a => a.id === targetAccountId);
-      if (!stillValid) setTargetAccountId('all');
+      if (!stillValid) setTargetAccountId('');
     }
   }, [originalLoanMetrics, targetAccountId]);
 
@@ -974,7 +974,7 @@ export default function Dashboard() {
     if (!psuId || psuId === activeCustomerId) return;
     setActiveCustomerId(psuId);
     setActiveCustomerName('');
-    setTargetAccountId('all');
+    setTargetAccountId('');
     try {
       localStorage.setItem('flowup_active_customer_id', psuId);
       localStorage.removeItem('flowup_active_customer_name');
