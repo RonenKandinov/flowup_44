@@ -369,7 +369,7 @@ ${advanced.reinvestment?.detected ? `• השקעה מחדש: ${advanced.reinves
     try {
       const llm = await base44.integrations.Core.InvokeLLM({
         prompt,
-        model: "gpt_5_mini",
+        model: "gemini_3_flash",
         // schema additions below carry the lender-risk fields (PD/LGD/EL/portfolio_view/mitigations)
         // so the frontend can render LenderRiskBlock without a follow-up LLM call.
         response_json_schema: isSummaryOnly ? {
