@@ -1035,9 +1035,31 @@ Deno.serve(async (req) => {
     let adaptiveCutMeta = null;
 
     if (cashFlowProfile && cashFlowProfile.expenses) {
-      const fixedExpenses = Number(cashFlowProfile.expenses.fixed ?? 0);
-      const discretionary = Number(cashFlowProfile.expenses.discretionary ?? 0);
-      const breakdown = cashFlowProfile.expenses.discretionaryBreakdown || null;
+      // Income/expense TOTALS are always sourced from loanLogicV2 (the same numbers
+      // shown on the dashboard stat cards) — cashFlowProfile is used ONLY for
+      // qualitative signals (trust score, discretionary tier ratios) so the two
+      // screens never diverge (previously: income from loanLogicV2 mixed with
+      // expenses from cashFlowIntelligence's 90-day window → mismatched figures).
+      const fixedExpensesFromLoanLogic = Number(body?.fixedExpenses ?? rawInsights?.fixedExpenses ?? 0);
+      const totalExpensesFromLoanLogic = Number(
+        body?.estimatedExpenses ??
+        rawInsights?.estimatedExpenses ??
+        (income * 0.7)
+      );
+      // Fixed can never exceed total (see disposable_income_variable_cut path for rationale).
+      const fixedExpenses = Math.min(fixedExpensesFromLoanLogic, totalExpensesFromLoanLogic);
+      const discretionary = Math.max(0, totalExpensesFromLoanLogic - fixedExpenses);
+
+      // Discretionary TIER RATIOS (easy/medium/hard) still come from cashFlowProfile —
+      // it's the only source with a transaction-level breakdown — but rescaled onto
+      // loanLogicV2's discretionary total so the absolute ₪ figures stay correlated.
+      const rawBreakdown = cashFlowProfile.expenses.discretionaryBreakdown || null;
+      const rawBreakdownSum = rawBreakdown ? (Number(rawBreakdown.easy ?? 0) + Number(rawBreakdown.medium ?? 0) + Number(rawBreakdown.hard ?? 0)) : 0;
+      const breakdown = (rawBreakdown && rawBreakdownSum > 0) ? {
+        easy: discretionary * (Number(rawBreakdown.easy ?? 0) / rawBreakdownSum),
+        medium: discretionary * (Number(rawBreakdown.medium ?? 0) / rawBreakdownSum),
+        hard: discretionary * (Number(rawBreakdown.hard ?? 0) / rawBreakdownSum)
+      } : null;
 
       // 1. Calibrate β
       const calibratedBeta = calibrateBeta({
