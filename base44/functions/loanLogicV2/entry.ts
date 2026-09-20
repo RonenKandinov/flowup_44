@@ -1485,17 +1485,7 @@ ${JSON.stringify(limitedExpenses)}
         }
 
         // ── DB PERSISTENCE (Idempotent) ───────────────────────────────────
-        // Until now the platform showed empty Transaction / FinancialSnapshot tables
-        // because the engine only computed in-memory and returned to the client.
-        // Now we persist the FILTERED, classified data so the platform DB is the
-        // source of truth for portfolio analytics, audit, and B2B reporting.
-        // Idempotent: we wipe the prior records for this user before re-inserting,
-        // so re-running the engine doesn't accumulate duplicates.
-        // Use the request-scoped client (acts AS the authenticated user) so that the
-        // entity RLS auto-stamps `created_by` to user.email — service-role writes
-        // are blocked by the RLS rule (`created_by == {{user.email}}`). When called
-        // anonymously (no token), persistence is skipped silently.
-        // Fire-and-forget — DB persistence isn't needed for the response and must not add to its latency.
+     
         (async () => {
         try {
             const me = await base44.auth.me().catch(() => null);
