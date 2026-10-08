@@ -16,78 +16,49 @@ It:
 - Generates explainable AI insights for analysts
 
 ## Architecture
+<img width="815" height="525" alt="image" src="https://github.com/user-attachments/assets/7a8fe61d-91eb-4984-928f-57fa5f44a450" />
+ **External Systems** — External sources and partners that provide financial data or consume FlowUp decisions.
 
-```text
-Open Banking
-     ↓
-Data Ingestion & Processing
-     ↓
-Financial + Behavioral Analysis
-     ↓
-Decision Engine
-     ↓
-Deal Rescuer
-     ↓
-Explainable Recommendation
-Key Engineering
-Transaction validation & normalization
-Self-transfer detection
-Income / expense classification
-Financial aggregation & trend analysis
-MAD-based outlier detection
-Behavioral scoring
-DSR-based decisioning
-Risk & profitability evaluation
-Constraint-based loan optimization
-Liquidity and risk adjustments
-AI-generated financial insights
-Deal Rescuer
+- **Open Banking APIs** — Provide transaction, account balance, income and expense data.
 
-Instead of treating a financing request as simply:
+- **B2B Partners** — External lenders or financial platforms that integrate with FlowUp and consume its decision outputs.
 
-APPROVE / REJECT
+- **Client Layer** — The analyst-facing application used to review financial data, risk indicators and recommendations.
 
-Deal Rescuer searches for alternative financing structures.
+- **Dashboard & Analyst Interface** — Displays customer financial insights, risk metrics and FlowUp recommendations.
 
-It evaluates combinations of:
+- **Local Risk Calculations** — Performs client-side calculations such as DTI, DSR and cash-flow metrics.
 
-Loan amount
-Repayment term
-Interest rate
-Down payment
+- **FiscalAgent** — Transforms and obfuscates sensitive financial data before it is processed by other components.
 
-while considering:
+- **Integration Layer** — Handles communication with external financial providers and B2B systems.
 
-DSR
-Financial behavior
-Liquidity
-Risk signals
-Expected loss
-Expected value
-Policy constraints
+- **Open Finance Auth (OAuth)** — Manages authentication and consent for accessing financial data.
 
-Supported strategies include:
+- **Financial Data Ingestion** — Retrieves, normalizes and prepares transaction data for the decision engine.
 
-Cash-Flow Alignment — reduce repayment pressure while maintaining a viable loan amount
-Exposure Reduction — reduce lender exposure
-Behavioral-Based Approval — use observed financial behavior to support a structure closer to the original request
-Behavioral Engine
+- **Data Layer** — Stores and organizes the financial data used throughout the decision process.
 
-The behavioral layer analyzes financial behavior over time instead of relying only on a static snapshot.
+- **Transaction Data** — Raw transaction-level financial data received from Open Banking providers.
 
-Signals include:
+- **Financial Snapshots** — Aggregated financial metrics such as income, expenses, liquidity and cash-flow indicators.
 
-Income stability
-Income trends
-Expense behavior
-Cash-flow stability
-Liquidity
-Recurring activity
-Volatility
-Data confidence
-Risk flags
+- **Secure / Obfuscated Data** — Protected representations of sensitive financial information.
 
-The engine uses calibrated behavioral adjustments, confidence and volatility factors, liquidity constraints, and risk-aware decision logic to influence financing decisions.
+- **Decision Engine** — The core of FlowUp, responsible for coordinating financial analysis, behavioral intelligence and risk constraints.
+
+- **Decision Orchestrator** — Coordinates the decision flow and combines outputs from the different decision components.
+
+- **LoanLogic** — Performs the core underwriting calculations, including DTI, DSR and repayment-capacity analysis.
+
+- **Behavioral Intelligence** — Analyzes financial behavior over time to identify patterns, trends, anomalies and potential false negatives.
+
+- **Policy & Risk Engine** — Applies lender policies, risk boundaries and exposure constraints to the decision.
+
+- **Deal Rescuer** — Searches and ranks alternative financing structures when the original request does not fit the relevant constraints.
+
+- **B2B Integration Service** — Exposes decision outputs to external systems through APIs and webhooks.
+
 
 Results
 
