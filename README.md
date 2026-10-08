@@ -16,7 +16,8 @@ It:
 - Generates explainable AI insights for analysts
 
 ## Architecture
-<img width="815" height="525" alt="image" src="https://github.com/user-attachments/assets/7a8fe61d-91eb-4984-928f-57fa5f44a450" />
+<img width="1774" height="887" alt="תרשים ארכיטקטורת מערכת FlowUp" src="https://github.com/user-attachments/assets/6aa3e98c-5d79-4bfe-98bb-6eed9d1e710d" />
+
  **External Systems** — External sources and partners that provide financial data or consume FlowUp decisions.
 
 - **Open Banking APIs** — Provide transaction, account balance, income and expense data.
