@@ -18,71 +18,103 @@ It:
 ## Architecture
 <img width="1774" height="887" alt="תרשים ארכיטקטורת מערכת FlowUp" src="https://github.com/user-attachments/assets/6aa3e98c-5d79-4bfe-98bb-6eed9d1e710d" />
 
-Financial Intelligence
-FlowUp transforms raw Open Banking data into a structured financial state, combining transaction history, income, expenses, cash flow, liquidity, recurring activity, existing obligations, trends, and financial risk signals.
-This financial state becomes the foundation for behavioral analysis and credit decisioning.
-Behavioral Credit Intelligence
-FlowUp evaluates how a customer's financial behavior evolves over time rather than relying only on point-in-time attributes.
-The behavioral layer captures patterns such as income stability, expense behavior, liquidity resilience, volatility, and other signals that provide additional context for the credit decision.
-Decision Engine
-The Decision Engine combines financial and behavioral intelligence with underwriting, risk, policy, and economic constraints.
-Rather than producing only an APPROVE / REJECT outcome, it evaluates whether the requested financing structure is viable and determines when an alternative structure may provide a better outcome.
+FlowUp is organized around a centralized Decision Engine that connects financial data, behavioral intelligence, risk and policy evaluation, and financing optimization.
+Components
+Component	Role
+External Systems	Open Banking providers and external financial systems
+Client Layer	Analyst interface for financial analysis, risk indicators, and recommendations
+Integration Layer	Authentication, data ingestion, normalization, and external communication
+Data Layer	Transaction data, financial snapshots, and derived financial state
+Decision Engine	Central coordination of financial, behavioral, risk, and policy signals
+LoanLogic	Core underwriting and financial calculations
+Behavioral Intelligence	Behavioral patterns, stability indicators, and risk signals
+Policy & Risk Engine	Lending policies, risk constraints, affordability, and exposure limits
+Deal Rescuer	Alternative financing structure search and optimization
+B2B Integration Service	Decision APIs and partner integrations
+
+
+Decisioning
+FlowUp builds a structured financial representation from Open Banking data, including cash flow, income, expenses, liquidity, recurring activity, obligations, trends, and behavioral signals.
+The Behavioral Intelligence layer evaluates how these characteristics evolve over time, providing additional context around stability, volatility, liquidity, and financial risk.
+The Decision Engine then combines this state with underwriting, policy, risk, and economic constraints.
+Financial State
+       +
+Behavioral State
+       +
+Risk & Policy Constraints
+       ↓
+Credit Decision
+
 Deal Rescuer
-Deal Rescuer is FlowUp's financing optimization engine.
-When the requested structure does not satisfy the relevant constraints, it searches across alternative combinations of amount, term, rate, down payment, and financing strategy, evaluates the resulting candidates, and ranks viable financing structures.
-The engine supports different restructuring approaches, including cash-flow alignment, exposure reduction, and behavioral-based approval.
-Decision Flow
-Open Banking Data
+Deal Rescuer extends the decision beyond a binary approval outcome.
+When the requested financing structure does not satisfy the relevant constraints, it searches the financing space for alternative structures across:
+- Amount
+- Term
+- Rate
+- Down payment
+- Financing strategy
+Candidate structures are evaluated and ranked according to financial, behavioral, risk, liquidity, policy, and economic considerations.
+The system supports multiple restructuring strategies, including Cash-Flow Alignment, Exposure Reduction, and Behavioral-Based Approval.
+Requested Structure
         ↓
-Financial Intelligence
+Constraint Evaluation
         ↓
-Behavioral Intelligence
-        ↓
-Decision Engine
-        ↓
-Policy & Risk Evaluation
-        ↓
-Scenario Search
-        ↓
-Financing Recommendation
+ ┌──────┴──────┐
+ ↓             ↓
+Fits       Does Not Fit
+              ↓
+        Deal Rescuer
+              ↓
+     Alternative Structures
+              ↓
+       Ranked Candidates
 
 Engineering
-FlowUp combines deterministic financial logic, behavioral analysis, constraint-based decisioning, scenario generation, and AI-assisted financial interpretation.
+FlowUp combines deterministic financial logic, behavioral analysis, constraint-based decisioning, scenario optimization, and AI-assisted interpretation.
 Key engineering areas include:
 - Open Banking data processing and normalization
 - Financial and behavioral signal extraction
 - Credit, risk, liquidity, and affordability analysis
-- Constraint-based financing search and optimization
+- Constraint-based scenario search
 - Candidate evaluation and ranking
 - Structured AI outputs and explainable insights
-AI Layer
-AI is used as an intelligence layer alongside the deterministic decision engine.
-It supports financial classification, behavioral interpretation, and generation of structured financial insights, while core calculations, constraints, and scenario evaluation remain controlled by explicit system logic.
+AI
+AI acts as an intelligence layer alongside the deterministic decision engine.
+It supports financial classification, behavioral interpretation, and structured financial insights.
+Core financial calculations, constraints, scenario evaluation, and decision logic remain explicitly controlled by the system.
 Continuous Decisioning
-FlowUp is designed to extend beyond point-in-time underwriting by allowing financial behavior to become an ongoing source of decision intelligence.
+The same decision framework can extend beyond the initial financing event.
 Initial Decision
-       ↓
+      ↓
 Financial Monitoring
-       ↓
+      ↓
 Behavioral Change
-       ↓
+      ↓
 Risk / Opportunity Detection
-       ↓
+      ↓
 Updated Decision
 
 This creates a path toward dynamic exposure management, restructuring, and additional financing decisions.
 Technology
-Frontend: React · Vite · Tailwind CSS · shadcn/ui · Recharts
-Backend & Data: Supabase · REST APIs · OAuth
-Integrations: Open Banking / Open Finance
-Intelligence: Financial analytics · Behavioral scoring · Constraint-based decisioning · Scenario optimization · LLM-powered insights
-System Design
-FlowUp is built around five principles:
-Behavior over snapshots — financial behavior over time provides context beyond static attributes.
-Decision over scoring — the system focuses on actionable financing decisions, not only risk scores.
-Structure over rejection — a financing request that fails in its original form may still be viable under a different structure.
-Deterministic core, AI-assisted intelligence — critical financial logic remains system-controlled while AI supports interpretation and insight generation.
-Modular decisioning — financial analysis, behavioral intelligence, risk, policy, and optimization remain separated components.
+Frontend
+React · Vite · Tailwind CSS · shadcn/ui · Recharts
+Backend & Data
+Supabase · REST APIs · OAuth
+Integrations
+Open Banking / Open Finance
+Intelligence
+Financial Analytics · Behavioral Scoring · Constraint-Based Decisioning · Scenario Optimization · LLM-Powered Insights
+Design Principles
+Behavior over snapshots
+Financial behavior over time provides context beyond static attributes.
+Decision over scoring
+The goal is an actionable financing decision, not simply a risk score.
+Structure over rejection
+A financing request that fails in its original form may still be viable under a different structure.
+Deterministic core, AI-assisted intelligence
+Critical financial logic remains system-controlled while AI supports interpretation and insight generation.
+Modular decisioning
+Financial analysis, behavioral intelligence, risk, policy, and optimization remain separated components.
 Core Concept
 Traditional underwriting:
 Customer Data
@@ -108,9 +140,4 @@ Financing Optimization
       ↓
 Best-Fit Structure
 
-From Credit Decisioning to Financing Decision Intelligence
-FlowUp shifts the question from:
-Should we approve this deal?
-
-to:
-Given the customer's financial behavior and the relevant constraints, what is the best financing decision we can make?
+From "Should we approve this deal?" to "What is the best financing decision we can make given the customer's financial behavior and the relevant constraints?"
