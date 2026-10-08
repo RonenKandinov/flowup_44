@@ -20,16 +20,25 @@ It:
 
 FlowUp is organized around a centralized Decision Engine that connects financial data, behavioral intelligence, risk and policy evaluation, and financing optimization.
 Components
-Component	Role
+
 External Systems	Open Banking providers and external financial systems
+
 Client Layer	Analyst interface for financial analysis, risk indicators, and recommendations
+
 Integration Layer	Authentication, data ingestion, normalization, and external communication
+
 Data Layer	Transaction data, financial snapshots, and derived financial state
+
 Decision Engine	Central coordination of financial, behavioral, risk, and policy signals
+
 LoanLogic	Core underwriting and financial calculations
+
 Behavioral Intelligence	Behavioral patterns, stability indicators, and risk signals
+
 Policy & Risk Engine	Lending policies, risk constraints, affordability, and exposure limits
+
 Deal Rescuer	Alternative financing structure search and optimization
+
 B2B Integration Service	Decision APIs and partner integrations
 
 
