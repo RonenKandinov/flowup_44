@@ -55,19 +55,6 @@ When the requested financing structure does not satisfy the relevant constraints
 - Financing strategy
 Candidate structures are evaluated and ranked according to financial, behavioral, risk, liquidity, policy, and economic considerations.
 The system supports multiple restructuring strategies, including Cash-Flow Alignment, Exposure Reduction, and Behavioral-Based Approval.
-Requested Structure
-        ↓
-Constraint Evaluation
-        ↓
- ┌──────┴──────┐
- ↓             ↓
-Fits       Does Not Fit
-              ↓
-        Deal Rescuer
-              ↓
-     Alternative Structures
-              ↓
-       Ranked Candidates
 
 Engineering
 FlowUp combines deterministic financial logic, behavioral analysis, constraint-based decisioning, scenario optimization, and AI-assisted interpretation.
@@ -78,66 +65,12 @@ Key engineering areas include:
 - Constraint-based scenario search
 - Candidate evaluation and ranking
 - Structured AI outputs and explainable insights
-AI
+
+
 AI acts as an intelligence layer alongside the deterministic decision engine.
 It supports financial classification, behavioral interpretation, and structured financial insights.
 Core financial calculations, constraints, scenario evaluation, and decision logic remain explicitly controlled by the system.
 Continuous Decisioning
 The same decision framework can extend beyond the initial financing event.
-Initial Decision
-      ↓
-Financial Monitoring
-      ↓
-Behavioral Change
-      ↓
-Risk / Opportunity Detection
-      ↓
-Updated Decision
 
-This creates a path toward dynamic exposure management, restructuring, and additional financing decisions.
-Technology
-Frontend
-React · Vite · Tailwind CSS · shadcn/ui · Recharts
-Backend & Data
-Supabase · REST APIs · OAuth
-Integrations
-Open Banking / Open Finance
-Intelligence
-Financial Analytics · Behavioral Scoring · Constraint-Based Decisioning · Scenario Optimization · LLM-Powered Insights
-Design Principles
-Behavior over snapshots
-Financial behavior over time provides context beyond static attributes.
-Decision over scoring
-The goal is an actionable financing decision, not simply a risk score.
-Structure over rejection
-A financing request that fails in its original form may still be viable under a different structure.
-Deterministic core, AI-assisted intelligence
-Critical financial logic remains system-controlled while AI supports interpretation and insight generation.
-Modular decisioning
-Financial analysis, behavioral intelligence, risk, policy, and optimization remain separated components.
-Core Concept
-Traditional underwriting:
-Customer Data
-      ↓
-Credit Score
-      ↓
-Approve / Reject
 
-FlowUp:
-Customer Data
-      ↓
-Financial State
-      ↓
-Behavioral State
-      ↓
-Risk & Policy Evaluation
-      ↓
-Decision
-      ↓
-Constraint Search
-      ↓
-Financing Optimization
-      ↓
-Best-Fit Structure
-
-From "Should we approve this deal?" to "What is the best financing decision we can make given the customer's financial behavior and the relevant constraints?"
