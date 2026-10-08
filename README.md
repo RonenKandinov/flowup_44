@@ -18,39 +18,7 @@ It:
 ## Architecture
 <img width="1774" height="887" alt="תרשים ארכיטקטורת מערכת FlowUp" src="https://github.com/user-attachments/assets/6aa3e98c-5d79-4bfe-98bb-6eed9d1e710d" />
 
-הייתי הולך על משהו כזה — יותר רציני, אבל בלי לחשוף את כל המתמטיקה וה־implementation הפנימי:
-# FlowUp
 
-## Behavioral Credit Decision Engine
-
-FlowUp is a behavioral credit decision engine built on Open Banking data.
-
-It analyzes transaction-level financial behavior, combines it with underwriting, risk, policy, and profitability constraints, and determines not only whether a financing request fits — but how it can be structured to fit.
-
-Instead of a static:
-
-`APPROVE / REJECT`
-
-FlowUp turns the decision into a structured search problem:
-
-```text
-Financial Data
-      ↓
-Financial Intelligence
-      ↓
-Behavioral Risk
-      ↓
-Credit Decision
-      ↓
-Constraint Evaluation
-      ↓
-Scenario Search
-      ↓
-Optimal Financing Structure
-
-Architecture
-
-##FlowUp separates data ingestion, financial intelligence, behavioral analysis, decisioning, policy evaluation, and financing optimization into dedicated layers.
 Components
 - External Systems — Open Banking providers and external financial systems supplying financial data.
 - Client Layer — Analyst-facing interface for reviewing financial state, decisions, risk signals, and recommendations.
@@ -77,8 +45,7 @@ The analysis covers:
 - Data quality and confidence
 - Risk indicators
 The resulting financial state becomes the foundation for downstream credit decisioning.
-
-## Behavioral Credit Intelligence
+Behavioral Credit Intelligence
 Traditional underwriting often relies heavily on static attributes and point-in-time information.
 FlowUp introduces a behavioral layer that evaluates how the customer's finances behave over time.
 The system combines multiple behavioral signals to assess:
@@ -125,8 +92,7 @@ Reduce lender exposure through changes to principal and upfront contribution.
 Behavioral-Based Approval
 Use the customer's observed financial behavior to identify structures that remain viable despite the original request failing standard constraints.
 The result is a ranked set of financing candidates rather than a single binary outcome.
-
-## Decision Flow
+Decision Flow
 ┌──────────────────────┐
 │   Open Banking Data  │
 └──────────┬───────────┘
@@ -159,7 +125,7 @@ The result is a ranked set of financing candidates rather than a single binary o
                   ↓
            Recommendation
 
-## Engineering
+Engineering
 - Open Banking data ingestion and normalization
 - Transaction validation and enrichment
 - Income and expense classification
@@ -208,8 +174,7 @@ Potential applications include:
 - Financing restructuring
 - Additional financing opportunities
 - Portfolio-level behavioral monitoring
-
-## Technology
+Technology
 Frontend
 - React
 - Vite
@@ -217,6 +182,7 @@ Frontend
 - shadcn/ui
 - Recharts
 Backend & Data
+- Supabase
 - REST APIs
 - OAuth
 - Open Banking / Open Finance integrations
@@ -227,17 +193,15 @@ Intelligence
 - Scenario optimization
 - LLM-powered structured insights
 System Characteristics
-
-FlowUp is designed around several principles:
-Behavior over snapshots
+Behavior over Snapshots
 Financial behavior over time provides context that static attributes cannot capture alone.
-Decision over scoring
+Decision over Scoring
 The objective is not only to produce a risk score, but to determine what decision can be made under the relevant constraints.
-Structure over rejection
+Structure over Rejection
 A failed financing request does not necessarily mean the customer is unfinanceable.
-Deterministic core, AI-assisted intelligence
+Deterministic Core, AI-Assisted Intelligence
 Critical financial calculations and decision constraints remain controlled by explicit system logic, while AI augments classification and interpretation.
-Modular decisioning
+Modular Decisioning
 Financial analysis, behavioral intelligence, policy evaluation, and financing optimization are separated into distinct components that can evolve independently.
 Core Concept
 Traditional underwriting:
@@ -267,5 +231,6 @@ Best-Fit Structure
 From Credit Decisioning to Financing Decision Intelligence
 FlowUp shifts the question from:
 "Should we approve this deal?"
- to:
+
+to:
 "Given this customer's financial behavior and our constraints, what is the best financing decision we can make?"
